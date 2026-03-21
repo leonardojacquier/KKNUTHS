@@ -65,8 +65,11 @@ export default function App() {
       </main>
 
       <footer className="text-center text-xs text-gray-400 py-4 border-t border-gray-200">
-        PavCalc v1.0 – Dimensionamento de Pavimentos Rígidos de Concreto |
-        DNIT · FAA · TR34 · NBR 12655 · NBR 6118
+        <span className="font-semibold text-gray-500">TITAN<span className="text-orange-500">CALC</span></span> v2.0 –
+        Dimensionamento de Pavimentos Rígidos de Concreto |
+        DNIT · FAA · TR34 · fib MC2010 · NBR 12655 · NBR 6118
+        <br />
+        <span className="text-gray-400">Titan Ingeniería · GNH</span>
       </footer>
     </div>
   );

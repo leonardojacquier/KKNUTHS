@@ -56,10 +56,13 @@ export default function TypeSelector({ onSelect }: TypeSelectorProps) {
   return (
     <div className="max-w-5xl mx-auto">
       <div className="text-center mb-10">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Selecione o Tipo de Pavimento</h2>
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">
+          TITAN<span className="text-orange-500">CALC</span> – Selecione o Tipo de Pavimento
+        </h2>
         <p className="text-gray-500 text-lg">
-          Sistema de dimensionamento completo para pavimentos rígidos de concreto
+          Sistema completo de dimensionamento de pavimentos rígidos de concreto
         </p>
+        <p className="text-xs text-gray-400 mt-1">Titan Ingeniería · GNH | Fibras · Aditivos · Compactação · Projeto Detalhado</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
