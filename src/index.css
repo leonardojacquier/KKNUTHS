@@ -51,6 +51,9 @@
   .alert-success {
     @apply bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 text-sm;
   }
+  .alert-info {
+    @apply bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 text-sm;
+  }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }

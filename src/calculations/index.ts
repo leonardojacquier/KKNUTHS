@@ -5,6 +5,8 @@ import { calcularMR, dimensionarRodovia, dimensionarAeroporto, dimensionarPiso }
 import { calcularTraco } from './concrete';
 import { calcularFibras } from './fibers';
 import { calcularArmadura } from './reinforcement';
+import { calcularAditivos } from './additives';
+import { calcularCompactacao } from './compaction';
 
 export function calcularPavimento(input: ProjectInput): CalculationResult {
   const alertas: string[] = [];
@@ -27,6 +29,55 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
   // 3. Traço do concreto
   const concreto = calcularTraco(input.concreto);
 
+  // 3a. Aditivos (ajusta concreto)
+  let aditivos;
+  if (input.concreto.aditivos) {
+    aditivos = calcularAditivos(
+      input.concreto.aditivos,
+      concreto.consumo_cimento,
+      concreto.consumo_agua,
+      concreto.fck
+    );
+    // Aplica redução de água ao traço
+    if (aditivos.reducao_agua_total_pct > 0) {
+      const fator = 1 - aditivos.reducao_agua_total_pct / 100;
+      concreto.consumo_agua = Math.round(concreto.consumo_agua * fator);
+      concreto.relacao_agua_cimento = Math.round(concreto.relacao_agua_cimento * fator * 1000) / 1000;
+      // Recalcula traço mássico
+      const t_areia = concreto.consumo_areia / concreto.consumo_cimento;
+      const t_brita = concreto.consumo_brita / concreto.consumo_cimento;
+      concreto.traco_massico = `1 : ${t_areia.toFixed(2)} : ${t_brita.toFixed(2)} (a/c = ${concreto.relacao_agua_cimento.toFixed(2)})`;
+    }
+    // Adições minerais
+    const ads = input.concreto.aditivos;
+    if (ads.silica_ativa && ads.silica_ativa_teor) {
+      concreto.consumo_silica = Math.round(concreto.consumo_cimento * ads.silica_ativa_teor / 100);
+      concreto.consumo_cimento -= concreto.consumo_silica; // substituição parcial
+    }
+    if (ads.cinza_volante && ads.cinza_volante_teor) {
+      concreto.consumo_cinza = Math.round(concreto.consumo_cimento * ads.cinza_volante_teor / 100);
+      concreto.consumo_cimento -= concreto.consumo_cinza;
+    }
+    if (ads.escoria && ads.escoria_teor) {
+      concreto.consumo_escoria = Math.round(concreto.consumo_cimento * ads.escoria_teor / 100);
+      concreto.consumo_cimento -= concreto.consumo_escoria;
+    }
+    if (ads.micro_fibra_pp) {
+      concreto.consumo_micro_pp = 0.9;
+    }
+    // Teor de ar
+    if (ads.incorporador_ar) {
+      concreto.teor_ar = 4 + (ads.incorporador_ar_dosagem ?? 0.1) * 20;
+    }
+
+    // Alertas de aditivos
+    if (aditivos.observacoes.length > 0) {
+      aditivos.observacoes.forEach(obs => {
+        if (obs.startsWith('ATENÇÃO')) alertas.push(obs);
+      });
+    }
+  }
+
   const mr = concreto.fct_flex;
 
   // 4. Dimensionamento da placa
@@ -46,7 +97,6 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
     const periodo    = traf.periodo_projeto ?? 20;
     placa = dimensionarAeroporto(input.concreto.fck, k_final, carga_roda, pressao, ops, periodo, mr);
   } else {
-    // piso
     const carga_conc = traf.carga_concentrada ?? 50;
     const carga_dist = traf.carga_distribuida ?? 10;
     const carga_emp  = traf.carga_empilhadeira ?? 80;
@@ -63,18 +113,30 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
   }
 
   // 5. Fibras
-  const fibras = calcularFibras(input.concreto, placa.espessura);
+  const fibras = calcularFibras(input.concreto, placa.espessura, tipo);
   if (fibras && input.concreto.fibra_tipo !== 'none') {
     concreto.consumo_fibras = fibras.dosagem;
+    if (fibras.substitui_armadura_temperatura) {
+      alertas.push(`ℹ Fibras atendem critério TR34 para substituição da armadura de temperatura (${fibras.dosagem.toFixed(0)} kg/m³)`);
+    }
   }
 
   // 6. Armadura
-  const armadura = calcularArmadura(geo, input.concreto, placa.espessura, tipo);
+  const armadura = calcularArmadura(
+    geo,
+    input.concreto,
+    placa.espessura,
+    tipo,
+    fibras?.substitui_armadura_temperatura
+  );
 
-  // 7. Quantitativos
+  // 7. Compactação
+  const compactacao = calcularCompactacao(input.subleito, input.camadas);
+
+  // 8. Quantitativos
   const area = geo.comprimento_placa * geo.largura_placa;
-  const vol_placa  = area * placa.espessura / 100;
-  const vol_base   = base ? area * base.espessura / 100 : 0;
+  const vol_placa   = area * placa.espessura / 100;
+  const vol_base    = base ? area * base.espessura / 100 : 0;
   const vol_subbase = subbase ? area * subbase.espessura / 100 : 0;
 
   const num_placas_x = Math.ceil(geo.comprimento_placa / geo.espaco_junta_transversal);
@@ -94,13 +156,29 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
     massa_dowels = n_total_dowels * (Math.PI * d_m * d_m / 4) * L_m * 7850;
   }
 
-  // Massa das barras de temperatura
+  // Massa das barras de temperatura / estrutural
   let massa_aco_barras = 0;
-  if (armadura.armadura_temperatura && armadura.diametro_barra > 0) {
-    const d_m = armadura.diametro_barra / 1000;
-    const as_m2_m = armadura.as_calculado / 10000; // cm²/m → m²/m
-    massa_aco_barras = area * as_m2_m * 2 * 7850; // 2 direções
+  if (armadura.armadura_temperatura && armadura.diametro_barra > 0 && armadura.tipo !== 'mesh') {
+    const as_m2_m = armadura.as_calculado / 10000;
+    massa_aco_barras = area * as_m2_m * 2 * 7850;
   }
+
+  // Massa de malha eletrossoldada
+  let massa_malha = 0;
+  if (armadura.malha) {
+    massa_malha = area * armadura.malha.peso_por_m2 * 1.10; // 10% emenda
+  }
+
+  // Massa armadura estrutural adicional
+  if (armadura.armadura_estrutural && armadura.as_estrutural) {
+    const as_m2_m = armadura.as_estrutural / 10000;
+    massa_aco_barras += area * as_m2_m * 2 * 7850;
+  }
+
+  // Adições minerais
+  const massa_silica  = concreto.consumo_silica  ? Math.round(vol_placa * concreto.consumo_silica)  : undefined;
+  const massa_cinza   = concreto.consumo_cinza   ? Math.round(vol_placa * concreto.consumo_cinza)   : undefined;
+  const massa_escoria = concreto.consumo_escoria ? Math.round(vol_placa * concreto.consumo_escoria) : undefined;
 
   const quantidades: QuantityResult = {
     area_total: area,
@@ -108,11 +186,15 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
     volume_subbase: Math.round(vol_subbase * 100) / 100,
     volume_base: Math.round(vol_base * 100) / 100,
     massa_cimento: Math.round(vol_placa * concreto.consumo_cimento),
-    massa_areia: Math.round(vol_placa * concreto.consumo_areia / 1000), // t
-    massa_brita: Math.round(vol_placa * concreto.consumo_brita / 1000), // t
+    massa_areia: Math.round(vol_placa * concreto.consumo_areia / 1000),
+    massa_brita: Math.round(vol_placa * concreto.consumo_brita / 1000),
     massa_fibras: fibras ? Math.round(vol_placa * fibras.dosagem) : 0,
     massa_aco_barras: Math.round(massa_aco_barras),
+    massa_malha: massa_malha > 0 ? Math.round(massa_malha) : undefined,
     massa_dowels: Math.round(massa_dowels),
+    massa_silica,
+    massa_cinza,
+    massa_escoria,
     num_placas,
     perimetro_juntas: Math.round(perim_juntas * 10) / 10,
   };
@@ -127,6 +209,9 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
   if (input.concreto.fibra_tipo !== 'none' && !fibras) {
     alertas.push('Erro no dimensionamento das fibras');
   }
+  if (armadura.malha && armadura.malha.as_fornecida < armadura.malha.as_requerida) {
+    alertas.push(`Malha ${armadura.malha.tipo_malha} insuficiente – As fornecida < requerida`);
+  }
 
   return {
     subleito,
@@ -135,7 +220,9 @@ export function calcularPavimento(input: ProjectInput): CalculationResult {
     placa,
     concreto,
     fibras,
+    aditivos,
     armadura,
+    compactacao,
     quantidades,
     alertas,
     ok: alertas.filter(a => a.startsWith('ATENÇÃO') || a.startsWith('Erro')).length === 0,
