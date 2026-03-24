@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>SteelCalc – Dimensionamento de Galpão Metálico</title>
+<title>SteelCalc &#8211; Dimensionamento de Galp&#227;o Met&#225;lico</title>
 <style>
 :root{
   --blue:#1a56db;--blue-dark:#1e429f;--blue-light:#e8f0fe;
@@ -19,34 +19,34 @@
 body{font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
 a{color:var(--blue);text-decoration:none}
 
-/* ── HEADER ── */
+/* &#9472;&#9472; HEADER &#9472;&#9472; */
 header{background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue) 100%);color:#fff;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:60px;box-shadow:var(--shadow-md)}
 .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;letter-spacing:-.5px}
 .logo svg{width:32px;height:32px}
 .logo span.sub{font-size:11px;font-weight:400;opacity:.8;margin-top:2px}
 .badge-nbr{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
 
-/* ── TABS ── */
+/* &#9472;&#9472; TABS &#9472;&#9472; */
 .tabs-bar{background:#fff;border-bottom:2px solid var(--gray-200);padding:0 24px;display:flex;gap:2px;overflow-x:auto}
 .tab{padding:14px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--gray-500);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
 .tab:hover{color:var(--gray-700)}
 .tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
 .tab-icon{margin-right:6px}
 
-/* ── LAYOUT ── */
+/* &#9472;&#9472; LAYOUT &#9472;&#9472; */
 .main{max-width:1200px;margin:0 auto;padding:24px}
 .section{display:none}.section.active{display:block}
 .page-title{font-size:18px;font-weight:700;color:var(--gray-900);margin-bottom:4px}
 .page-sub{font-size:13px;color:var(--gray-500);margin-bottom:20px}
 
-/* ── CARDS ── */
+/* &#9472;&#9472; CARDS &#9472;&#9472; */
 .card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
 .card-header{padding:14px 20px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:8px;background:var(--gray-50)}
 .card-header h3{font-size:14px;font-weight:600;color:var(--gray-800)}
 .card-header .icon{width:18px;height:18px;color:var(--blue)}
 .card-body{padding:20px}
 
-/* ── GRID FORM ── */
+/* &#9472;&#9472; GRID FORM &#9472;&#9472; */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
 .form-grid-2{grid-template-columns:repeat(2,1fr)}
 .form-grid-3{grid-template-columns:repeat(3,1fr)}
@@ -54,7 +54,7 @@ header{background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue) 100%);c
 @media(max-width:768px){.form-grid,.form-grid-2,.form-grid-3,.form-grid-4{grid-template-columns:1fr 1fr}}
 @media(max-width:500px){.form-grid,.form-grid-2,.form-grid-3,.form-grid-4{grid-template-columns:1fr}}
 
-/* ── FORM ELEMENTS ── */
+/* &#9472;&#9472; FORM ELEMENTS &#9472;&#9472; */
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:12px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:.4px}
 .field .hint{font-size:11px;color:var(--gray-400);margin-top:2px}
@@ -69,7 +69,7 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 .input-unit input{padding-right:44px}
 .input-unit .unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:600;color:var(--gray-400);pointer-events:none}
 
-/* ── BUTTONS ── */
+/* &#9472;&#9472; BUTTONS &#9472;&#9472; */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
 .btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-dark)}
 .btn-success{background:var(--green);color:#fff}.btn-success:hover{filter:brightness(.9)}
@@ -78,7 +78,7 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 .btn-lg{padding:12px 28px;font-size:15px}
 .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
 
-/* ── ALERTS / INFO BOXES ── */
+/* &#9472;&#9472; ALERTS / INFO BOXES &#9472;&#9472; */
 .alert{padding:12px 16px;border-radius:6px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
 .alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
 .alert-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
@@ -86,7 +86,7 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 .alert-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
 .alert svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
 
-/* ── RESULT BOXES ── */
+/* &#9472;&#9472; RESULT BOXES &#9472;&#9472; */
 .result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px}
 .result-card{background:var(--blue-light);border:1px solid #bfdbfe;border-radius:8px;padding:16px;text-align:center}
 .result-card .val{font-size:26px;font-weight:700;color:var(--blue-dark);line-height:1}
@@ -96,11 +96,11 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 .result-card.warn{background:#fffbeb;border-color:#fde68a}.result-card.warn .val,.result-card.warn .lbl{color:#92400e}
 .result-card.err{background:#fef2f2;border-color:#fecaca}.result-card.err .val,.result-card.err .lbl{color:#991b1b}
 
-/* ── DIVIDER ── */
+/* &#9472;&#9472; DIVIDER &#9472;&#9472; */
 .divider{border:none;border-top:1px solid var(--gray-200);margin:20px 0}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gray-400);margin-bottom:12px;margin-top:4px}
 
-/* ── TABLE ── */
+/* &#9472;&#9472; TABLE &#9472;&#9472; */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{background:var(--gray-50);padding:10px 12px;text-align:left;font-weight:600;color:var(--gray-600);font-size:12px;border-bottom:2px solid var(--gray-200)}
 .tbl td{padding:9px 12px;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
@@ -108,18 +108,18 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 .tbl .mono{font-family:monospace;font-size:12px}
 
-/* ── STATUS CHIP ── */
+/* &#9472;&#9472; STATUS CHIP &#9472;&#9472; */
 .chip{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
 .chip-ok{background:#dcfce7;color:#166534}
 .chip-warn{background:#fef9c3;color:#854d0e}
 .chip-err{background:#fee2e2;color:#991b1b}
 .chip-info{background:#dbeafe;color:#1e40af}
 
-/* ── SCHEMATIC SVG BOX ── */
+/* &#9472;&#9472; SCHEMATIC SVG BOX &#9472;&#9472; */
 .schematic-box{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:16px;text-align:center;margin-bottom:16px}
 .schematic-box svg{max-width:100%;height:auto}
 
-/* ── PRINT ── */
+/* &#9472;&#9472; PRINT &#9472;&#9472; */
 @media print{
   .tabs-bar,.btn,.no-print{display:none!important}
   .section{display:block!important}
@@ -142,27 +142,27 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
     </svg>
     <div>
       SteelCalc
-      <div class="sub">Dimensionamento de Galpão Metálico</div>
+      <div class="sub">Dimensionamento de Galp&#227;o Met&#225;lico</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    <span class="badge-nbr">NBR 6123 · NBR 8800 · NBR 6118</span>
-    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.4);font-size:12px" onclick="window.print()">⊞ Imprimir</button>
+    <span class="badge-nbr">NBR 6123 &#183; NBR 8800 &#183; NBR 6118</span>
+    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.4);font-size:12px" onclick="window.print()">&#8862; Imprimir</button>
   </div>
 </header>
 
 <!-- TABS -->
 <div class="tabs-bar" id="tabsBar">
-  <div class="tab active" data-tab="projeto">🏗 Projeto</div>
-  <div class="tab" data-tab="geometria">📐 Geometria</div>
-  <div class="tab" data-tab="vento">💨 Vento (NBR 6123)</div>
-  <div class="tab" data-tab="cargas">⚖ Cargas</div>
-  <div class="tab" data-tab="perfis">🔩 Perfis de Aço</div>
-  <div class="tab" data-tab="portico">🏛 Pórtico</div>
-  <div class="tab" data-tab="cobertura">🏠 Cobertura</div>
-  <div class="tab" data-tab="fechamento">🧱 Fechamento</div>
-  <div class="tab" data-tab="fundacao">🪨 Fundação</div>
-  <div class="tab" data-tab="resultados">📊 Resultados</div>
+  <div class="tab active" data-tab="projeto">&#127959; Projeto</div>
+  <div class="tab" data-tab="geometria">&#128208; Geometria</div>
+  <div class="tab" data-tab="vento">&#128168; Vento (NBR 6123)</div>
+  <div class="tab" data-tab="cargas">&#9878; Cargas</div>
+  <div class="tab" data-tab="perfis">&#128297; Perfis de A&#231;o</div>
+  <div class="tab" data-tab="portico">&#127963; P&#243;rtico</div>
+  <div class="tab" data-tab="cobertura">&#127968; Cobertura</div>
+  <div class="tab" data-tab="fechamento">&#129521; Fechamento</div>
+  <div class="tab" data-tab="fundacao">&#129704; Funda&#231;&#227;o</div>
+  <div class="tab" data-tab="resultados">&#128202; Resultados</div>
 </div>
 
 <!-- MAIN CONTENT -->
@@ -172,101 +172,101 @@ input[readonly]{background:var(--gray-100);color:var(--gray-500)}
 </body>
 </html>
 <script>
-// ── SECTIONS HTML ──
+// &#9472;&#9472; SECTIONS HTML &#9472;&#9472;
 const sections = {};
 
 sections.projeto = `
-<div class="page-title">Informações do Projeto</div>
-<div class="page-sub">Dados gerais para identificação e relatório</div>
+<div class="page-title">Informa&#231;&#245;es do Projeto</div>
+<div class="page-sub">Dados gerais para identifica&#231;&#227;o e relat&#243;rio</div>
 <div class="card">
-  <div class="card-header"><h3>Identificação</h3></div>
+  <div class="card-header"><h3>Identifica&#231;&#227;o</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-2">
-      <div class="field"><label>Nome do Projeto</label><input type="text" id="p_nome" placeholder="Ex: Galpão Industrial Fase 2"/></div>
-      <div class="field"><label>Responsável Técnico</label><input type="text" id="p_resp" placeholder="Eng. Nome Sobrenome – CREA …"/></div>
-      <div class="field"><label>Cliente / Proprietário</label><input type="text" id="p_cliente" placeholder="Razão social ou nome"/></div>
-      <div class="field"><label>Localização (Cidade, UF)</label><input type="text" id="p_local" placeholder="Ex: Campinas, SP"/></div>
+      <div class="field"><label>Nome do Projeto</label><input type="text" id="p_nome" placeholder="Ex: Galp&#227;o Industrial Fase 2"/></div>
+      <div class="field"><label>Respons&#225;vel T&#233;cnico</label><input type="text" id="p_resp" placeholder="Eng. Nome Sobrenome &#8211; CREA &#8230;"/></div>
+      <div class="field"><label>Cliente / Propriet&#225;rio</label><input type="text" id="p_cliente" placeholder="Raz&#227;o social ou nome"/></div>
+      <div class="field"><label>Localiza&#231;&#227;o (Cidade, UF)</label><input type="text" id="p_local" placeholder="Ex: Campinas, SP"/></div>
       <div class="field"><label>Data</label><input type="text" id="p_data" placeholder="dd/mm/aaaa"/></div>
-      <div class="field"><label>Revisão</label><input type="text" id="p_rev" placeholder="Rev. 00"/></div>
+      <div class="field"><label>Revis&#227;o</label><input type="text" id="p_rev" placeholder="Rev. 00"/></div>
     </div>
     <hr class="divider"/>
-    <div class="section-label">Uso e Ocupação</div>
+    <div class="section-label">Uso e Ocupa&#231;&#227;o</div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Uso do Galpão</label>
+      <div class="field"><label>Uso do Galp&#227;o</label>
         <select id="p_uso">
-          <option value="industrial">Industrial / Galpão</option>
+          <option value="industrial">Industrial / Galp&#227;o</option>
           <option value="comercial">Comercial</option>
-          <option value="agricola">Agrícola</option>
-          <option value="deposito">Depósito / Logística</option>
+          <option value="agricola">Agr&#237;cola</option>
+          <option value="deposito">Dep&#243;sito / Log&#237;stica</option>
           <option value="hangar">Hangar</option>
         </select>
       </div>
-      <div class="field"><label>Vida Útil de Projeto</label>
+      <div class="field"><label>Vida &#218;til de Projeto</label>
         <select id="p_vida">
           <option value="25">25 anos</option>
           <option value="50" selected>50 anos</option>
           <option value="100">100 anos</option>
         </select>
       </div>
-      <div class="field"><label>Normas Aplicáveis</label>
-        <input type="text" value="NBR 6123 · NBR 8800 · NBR 6118 · NBR 14762" readonly/>
+      <div class="field"><label>Normas Aplic&#225;veis</label>
+        <input type="text" value="NBR 6123 &#183; NBR 8800 &#183; NBR 6118 &#183; NBR 14762" readonly/>
       </div>
     </div>
     <hr class="divider"/>
     <div class="section-label">Notas do Projeto</div>
-    <textarea id="p_notas" rows="3" style="width:100%" placeholder="Observações, condicionantes especiais, restrições de uso…"></textarea>
+    <textarea id="p_notas" rows="3" style="width:100%" placeholder="Observa&#231;&#245;es, condicionantes especiais, restri&#231;&#245;es de uso&#8230;"></textarea>
   </div>
 </div>`;
 
 sections.geometria = `
-<div class="page-title">Geometria do Galpão</div>
-<div class="page-sub">Dimensões gerais, modulação e forma da cobertura</div>
+<div class="page-title">Geometria do Galp&#227;o</div>
+<div class="page-sub">Dimens&#245;es gerais, modula&#231;&#227;o e forma da cobertura</div>
 
 <div class="card">
-  <div class="card-header"><h3>Dimensões Principais</h3></div>
+  <div class="card-header"><h3>Dimens&#245;es Principais</h3></div>
   <div class="card-body">
     <div class="schematic-box" id="sketchBox">
       <svg id="svgSketch" width="420" height="200" viewBox="0 0 420 200">
         <!-- schematic drawn by JS -->
-        <text x="210" y="100" text-anchor="middle" fill="#9ca3af" font-size="13">Configure as dimensões para ver o esboço</text>
+        <text x="210" y="100" text-anchor="middle" fill="#9ca3af" font-size="13">Configure as dimens&#245;es para ver o esbo&#231;o</text>
       </svg>
     </div>
     <div class="form-grid form-grid-4">
-      <div class="field"><label>Vão (L)</label>
+      <div class="field"><label>V&#227;o (L)</label>
         <div class="input-unit"><input type="number" id="g_vao" value="15" min="5" max="80" step="0.5" oninput="updateSketch()"/><span class="unit">m</span></div>
         <span class="hint">Largura transversal total</span>
       </div>
       <div class="field"><label>Comprimento (C)</label>
         <div class="input-unit"><input type="number" id="g_comp" value="30" min="6" max="300" step="1" oninput="updateSketch()"/><span class="unit">m</span></div>
-        <span class="hint">Extensão longitudinal</span>
+        <span class="hint">Extens&#227;o longitudinal</span>
       </div>
-      <div class="field"><label>Pé-Direito (H)</label>
+      <div class="field"><label>P&#233;-Direito (H)</label>
         <div class="input-unit"><input type="number" id="g_pe" value="6" min="3" max="20" step="0.25" oninput="updateSketch()"/><span class="unit">m</span></div>
         <span class="hint">Altura da coluna</span>
       </div>
-      <div class="field"><label>Número de Vãos</label>
+      <div class="field"><label>N&#250;mero de V&#227;os</label>
         <input type="number" id="g_nvao" value="1" min="1" max="6" step="1" oninput="updateSketch()"/>
-        <span class="hint">Pórticos paralelos</span>
+        <span class="hint">P&#243;rticos paralelos</span>
       </div>
     </div>
     <hr class="divider"/>
     <div class="form-grid form-grid-4">
-      <div class="field"><label>Inclinação do Telhado</label>
+      <div class="field"><label>Inclina&#231;&#227;o do Telhado</label>
         <div class="input-unit"><input type="number" id="g_incl" value="10" min="3" max="45" step="1" oninput="updateSketch()"/><span class="unit">%</span></div>
         <span class="hint">Declividade em %</span>
       </div>
       <div class="field"><label>Tipo de Cobertura</label>
         <select id="g_cobert" onchange="updateSketch()">
-          <option value="duas">Duas águas (simétrico)</option>
-          <option value="uma">Uma água</option>
+          <option value="duas">Duas &#225;guas (sim&#233;trico)</option>
+          <option value="uma">Uma &#225;gua</option>
           <option value="shed">Shed / Dente de Serra</option>
         </select>
       </div>
-      <div class="field"><label>Espaçamento entre Pórticos</label>
+      <div class="field"><label>Espa&#231;amento entre P&#243;rticos</label>
         <div class="input-unit"><input type="number" id="g_esp" value="5" min="3" max="12" step="0.5" oninput="updateSketch()"/><span class="unit">m</span></div>
-        <span class="hint">Distância entre quadros</span>
+        <span class="hint">Dist&#226;ncia entre quadros</span>
       </div>
-      <div class="field"><label>Nº de Pórticos</label>
+      <div class="field"><label>N&#186; de P&#243;rticos</label>
         <input type="number" id="g_nport" value="7" readonly style="background:#f3f4f6"/>
         <span class="hint">Calculado automaticamente</span>
       </div>
@@ -275,13 +275,13 @@ sections.geometria = `
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Avanços e Beiral</h3></div>
+  <div class="card-header"><h3>Avan&#231;os e Beiral</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-4">
-      <div class="field"><label>Beiral (Avanço lateral)</label>
+      <div class="field"><label>Beiral (Avan&#231;o lateral)</label>
         <div class="input-unit"><input type="number" id="g_beiral" value="0.50" min="0" max="3" step="0.1"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Avanço Frontal</label>
+      <div class="field"><label>Avan&#231;o Frontal</label>
         <div class="input-unit"><input type="number" id="g_avanco" value="0.50" min="0" max="3" step="0.1"/><span class="unit">m</span></div>
       </div>
       <div class="field"><label>Calha</label>
@@ -293,7 +293,7 @@ sections.geometria = `
       </div>
       <div class="field"><label>Mezanino / Piso Interno</label>
         <select id="g_mez">
-          <option value="nao" selected>Não</option>
+          <option value="nao" selected>N&#227;o</option>
           <option value="sim">Sim (definir em Cargas)</option>
         </select>
       </div>
@@ -302,34 +302,34 @@ sections.geometria = `
 </div>`;
 
 sections.vento = `
-<div class="page-title">Ação do Vento – NBR 6123:1988</div>
-<div class="page-sub">Velocidade básica, fatores S1/S2/S3 e pressão dinâmica de projeto</div>
+<div class="page-title">A&#231;&#227;o do Vento &#8211; NBR 6123:1988</div>
+<div class="page-sub">Velocidade b&#225;sica, fatores S1/S2/S3 e press&#227;o din&#226;mica de projeto</div>
 
 <div class="card">
-  <div class="card-header"><h3>Velocidade Básica do Vento (V₀)</h3></div>
+  <div class="card-header"><h3>Velocidade B&#225;sica do Vento (V&#8320;)</h3></div>
   <div class="card-body">
     <div class="alert alert-info">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
-      Velocidade básica V₀ = velocidade de rajada de 3 s, média em 10 min a 10 m de altura em terreno plano e desobstruído, com período de retorno de 50 anos (NBR 6123 Fig. 1).
+      Velocidade b&#225;sica V&#8320; = velocidade de rajada de 3 s, m&#233;dia em 10 min a 10 m de altura em terreno plano e desobstru&#237;do, com per&#237;odo de retorno de 50 anos (NBR 6123 Fig. 1).
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Região (Isopleta)</label>
+      <div class="field"><label>Regi&#227;o (Isopleta)</label>
         <select id="v_regiao" onchange="autoV0()">
-          <option value="">Selecione a região…</option>
-          <option value="23.5">Zona 1 – Litoral Norte SP / PR / SC / RS – V₀ = 23,5 m/s</option>
-          <option value="30">Zona 2 – Nordeste costeiro – V₀ = 30 m/s</option>
-          <option value="30" selected>Zona 3 – Interior SP/MG/GO/MT – V₀ = 30 m/s</option>
-          <option value="35">Zona 4 – Sertão NE / AM – V₀ = 35 m/s</option>
-          <option value="40">Zona 5 – ES/RJ/Sul RS – V₀ = 40 m/s</option>
+          <option value="">Selecione a regi&#227;o&#8230;</option>
+          <option value="23.5">Zona 1 &#8211; Litoral Norte SP / PR / SC / RS &#8211; V&#8320; = 23,5 m/s</option>
+          <option value="30">Zona 2 &#8211; Nordeste costeiro &#8211; V&#8320; = 30 m/s</option>
+          <option value="30" selected>Zona 3 &#8211; Interior SP/MG/GO/MT &#8211; V&#8320; = 30 m/s</option>
+          <option value="35">Zona 4 &#8211; Sert&#227;o NE / AM &#8211; V&#8320; = 35 m/s</option>
+          <option value="40">Zona 5 &#8211; ES/RJ/Sul RS &#8211; V&#8320; = 40 m/s</option>
           <option value="custom">Personalizado</option>
         </select>
       </div>
-      <div class="field"><label>V₀ – Velocidade básica</label>
+      <div class="field"><label>V&#8320; &#8211; Velocidade b&#225;sica</label>
         <div class="input-unit"><input type="number" id="v_v0" value="30" min="20" max="55" step="0.5"/><span class="unit">m/s</span></div>
       </div>
-      <div class="field"><label>Período de Retorno (Tr)</label>
+      <div class="field"><label>Per&#237;odo de Retorno (Tr)</label>
         <select id="v_tr">
-          <option value="1.0">50 anos (padrão)</option>
+          <option value="1.0">50 anos (padr&#227;o)</option>
           <option value="0.78">10 anos</option>
           <option value="0.95">25 anos</option>
           <option value="1.10">100 anos</option>
@@ -341,45 +341,45 @@ sections.vento = `
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Fator S₁ – Topográfico</h3></div>
+  <div class="card-header"><h3>Fator S&#8321; &#8211; Topogr&#225;fico</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-2">
       <div class="field"><label>Topografia do Terreno</label>
         <select id="v_s1_tipo" onchange="calcVento()">
-          <option value="1.0" selected>Plano ou suavemente ondulado – S₁ = 1,00</option>
-          <option value="0.9">Vale ou depressão – S₁ = 0,90</option>
-          <option value="1.1">Topo de colina / escarpa isolada – S₁ = 1,10</option>
+          <option value="1.0" selected>Plano ou suavemente ondulado &#8211; S&#8321; = 1,00</option>
+          <option value="0.9">Vale ou depress&#227;o &#8211; S&#8321; = 0,90</option>
+          <option value="1.1">Topo de colina / escarpa isolada &#8211; S&#8321; = 1,10</option>
           <option value="custom">Outro valor</option>
         </select>
       </div>
-      <div class="field"><label>S₁ (valor)</label>
-        <div class="input-unit"><input type="number" id="v_s1" value="1.00" min="0.7" max="1.3" step="0.01" oninput="calcVento()"/><span class="unit">–</span></div>
+      <div class="field"><label>S&#8321; (valor)</label>
+        <div class="input-unit"><input type="number" id="v_s1" value="1.00" min="0.7" max="1.3" step="0.01" oninput="calcVento()"/><span class="unit">&#8211;</span></div>
       </div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Fator S₂ – Rugosidade, Dimensões e Altura</h3></div>
+  <div class="card-header"><h3>Fator S&#8322; &#8211; Rugosidade, Dimens&#245;es e Altura</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
       <div class="field"><label>Categoria de Terreno</label>
         <select id="v_cat" onchange="calcVento()">
-          <option value="I">I – Mar aberto, lagos, pântanos</option>
-          <option value="II">II – Terreno aberto, poucos obstáculos</option>
-          <option value="III" selected>III – Terreno com obstáculos baixos (&lt;3 m)</option>
-          <option value="IV">IV – Terreno com obstáculos de 3–10 m</option>
-          <option value="V">V – Obstáculos acima de 10 m, centros urbanos</option>
+          <option value="I">I &#8211; Mar aberto, lagos, p&#226;ntanos</option>
+          <option value="II">II &#8211; Terreno aberto, poucos obst&#225;culos</option>
+          <option value="III" selected>III &#8211; Terreno com obst&#225;culos baixos (&lt;3 m)</option>
+          <option value="IV">IV &#8211; Terreno com obst&#225;culos de 3&#8211;10 m</option>
+          <option value="V">V &#8211; Obst&#225;culos acima de 10 m, centros urbanos</option>
         </select>
       </div>
-      <div class="field"><label>Classe da Edificação</label>
+      <div class="field"><label>Classe da Edifica&#231;&#227;o</label>
         <select id="v_classe" onchange="calcVento()">
-          <option value="A">A – Maior dimensão ≤ 20 m</option>
-          <option value="B" selected>B – 20 m &lt; maior dim. ≤ 50 m</option>
-          <option value="C">C – Maior dimensão &gt; 50 m</option>
+          <option value="A">A &#8211; Maior dimens&#227;o &#8804; 20 m</option>
+          <option value="B" selected>B &#8211; 20 m &lt; maior dim. &#8804; 50 m</option>
+          <option value="C">C &#8211; Maior dimens&#227;o &gt; 50 m</option>
         </select>
       </div>
-      <div class="field"><label>Altura de referência</label>
+      <div class="field"><label>Altura de refer&#234;ncia</label>
         <div class="input-unit"><input type="number" id="v_href" value="7" min="1" max="100" step="0.5" oninput="calcVento()"/><span class="unit">m</span></div>
         <span class="hint">H + altura da cumeeira</span>
       </div>
@@ -391,40 +391,40 @@ sections.vento = `
       <div class="field"><label>Fr (fator rajada)</label><input type="number" id="v_Fr" value="1.00" readonly/></div>
     </div>
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="rS2">–</div><div class="lbl">S₂</div><div class="unit">adimensional</div></div>
+      <div class="result-card"><div class="val" id="rS2">&#8211;</div><div class="lbl">S&#8322;</div><div class="unit">adimensional</div></div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Fator S₃ – Estatístico</h3></div>
+  <div class="card-header"><h3>Fator S&#8323; &#8211; Estat&#237;stico</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-2">
       <div class="field"><label>Grupo de Uso (NBR 6123 Tab. 1)</label>
         <select id="v_s3_tipo" onchange="calcVento()">
-          <option value="0.83">Grupo 1 – Edificações para setores vitais (hospitais, quartéis…) – S₃ = 0,83</option>
-          <option value="1.00" selected>Grupo 2 – Edificações de uso geral (residências, hotéis, galpões…) – S₃ = 1,00</option>
-          <option value="1.10">Grupo 3 – Edificações de baixa ocupação (depósitos isolados, silos) – S₃ = 1,10</option>
+          <option value="0.83">Grupo 1 &#8211; Edifica&#231;&#245;es para setores vitais (hospitais, quart&#233;is&#8230;) &#8211; S&#8323; = 0,83</option>
+          <option value="1.00" selected>Grupo 2 &#8211; Edifica&#231;&#245;es de uso geral (resid&#234;ncias, hot&#233;is, galp&#245;es&#8230;) &#8211; S&#8323; = 1,00</option>
+          <option value="1.10">Grupo 3 &#8211; Edifica&#231;&#245;es de baixa ocupa&#231;&#227;o (dep&#243;sitos isolados, silos) &#8211; S&#8323; = 1,10</option>
         </select>
       </div>
-      <div class="field"><label>S₃ (valor)</label>
-        <div class="input-unit"><input type="number" id="v_s3" value="1.00" min="0.7" max="1.2" step="0.01" oninput="calcVento()"/><span class="unit">–</span></div>
+      <div class="field"><label>S&#8323; (valor)</label>
+        <div class="input-unit"><input type="number" id="v_s3" value="1.00" min="0.7" max="1.2" step="0.01" oninput="calcVento()"/><span class="unit">&#8211;</span></div>
       </div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Velocidade e Pressão de Projeto</h3></div>
+  <div class="card-header"><h3>Velocidade e Press&#227;o de Projeto</h3></div>
   <div class="card-body">
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="rVk">–</div><div class="lbl">V<sub>k</sub></div><div class="unit">m/s – veloc. de projeto</div></div>
-      <div class="result-card"><div class="val" id="rQ">–</div><div class="lbl">q – Pressão dinâmica</div><div class="unit">N/m²</div></div>
-      <div class="result-card"><div class="val" id="rQkPa">–</div><div class="lbl">q</div><div class="unit">kPa</div></div>
+      <div class="result-card"><div class="val" id="rVk">&#8211;</div><div class="lbl">V<sub>k</sub></div><div class="unit">m/s &#8211; veloc. de projeto</div></div>
+      <div class="result-card"><div class="val" id="rQ">&#8211;</div><div class="lbl">q &#8211; Press&#227;o din&#226;mica</div><div class="unit">N/m&#178;</div></div>
+      <div class="result-card"><div class="val" id="rQkPa">&#8211;</div><div class="lbl">q</div><div class="unit">kPa</div></div>
     </div>
     <div class="btn-group no-print">
-      <button class="btn btn-primary" onclick="calcVento()">⟳ Recalcular</button>
-      <button class="btn btn-outline" onclick="changeTab('cargas')">Próximo: Cargas →</button>
+      <button class="btn btn-primary" onclick="calcVento()">&#10227; Recalcular</button>
+      <button class="btn btn-outline" onclick="changeTab('cargas')">Pr&#243;ximo: Cargas &#8594;</button>
     </div>
   </div>
 </div>`;
@@ -432,21 +432,21 @@ sections.vento = `
 
 sections.cargas = `
 <div class="page-title">Cargas de Projeto</div>
-<div class="page-sub">Cargas permanentes, variáveis e combinações NBR 6118 / NBR 8800</div>
+<div class="page-sub">Cargas permanentes, vari&#225;veis e combina&#231;&#245;es NBR 6118 / NBR 8800</div>
 <div class="card">
   <div class="card-header"><h3>Cargas Permanentes (G)</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Telha metálica</label>
-        <div class="input-unit"><input type="number" id="c_telha" value="0.10" step="0.01"/><span class="unit">kN/m²</span></div>
-        <span class="hint">Peso próprio da cobertura</span>
+      <div class="field"><label>Telha met&#225;lica</label>
+        <div class="input-unit"><input type="number" id="c_telha" value="0.10" step="0.01"/><span class="unit">kN/m&#178;</span></div>
+        <span class="hint">Peso pr&#243;prio da cobertura</span>
       </div>
-      <div class="field"><label>Terças / Contraventamentos</label>
-        <div class="input-unit"><input type="number" id="c_tercas" value="0.05" step="0.01"/><span class="unit">kN/m²</span></div>
+      <div class="field"><label>Ter&#231;as / Contraventamentos</label>
+        <div class="input-unit"><input type="number" id="c_tercas" value="0.05" step="0.01"/><span class="unit">kN/m&#178;</span></div>
       </div>
-      <div class="field"><label>Instalações suspensas</label>
-        <div class="input-unit"><input type="number" id="c_inst" value="0.05" step="0.01"/><span class="unit">kN/m²</span></div>
-        <span class="hint">Tubulações, iluminação…</span>
+      <div class="field"><label>Instala&#231;&#245;es suspensas</label>
+        <div class="input-unit"><input type="number" id="c_inst" value="0.05" step="0.01"/><span class="unit">kN/m&#178;</span></div>
+        <span class="hint">Tubula&#231;&#245;es, ilumina&#231;&#227;o&#8230;</span>
       </div>
     </div>
     <hr class="divider"/>
@@ -454,32 +454,32 @@ sections.cargas = `
     <div class="form-grid form-grid-3">
       <div class="field"><label>Tipo de fechamento</label>
         <select id="c_fech_tipo" onchange="calcCargas()">
-          <option value="0.10">Telha trapezoidal simples – 0,10 kN/m²</option>
-          <option value="0.20">Telha sanduíche – 0,20 kN/m²</option>
-          <option value="0.60">Alvenaria de tijolo – 0,60 kN/m²</option>
-          <option value="0.80">Painel concreto – 0,80 kN/m²</option>
+          <option value="0.10">Telha trapezoidal simples &#8211; 0,10 kN/m&#178;</option>
+          <option value="0.20">Telha sandu&#237;che &#8211; 0,20 kN/m&#178;</option>
+          <option value="0.60">Alvenaria de tijolo &#8211; 0,60 kN/m&#178;</option>
+          <option value="0.80">Painel concreto &#8211; 0,80 kN/m&#178;</option>
         </select>
       </div>
       <div class="field"><label>Peso do fechamento</label>
-        <div class="input-unit"><input type="number" id="c_fech" value="0.10" step="0.01"/><span class="unit">kN/m²</span></div>
+        <div class="input-unit"><input type="number" id="c_fech" value="0.10" step="0.01"/><span class="unit">kN/m&#178;</span></div>
       </div>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Cargas Variáveis (Q)</h3></div>
+  <div class="card-header"><h3>Cargas Vari&#225;veis (Q)</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
       <div class="field"><label>Sobrecarga de cobertura</label>
-        <div class="input-unit"><input type="number" id="c_sc_cob" value="0.25" step="0.05"/><span class="unit">kN/m²</span></div>
-        <span class="hint">NBR 6120: mín. 0,25 kN/m²</span>
+        <div class="input-unit"><input type="number" id="c_sc_cob" value="0.25" step="0.05"/><span class="unit">kN/m&#178;</span></div>
+        <span class="hint">NBR 6120: m&#237;n. 0,25 kN/m&#178;</span>
       </div>
-      <div class="field"><label>Carga de manutenção (concentrada)</label>
+      <div class="field"><label>Carga de manuten&#231;&#227;o (concentrada)</label>
         <div class="input-unit"><input type="number" id="c_man" value="1.0" step="0.1"/><span class="unit">kN</span></div>
         <span class="hint">Ponto qualquer da cobertura</span>
       </div>
       <div class="field"><label>Carga de chuva acumulada</label>
-        <div class="input-unit"><input type="number" id="c_chuva" value="0.10" step="0.01"/><span class="unit">kN/m²</span></div>
+        <div class="input-unit"><input type="number" id="c_chuva" value="0.10" step="0.01"/><span class="unit">kN/m&#178;</span></div>
         <span class="hint">Apenas se sem calha ou com platibanda</span>
       </div>
     </div>
@@ -488,7 +488,7 @@ sections.cargas = `
     <div class="form-grid form-grid-4">
       <div class="field"><label>Ponte rolante?</label>
         <select id="c_pr" onchange="togglePR()">
-          <option value="nao" selected>Não</option>
+          <option value="nao" selected>N&#227;o</option>
           <option value="sim">Sim</option>
         </select>
       </div>
@@ -500,58 +500,58 @@ sections.cargas = `
       </div>
       <div class="field" id="pr_fields3" style="display:none"><label>Fator de impacto</label>
         <input type="number" id="c_pr_fi" value="1.25" step="0.05"/>
-        <span class="hint">Tipicamente 1,20–1,30</span>
+        <span class="hint">Tipicamente 1,20&#8211;1,30</span>
       </div>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Combinações de Ações – NBR 8800</h3></div>
+  <div class="card-header"><h3>Combina&#231;&#245;es de A&#231;&#245;es &#8211; NBR 8800</h3></div>
   <div class="card-body">
     <div class="alert alert-info">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
-      ELU (Estado Limite Último): 1,25·G + 1,50·Q e 1,25·G + 1,40·W (NBR 8800:2008 Tab. C.1)
+      ELU (Estado Limite &#218;ltimo): 1,25&#183;G + 1,50&#183;Q e 1,25&#183;G + 1,40&#183;W (NBR 8800:2008 Tab. C.1)
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>γ permanente (γ_G)</label><input type="number" id="c_gG" value="1.25" step="0.05"/></div>
-      <div class="field"><label>γ variável (γ_Q)</label><input type="number" id="c_gQ" value="1.50" step="0.05"/></div>
-      <div class="field"><label>γ vento (γ_W)</label><input type="number" id="c_gW" value="1.40" step="0.05"/></div>
+      <div class="field"><label>&#947; permanente (&#947;_G)</label><input type="number" id="c_gG" value="1.25" step="0.05"/></div>
+      <div class="field"><label>&#947; vari&#225;vel (&#947;_Q)</label><input type="number" id="c_gQ" value="1.50" step="0.05"/></div>
+      <div class="field"><label>&#947; vento (&#947;_W)</label><input type="number" id="c_gW" value="1.40" step="0.05"/></div>
     </div>
   </div>
 </div>`;
 
 sections.perfis = `
-<div class="page-title">Seleção de Perfis de Aço</div>
-<div class="page-sub">Escolha o aço e os perfis para pilares, vigas e terças</div>
+<div class="page-title">Sele&#231;&#227;o de Perfis de A&#231;o</div>
+<div class="page-sub">Escolha o a&#231;o e os perfis para pilares, vigas e ter&#231;as</div>
 <div class="card">
   <div class="card-header"><h3>Material</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Aço estrutural</label>
+      <div class="field"><label>A&#231;o estrutural</label>
         <select id="pe_aco" onchange="updateAco()">
-          <option value="250">ASTM A36 / ABNT MR-250 – fy = 250 MPa</option>
-          <option value="300" selected>ABNT MR-300 – fy = 300 MPa</option>
-          <option value="350">ABNT MR-350 / A572 Gr.50 – fy = 350 MPa</option>
-          <option value="500">ABNT MR-500 (alta resistência) – fy = 500 MPa</option>
+          <option value="250">ASTM A36 / ABNT MR-250 &#8211; fy = 250 MPa</option>
+          <option value="300" selected>ABNT MR-300 &#8211; fy = 300 MPa</option>
+          <option value="350">ABNT MR-350 / A572 Gr.50 &#8211; fy = 350 MPa</option>
+          <option value="500">ABNT MR-500 (alta resist&#234;ncia) &#8211; fy = 500 MPa</option>
         </select>
       </div>
-      <div class="field"><label>fy (tensão de escoamento)</label>
+      <div class="field"><label>fy (tens&#227;o de escoamento)</label>
         <div class="input-unit"><input type="number" id="pe_fy" value="300" readonly/><span class="unit">MPa</span></div>
       </div>
-      <div class="field"><label>fu (resistência à tração)</label>
+      <div class="field"><label>fu (resist&#234;ncia &#224; tra&#231;&#227;o)</label>
         <div class="input-unit"><input type="number" id="pe_fu" value="450" readonly/><span class="unit">MPa</span></div>
       </div>
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>E (módulo de elasticidade)</label>
+      <div class="field"><label>E (m&#243;dulo de elasticidade)</label>
         <div class="input-unit"><input type="number" id="pe_E" value="200000" readonly/><span class="unit">MPa</span></div>
       </div>
-      <div class="field"><label>G (módulo de cisalhamento)</label>
+      <div class="field"><label>G (m&#243;dulo de cisalhamento)</label>
         <div class="input-unit"><input type="number" id="pe_G" value="77000" readonly/><span class="unit">MPa</span></div>
       </div>
-      <div class="field"><label>γ₁ (fator de resistência)</label>
+      <div class="field"><label>&#947;&#8321; (fator de resist&#234;ncia)</label>
         <input type="number" id="pe_ga1" value="1.10"/>
-        <span class="hint">NBR 8800: γ₁ = 1,10</span>
+        <span class="hint">NBR 8800: &#947;&#8321; = 1,10</span>
       </div>
     </div>
   </div>
@@ -563,14 +563,14 @@ sections.perfis = `
       <div class="field"><label>Tipo de Perfil</label>
         <select id="pe_pilar_tipo">
           <option value="W">Perfil W (laminado / soldado)</option>
-          <option value="CVS">Perfil CVS (caixão soldado)</option>
+          <option value="CVS">Perfil CVS (caix&#227;o soldado)</option>
           <option value="tubo">Tubo retangular (HSS)</option>
           <option value="H">H soldado</option>
         </select>
       </div>
-      <div class="field"><label>Perfil (sugestão automática)</label>
-        <input type="text" id="pe_pilar_perf" value="W 200×46,1" placeholder="Ex: W200x46"/>
-        <span class="hint">Definido no módulo Pórtico</span>
+      <div class="field"><label>Perfil (sugest&#227;o autom&#225;tica)</label>
+        <input type="text" id="pe_pilar_perf" value="W 200&#215;46,1" placeholder="Ex: W200x46"/>
+        <span class="hint">Definido no m&#243;dulo P&#243;rtico</span>
       </div>
       <div class="field"><label>Comprimento de flambagem (Lk)</label>
         <div class="input-unit"><input type="number" id="pe_pilar_lk" value="6.0" step="0.25"/><span class="unit">m</span></div>
@@ -586,41 +586,41 @@ sections.perfis = `
       <div class="field"><label>Tipo de Estrutura</label>
         <select id="pe_viga_tipo">
           <option value="viga">Viga de alma cheia (soldada)</option>
-          <option value="tesoura">Treliça / Tesoura</option>
+          <option value="tesoura">Treli&#231;a / Tesoura</option>
           <option value="bowstring">Arco (bowstring)</option>
         </select>
       </div>
       <div class="field"><label>Perfil viga principal</label>
-        <input type="text" id="pe_viga_perf" value="W 310×52" placeholder="Ex: W310x52"/>
+        <input type="text" id="pe_viga_perf" value="W 310&#215;52" placeholder="Ex: W310x52"/>
       </div>
-      <div class="field"><label>Flecha máxima admissível</label>
+      <div class="field"><label>Flecha m&#225;xima admiss&#237;vel</label>
         <select id="pe_flecha">
           <option value="250">L/250 (geral)</option>
           <option value="300" selected>L/300 (com ponte rolante)</option>
-          <option value="400">L/400 (estruturas sensíveis)</option>
+          <option value="400">L/400 (estruturas sens&#237;veis)</option>
         </select>
       </div>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Terças de Cobertura e Longarinas</h3></div>
+  <div class="card-header"><h3>Ter&#231;as de Cobertura e Longarinas</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-4">
-      <div class="field"><label>Tipo de terça</label>
+      <div class="field"><label>Tipo de ter&#231;a</label>
         <select id="pe_terca_tipo">
           <option value="Z">Perfil Z enformado a frio</option>
           <option value="C">Perfil C enformado a frio</option>
           <option value="W_lam">Perfil W laminado</option>
         </select>
       </div>
-      <div class="field"><label>Perfil terça</label>
-        <input type="text" id="pe_terca_perf" value="Z 200×2,65" placeholder="Ex: Z200x2.65"/>
+      <div class="field"><label>Perfil ter&#231;a</label>
+        <input type="text" id="pe_terca_perf" value="Z 200&#215;2,65" placeholder="Ex: Z200x2.65"/>
       </div>
-      <div class="field"><label>Espaçamento das terças</label>
+      <div class="field"><label>Espa&#231;amento das ter&#231;as</label>
         <div class="input-unit"><input type="number" id="pe_terca_esp" value="1.50" step="0.10"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Número de terças / pórtico</label>
+      <div class="field"><label>N&#250;mero de ter&#231;as / p&#243;rtico</label>
         <input type="number" id="pe_terca_n" value="7" readonly/>
       </div>
     </div>
@@ -628,25 +628,25 @@ sections.perfis = `
 </div>`;
 
 sections.portico = `
-<div class="page-title">Dimensionamento do Pórtico</div>
-<div class="page-sub">Análise simplificada do pórtico principal – ELU e ELS</div>
+<div class="page-title">Dimensionamento do P&#243;rtico</div>
+<div class="page-sub">An&#225;lise simplificada do p&#243;rtico principal &#8211; ELU e ELS</div>
 <div class="card">
-  <div class="card-header"><h3>Parâmetros de Cálculo</h3></div>
+  <div class="card-header"><h3>Par&#226;metros de C&#225;lculo</h3></div>
   <div class="card-body">
     <div class="alert alert-warn">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-      Método simplificado – pórtico de um vão, dois pilares, viga de cumeeira. Para projetos críticos utilize software de cálculo estrutural completo (SAP2000, STRAP, Ftool).
+      M&#233;todo simplificado &#8211; p&#243;rtico de um v&#227;o, dois pilares, viga de cumeeira. Para projetos cr&#237;ticos utilize software de c&#225;lculo estrutural completo (SAP2000, STRAP, Ftool).
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Carga distribuída total na viga (qd)</label>
+      <div class="field"><label>Carga distribu&#237;da total na viga (qd)</label>
         <div class="input-unit"><input type="number" id="po_qd" value="5.0" step="0.1" oninput="calcPortico()"/><span class="unit">kN/m</span></div>
         <span class="hint">Inclui PP, SC, chuva</span>
       </div>
       <div class="field"><label>Carga de vento horizontal (Wh)</label>
         <div class="input-unit"><input type="number" id="po_wh" value="3.0" step="0.1" oninput="calcPortico()"/><span class="unit">kN/m</span></div>
-        <span class="hint">Pressão × espaçamento</span>
+        <span class="hint">Press&#227;o &#215; espa&#231;amento</span>
       </div>
-      <div class="field"><label>Vão (L)</label>
+      <div class="field"><label>V&#227;o (L)</label>
         <div class="input-unit"><input type="number" id="po_L" value="15" step="0.5" oninput="calcPortico()"/><span class="unit">m</span></div>
       </div>
     </div>
@@ -654,15 +654,15 @@ sections.portico = `
       <div class="field"><label>Altura do pilar (H)</label>
         <div class="input-unit"><input type="number" id="po_H" value="6" step="0.25" oninput="calcPortico()"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Condição de apoio – base</label>
+      <div class="field"><label>Condi&#231;&#227;o de apoio &#8211; base</label>
         <select id="po_base" onchange="calcPortico()">
           <option value="eng">Engaste (pilar engastado)</option>
           <option value="art" selected>Articulada (pino)</option>
         </select>
       </div>
-      <div class="field"><label>Condição de apoio – cumeeira</label>
+      <div class="field"><label>Condi&#231;&#227;o de apoio &#8211; cumeeira</label>
         <select id="po_cum" onchange="calcPortico()">
-          <option value="cont" selected>Contínua (rígida)</option>
+          <option value="cont" selected>Cont&#237;nua (r&#237;gida)</option>
           <option value="art">Articulada</option>
         </select>
       </div>
@@ -670,28 +670,28 @@ sections.portico = `
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Resultados do Pórtico</h3></div>
+  <div class="card-header"><h3>Resultados do P&#243;rtico</h3></div>
   <div class="card-body">
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="po_M">–</div><div class="lbl">M máx. viga</div><div class="unit">kN·m</div></div>
-      <div class="result-card"><div class="val" id="po_V">–</div><div class="lbl">V máx. viga</div><div class="unit">kN</div></div>
-      <div class="result-card"><div class="val" id="po_N">–</div><div class="lbl">N pilar (compressão)</div><div class="unit">kN</div></div>
-      <div class="result-card"><div class="val" id="po_M_pilar">–</div><div class="lbl">M máx. pilar</div><div class="unit">kN·m</div></div>
-      <div class="result-card"><div class="val" id="po_delta">–</div><div class="lbl">Δ flecha viga</div><div class="unit">mm</div></div>
-      <div class="result-card"><div class="val" id="po_delta_H">–</div><div class="lbl">Δ horizontal pilar</div><div class="unit">mm</div></div>
+      <div class="result-card"><div class="val" id="po_M">&#8211;</div><div class="lbl">M m&#225;x. viga</div><div class="unit">kN&#183;m</div></div>
+      <div class="result-card"><div class="val" id="po_V">&#8211;</div><div class="lbl">V m&#225;x. viga</div><div class="unit">kN</div></div>
+      <div class="result-card"><div class="val" id="po_N">&#8211;</div><div class="lbl">N pilar (compress&#227;o)</div><div class="unit">kN</div></div>
+      <div class="result-card"><div class="val" id="po_M_pilar">&#8211;</div><div class="lbl">M m&#225;x. pilar</div><div class="unit">kN&#183;m</div></div>
+      <div class="result-card"><div class="val" id="po_delta">&#8211;</div><div class="lbl">&#916; flecha viga</div><div class="unit">mm</div></div>
+      <div class="result-card"><div class="val" id="po_delta_H">&#8211;</div><div class="lbl">&#916; horizontal pilar</div><div class="unit">mm</div></div>
     </div>
     <hr class="divider"/>
-    <div class="section-label">Verificação de Estado Limite de Utilização</div>
-    <div id="po_check" class="alert alert-info">Configure os parâmetros e clique em Calcular.</div>
+    <div class="section-label">Verifica&#231;&#227;o de Estado Limite de Utiliza&#231;&#227;o</div>
+    <div id="po_check" class="alert alert-info">Configure os par&#226;metros e clique em Calcular.</div>
     <div class="btn-group no-print">
-      <button class="btn btn-primary" onclick="calcPortico()">⟳ Calcular Pórtico</button>
+      <button class="btn btn-primary" onclick="calcPortico()">&#10227; Calcular P&#243;rtico</button>
     </div>
   </div>
 </div>`;
 
 sections.cobertura = `
-<div class="page-title">Cobertura – Telhas e Terças</div>
-<div class="page-sub">Seleção da telha, dimensionamento das terças e fixação</div>
+<div class="page-title">Cobertura &#8211; Telhas e Ter&#231;as</div>
+<div class="page-sub">Sele&#231;&#227;o da telha, dimensionamento das ter&#231;as e fixa&#231;&#227;o</div>
 <div class="card">
   <div class="card-header"><h3>Telha de Cobertura</h3></div>
   <div class="card-body">
@@ -700,7 +700,7 @@ sections.cobertura = `
         <select id="cob_tipo" onchange="updateTelha()">
           <option value="trap_simples">Trapezoidal simples (TP-40)</option>
           <option value="trap_dupla">Trapezoidal dupla (TP-40 dupla)</option>
-          <option value="sanduiche">Sanduíche (EPS/Lã de Rocha)</option>
+          <option value="sanduiche">Sandu&#237;che (EPS/L&#227; de Rocha)</option>
           <option value="colonial">Telha colonial / mista</option>
           <option value="fibrocimento">Fibrocimento (Brasilit / Eternit)</option>
         </select>
@@ -714,32 +714,32 @@ sections.cobertura = `
           <option value="1.00">1,00 mm</option>
         </select>
       </div>
-      <div class="field"><label>Peso próprio da telha</label>
-        <div class="input-unit"><input type="number" id="cob_pp" value="0.10" step="0.01"/><span class="unit">kN/m²</span></div>
+      <div class="field"><label>Peso pr&#243;prio da telha</label>
+        <div class="input-unit"><input type="number" id="cob_pp" value="0.10" step="0.01"/><span class="unit">kN/m&#178;</span></div>
       </div>
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Largura útil da telha</label>
+      <div class="field"><label>Largura &#250;til da telha</label>
         <div class="input-unit"><input type="number" id="cob_lu" value="1.000" step="0.05"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Vão máximo entre terças</label>
+      <div class="field"><label>V&#227;o m&#225;ximo entre ter&#231;as</label>
         <div class="input-unit"><input type="number" id="cob_vt" value="1.50" step="0.10"/><span class="unit">m</span></div>
-        <span class="hint">Verificar catálogo do fabricante</span>
+        <span class="hint">Verificar cat&#225;logo do fabricante</span>
       </div>
-      <div class="field"><label>Sobreposição longitudinal</label>
+      <div class="field"><label>Sobreposi&#231;&#227;o longitudinal</label>
         <div class="input-unit"><input type="number" id="cob_sob" value="0.25" step="0.05"/><span class="unit">m</span></div>
       </div>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Isolamento Térmico / Acústico</h3></div>
+  <div class="card-header"><h3>Isolamento T&#233;rmico / Ac&#250;stico</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
       <div class="field"><label>Isolamento</label>
         <select id="cob_iso">
           <option value="nao" selected>Sem isolamento</option>
-          <option value="manta">Manta de lã de vidro</option>
+          <option value="manta">Manta de l&#227; de vidro</option>
           <option value="eps">EPS (isopor) injetado</option>
           <option value="pu">PU projetado</option>
         </select>
@@ -747,9 +747,9 @@ sections.cobertura = `
       <div class="field"><label>Espessura</label>
         <div class="input-unit"><input type="number" id="cob_iso_e" value="50" step="10"/><span class="unit">mm</span></div>
       </div>
-      <div class="field"><label>Translúcido (%)</label>
+      <div class="field"><label>Transl&#250;cido (%)</label>
         <div class="input-unit"><input type="number" id="cob_trans" value="5" step="1" min="0" max="25"/><span class="unit">%</span></div>
-        <span class="hint">Telha translúcida / policarbonato</span>
+        <span class="hint">Telha transl&#250;cida / policarbonato</span>
       </div>
     </div>
   </div>
@@ -757,47 +757,47 @@ sections.cobertura = `
 
 sections.fechamento = `
 <div class="page-title">Fechamento Lateral</div>
-<div class="page-sub">Paredes, painéis e portões</div>
+<div class="page-sub">Paredes, pain&#233;is e port&#245;es</div>
 <div class="card">
   <div class="card-header"><h3>Tipo de Fechamento</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
       <div class="field"><label>Material das paredes</label>
         <select id="fec_mat">
-          <option value="telha_metal">Telha metálica trapezoidal</option>
-          <option value="sanduiche">Painel sanduíche</option>
-          <option value="alv_ceramica">Alvenaria cerâmica</option>
+          <option value="telha_metal">Telha met&#225;lica trapezoidal</option>
+          <option value="sanduiche">Painel sandu&#237;che</option>
+          <option value="alv_ceramica">Alvenaria cer&#226;mica</option>
           <option value="alv_bloco">Bloco de concreto</option>
-          <option value="painel_precast">Painel pré-moldado de concreto</option>
+          <option value="painel_precast">Painel pr&#233;-moldado de concreto</option>
         </select>
       </div>
       <div class="field"><label>Altura de fechamento (lateral)</label>
         <div class="input-unit"><input type="number" id="fec_h" value="6.0" step="0.25"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Tipo de fixação lateral</label>
+      <div class="field"><label>Tipo de fixa&#231;&#227;o lateral</label>
         <select id="fec_fix">
           <option value="parafuso">Parafuso auto-atarraxante</option>
           <option value="grampo">Grampo</option>
-          <option value="fixo">Fixação em viga de contraventamento</option>
+          <option value="fixo">Fixa&#231;&#227;o em viga de contraventamento</option>
         </select>
       </div>
     </div>
     <hr class="divider"/>
-    <div class="section-label">Aberturas e Portões</div>
+    <div class="section-label">Aberturas e Port&#245;es</div>
     <div class="form-grid form-grid-4">
-      <div class="field"><label>Nº de portões</label><input type="number" id="fec_nport" value="2" min="0" max="20"/></div>
-      <div class="field"><label>Largura do portão</label><div class="input-unit"><input type="number" id="fec_lport" value="4.0" step="0.5"/><span class="unit">m</span></div></div>
-      <div class="field"><label>Altura do portão</label><div class="input-unit"><input type="number" id="fec_hport" value="4.5" step="0.25"/><span class="unit">m</span></div></div>
-      <div class="field"><label>Tipo de portão</label>
+      <div class="field"><label>N&#186; de port&#245;es</label><input type="number" id="fec_nport" value="2" min="0" max="20"/></div>
+      <div class="field"><label>Largura do port&#227;o</label><div class="input-unit"><input type="number" id="fec_lport" value="4.0" step="0.5"/><span class="unit">m</span></div></div>
+      <div class="field"><label>Altura do port&#227;o</label><div class="input-unit"><input type="number" id="fec_hport" value="4.5" step="0.25"/><span class="unit">m</span></div></div>
+      <div class="field"><label>Tipo de port&#227;o</label>
         <select id="fec_tport">
           <option value="basculante">Basculante</option>
-          <option value="correr">Deslizante / Corrediço</option>
+          <option value="correr">Deslizante / Corredi&#231;o</option>
           <option value="setorial">Seccional</option>
         </select>
       </div>
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Janelas / Venezianas (m²)</label><div class="input-unit"><input type="number" id="fec_jan" value="0" step="1"/><span class="unit">m²</span></div></div>
+      <div class="field"><label>Janelas / Venezianas (m&#178;)</label><div class="input-unit"><input type="number" id="fec_jan" value="0" step="1"/><span class="unit">m&#178;</span></div></div>
       <div class="field"><label>Porta de acesso de pedestres</label><input type="number" id="fec_npedest" value="1" min="0"/></div>
       <div class="field"><label>Exaustores / Ventiladores (un.)</label><input type="number" id="fec_exaust" value="0" min="0"/></div>
     </div>
@@ -805,47 +805,47 @@ sections.fechamento = `
 </div>`;
 
 sections.fundacao = `
-<div class="page-title">Fundações</div>
-<div class="page-sub">Dimensionamento de sapatas e estacas – NBR 6122 / NBR 6118</div>
+<div class="page-title">Funda&#231;&#245;es</div>
+<div class="page-sub">Dimensionamento de sapatas e estacas &#8211; NBR 6122 / NBR 6118</div>
 <div class="card">
   <div class="card-header"><h3>Solo e Capacidade de Carga</h3></div>
   <div class="card-body">
     <div class="form-grid form-grid-3">
       <div class="field"><label>Tipo de solo</label>
         <select id="fund_solo" onchange="calcFundacao()">
-          <option value="0">Aterro não controlado – σ = –</option>
-          <option value="50">Areia fofa / argila mole – σ = 50 kPa</option>
-          <option value="100">Areia média / argila rija – σ = 100 kPa</option>
-          <option value="150">Areia fina compacta – σ = 150 kPa</option>
-          <option value="200" selected>Areia média compacta – σ = 200 kPa</option>
-          <option value="300">Areia densa – σ = 300 kPa</option>
-          <option value="400">Rocha muito fraturada – σ = 400 kPa</option>
+          <option value="0">Aterro n&#227;o controlado &#8211; &#963; = &#8211;</option>
+          <option value="50">Areia fofa / argila mole &#8211; &#963; = 50 kPa</option>
+          <option value="100">Areia m&#233;dia / argila rija &#8211; &#963; = 100 kPa</option>
+          <option value="150">Areia fina compacta &#8211; &#963; = 150 kPa</option>
+          <option value="200" selected>Areia m&#233;dia compacta &#8211; &#963; = 200 kPa</option>
+          <option value="300">Areia densa &#8211; &#963; = 300 kPa</option>
+          <option value="400">Rocha muito fraturada &#8211; &#963; = 400 kPa</option>
           <option value="custom">Valor personalizado</option>
         </select>
       </div>
-      <div class="field"><label>σ_adm (tensão admissível)</label>
+      <div class="field"><label>&#963;_adm (tens&#227;o admiss&#237;vel)</label>
         <div class="input-unit"><input type="number" id="fund_sigma" value="200" step="10" oninput="calcFundacao()"/><span class="unit">kPa</span></div>
       </div>
-      <div class="field"><label>Nível d'água (NA)</label>
+      <div class="field"><label>N&#237;vel d'&#225;gua (NA)</label>
         <div class="input-unit"><input type="number" id="fund_na" value="3.0" step="0.5"/><span class="unit">m prof.</span></div>
       </div>
     </div>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Profundidade de fundação (Df)</label>
+      <div class="field"><label>Profundidade de funda&#231;&#227;o (Df)</label>
         <div class="input-unit"><input type="number" id="fund_df" value="1.5" step="0.25" oninput="calcFundacao()"/><span class="unit">m</span></div>
       </div>
-      <div class="field"><label>Tipo de fundação</label>
+      <div class="field"><label>Tipo de funda&#231;&#227;o</label>
         <select id="fund_tipo" onchange="calcFundacao()">
           <option value="sapata" selected>Sapata isolada</option>
           <option value="radier">Radier</option>
-          <option value="estaca_precast">Estaca pré-moldada</option>
-          <option value="estaca_hlj">Hélice contínua (HLJ)</option>
-          <option value="tubulao">Tubulão</option>
+          <option value="estaca_precast">Estaca pr&#233;-moldada</option>
+          <option value="estaca_hlj">H&#233;lice cont&#237;nua (HLJ)</option>
+          <option value="tubulao">Tubul&#227;o</option>
         </select>
       </div>
       <div class="field"><label>Carga total por pilar (Nd)</label>
         <div class="input-unit"><input type="number" id="fund_nd" value="200" step="10" oninput="calcFundacao()"/><span class="unit">kN</span></div>
-        <span class="hint">Incluindo peso próprio</span>
+        <span class="hint">Incluindo peso pr&#243;prio</span>
       </div>
     </div>
   </div>
@@ -854,57 +854,57 @@ sections.fundacao = `
   <div class="card-header"><h3>Dimensionamento da Sapata</h3></div>
   <div class="card-body">
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="fund_A">–</div><div class="lbl">Área necessária</div><div class="unit">m²</div></div>
-      <div class="result-card"><div class="val" id="fund_lado">–</div><div class="lbl">Lado da sapata (quadrada)</div><div class="unit">m</div></div>
-      <div class="result-card"><div class="val" id="fund_h">–</div><div class="lbl">Altura da sapata</div><div class="unit">cm</div></div>
-      <div class="result-card"><div class="val" id="fund_vol">–</div><div class="lbl">Volume concreto / pilar</div><div class="unit">m³</div></div>
+      <div class="result-card"><div class="val" id="fund_A">&#8211;</div><div class="lbl">&#193;rea necess&#225;ria</div><div class="unit">m&#178;</div></div>
+      <div class="result-card"><div class="val" id="fund_lado">&#8211;</div><div class="lbl">Lado da sapata (quadrada)</div><div class="unit">m</div></div>
+      <div class="result-card"><div class="val" id="fund_h">&#8211;</div><div class="lbl">Altura da sapata</div><div class="unit">cm</div></div>
+      <div class="result-card"><div class="val" id="fund_vol">&#8211;</div><div class="lbl">Volume concreto / pilar</div><div class="unit">m&#179;</div></div>
     </div>
     <hr class="divider"/>
     <div class="form-grid form-grid-3">
-      <div class="field"><label>Concreto da fundação</label>
+      <div class="field"><label>Concreto da funda&#231;&#227;o</label>
         <select id="fund_fck">
-          <option value="20" selected>C20 – fck = 20 MPa</option>
-          <option value="25">C25 – fck = 25 MPa</option>
-          <option value="30">C30 – fck = 30 MPa</option>
+          <option value="20" selected>C20 &#8211; fck = 20 MPa</option>
+          <option value="25">C25 &#8211; fck = 25 MPa</option>
+          <option value="30">C30 &#8211; fck = 30 MPa</option>
         </select>
       </div>
       <div class="field"><label>Cobrimento (c)</label>
         <div class="input-unit"><input type="number" id="fund_cob" value="40" step="5"/><span class="unit">mm</span></div>
-        <span class="hint">Mín. 40 mm em contato c/ solo</span>
+        <span class="hint">M&#237;n. 40 mm em contato c/ solo</span>
       </div>
-      <div class="field"><label>Aço da armadura</label>
+      <div class="field"><label>A&#231;o da armadura</label>
         <select id="fund_aco_arm">
-          <option value="500">CA-50 – fyk = 500 MPa</option>
-          <option value="600">CA-60 – fyk = 600 MPa</option>
+          <option value="500">CA-50 &#8211; fyk = 500 MPa</option>
+          <option value="600">CA-60 &#8211; fyk = 600 MPa</option>
         </select>
       </div>
     </div>
     <div class="btn-group no-print">
-      <button class="btn btn-primary" onclick="calcFundacao()">⟳ Dimensionar Fundação</button>
+      <button class="btn btn-primary" onclick="calcFundacao()">&#10227; Dimensionar Funda&#231;&#227;o</button>
     </div>
   </div>
 </div>`;
 
 sections.resultados = `
 <div class="page-title">Resumo dos Resultados</div>
-<div class="page-sub">Memória de cálculo e quantitativos para orçamentação</div>
+<div class="page-sub">Mem&#243;ria de c&#225;lculo e quantitativos para or&#231;amenta&#231;&#227;o</div>
 <div class="card">
-  <div class="card-header"><h3>Ação do Vento</h3></div>
+  <div class="card-header"><h3>A&#231;&#227;o do Vento</h3></div>
   <div class="card-body">
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="res_Vk">–</div><div class="lbl">V<sub>k</sub></div><div class="unit">m/s</div></div>
-      <div class="result-card"><div class="val" id="res_q">–</div><div class="lbl">q dinâmica</div><div class="unit">N/m²</div></div>
-      <div class="result-card"><div class="val" id="res_S2">–</div><div class="lbl">S₂</div><div class="unit">–</div></div>
+      <div class="result-card"><div class="val" id="res_Vk">&#8211;</div><div class="lbl">V<sub>k</sub></div><div class="unit">m/s</div></div>
+      <div class="result-card"><div class="val" id="res_q">&#8211;</div><div class="lbl">q din&#226;mica</div><div class="unit">N/m&#178;</div></div>
+      <div class="result-card"><div class="val" id="res_S2">&#8211;</div><div class="lbl">S&#8322;</div><div class="unit">&#8211;</div></div>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><h3>Pórtico</h3></div>
+  <div class="card-header"><h3>P&#243;rtico</h3></div>
   <div class="card-body">
     <div class="result-grid">
-      <div class="result-card"><div class="val" id="res_Mviga">–</div><div class="lbl">M viga</div><div class="unit">kN·m</div></div>
-      <div class="result-card"><div class="val" id="res_Npilar">–</div><div class="lbl">N pilar</div><div class="unit">kN</div></div>
-      <div class="result-card"><div class="val" id="res_delta">–</div><div class="lbl">Δ flecha</div><div class="unit">mm</div></div>
+      <div class="result-card"><div class="val" id="res_Mviga">&#8211;</div><div class="lbl">M viga</div><div class="unit">kN&#183;m</div></div>
+      <div class="result-card"><div class="val" id="res_Npilar">&#8211;</div><div class="lbl">N pilar</div><div class="unit">kN</div></div>
+      <div class="result-card"><div class="val" id="res_delta">&#8211;</div><div class="lbl">&#916; flecha</div><div class="unit">mm</div></div>
     </div>
   </div>
 </div>
@@ -913,27 +913,27 @@ sections.resultados = `
   <div class="card-body">
     <div class="tbl-wrapper" style="overflow-x:auto">
     <table class="tbl" id="tblQuant">
-      <thead><tr><th>Item</th><th class="num">Qtd.</th><th>Unidade</th><th>Observação</th></tr></thead>
+      <thead><tr><th>Item</th><th class="num">Qtd.</th><th>Unidade</th><th>Observa&#231;&#227;o</th></tr></thead>
       <tbody id="tbodyQuant">
-        <tr><td colspan="4" style="text-align:center;color:#9ca3af">Clique em "Gerar Relatório" para calcular os quantitativos.</td></tr>
+        <tr><td colspan="4" style="text-align:center;color:#9ca3af">Clique em "Gerar Relat&#243;rio" para calcular os quantitativos.</td></tr>
       </tbody>
     </table>
     </div>
     <div class="btn-group no-print">
-      <button class="btn btn-success btn-lg" onclick="gerarRelatorio()">📄 Gerar Relatório Completo</button>
-      <button class="btn btn-outline" onclick="window.print()">🖨 Imprimir</button>
+      <button class="btn btn-success btn-lg" onclick="gerarRelatorio()">&#128196; Gerar Relat&#243;rio Completo</button>
+      <button class="btn btn-outline" onclick="window.print()">&#128424; Imprimir</button>
     </div>
   </div>
 </div>
 <div id="relatorio" style="display:none">
   <div class="card">
-    <div class="card-header"><h3>Memória de Cálculo</h3></div>
+    <div class="card-header"><h3>Mem&#243;ria de C&#225;lculo</h3></div>
     <div class="card-body" id="relatorioBody" style="font-size:13px;line-height:1.8"></div>
   </div>
 </div>`;
 
 
-// ── NBR 6123 S2 TABLE (categoria × classe) ──
+// &#9472;&#9472; NBR 6123 S2 TABLE (categoria &#215; classe) &#9472;&#9472;
 // [b, p, Fr] por categoria I..V, classe A/B/C
 const S2_TABLE = {
   I:  { A:[1.10,0.06,1.00], B:[1.11,0.06,0.98], C:[1.12,0.06,0.95] },
@@ -943,18 +943,18 @@ const S2_TABLE = {
   V:  { A:[0.74,0.15,1.00], B:[0.74,0.15,0.98], C:[0.74,0.15,0.95] }
 };
 
-// ── AÇO TABLE ──
+// &#9472;&#9472; A&#199;O TABLE &#9472;&#9472;
 const ACO_TABLE = {
   250:{fy:250,fu:400}, 300:{fy:300,fu:450}, 350:{fy:350,fu:500}, 500:{fy:500,fu:650}
 };
 
-// ── UTILITIES ──
+// &#9472;&#9472; UTILITIES &#9472;&#9472;
 const $  = id => document.getElementById(id);
 const nv = id => parseFloat($(id)?.value) || 0;
 const sv = (id,v) => { if($(id)) $(id).value = typeof v==='number' ? (Math.round(v*100)/100) : v; };
-const fmt = (v,d=2) => isNaN(v)||!isFinite(v) ? '–' : v.toFixed(d);
+const fmt = (v,d=2) => isNaN(v)||!isFinite(v) ? '&#8211;' : v.toFixed(d);
 
-// ── TAB NAVIGATION ──
+// &#9472;&#9472; TAB NAVIGATION &#9472;&#9472;
 function changeTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
   document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active', s.id==='sec_'+name));
@@ -981,7 +981,7 @@ document.getElementById('tabsBar').addEventListener('click', e=>{
   });
 })();
 
-// ── GEOMETRIA ──
+// &#9472;&#9472; GEOMETRIA &#9472;&#9472;
 function updateSketch(){
   const L    = nv('g_vao')   || 15;
   const C    = nv('g_comp')  || 30;
@@ -1026,7 +1026,7 @@ function updateSketch(){
   if(svgEl) svgEl.innerHTML = `<defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" stroke="#6b7280" fill="none"/></marker></defs>`+svg;
 }
 
-// ── VENTO NBR 6123 ──
+// &#9472;&#9472; VENTO NBR 6123 &#9472;&#9472;
 function autoV0(){
   const v = $('v_regiao')?.value;
   if(v && v!=='custom') sv('v_v0', v);
@@ -1050,7 +1050,7 @@ function calcVento(){
   sv('rS2', S2.toFixed(4));
 
   const Vk = V0 * S1 * S2 * S3 * tr;
-  const q  = 0.613 * Vk * Vk;   // N/m²
+  const q  = 0.613 * Vk * Vk;   // N/m&#178;
 
   sv('rVk', Vk.toFixed(2));
   sv('rQ',  q.toFixed(1));
@@ -1058,21 +1058,21 @@ function calcVento(){
   window._Vk=Vk; window._q=q; window._S2=S2;
 }
 
-// ── CARGAS ──
+// &#9472;&#9472; CARGAS &#9472;&#9472;
 function togglePR(){
   const on = $('c_pr')?.value==='sim';
   ['pr_fields','pr_fields2','pr_fields3'].forEach(id=>{ const el=$(id); if(el) el.style.display=on?'':'none'; });
 }
-function calcCargas(){ /* combos calculados no pórtico */ }
+function calcCargas(){ /* combos calculados no p&#243;rtico */ }
 
-// ── AÇO ──
+// &#9472;&#9472; A&#199;O &#9472;&#9472;
 function updateAco(){
   const v = parseInt($('pe_aco')?.value)||300;
   const a = ACO_TABLE[v]||ACO_TABLE[300];
   sv('pe_fy',a.fy); sv('pe_fu',a.fu);
 }
 
-// ── PÓRTICO (método simplificado) ──
+// &#9472;&#9472; P&#211;RTICO (m&#233;todo simplificado) &#9472;&#9472;
 function calcPortico(){
   const qd  = nv('po_qd');
   const wh  = nv('po_wh');
@@ -1081,22 +1081,22 @@ function calcPortico(){
   const E   = 200000; // MPa
   const base= $('po_base')?.value || 'art';
 
-  // Momento máximo viga – viga biapoiada sob carga distribuída
+  // Momento m&#225;ximo viga &#8211; viga biapoiada sob carga distribu&#237;da
   const Mv = qd * L * L / 8;
   // Cortante
   const Vv = qd * L / 2;
-  // Normal pilar = reação vertical
+  // Normal pilar = rea&#231;&#227;o vertical
   const Np = qd * L / 2;
   // Momento no pilar (devido vento)
   const Mp = (base==='eng') ? wh*H*H/2 : wh*H*H/8;
   // Flecha viga (biapoiada, carga uniforme)
-  // δ = 5qL⁴/384EI → sem I use placeholder; estimativa com W310x52: I~119×10⁶ mm⁴
-  const I_est = 119e6; // mm⁴ estimado W310×52
+  // &#948; = 5qL&#8308;/384EI &#8594; sem I use placeholder; estimativa com W310x52: I~119&#215;10&#8310; mm&#8308;
+  const I_est = 119e6; // mm&#8308; estimado W310&#215;52
   const q_mm  = qd / 1000;   // kN/mm
   const L_mm  = L * 1000;
   const E_MPa = E;
   const deltaV= 5 * q_mm * Math.pow(L_mm,4) / (384 * E_MPa * I_est);
-  // Deslocamento horizontal pilar (carga uniformemente distribuída no pilar)
+  // Deslocamento horizontal pilar (carga uniformemente distribu&#237;da no pilar)
   const deltaH= (base==='eng') ? wh*1e-3*Math.pow(H*1e3,4)/(8*E_MPa*I_est) : wh*1e-3*Math.pow(H*1e3,3)/(3*E_MPa*I_est);
 
   const lim_delta = L*1000 / (parseInt($('pe_flecha')?.value)||300);
@@ -1114,12 +1114,12 @@ function calcPortico(){
   const el = $('po_check');
   if(el){
     el.className = (ok_delta&&ok_dH)?'alert alert-ok':'alert alert-warn';
-    el.innerHTML = `<strong>δ viga:</strong> ${fmt(deltaV)} mm (lim. ${fmt(lim_delta)} mm) → <span class="chip ${ok_delta?'chip-ok':'chip-err'}">${ok_delta?'OK':'VERIFICAR'}</span>&emsp;<strong>δH pilar:</strong> ${fmt(deltaH)} mm (lim. ${fmt(lim_dH)} mm) → <span class="chip ${ok_dH?'chip-ok':'chip-err'}">${ok_dH?'OK':'VERIFICAR'}</span><br/><em>Nota: flecha estimada com I ≈ 119×10⁶ mm⁴ (W310×52). Refine com o perfil real.</em>`;
+    el.innerHTML = `<strong>&#948; viga:</strong> ${fmt(deltaV)} mm (lim. ${fmt(lim_delta)} mm) &#8594; <span class="chip ${ok_delta?'chip-ok':'chip-err'}">${ok_delta?'OK':'VERIFICAR'}</span>&emsp;<strong>&#948;H pilar:</strong> ${fmt(deltaH)} mm (lim. ${fmt(lim_dH)} mm) &#8594; <span class="chip ${ok_dH?'chip-ok':'chip-err'}">${ok_dH?'OK':'VERIFICAR'}</span><br/><em>Nota: flecha estimada com I &#8776; 119&#215;10&#8310; mm&#8308; (W310&#215;52). Refine com o perfil real.</em>`;
   }
   window._Mv=Mv; window._Np=Np; window._deltaV=deltaV;
 }
 
-// ── FUNDAÇÃO ──
+// &#9472;&#9472; FUNDA&#199;&#195;O &#9472;&#9472;
 function calcFundacao(){
   const sigma = nv('fund_sigma');
   const Nd    = nv('fund_nd');
@@ -1127,10 +1127,10 @@ function calcFundacao(){
   const tipo  = $('fund_tipo')?.value || 'sapata';
 
   if(tipo==='sapata' && sigma>0 && Nd>0){
-    // A = Nd / σ_adm  (kN / kPa = m²)
+    // A = Nd / &#963;_adm  (kN / kPa = m&#178;)
     const A    = Nd / sigma;
     const lado = Math.ceil(Math.sqrt(A)*10)/10;   // arredonda 10 cm
-    const h_min= Math.max(0.3, lado*0.25);         // h ≈ 25% do lado, mín. 30 cm
+    const h_min= Math.max(0.3, lado*0.25);         // h &#8776; 25% do lado, m&#237;n. 30 cm
     const vol  = lado*lado*h_min;
     sv('fund_A',   fmt(A,3));
     sv('fund_lado',fmt(lado,2));
@@ -1139,7 +1139,7 @@ function calcFundacao(){
   }
 }
 
-// ── RESUMO ──
+// &#9472;&#9472; RESUMO &#9472;&#9472;
 function gerarResumo(){
   calcVento(); calcPortico(); calcFundacao();
   sv('res_Vk',  fmt(window._Vk||0));
@@ -1150,7 +1150,7 @@ function gerarResumo(){
   sv('res_delta', fmt(window._deltaV||0));
 }
 
-// ── RELATÓRIO COMPLETO ──
+// &#9472;&#9472; RELAT&#211;RIO COMPLETO &#9472;&#9472;
 function gerarRelatorio(){
   gerarResumo();
   const L = nv('g_vao')||15, C=nv('g_comp')||30, H=nv('g_pe')||6;
@@ -1163,14 +1163,14 @@ function gerarRelatorio(){
   const volFund  = parseFloat($('fund_vol')?.value)||0;
 
   const rows=[
-    ['Área de cobertura', areaCob.toFixed(1), 'm²', ''],
-    ['Área de fechamento lateral', areaFech.toFixed(1), 'm²', ''],
-    ['Número de pórticos', nport, 'un.', `Espaçamento: ${esp} m`],
-    ['Pilares', qtPilares, 'un.', 'Perfil: '+($('pe_pilar_perf')?.value||'–')],
-    ['Vigas de cobertura', nport, 'un.', 'Perfil: '+($('pe_viga_perf')?.value||'–')],
-    ['Terças de cobertura', qtTercas, 'un.', 'Perfil: '+($('pe_terca_perf')?.value||'–')],
-    ['Sapatas de fundação', qtPilares, 'un.', `${$('fund_lado')?.value||'–'} m × ${$('fund_lado')?.value||'–'} m`],
-    ['Concreto fundação (estimado)', (qtPilares*volFund).toFixed(2), 'm³', ''],
+    ['&#193;rea de cobertura', areaCob.toFixed(1), 'm&#178;', ''],
+    ['&#193;rea de fechamento lateral', areaFech.toFixed(1), 'm&#178;', ''],
+    ['N&#250;mero de p&#243;rticos', nport, 'un.', `Espa&#231;amento: ${esp} m`],
+    ['Pilares', qtPilares, 'un.', 'Perfil: '+($('pe_pilar_perf')?.value||'&#8211;')],
+    ['Vigas de cobertura', nport, 'un.', 'Perfil: '+($('pe_viga_perf')?.value||'&#8211;')],
+    ['Ter&#231;as de cobertura', qtTercas, 'un.', 'Perfil: '+($('pe_terca_perf')?.value||'&#8211;')],
+    ['Sapatas de funda&#231;&#227;o', qtPilares, 'un.', `${$('fund_lado')?.value||'&#8211;'} m &#215; ${$('fund_lado')?.value||'&#8211;'} m`],
+    ['Concreto funda&#231;&#227;o (estimado)', (qtPilares*volFund).toFixed(2), 'm&#179;', ''],
   ];
   const tbody=$('tbodyQuant');
   if(tbody) tbody.innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td>${r[2]}</td><td style="color:#6b7280">${r[3]}</td></tr>`).join('');
@@ -1179,30 +1179,30 @@ function gerarRelatorio(){
   if(body){
     const now=new Date().toLocaleDateString('pt-BR');
     body.innerHTML=`
-<p><strong>Projeto:</strong> ${$('p_nome')?.value||'–'} &emsp; <strong>Data:</strong> ${now} &emsp; <strong>Resp.:</strong> ${$('p_resp')?.value||'–'}</p>
+<p><strong>Projeto:</strong> ${$('p_nome')?.value||'&#8211;'} &emsp; <strong>Data:</strong> ${now} &emsp; <strong>Resp.:</strong> ${$('p_resp')?.value||'&#8211;'}</p>
 <hr class="divider"/>
 <p><strong>1. GEOMETRIA</strong><br/>
-Vão L = ${L} m · Comprimento C = ${C} m · Pé-direito H = ${H} m · Nº pórticos: ${nport} · Espaç.: ${esp} m · Inclinação: ${nv('g_incl')||10}%</p>
-<p><strong>2. VENTO – NBR 6123</strong><br/>
-V₀ = ${nv('v_v0')||30} m/s · S₁ = ${nv('v_s1')||1.00} · S₂ = ${fmt(window._S2||0,4)} · S₃ = ${nv('v_s3')||1.00}<br/>
-<strong>V<sub>k</sub> = ${fmt(window._Vk||0)} m/s &emsp; q = ${fmt(window._q||0,1)} N/m²</strong></p>
+V&#227;o L = ${L} m &#183; Comprimento C = ${C} m &#183; P&#233;-direito H = ${H} m &#183; N&#186; p&#243;rticos: ${nport} &#183; Espa&#231;.: ${esp} m &#183; Inclina&#231;&#227;o: ${nv('g_incl')||10}%</p>
+<p><strong>2. VENTO &#8211; NBR 6123</strong><br/>
+V&#8320; = ${nv('v_v0')||30} m/s &#183; S&#8321; = ${nv('v_s1')||1.00} &#183; S&#8322; = ${fmt(window._S2||0,4)} &#183; S&#8323; = ${nv('v_s3')||1.00}<br/>
+<strong>V<sub>k</sub> = ${fmt(window._Vk||0)} m/s &emsp; q = ${fmt(window._q||0,1)} N/m&#178;</strong></p>
 <p><strong>3. CARGAS</strong><br/>
-Telha: ${nv('c_telha')||0.10} kN/m² · Terças/CB: ${nv('c_tercas')||0.05} kN/m² · Inst: ${nv('c_inst')||0.05} kN/m²<br/>
-Sobrecarga cobertura: ${nv('c_sc_cob')||0.25} kN/m²</p>
-<p><strong>4. PÓRTICO (simplificado)</strong><br/>
-qd = ${nv('po_qd')||5} kN/m · Wh = ${nv('po_wh')||3} kN/m<br/>
-M<sub>viga</sub> = <strong>${fmt(window._Mv||0)} kN·m</strong> · V = ${fmt((nv('po_qd')||5)*L/2)} kN · N<sub>pilar</sub> = ${fmt(window._Np||0)} kN<br/>
-δ<sub>viga</sub> = ${fmt(window._deltaV||0)} mm (lim. L/${$('pe_flecha')?.value||300} = ${fmt(L*1000/(parseInt($('pe_flecha')?.value)||300))} mm)</p>
-<p><strong>5. FUNDAÇÃO</strong><br/>
-σ<sub>adm</sub> = ${nv('fund_sigma')||200} kPa · N<sub>d</sub>/pilar = ${nv('fund_nd')||200} kN<br/>
-Sapata: ${$('fund_lado')?.value||'–'} × ${$('fund_lado')?.value||'–'} m · h = ${$('fund_h')?.value||'–'} cm · Vol. unit. = ${$('fund_vol')?.value||'–'} m³</p>
+Telha: ${nv('c_telha')||0.10} kN/m&#178; &#183; Ter&#231;as/CB: ${nv('c_tercas')||0.05} kN/m&#178; &#183; Inst: ${nv('c_inst')||0.05} kN/m&#178;<br/>
+Sobrecarga cobertura: ${nv('c_sc_cob')||0.25} kN/m&#178;</p>
+<p><strong>4. P&#211;RTICO (simplificado)</strong><br/>
+qd = ${nv('po_qd')||5} kN/m &#183; Wh = ${nv('po_wh')||3} kN/m<br/>
+M<sub>viga</sub> = <strong>${fmt(window._Mv||0)} kN&#183;m</strong> &#183; V = ${fmt((nv('po_qd')||5)*L/2)} kN &#183; N<sub>pilar</sub> = ${fmt(window._Np||0)} kN<br/>
+&#948;<sub>viga</sub> = ${fmt(window._deltaV||0)} mm (lim. L/${$('pe_flecha')?.value||300} = ${fmt(L*1000/(parseInt($('pe_flecha')?.value)||300))} mm)</p>
+<p><strong>5. FUNDA&#199;&#195;O</strong><br/>
+&#963;<sub>adm</sub> = ${nv('fund_sigma')||200} kPa &#183; N<sub>d</sub>/pilar = ${nv('fund_nd')||200} kN<br/>
+Sapata: ${$('fund_lado')?.value||'&#8211;'} &#215; ${$('fund_lado')?.value||'&#8211;'} m &#183; h = ${$('fund_h')?.value||'&#8211;'} cm &#183; Vol. unit. = ${$('fund_vol')?.value||'&#8211;'} m&#179;</p>
 <hr class="divider"/>
-<p style="font-size:11px;color:#6b7280">Memória gerada por SteelCalc em ${now}. Resultados baseados em métodos simplificados – verificar com software estrutural completo antes da emissão de projeto executivo.</p>`;
+<p style="font-size:11px;color:#6b7280">Mem&#243;ria gerada por SteelCalc em ${now}. Resultados baseados em m&#233;todos simplificados &#8211; verificar com software estrutural completo antes da emiss&#227;o de projeto executivo.</p>`;
     $('relatorio').style.display='block';
   }
 }
 
-// ── INIT ──
+// &#9472;&#9472; INIT &#9472;&#9472;
 window.addEventListener('load', ()=>{
   // Set today's date
   const d=new Date();
