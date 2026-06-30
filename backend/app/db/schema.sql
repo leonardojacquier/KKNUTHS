@@ -99,6 +99,20 @@ create table if not exists player_stats (
     updated_at  timestamptz not null default now()
 );
 
+-- ───────────────────────── segurança (RLS) ─────────────────────────
+-- O acesso é exclusivamente server-side via service role (que ignora RLS). Habilitar
+-- RLS sem políticas bloqueia anon/authenticated por completo — default seguro, pois
+-- o cliente Telegram nunca fala direto com o banco. Para um futuro painel web com
+-- login Supabase, adicionar políticas por usuário (ex.: using auth.uid() = user_id).
+alter table public.users          enable row level security;
+alter table public.subscriptions  enable row level security;
+alter table public.usage_events   enable row level security;
+alter table public.uploads        enable row level security;
+alter table public.hands          enable row level security;
+alter table public.hand_analysis  enable row level security;
+alter table public.tournaments    enable row level security;
+alter table public.player_stats   enable row level security;
+
 -- Busca semântica nas análises do usuário (RAG da base de conhecimento).
 -- Uso: select * from match_hand_analysis(:user, :embedding, 8);
 create or replace function match_hand_analysis(
@@ -115,3 +129,7 @@ language sql stable as $$
     order by ha.embedding <=> p_query
     limit p_limit;
 $$;
+
+-- search_path fixo (advisor: function_search_path_mutable).
+alter function public.match_hand_analysis(uuid, vector, int)
+    set search_path = public, pg_temp;
