@@ -58,9 +58,12 @@ Conectado, ativa com credenciais:
 - **Visão** (`extract_from_image`): prints/PDF-imagem → snapshot canônico (confidence < 1.0).
 - **Supabase** (`app/db/repository.py`): usuários, uploads, mãos, análise, stats, RAG.
   Aplique `app/db/schema.sql` e defina `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`.
-- **Bot Telegram** (`/start`, `/stats`, `/plano`, upload): fluxo "recebido → analisando".
+- **Embeddings / RAG** (`app/agent/embeddings.py`): Voyage ou OpenAI; popula o vetor de
+  `hand_analysis` e habilita `/ask` (busca semântica na base de conhecimento).
+- **Billing Stripe** (`app/billing/stripe_service.py`): `/assinar` gera Checkout; webhook
+  em `POST /stripe/webhook` libera/atualiza plano. Defina `STRIPE_*`.
+- **Bot Telegram** (`/start`, `/stats`, `/ask`, `/plano`, `/assinar`, upload): "recebido → analisando".
 
 A conectar:
-- Embeddings para popular o vetor de `hand_analysis` (busca semântica da KB).
-- Billing (Stripe): checkout + webhooks (esqueleto em `app/api/main.py`).
 - Fila de jobs (RQ) para processamento assíncrono de arquivos grandes.
+- Painel web (read-only) com gráficos do histórico.

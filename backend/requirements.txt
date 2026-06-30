@@ -5,6 +5,11 @@ python-dotenv>=1.0
 # LLM (Claude)
 anthropic>=0.40
 
+# Embeddings (escolha um provedor) + billing
+voyageai>=0.2
+openai>=1.30
+stripe>=9.0
+
 # API + bot
 fastapi>=0.110
 uvicorn[standard]>=0.29

@@ -145,6 +145,41 @@ class Repository:
             on_conflict="user_id",
         ).execute()
 
+    # ------------------------------ billing ---------------------------
+    def get_user_by_id(self, user_id: str) -> Optional[dict]:
+        if not self._guard():
+            return None
+        res = self.client.table("users").select("*").eq("id", user_id).execute()
+        return res.data[0] if res.data else None
+
+    def update_user_plan(self, user_id: str, plan: str) -> None:
+        if not self._guard():
+            return None
+        self.client.table("users").update({"plan": plan}).eq("id", user_id).execute()
+
+    def add_credits(self, user_id: str, amount: int) -> None:
+        if not self._guard():
+            return None
+        user = self.get_user_by_id(user_id)
+        if user:
+            new = (user.get("credits") or 0) + amount
+            self.client.table("users").update({"credits": new}).eq("id", user_id).execute()
+
+    def upsert_subscription(self, sub: dict) -> None:
+        """sub: {user_id, stripe_customer, stripe_sub_id, plan, status, period_end}."""
+        if not self._guard():
+            return None
+        self.client.table("subscriptions").upsert(
+            sub, on_conflict="stripe_sub_id"
+        ).execute()
+
+    def record_usage(self, user_id: str, type_: str, cost_credits: int = 0) -> None:
+        if not self._guard():
+            return None
+        self.client.table("usage_events").insert(
+            {"user_id": user_id, "type": type_, "cost_credits": cost_credits}
+        ).execute()
+
     # ------------------------- knowledge base (RAG) -------------------
     def search_analysis(
         self, user_id: str, embedding: list[float], limit: int = 8

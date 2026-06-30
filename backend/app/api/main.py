@@ -42,9 +42,13 @@ async def telegram_webhook(request: Request) -> dict:
 async def stripe_webhook(request: Request) -> dict:
     """Recebe eventos do Stripe (checkout.session.completed, subscription.*, invoice.paid).
 
-    Aqui é onde o plano do usuário é liberado/atualizado e os créditos creditados.
-    Verificação de assinatura via STRIPE_WEBHOOK_SECRET entra antes de processar.
+    Valida a assinatura (STRIPE_WEBHOOK_SECRET) e libera/atualiza o plano do usuário.
     """
+    from app.billing import handle_webhook
+
     payload = await request.body()
-    _ = payload  # validar assinatura + despachar por event.type (a implementar)
-    return {"received": True}
+    sig = request.headers.get("stripe-signature")
+    try:
+        return handle_webhook(payload, sig)
+    except Exception as exc:  # assinatura inválida / payload malformado
+        return {"error": str(exc)}
