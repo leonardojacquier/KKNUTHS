@@ -1,0 +1,49 @@
+"""Ferramentas determinísticas de pôquer (funções puras).
+
+São as "tools" que o agente LLM chama em vez de fazer conta de cabeça. Mantidas
+puras e sem dependências externas para serem testáveis e baratas.
+"""
+from __future__ import annotations
+
+
+def pot_odds(pot: float, to_call: float) -> float:
+    """Fração do pote que você precisa pagar = to_call / (pot + to_call).
+
+    Retorna a *equity mínima* necessária para o call ser neutro em EV.
+    """
+    if to_call <= 0:
+        return 0.0
+    return to_call / (pot + to_call)
+
+
+# alias semântico: a equity necessária é exatamente a pot odds
+required_equity = pot_odds
+
+
+def ev_call(equity: float, pot: float, to_call: float) -> float:
+    """EV (em fichas) de pagar uma aposta, dado a equity da sua mão.
+
+    `pot` é o pote atual que você ganha ao vencer (já inclui a aposta a pagar);
+    `to_call` é o que você arrisca. EV = equity * pot - (1 - equity) * to_call.
+    No limiar de equity = pot_odds(pot, to_call) o EV é exatamente 0.
+    """
+    if not 0.0 <= equity <= 1.0:
+        raise ValueError("equity deve estar entre 0 e 1")
+    return equity * pot - (1 - equity) * to_call
+
+
+def spr(effective_stack: float, pot: float) -> float:
+    """Stack-to-pot ratio."""
+    if pot <= 0:
+        return float("inf")
+    return effective_stack / pot
+
+
+def breakeven_bluff(bet: float, pot: float) -> float:
+    """Frequência de fold necessária para um blefe de tamanho `bet` lucrar.
+
+    = bet / (pot + bet)
+    """
+    if bet <= 0:
+        return 0.0
+    return bet / (pot + bet)
