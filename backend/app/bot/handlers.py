@@ -17,7 +17,10 @@ from telegram.ext import (
 )
 
 from app.agent import analyze_hand, analyze_tournament
+from app.agent.analyzer import llm_summary
+from app.analysis import compute_player_stats
 from app.config import get_settings
+from app.db import get_repository
 from app.ingestion import ingest
 
 WELCOME = (
@@ -46,6 +49,28 @@ async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    repo = get_repository()
+    if not repo.enabled:
+        await update.message.reply_text(
+            "Perfil ainda não disponível (persistência não configurada). "
+            "Envie mãos e eu calculo na hora."
+        )
+        return
+    user = repo.get_or_create_user(update.effective_user.id, update.effective_user.username)
+    stats = repo.client.table("player_stats").select("*").eq("user_id", user["id"]).execute()
+    if not stats.data:
+        await update.message.reply_text("Ainda não tenho mãos suas. Envie um arquivo para começar.")
+        return
+    s = stats.data[0]
+    await update.message.reply_markdown(
+        f"*Seu perfil* ({s['hands']} mãos)\n"
+        f"• VPIP {s['vpip']}% | PFR {s['pfr']}% | 3-bet {s['three_bet']}%\n"
+        f"• Agressão (AF) {s['af']}\n"
+        f"• Estilo: *{s['label']}*"
+    )
+
+
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     doc = update.message.document
     await update.message.reply_text("✅ Recebido. Analisando suas mãos…")
@@ -63,16 +88,31 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     hands = result.hands
-    lines = [f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"]
+    tg_user = update.effective_user
 
+    # persistência (no-op se Supabase não configurado)
+    repo = get_repository()
+    user = repo.get_or_create_user(tg_user.id, tg_user.username) if repo.enabled else None
+    upload_id = None
+    if user:
+        upload_id = repo.save_upload(user["id"], None, result.source_format, result.site,
+                                     result.confidence)
+        for h in hands:
+            repo.save_hand(user["id"], h, upload_id)
+
+    # análise + coaching (Claude se configurado; senão resumo determinístico)
+    lines = [f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"]
     if hands[0].format.value in ("tournament", "sng") and len(hands) > 1:
-        rep = analyze_tournament(hands)
-        lines.append(rep["summary"])
-        if rep.get("biggest_loss"):
-            lines.append(f"\nMaior perda: {rep['biggest_loss']['net_bb']:+.1f} BB")
+        structured = analyze_tournament(hands)
     else:
-        a = analyze_hand(hands[0])
-        lines.append(a["summary"])
+        structured = analyze_hand(hands[0])
+
+    stats = compute_player_stats(hands, hands[0].hero) if hands[0].hero else None
+    if user and stats:
+        repo.upsert_player_stats(user["id"], stats)
+
+    coaching = llm_summary(structured, stats.__dict__ if stats else None, lang="pt")
+    lines.append(coaching)
 
     await update.message.reply_markdown("\n".join(lines))
 
@@ -90,6 +130,7 @@ def build_application() -> Application:
     app = Application.builder().token(settings.telegram_bot_token).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("plano", cmd_plano))
+    app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     return app
 

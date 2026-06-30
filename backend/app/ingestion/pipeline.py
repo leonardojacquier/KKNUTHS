@@ -44,13 +44,12 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
         text = _pdf_to_text(content)
         if text and detect_site(text):
             return IngestResult(parse_text(text), detect_site(text), "pdf", confidence=0.95)
-        return IngestResult([], None, "pdf", confidence=0.0, needs_review=True,
-                            note="PDF sem texto reconhecível; encaminhar ao fluxo de visão")
+        # PDF-imagem (sem texto): cai no fluxo de visão
+        return _vision_ingest(content, "pdf")
 
     if fmt in ("image", "png", "jpg", "jpeg"):
-        # visão do LLM extrai board/stacks/ações -> canônico (confidence < 1.0)
-        return IngestResult([], None, "image", confidence=0.0, needs_review=True,
-                            note="extração por visão do LLM ainda não conectada")
+        media = "image/jpeg" if fmt in ("jpg", "jpeg") else "image/png"
+        return _vision_ingest(content, "image", media)
 
     if fmt == "csv":
         return IngestResult([], None, "csv", confidence=0.0, needs_review=True,
@@ -58,6 +57,21 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
 
     return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
                         note=f"formato '{fmt}' não suportado")
+
+
+def _vision_ingest(content: bytes | str, fmt: str, media: str = "image/png") -> IngestResult:
+    """Extrai um snapshot de mão via visão do Claude (confidence < 1.0)."""
+    from app.agent.llm import extract_from_image
+
+    if isinstance(content, str):
+        content = content.encode()
+    hand = extract_from_image(content, media)
+    if hand is None:
+        return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
+                            note="visão indisponível (sem ANTHROPIC_API_KEY) ou extração falhou")
+    return IngestResult([hand], hand.site, fmt, confidence=hand.confidence,
+                        needs_review=hand.confidence < 0.9,
+                        note="snapshot extraído por visão; confira os valores")
 
 
 def _pdf_to_text(content: bytes | str) -> str:

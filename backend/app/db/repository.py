@@ -1,0 +1,163 @@
+"""Persistência no Supabase (Postgres).
+
+Camada fina sobre o cliente supabase-py. Quando `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`
+não estão configurados, o repositório fica *desabilitado* e todos os métodos viram
+no-op (retornam None) — assim o bot roda em dev sem banco e os testes não tocam rede.
+"""
+from __future__ import annotations
+
+import logging
+from functools import lru_cache
+from typing import Any, Optional
+
+from app.config import get_settings
+from app.models.canonical import CanonicalHand
+
+log = logging.getLogger("repository")
+
+
+class Repository:
+    def __init__(self) -> None:
+        s = get_settings()
+        self.enabled = bool(s.supabase_url and s.supabase_service_key)
+        self._url = s.supabase_url
+        self._key = s.supabase_service_key
+        self._client = None
+
+    # ------------------------------------------------------------------
+    @property
+    def client(self):
+        if not self.enabled:
+            return None
+        if self._client is None:
+            from supabase import create_client  # lazy import
+
+            self._client = create_client(self._url, self._key)
+        return self._client
+
+    def _guard(self) -> bool:
+        if not self.enabled:
+            log.debug("repository desabilitado (Supabase não configurado)")
+        return self.enabled
+
+    # ------------------------------- users ----------------------------
+    def get_or_create_user(
+        self, telegram_id: int, username: str | None = None, lang: str = "pt"
+    ) -> Optional[dict]:
+        if not self._guard():
+            return None
+        existing = (
+            self.client.table("users").select("*").eq("telegram_id", telegram_id).execute()
+        )
+        if existing.data:
+            return existing.data[0]
+        created = (
+            self.client.table("users")
+            .insert({"telegram_id": telegram_id, "username": username, "lang": lang})
+            .execute()
+        )
+        return created.data[0] if created.data else None
+
+    # ------------------------------ uploads ---------------------------
+    def save_upload(
+        self, user_id: str, file_url: str | None, fmt: str, site: str | None, confidence: float
+    ) -> Optional[str]:
+        if not self._guard():
+            return None
+        row = (
+            self.client.table("uploads")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "file_url": file_url,
+                    "format": fmt,
+                    "site": site,
+                    "confidence": confidence,
+                    "status": "analyzed",
+                }
+            )
+            .execute()
+        )
+        return row.data[0]["id"] if row.data else None
+
+    # ------------------------------- hands ----------------------------
+    def save_hand(
+        self, user_id: str, hand: CanonicalHand, upload_id: str | None = None
+    ) -> Optional[str]:
+        """Upsert por (user_id, site, hand_id) — reenvios não duplicam."""
+        if not self._guard():
+            return None
+        payload = {
+            "user_id": user_id,
+            "upload_id": upload_id,
+            "site": hand.site,
+            "hand_id": hand.hand_id,
+            "format": hand.format.value,
+            "canonical": hand.model_dump(mode="json"),
+            "played_at": hand.played_at,
+        }
+        row = (
+            self.client.table("hands")
+            .upsert(payload, on_conflict="user_id,site,hand_id")
+            .execute()
+        )
+        return row.data[0]["id"] if row.data else None
+
+    def save_hand_analysis(
+        self,
+        hand_row_id: str,
+        structured: dict,
+        summary: str,
+        embedding: list[float] | None = None,
+    ) -> Optional[str]:
+        if not self._guard():
+            return None
+        row = (
+            self.client.table("hand_analysis")
+            .insert(
+                {
+                    "hand_id": hand_row_id,
+                    "ev_loss": structured.get("net_bb"),
+                    "mistakes": structured.get("spots"),
+                    "summary": summary,
+                    "embedding": embedding,
+                }
+            )
+            .execute()
+        )
+        return row.data[0]["id"] if row.data else None
+
+    # --------------------------- player stats -------------------------
+    def upsert_player_stats(self, user_id: str, stats: Any) -> None:
+        if not self._guard():
+            return None
+        self.client.table("player_stats").upsert(
+            {
+                "user_id": user_id,
+                "hands": stats.hands,
+                "vpip": stats.vpip,
+                "pfr": stats.pfr,
+                "three_bet": stats.three_bet,
+                "af": stats.af,
+                "label": stats.label,
+                "detail": stats.detail,
+            },
+            on_conflict="user_id",
+        ).execute()
+
+    # ------------------------- knowledge base (RAG) -------------------
+    def search_analysis(
+        self, user_id: str, embedding: list[float], limit: int = 8
+    ) -> list[dict]:
+        if not self._guard():
+            return []
+        res = self.client.rpc(
+            "match_hand_analysis",
+            {"p_user_id": user_id, "p_query": embedding, "p_limit": limit},
+        ).execute()
+        return res.data or []
+
+
+@lru_cache
+def get_repository() -> Repository:
+    return Repository()

@@ -42,14 +42,25 @@ pytest -q
 uvicorn app.api.main:app --reload
 ```
 
-## Estado atual (fundação)
+## Estado atual
 
-Implementado e testável **sem chaves**:
+Implementado e testável **sem chaves** (26 testes):
 - Formato canônico de mão (validação Pydantic).
-- Parser PokerStars (torneio + cash) → canônico.
-- Ferramentas de análise: pot odds, EV, SPR, equity (via `treys`).
+- Parsers **PokerStars** e **GGPoker** (torneio + cash) → canônico, com corpo compartilhado.
+- Ferramentas de análise: pot odds, EV, SPR, blefe; equity Monte Carlo (interno + `treys`).
+- Agente determinístico: reconstrução de pote, spots, relatório de torneio, stats de estilo.
+- Degradação graciosa: sem chave o coaching cai no resumo determinístico; sem Supabase o
+  repositório vira no-op.
 
-Plugável / a conectar:
-- Bot Telegram (esqueleto com fluxo "recebido → analisando").
-- Agente LLM (Claude) + base de conhecimento (Supabase/pgvector).
-- Billing (Stripe).
+Conectado, ativa com credenciais:
+- **Claude** (`app/agent/llm.py`): coaching em linguagem natural com *tool use* — o LLM
+  chama equity/pot-odds/EV/SPR e nunca inventa número. Define `ANTHROPIC_API_KEY`.
+- **Visão** (`extract_from_image`): prints/PDF-imagem → snapshot canônico (confidence < 1.0).
+- **Supabase** (`app/db/repository.py`): usuários, uploads, mãos, análise, stats, RAG.
+  Aplique `app/db/schema.sql` e defina `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`.
+- **Bot Telegram** (`/start`, `/stats`, `/plano`, upload): fluxo "recebido → analisando".
+
+A conectar:
+- Embeddings para popular o vetor de `hand_analysis` (busca semântica da KB).
+- Billing (Stripe): checkout + webhooks (esqueleto em `app/api/main.py`).
+- Fila de jobs (RQ) para processamento assíncrono de arquivos grandes.

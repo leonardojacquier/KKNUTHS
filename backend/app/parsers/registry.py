@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from app.models.canonical import CanonicalHand
+from app.parsers.ggpoker import GGPokerParser
 from app.parsers.pokerstars import PokerStarsParser
 
 # parsers determinísticos disponíveis (ordem importa: o primeiro que casar vence)
-_PARSERS = [PokerStarsParser()]
+_PARSERS = [PokerStarsParser(), GGPokerParser()]
 
 
 def detect_site(raw_text: str) -> str | None:

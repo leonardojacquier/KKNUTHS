@@ -140,18 +140,12 @@ def _deterministic_summary(hand: CanonicalHand, spots: list[dict], net: float, b
     return " ".join(parts)
 
 
-def llm_summary(structured: dict, lang: str = "pt") -> str:
-    """Hook para o LLM (Claude). Recebe a análise estruturada e devolve a leitura
-    técnica em linguagem natural. Sem ANTHROPIC_API_KEY, cai no resumo determinístico.
+def llm_summary(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
+    """Coaching em linguagem natural via Claude (com tools determinísticas).
+
+    Recebe a análise estruturada e as stats do jogador; o LLM julga e explica usando
+    os números já calculados. Sem ANTHROPIC_API_KEY, cai no resumo determinístico.
     """
-    from app.config import get_settings
+    from app.agent.llm import coach
 
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return structured.get("summary", "")
-
-    # Integração real com a API Claude entra aqui (mantida fora do caminho de teste).
-    # from anthropic import Anthropic
-    # client = Anthropic(api_key=settings.anthropic_api_key)
-    # ... montar prompt com `structured`, chamar settings.analysis_model ...
-    return structured.get("summary", "")
+    return coach(structured, stats, lang)

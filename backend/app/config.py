@@ -4,9 +4,12 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
-from dotenv import load_dotenv
+try:  # dotenv é conveniência de dev; ausência não deve quebrar runtime/testes
+    from dotenv import load_dotenv
 
-load_dotenv()
+    load_dotenv()
+except ImportError:
+    pass
 
 
 class Settings:

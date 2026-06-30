@@ -1,0 +1,278 @@
+"""Integração com o Claude (Anthropic) — o LLM faz o *julgamento*, não a conta.
+
+Arquitetura: a camada determinística (`analyze_hand`) já calculou pote, spots e
+métricas. O Claude recebe isso pronto e, quando precisa de um número adicional,
+chama uma *tool* determinística (equity, pot odds, EV, SPR) via function calling —
+ele nunca inventa um valor. O resultado é coaching em linguagem natural ancorado
+em matemática correta.
+
+Sem `ANTHROPIC_API_KEY` (ou em qualquer falha), cai no resumo determinístico —
+o produto nunca quebra por causa do LLM.
+"""
+from __future__ import annotations
+
+import base64
+import json
+
+from app.analysis.equity import equity_vs_random
+from app.analysis.tools import breakeven_bluff, ev_call, pot_odds, spr
+from app.config import get_settings
+from app.models.canonical import CanonicalHand
+
+MAX_TOOL_ROUNDS = 5
+
+# Ferramentas determinísticas expostas ao Claude (function calling).
+TOOLS = [
+    {
+        "name": "equity",
+        "description": "Equity (0-1) do herói por Monte Carlo contra N mãos aleatórias, "
+        "dado hole cards e board. Use para ancorar a força da mão.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "hero_cards": {"type": "array", "items": {"type": "string"}},
+                "board": {"type": "array", "items": {"type": "string"}},
+                "num_opponents": {"type": "integer", "default": 1},
+            },
+            "required": ["hero_cards"],
+        },
+    },
+    {
+        "name": "pot_odds",
+        "description": "Equity mínima necessária para um call ser neutro em EV = "
+        "to_call / (pot + to_call).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pot": {"type": "number"},
+                "to_call": {"type": "number"},
+            },
+            "required": ["pot", "to_call"],
+        },
+    },
+    {
+        "name": "ev_call",
+        "description": "EV em fichas de pagar, dada a equity. equity*pot - (1-equity)*to_call.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "equity": {"type": "number"},
+                "pot": {"type": "number"},
+                "to_call": {"type": "number"},
+            },
+            "required": ["equity", "pot", "to_call"],
+        },
+    },
+    {
+        "name": "spr",
+        "description": "Stack-to-pot ratio = effective_stack / pot.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "effective_stack": {"type": "number"},
+                "pot": {"type": "number"},
+            },
+            "required": ["effective_stack", "pot"],
+        },
+    },
+    {
+        "name": "breakeven_bluff",
+        "description": "Frequência de fold necessária para um blefe lucrar = bet/(pot+bet).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "bet": {"type": "number"},
+                "pot": {"type": "number"},
+            },
+            "required": ["bet", "pot"],
+        },
+    },
+]
+
+_SYSTEM = {
+    "pt": (
+        "Você é um coach de pôquer profissional (NLHE). Analise a mão/torneio do aluno "
+        "com rigor técnico e objetividade. Regras invioláveis:\n"
+        "1) NUNCA invente números. Para qualquer equity, pot odds, EV ou SPR, chame a "
+        "ferramenta correspondente e use o valor retornado.\n"
+        "2) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
+        "3) Considere posição, profundidade de stack e, em torneio, pressão de ICM/bubble.\n"
+        "4) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
+        "Seja direto e prático. Responda em português."
+    ),
+    "en": (
+        "You are a professional poker coach (NLHE). Analyze the student's hand/tournament "
+        "rigorously. Inviolable rules:\n"
+        "1) NEVER invent numbers. For any equity, pot odds, EV or SPR, call the matching "
+        "tool and use the returned value.\n"
+        "2) Point out the concrete mistake(s), explain the better line, quantify the impact.\n"
+        "3) Consider position, stack depth and, in MTT, ICM/bubble pressure.\n"
+        "4) End with a short plan: 2-3 prioritized study actions.\n"
+        "Be direct and practical. Answer in English."
+    ),
+}
+
+
+def _dispatch(name: str, args: dict) -> float:
+    if name == "equity":
+        return equity_vs_random(
+            args["hero_cards"],
+            args.get("board") or [],
+            int(args.get("num_opponents", 1)),
+            iterations=3000,
+            seed=13,
+        )
+    if name == "pot_odds":
+        return pot_odds(args["pot"], args["to_call"])
+    if name == "ev_call":
+        return ev_call(args["equity"], args["pot"], args["to_call"])
+    if name == "spr":
+        return spr(args["effective_stack"], args["pot"])
+    if name == "breakeven_bluff":
+        return breakeven_bluff(args["bet"], args["pot"])
+    raise ValueError(f"tool desconhecida: {name}")
+
+
+def coach(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
+    """Gera o coaching via Claude. Cai no resumo determinístico se o LLM indisponível."""
+    settings = get_settings()
+    fallback = structured.get("summary", "")
+    if not settings.anthropic_api_key:
+        return fallback
+
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return fallback
+
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        system = _SYSTEM.get(lang, _SYSTEM["pt"])
+        context = {"analysis": structured, "player_stats": stats or {}}
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    "Analise esta mão/torneio. Dados estruturados (números já calculados, "
+                    "use-os; chame tools só para cálculos adicionais):\n\n"
+                    + json.dumps(context, ensure_ascii=False, indent=2)
+                ),
+            }
+        ]
+
+        for _ in range(MAX_TOOL_ROUNDS):
+            resp = client.messages.create(
+                model=settings.analysis_model,
+                max_tokens=1200,
+                system=system,
+                tools=TOOLS,
+                messages=messages,
+            )
+            if resp.stop_reason != "tool_use":
+                return "".join(b.text for b in resp.content if b.type == "text").strip() or fallback
+
+            messages.append({"role": "assistant", "content": resp.content})
+            tool_results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    try:
+                        value = _dispatch(block.name, block.input)
+                        out = json.dumps({"result": round(value, 4)})
+                    except Exception as exc:  # erro de tool não derruba a análise
+                        out = json.dumps({"error": str(exc)})
+                    tool_results.append(
+                        {"type": "tool_result", "tool_use_id": block.id, "content": out}
+                    )
+            messages.append({"role": "user", "content": tool_results})
+
+        return fallback
+    except Exception:
+        # qualquer falha de rede/SDK -> resumo determinístico
+        return fallback
+
+
+_VISION_PROMPT = (
+    "Você recebe um print/foto de uma mesa de pôquer (NLHE). Extraia o que estiver "
+    "VISÍVEL e retorne APENAS um JSON, sem texto fora dele, no formato:\n"
+    "{\n"
+    '  "site": "<sala ou null>",\n'
+    '  "format": "cash|tournament",\n'
+    '  "hero_cards": ["As","Kd"],            // cartas do herói, se visíveis\n'
+    '  "final_board": ["Ah","7c","2d"],      // cartas comunitárias visíveis\n'
+    '  "players": [{"seat":1,"name":"...","stack":1500,"position":null}],\n'
+    '  "stakes": {"small_blind":0,"big_blind":0,"currency":"USD"},\n'
+    '  "pot": 0\n'
+    "}\n"
+    "Use a notação de carta de duas letras (rank em 23456789TJQKA, naipe em cdhs). "
+    "Se um campo não for legível, use null ou lista vazia. Não invente valores."
+)
+
+
+def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> CanonicalHand | None:
+    """Extrai um snapshot de mão de um print via visão do Claude.
+
+    Retorna um `CanonicalHand` parcial com `confidence` < 1.0 (dado de visão é menos
+    confiável que hand history nativa). Sem chave/lib ou em falha, retorna None.
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        b64 = base64.standard_b64encode(image_bytes).decode()
+        resp = client.messages.create(
+            model=settings.analysis_model,
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": media_type, "data": b64},
+                        },
+                        {"type": "text", "text": _VISION_PROMPT},
+                    ],
+                }
+            ],
+        )
+        text = "".join(b.text for b in resp.content if b.type == "text").strip()
+        data = json.loads(_strip_code_fence(text))
+        return _snapshot_to_canonical(data)
+    except Exception:
+        return None
+
+
+def _strip_code_fence(text: str) -> str:
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("```", 2)[1]
+        if t.startswith("json"):
+            t = t[4:]
+    return t.strip()
+
+
+def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
+    from app.models.canonical import HandFormat, PlayerSeat, Stakes
+
+    stakes = Stakes(**(data.get("stakes") or {}))
+    players = [PlayerSeat(**p) for p in (data.get("players") or []) if "seat" in p]
+    fmt = data.get("format") or "cash"
+    hand = CanonicalHand(
+        hand_id="vision-snapshot",
+        site=data.get("site") or "unknown",
+        format=HandFormat(fmt) if fmt in ("cash", "tournament", "sng") else HandFormat.CASH,
+        stakes=stakes,
+        players=players,
+        hero_cards=data.get("hero_cards") or [],
+        final_board=data.get("final_board") or [],
+        total_pot=data.get("pot"),
+        source_format="image",
+        confidence=0.8,
+    )
+    return hand

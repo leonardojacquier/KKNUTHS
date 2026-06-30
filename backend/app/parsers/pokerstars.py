@@ -36,7 +36,7 @@ _TABLE = re.compile(
 _SEAT = re.compile(r"Seat (?P<seat>\d+): (?P<name>.+?) \((?P<stack>[\d.]+) in chips\)")
 _POST_SB = re.compile(r"^(?P<name>.+?): posts small blind (?P<amt>[\d.]+)")
 _POST_BB = re.compile(r"^(?P<name>.+?): posts big blind (?P<amt>[\d.]+)")
-_POST_ANTE = re.compile(r"^(?P<name>.+?): posts the ante (?P<amt>[\d.]+)")
+_POST_ANTE = re.compile(r"^(?P<name>.+?): posts (?:the )?ante (?P<amt>[\d.]+)")
 _DEALT = re.compile(r"^Dealt to (?P<name>.+?) \[(?P<cards>[^\]]+)\]")
 _ACTION = re.compile(
     r"^(?P<name>.+?): (?P<verb>folds|checks|calls|bets|raises)"
@@ -119,128 +119,134 @@ class PokerStarsParser:
             source_format="txt",
             confidence=1.0,
         )
+        return parse_body(lines, hand)
 
-        # tabela / botão
-        for line in lines[1:4]:
-            t = _TABLE.search(line)
-            if t:
-                hand.max_seats = int(t.group("max"))
-                hand.button_seat = int(t.group("btn"))
-                break
 
-        # assentos
-        for line in lines:
-            s = _SEAT.match(line)
-            if s:
-                hand.players.append(
-                    PlayerSeat(
-                        seat=int(s.group("seat")),
-                        name=s.group("name"),
-                        stack=float(s.group("stack")),
-                    )
+def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
+    """Parseia o corpo de uma mão (mesa, assentos, streets, ações, summary).
+
+    O formato do corpo é o padrão usado por PokerStars/GGPoker e outras salas, então
+    é compartilhado entre parsers — cada parser só precisa montar o header e o `hand`.
+    """
+    # tabela / botão
+    for line in lines[1:4]:
+        t = _TABLE.search(line)
+        if t:
+            hand.max_seats = int(t.group("max"))
+            hand.button_seat = int(t.group("btn"))
+            break
+
+    # assentos
+    for line in lines:
+        s = _SEAT.match(line)
+        if s:
+            hand.players.append(
+                PlayerSeat(
+                    seat=int(s.group("seat")),
+                    name=s.group("name"),
+                    stack=float(s.group("stack")),
                 )
-            elif line.startswith("***") or line.startswith("Dealt"):
-                break
+            )
+        elif line.startswith("***") or line.startswith("Dealt"):
+            break
 
-        # posições
-        if hand.button_seat is not None and hand.players:
-            pos = assign_positions([p.seat for p in hand.players], hand.button_seat)
+    # posições
+    if hand.button_seat is not None and hand.players:
+        pos = assign_positions([p.seat for p in hand.players], hand.button_seat)
+        for p in hand.players:
+            p.position = pos.get(p.seat)
+
+    # streets
+    streets: dict[StreetName, Street] = {StreetName.PREFLOP: Street(name=StreetName.PREFLOP)}
+    order: list[StreetName] = [StreetName.PREFLOP]
+    current = StreetName.PREFLOP
+
+    for line in lines:
+        line = line.strip()
+
+        if _FLOP.search(line):
+            board = _FLOP.search(line).group("b").split()
+            streets[StreetName.FLOP] = Street(name=StreetName.FLOP, board=board)
+            order.append(StreetName.FLOP)
+            current = StreetName.FLOP
+            continue
+        if _TURN.search(line):
+            card = _TURN.search(line).group("c")
+            prev = list(streets[StreetName.FLOP].board)
+            streets[StreetName.TURN] = Street(name=StreetName.TURN, board=prev + [card])
+            order.append(StreetName.TURN)
+            current = StreetName.TURN
+            continue
+        if _RIVER.search(line):
+            card = _RIVER.search(line).group("c")
+            prev = list(streets[StreetName.TURN].board)
+            streets[StreetName.RIVER] = Street(name=StreetName.RIVER, board=prev + [card])
+            order.append(StreetName.RIVER)
+            current = StreetName.RIVER
+            continue
+
+        # hero cards
+        d = _DEALT.match(line)
+        if d:
+            hand.hero = d.group("name")
+            hand.hero_cards = d.group("cards").split()
             for p in hand.players:
-                p.position = pos.get(p.seat)
+                p.is_hero = p.name == hand.hero
+            continue
 
-        # streets
-        streets: dict[StreetName, Street] = {
-            StreetName.PREFLOP: Street(name=StreetName.PREFLOP)
-        }
-        order: list[StreetName] = [StreetName.PREFLOP]
-        current = StreetName.PREFLOP
-
-        for line in lines:
-            line = line.strip()
-
-            if _FLOP.search(line):
-                board = _FLOP.search(line).group("b").split()
-                streets[StreetName.FLOP] = Street(name=StreetName.FLOP, board=board)
-                order.append(StreetName.FLOP)
-                current = StreetName.FLOP
-                continue
-            if _TURN.search(line):
-                card = _TURN.search(line).group("c")
-                prev = list(streets[StreetName.FLOP].board)
-                streets[StreetName.TURN] = Street(name=StreetName.TURN, board=prev + [card])
-                order.append(StreetName.TURN)
-                current = StreetName.TURN
-                continue
-            if _RIVER.search(line):
-                card = _RIVER.search(line).group("c")
-                prev = list(streets[StreetName.TURN].board)
-                streets[StreetName.RIVER] = Street(name=StreetName.RIVER, board=prev + [card])
-                order.append(StreetName.RIVER)
-                current = StreetName.RIVER
-                continue
-
-            # hero cards
-            d = _DEALT.match(line)
-            if d:
-                hand.hero = d.group("name")
-                hand.hero_cards = d.group("cards").split()
-                for p in hand.players:
-                    p.is_hero = p.name == hand.hero
-                continue
-
-            # blinds / antes (sempre na preflop)
-            for rx, atype in ((_POST_SB, "sb"), (_POST_BB, "bb"), (_POST_ANTE, "ante")):
-                pm = rx.match(line)
-                if pm:
-                    amt = float(pm.group("amt"))
-                    streets[StreetName.PREFLOP].actions.append(
-                        Action(
-                            actor=pm.group("name"),
-                            type=ActionType.POST,
-                            amount=amt,
-                            post_type=atype,
-                        )
+        # blinds / antes (sempre na preflop)
+        for rx, atype in ((_POST_SB, "sb"), (_POST_BB, "bb"), (_POST_ANTE, "ante")):
+            pm = rx.match(line)
+            if pm:
+                amt = float(pm.group("amt"))
+                streets[StreetName.PREFLOP].actions.append(
+                    Action(
+                        actor=pm.group("name"),
+                        type=ActionType.POST,
+                        amount=amt,
+                        post_type=atype,
                     )
-                    if atype == "ante":
-                        hand.stakes.ante = amt
-                    break
-            else:
-                # ações de jogo
-                am = _ACTION.match(line)
-                if am:
-                    verb = am.group("verb")
-                    a1 = float(am.group("a1")) if am.group("a1") else 0.0
-                    a2 = float(am.group("a2")) if am.group("a2") else 0.0
-                    streets[current].actions.append(
-                        Action(
-                            actor=am.group("name"),
-                            type=_VERB_MAP[verb],
-                            amount=a1,
-                            to_amount=a2 or a1,
-                            all_in=bool(am.group("allin")),
-                        )
-                    )
-                    continue
-
-            # summary
-            c = _COLLECT.match(line)
-            if c:
-                hand.collected[c.group("name")] = (
-                    hand.collected.get(c.group("name"), 0.0) + float(c.group("amt"))
                 )
-            b = _BOARD.match(line)
-            if b:
-                hand.final_board = b.group("b").split()
-            tp = _TOTAL_POT.match(line)
-            if tp:
-                hand.total_pot = float(tp.group("pot"))
-                if tp.group("rake"):
-                    hand.rake = float(tp.group("rake"))
+                if atype == "ante":
+                    hand.stakes.ante = amt
+                break
+        else:
+            # ações de jogo
+            am = _ACTION.match(line)
+            if am:
+                verb = am.group("verb")
+                a1 = float(am.group("a1")) if am.group("a1") else 0.0
+                a2 = float(am.group("a2")) if am.group("a2") else 0.0
+                streets[current].actions.append(
+                    Action(
+                        actor=am.group("name"),
+                        type=_VERB_MAP[verb],
+                        amount=a1,
+                        to_amount=a2 or a1,
+                        all_in=bool(am.group("allin")),
+                    )
+                )
+                continue
 
-        hand.streets = [streets[name] for name in order]
-        if not hand.final_board and StreetName.RIVER in streets:
-            hand.final_board = list(streets[StreetName.RIVER].board)
-        return hand
+        # summary
+        c = _COLLECT.match(line)
+        if c:
+            hand.collected[c.group("name")] = (
+                hand.collected.get(c.group("name"), 0.0) + float(c.group("amt"))
+            )
+        b = _BOARD.match(line)
+        if b:
+            hand.final_board = b.group("b").split()
+        tp = _TOTAL_POT.match(line)
+        if tp:
+            hand.total_pot = float(tp.group("pot"))
+            if tp.group("rake"):
+                hand.rake = float(tp.group("rake"))
+
+    hand.streets = [streets[name] for name in order]
+    if not hand.final_board and StreetName.RIVER in streets:
+        hand.final_board = list(streets[StreetName.RIVER].board)
+    return hand
 
 
 def _parse_buyin(token: str) -> float | None:
