@@ -67,3 +67,21 @@ Conectado, ativa com credenciais:
 A conectar:
 - Fila de jobs (RQ) para processamento assíncrono de arquivos grandes.
 - Painel web (read-only) com gráficos do histórico.
+
+## Colocar no ar (checklist)
+
+1. **Claude / OpenAI / Telegram** — chaves no `.env` (`ANTHROPIC_API_KEY`,
+   `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`).
+2. **Supabase service key** — a única que precisa de 2 cliques manuais (o MCP/API de
+   management não expõe a service_role por segurança):
+   Dashboard → projeto **kknuths-poker** → *Project Settings* → *API Keys* →
+   copie a **service_role** para `SUPABASE_SERVICE_KEY`.
+   Link direto: https://supabase.com/dashboard/project/htvjviovcfvtpgeloekn/settings/api-keys
+3. **Stripe** — crie a conta em https://dashboard.stripe.com (~2 min), copie a
+   *Secret key* (`sk_test_...` primeiro) para `STRIPE_SECRET_KEY` e rode:
+   `PYTHONPATH=. python3 scripts/setup_stripe.py`
+   O script cria os produtos/preços (Pro R$49, Premium R$129) e imprime os
+   `STRIPE_PRICE_*`. Depois configure o webhook no dashboard →
+   `{PUBLIC_BASE_URL}/stripe/webhook` e copie o `whsec_...`.
+4. **Rodar o bot (dev)**: `PYTHONPATH=. python3 run_bot.py` (long-polling).
+   Produção: `uvicorn app.api.main:app` atrás de HTTPS + webhook do Telegram.
