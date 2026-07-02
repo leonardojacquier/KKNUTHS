@@ -1,6 +1,21 @@
-"""Testes offline (sem chaves) de embeddings e billing — garantem degradação graciosa."""
+"""Testes offline de embeddings e billing — herméticos (limpam env e cache),
+garantem a degradação graciosa independentemente das chaves no .env."""
+import pytest
+
 from app.agent.embeddings import embed_query, embed_text
 from app.billing import create_checkout_session, handle_webhook, is_enabled
+from app.config import get_settings
+
+_SECRET_VARS = ["OPENAI_API_KEY", "VOYAGE_API_KEY", "STRIPE_SECRET_KEY"]
+
+
+@pytest.fixture(autouse=True)
+def offline_env(monkeypatch):
+    for var in _SECRET_VARS:
+        monkeypatch.delenv(var, raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_embeddings_none_without_provider():
