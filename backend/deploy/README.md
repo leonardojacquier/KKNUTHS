@@ -51,7 +51,18 @@ ssh root@187.127.13.220 "pm2 restart poker-bot"     # reiniciar
 ssh root@187.127.13.220 "pm2 logs poker-bot"        # logs ao vivo
 ```
 
-## Atualizar versão
+## Auto-deploy (instalar uma vez, nunca mais atualizar na mão)
+
+O cron confere o GitHub a cada 2 min; commit novo → testes → deploy → aviso
+no Telegram do admin. Commit com teste quebrado NÃO sobe (bot antigo segue no ar).
+
+```powershell
+ssh root@187.127.13.220 "chmod +x /opt/poker-bot/deploy/auto_update.sh; grep -q '^TELEGRAM_ADMIN_CHAT_ID=' /opt/poker-bot/.env || echo 'TELEGRAM_ADMIN_CHAT_ID=6452742024' >> /opt/poker-bot/.env; (crontab -l 2>/dev/null | grep -v poker-autodeploy; echo '*/2 * * * * /opt/poker-bot/deploy/auto_update.sh >> /var/log/poker-autodeploy.log 2>&1') | crontab -; echo CRON INSTALADO"
+```
+
+Acompanhar: `ssh root@187.127.13.220 "tail -20 /var/log/poker-autodeploy.log"`
+
+## Atualizar versão (manual, se precisar)
 
 Repita os passos 2 e 3 do deploy (scp + script). O script commita o estado
 anterior no git local do servidor antes de aplicar — rollback é `git checkout`.
