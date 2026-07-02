@@ -7,13 +7,31 @@ no-op (retornam None) — assim o bot roda em dev sem banco e os testes não toc
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
+from functools import lru_cache, wraps
 from typing import Any, Optional
 
 from app.config import get_settings
 from app.models.canonical import CanonicalHand
 
 log = logging.getLogger("repository")
+
+
+def _safe(default):
+    """Persistência nunca derruba uma análise: qualquer erro de rede/banco vira
+    log + valor default (o chamador já trata None/[] como 'sem banco')."""
+
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return fn(self, *args, **kwargs)
+            except Exception as exc:
+                log.warning("repositorio %s falhou: %s", fn.__name__, exc)
+                return default
+
+        return wrapper
+
+    return deco
 
 
 class Repository:
@@ -41,6 +59,7 @@ class Repository:
         return self.enabled
 
     # ------------------------------- users ----------------------------
+    @_safe(None)
     def get_or_create_user(
         self, telegram_id: int, username: str | None = None, lang: str = "pt"
     ) -> Optional[dict]:
@@ -59,6 +78,7 @@ class Repository:
         return created.data[0] if created.data else None
 
     # ------------------------------ uploads ---------------------------
+    @_safe(None)
     def save_upload(
         self, user_id: str, file_url: str | None, fmt: str, site: str | None, confidence: float
     ) -> Optional[str]:
@@ -81,6 +101,7 @@ class Repository:
         return row.data[0]["id"] if row.data else None
 
     # ------------------------------- hands ----------------------------
+    @_safe(None)
     def save_hand(
         self, user_id: str, hand: CanonicalHand, upload_id: str | None = None
     ) -> Optional[str]:
@@ -103,6 +124,7 @@ class Repository:
         )
         return row.data[0]["id"] if row.data else None
 
+    @_safe([])
     def get_all_hands(self, user_id: str, limit: int = 5000) -> list[CanonicalHand]:
         """Histórico completo do usuário (para stats cumulativas)."""
         if not self._guard():
@@ -123,6 +145,7 @@ class Repository:
                 continue
         return out
 
+    @_safe(None)
     def save_hand_analysis(
         self,
         hand_row_id: str,
@@ -148,6 +171,7 @@ class Repository:
         return row.data[0]["id"] if row.data else None
 
     # --------------------------- player stats -------------------------
+    @_safe(None)
     def upsert_player_stats(self, user_id: str, stats: Any) -> None:
         if not self._guard():
             return None
@@ -166,17 +190,20 @@ class Repository:
         ).execute()
 
     # ------------------------------ billing ---------------------------
+    @_safe(None)
     def get_user_by_id(self, user_id: str) -> Optional[dict]:
         if not self._guard():
             return None
         res = self.client.table("users").select("*").eq("id", user_id).execute()
         return res.data[0] if res.data else None
 
+    @_safe(None)
     def update_user_plan(self, user_id: str, plan: str) -> None:
         if not self._guard():
             return None
         self.client.table("users").update({"plan": plan}).eq("id", user_id).execute()
 
+    @_safe(None)
     def add_credits(self, user_id: str, amount: int) -> None:
         if not self._guard():
             return None
@@ -185,6 +212,7 @@ class Repository:
             new = (user.get("credits") or 0) + amount
             self.client.table("users").update({"credits": new}).eq("id", user_id).execute()
 
+    @_safe(None)
     def upsert_subscription(self, sub: dict) -> None:
         """sub: {user_id, stripe_customer, stripe_sub_id, plan, status, period_end}."""
         if not self._guard():
@@ -193,6 +221,7 @@ class Repository:
             sub, on_conflict="stripe_sub_id"
         ).execute()
 
+    @_safe(None)
     def record_usage(self, user_id: str, type_: str, cost_credits: int = 0) -> None:
         if not self._guard():
             return None
@@ -201,6 +230,7 @@ class Repository:
         ).execute()
 
     # ------------------------- knowledge base (RAG) -------------------
+    @_safe([])
     def search_analysis(
         self, user_id: str, embedding: list[float], limit: int = 8
     ) -> list[dict]:

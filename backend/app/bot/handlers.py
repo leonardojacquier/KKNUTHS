@@ -110,7 +110,7 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if err:
         await update.message.reply_text(err)
         return
-    await update.message.reply_markdown(f"*{query}*\n\n{body}")
+    await _safe_reply(update.message, f"*{query}*\n\n{body}")
 
 
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -175,7 +175,7 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     reply = await asyncio.to_thread(
         process_upload, content, fmt, tg_user.id, tg_user.username
     )
-    await update.message.reply_markdown(reply)
+    await _safe_reply(update.message, reply)
 
 
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -188,7 +188,20 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     reply = await asyncio.to_thread(
         process_upload, content, "jpg", tg_user.id, tg_user.username
     )
-    await update.message.reply_markdown(reply)
+    await _safe_reply(update.message, reply)
+
+
+async def _safe_reply(message, text: str) -> None:
+    """Envia respeitando o limite de 4096 chars do Telegram; se o Markdown do LLM
+    vier malformado (entidades desbalanceadas), reenvia como texto puro."""
+    from telegram.error import BadRequest
+
+    for start in range(0, len(text), 3900):
+        chunk = text[start:start + 3900]
+        try:
+            await message.reply_markdown(chunk)
+        except BadRequest:
+            await message.reply_text(chunk)
 
 
 def _ext(filename: str | None) -> str:

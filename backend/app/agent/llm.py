@@ -113,6 +113,8 @@ _SYSTEM = {
         "2) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "3) Considere posição, profundidade de stack e, em torneio, pressão de ICM/bubble.\n"
         "4) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
+        "Formato: é uma mensagem de Telegram — não use cabeçalhos '#'; use *negrito*, "
+        "emojis com moderação e parágrafos curtos; máximo ~3000 caracteres.\n"
         "Seja direto e prático. Responda em português."
     ),
     "en": (
