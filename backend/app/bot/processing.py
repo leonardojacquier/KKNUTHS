@@ -116,6 +116,14 @@ def process_upload(
     )
 
     # contexto para follow-up ("não gostei da análise" / "e se o vilão só paga com AQ+?")
+    # se veio de print, guarda a imagem: o coach pode RELÊ-LA no follow-up
+    image_b64 = None
+    media = "image/jpeg"
+    if result.source_format in ("image", "pdf") and isinstance(content, (bytes, bytearray)):
+        import base64 as _b64
+
+        image_b64 = _b64.standard_b64encode(bytes(content)).decode()
+        media = "image/png" if fmt in ("png",) else "image/jpeg"
     LAST_ANALYSIS[telegram_id] = {
         "context": {
             "analysis": structured,
@@ -125,6 +133,8 @@ def process_upload(
         "history": [],
         "hand_row_id": hand_row_ids[0] if hand_row_ids else None,
         "user_id": user["id"] if user else None,
+        "image_b64": image_b64,
+        "media": media,
     }
 
     header = f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"
@@ -147,7 +157,13 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
 
     from app.agent.llm import followup
 
-    answer = followup(ctx["context"], ctx["history"], question)
+    answer = followup(
+        ctx["context"],
+        ctx["history"],
+        question,
+        image_b64=ctx.get("image_b64"),
+        media_type=ctx.get("media", "image/jpeg"),
+    )
     if not answer:
         return (
             "Não consegui aprofundar agora (LLM indisponível). "

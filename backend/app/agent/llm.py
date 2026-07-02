@@ -324,11 +324,15 @@ def followup(
     history: list[dict],
     question: str,
     lang: str = "pt",
+    image_b64: str | None = None,
+    media_type: str = "image/jpeg",
 ) -> str | None:
     """Continua a conversa sobre a última análise, com as mesmas tools.
 
     `context`: análise estruturada + coaching anterior. `history`: turnos
-    anteriores do follow-up [{'q':..., 'a':...}]. Retorna None sem chave/erro.
+    anteriores do follow-up [{'q':..., 'a':...}]. Se a análise veio de um print,
+    `image_b64` traz a imagem original — o modelo pode RELÊ-LA quando o aluno
+    disser que algo foi mal extraído. Retorna None sem chave/erro.
     """
     settings = get_settings()
     if not settings.anthropic_api_key:
@@ -345,16 +349,31 @@ def followup(
             "Responda à pergunta do aluno diretamente — sem repetir a análise inteira. "
             "Use as tools para qualquer número novo. Se o aluno discordar ou trouxer "
             "informação nova (range do vilão, dinâmica da mesa), refaça o cálculo com ela."
+            + (
+                "\nA IMAGEM ORIGINAL do print está anexada: se o aluno disser que algo "
+                "foi lido errado ou está faltando, RELEIA a imagem com atenção — nomes, "
+                "stacks, posições e a linha de ação completa — e corrija a análise."
+                if image_b64
+                else ""
+            )
         )
         system_blocks = [
             {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
         ]
+        ctx_text = "Contexto da análise em discussão:\n" + json.dumps(
+            context, ensure_ascii=False, indent=2
+        )
+        first_content: list | str = ctx_text
+        if image_b64:
+            first_content = [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": image_b64},
+                },
+                {"type": "text", "text": ctx_text},
+            ]
         messages: list[dict] = [
-            {
-                "role": "user",
-                "content": "Contexto da análise em discussão:\n"
-                + json.dumps(context, ensure_ascii=False, indent=2),
-            },
+            {"role": "user", "content": first_content},
             {"role": "assistant", "content": "Entendido. Qual a sua dúvida sobre essa mão/torneio?"},
         ]
         for turn in history[-6:]:
@@ -430,19 +449,28 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
 
 
 _VISION_PROMPT = (
-    "Você recebe um print/foto de uma mesa de pôquer (NLHE). Extraia o que estiver "
-    "VISÍVEL e retorne APENAS um JSON, sem texto fora dele, no formato:\n"
+    "Você recebe um print/foto de pôquer (mesa ao vivo OU replay/histórico de mão — "
+    "replays do GGPoker/PokerStars mostram a ação completa: LEIA TUDO). Extraia "
+    "ABSOLUTAMENTE TODO detalhe visível e retorne APENAS um JSON:\n"
     "{\n"
     '  "site": "<sala ou null>",\n'
     '  "format": "cash|tournament",\n'
-    '  "hero_cards": ["As","Kd"],            // cartas do herói, se visíveis\n'
-    '  "final_board": ["Ah","7c","2d"],      // cartas comunitárias visíveis\n'
-    '  "players": [{"seat":1,"name":"...","stack":1500,"position":null}],\n'
-    '  "stakes": {"small_blind":0,"big_blind":0,"currency":"USD"},\n'
-    '  "pot": 0\n'
+    '  "hero_name": "<nome do jogador em destaque/na parte de baixo/com cartas abertas>",\n'
+    '  "hero_cards": ["As","Kd"],\n'
+    '  "blinds": {"small_blind":0, "big_blind":0, "ante":0, "currency":"USD"},\n'
+    '  "players": [{"seat":1,"name":"...","stack":1500,"position":"BTN","cards":["..."]}],\n'
+    '  "actions": {                          // TODA ação visível, na ordem\n'
+    '    "preflop": [{"actor":"nome","action":"fold|check|call|bet|raise|post|allin","amount":0,"to_amount":0}],\n'
+    '    "flop": [], "turn": [], "river": []\n'
+    "  },\n"
+    '  "board": {"flop":["Ah","7c","2d"], "turn":"9s", "river":"Kc"},\n'
+    '  "total_pot": 0,\n'
+    '  "winner": "<nome ou null>"\n'
     "}\n"
-    "Use a notação de carta de duas letras (rank em 23456789TJQKA, naipe em cdhs). "
-    "Se um campo não for legível, use null ou lista vazia. Não invente valores."
+    "Regras: cartas em 2 caracteres (rank 23456789TJQKA, naipe cdhs; '10' vira 'T'). "
+    "Posições: UTG/MP/HJ/CO/BTN/SB/BB quando visíveis (o botão do dealer indica o BTN). "
+    "Em replay, transcreva a linha de ação inteira street a street com os valores exatos. "
+    "Campo ilegível = null/vazio. NÃO invente valores — extraia só o que está na imagem."
 )
 
 
@@ -495,22 +523,125 @@ def _strip_code_fence(text: str) -> str:
     return t.strip()
 
 
-def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
-    from app.models.canonical import HandFormat, PlayerSeat, Stakes
+def _norm_card(card) -> str | None:
+    """Normaliza carta da visão: '10h'->'Th', 'AS'->'As'. None se irrecuperável."""
+    if not card or not isinstance(card, str):
+        return None
+    c = card.strip().replace("10", "T")
+    if len(c) != 2:
+        return None
+    rank, suit = c[0].upper(), c[1].lower()
+    if rank not in "23456789TJQKA" or suit not in "cdhs":
+        return None
+    return rank + suit
 
-    stakes = Stakes(**(data.get("stakes") or {}))
-    players = [PlayerSeat(**p) for p in (data.get("players") or []) if "seat" in p]
+
+def _norm_cards(cards) -> list[str]:
+    return [n for n in (_norm_card(c) for c in (cards or [])) if n]
+
+
+def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
+    from app.models.canonical import (
+        Action,
+        ActionType,
+        HandFormat,
+        PlayerSeat,
+        Stakes,
+        Street,
+        StreetName,
+    )
+
+    blinds = data.get("blinds") or data.get("stakes") or {}
+    stakes = Stakes(
+        small_blind=float(blinds.get("small_blind") or 0),
+        big_blind=float(blinds.get("big_blind") or 0),
+        ante=float(blinds.get("ante") or 0),
+        currency=blinds.get("currency") or "USD",
+    )
+
+    hero_name = data.get("hero_name")
+    players = []
+    for p in data.get("players") or []:
+        if "seat" not in p or p.get("stack") is None:
+            continue
+        try:
+            players.append(
+                PlayerSeat(
+                    seat=int(p["seat"]),
+                    name=str(p.get("name") or f"seat{p['seat']}"),
+                    stack=float(p["stack"]),
+                    position=p.get("position"),
+                    is_hero=bool(hero_name and p.get("name") == hero_name),
+                )
+            )
+        except Exception:
+            continue
+
+    # boards cumulativos por street
+    board_info = data.get("board") or {}
+    flop = _norm_cards(board_info.get("flop"))
+    turn_c = _norm_card(board_info.get("turn"))
+    river_c = _norm_card(board_info.get("river"))
+    final_board = _norm_cards(data.get("final_board")) or (
+        flop + ([turn_c] if turn_c else []) + ([river_c] if river_c else [])
+    )
+
+    # ações por street (o coração da análise)
+    _ACT = {
+        "fold": ActionType.FOLD, "check": ActionType.CHECK, "call": ActionType.CALL,
+        "bet": ActionType.BET, "raise": ActionType.RAISE, "post": ActionType.POST,
+        "allin": ActionType.RAISE, "all-in": ActionType.RAISE, "all_in": ActionType.RAISE,
+    }
+    actions_in = data.get("actions") or {}
+    streets: list[Street] = []
+    boards = {
+        StreetName.PREFLOP: [],
+        StreetName.FLOP: flop,
+        StreetName.TURN: flop + ([turn_c] if turn_c else []),
+        StreetName.RIVER: final_board,
+    }
+    for sname in (StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN, StreetName.RIVER):
+        raw = actions_in.get(sname.value) or []
+        acts = []
+        for a in raw:
+            kind = _ACT.get(str(a.get("action", "")).lower())
+            if not kind or not a.get("actor"):
+                continue
+            is_allin = str(a.get("action", "")).lower().startswith("all")
+            try:
+                acts.append(
+                    Action(
+                        actor=str(a["actor"]),
+                        type=kind,
+                        amount=float(a.get("amount") or 0),
+                        to_amount=float(a.get("to_amount") or a.get("amount") or 0),
+                        all_in=is_allin,
+                    )
+                )
+            except Exception:
+                continue
+        if acts or (sname != StreetName.PREFLOP and boards[sname]):
+            streets.append(Street(name=sname, board=boards[sname], actions=acts))
+        elif sname == StreetName.PREFLOP and acts:
+            streets.append(Street(name=sname, actions=acts))
+
+    has_actions = any(s.actions for s in streets)
     fmt = data.get("format") or "cash"
     hand = CanonicalHand(
         hand_id="vision-snapshot",
         site=data.get("site") or "unknown",
         format=HandFormat(fmt) if fmt in ("cash", "tournament", "sng") else HandFormat.CASH,
         stakes=stakes,
+        hero=hero_name,
         players=players,
-        hero_cards=data.get("hero_cards") or [],
-        final_board=data.get("final_board") or [],
-        total_pot=data.get("pot"),
+        hero_cards=_norm_cards(data.get("hero_cards")),
+        streets=streets,
+        final_board=final_board,
+        total_pot=data.get("total_pot") or data.get("pot"),
         source_format="image",
-        confidence=0.8,
+        # com a linha de ação lida, o dado é quase tão bom quanto hand history
+        confidence=0.85 if has_actions else 0.7,
     )
+    if data.get("winner") and hand.total_pot:
+        hand.collected[str(data["winner"])] = float(hand.total_pot)
     return hand
