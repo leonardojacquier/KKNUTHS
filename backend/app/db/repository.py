@@ -229,6 +229,28 @@ class Repository:
             {"user_id": user_id, "type": type_, "cost_credits": cost_credits}
         ).execute()
 
+    @_safe(None)
+    def get_latest_analysis(self, user_id: str) -> Optional[dict]:
+        """Última análise do usuário (para retomar o coach após restart)."""
+        if not self._guard():
+            return None
+        res = (
+            self.client.table("hand_analysis")
+            .select("summary, hands!inner(id, user_id, canonical)")
+            .eq("hands.user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return None
+        row = res.data[0]
+        return {
+            "summary": row.get("summary"),
+            "hand_row_id": (row.get("hands") or {}).get("id"),
+            "canonical": (row.get("hands") or {}).get("canonical"),
+        }
+
     # ------------------------------ eventos ----------------------------
     @_safe(None)
     def log_event(

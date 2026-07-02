@@ -315,12 +315,9 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Texto livre: hand history colada = análise; senão, follow-up da última análise."""
+async def _route_text(update: Update, text: str) -> None:
+    """Roteia texto (digitado ou transcrito de voz): hand history ou follow-up."""
     tg_user = update.effective_user
-    text = update.message.text or ""
-
-    # hand history colada direto no chat? (PokerStars/GGPoker .txt)
     from app.parsers import detect_site
 
     if detect_site(text):
@@ -331,17 +328,50 @@ async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await _safe_reply(update.message, reply)
         return
 
-    if tg_user.id not in LAST_ANALYSIS:
-        await update.message.reply_text(
-            "Para conversar sobre uma mão, primeiro envie um arquivo ou print para eu "
-            "analisar. Depois é só responder à análise. Comandos: /start"
-        )
-        return
     await update.message.reply_text("🤔 Analisando sua colocação…")
     answer = await asyncio.to_thread(
-        process_followup, tg_user.id, tg_user.username, update.message.text
+        process_followup, tg_user.id, tg_user.username, text
     )
-    await _safe_reply(update.message, answer or "Tente novamente em instantes.")
+    if answer:
+        await _safe_reply(update.message, answer)
+    else:
+        await update.message.reply_text(
+            "Ainda não tenho nenhuma mão sua para conversar. Envie um arquivo, "
+            "print — ou cole o texto da mão aqui — que eu analiso primeiro."
+        )
+
+
+async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Texto livre: hand history colada = análise; senão, follow-up (com memória
+    recuperada do banco se o bot tiver reiniciado)."""
+    await _route_text(update, update.message.text or "")
+
+
+async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Mensagem de voz: transcreve (Whisper) e roteia como texto."""
+    from app.agent.speech import transcribe_audio
+
+    await _log(update, "voice")
+    media = update.message.voice or update.message.audio
+    file = await ctx.bot.get_file(media.file_id)
+    content = bytes(await file.download_as_bytearray())
+    text = await asyncio.to_thread(transcribe_audio, content)
+    if not text:
+        await update.message.reply_text(
+            "Não consegui transcrever o áudio agora — pode escrever a pergunta?"
+        )
+        return
+    await update.message.reply_text(f"🎙️ Entendi: “{text}”")
+    await _route_text(update, text)
+
+
+async def on_unsupported(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Nunca deixar o usuário no vácuo, seja qual for o tipo de mensagem."""
+    await update.message.reply_text(
+        "Esse tipo de mensagem eu ainda não processo. 😅\n"
+        "Me mande: hand history (.txt/colada), print/foto da mão, PDF, CSV do "
+        "tracker, áudio com sua pergunta — ou use /simular e /treino."
+    )
 
 
 async def _safe_reply(message, text: str) -> None:
@@ -378,7 +408,15 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
+    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    app.add_handler(
+        MessageHandler(
+            ~filters.TEXT & ~filters.PHOTO & ~filters.Document.ALL
+            & ~filters.VOICE & ~filters.AUDIO & ~filters.COMMAND,
+            on_unsupported,
+        )
+    )
     return app
 
 

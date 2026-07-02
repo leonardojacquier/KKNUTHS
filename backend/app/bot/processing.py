@@ -153,6 +153,29 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     """
     ctx = LAST_ANALYSIS.get(telegram_id)
     if not ctx:
+        # bot reiniciou? recupera a última análise do banco e retoma a conversa
+        repo = get_repository()
+        if repo.enabled:
+            user = repo.get_or_create_user(telegram_id, username)
+            latest = repo.get_latest_analysis(user["id"]) if user else None
+            if latest and latest.get("summary"):
+                canonical = latest.get("canonical") or {}
+                ctx = {
+                    "context": {
+                        "analysis_anterior": latest["summary"],
+                        "mao": {
+                            "hero_cards": canonical.get("hero_cards"),
+                            "final_board": canonical.get("final_board"),
+                            "site": canonical.get("site"),
+                            "format": canonical.get("format"),
+                        },
+                    },
+                    "history": [],
+                    "hand_row_id": latest.get("hand_row_id"),
+                    "user_id": user["id"],
+                }
+                LAST_ANALYSIS[telegram_id] = ctx
+    if not ctx:
         return None
 
     from app.agent.llm import followup
