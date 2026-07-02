@@ -351,10 +351,13 @@ def followup(
     try:
         client = Anthropic(api_key=settings.anthropic_api_key)
         system = _SYSTEM.get(lang, _SYSTEM["pt"]) + (
-            "\nVocê está numa CONVERSA DE ACOMPANHAMENTO sobre uma análise já entregue. "
-            "Responda à pergunta do aluno diretamente — sem repetir a análise inteira. "
-            "Use as tools para qualquer número novo. Se o aluno discordar ou trouxer "
-            "informação nova (range do vilão, dinâmica da mesa), refaça o cálculo com ela."
+            "\nVocê está numa CONVERSA com o aluno. Se o contexto trouxer uma análise, "
+            "é acompanhamento dela: responda direto, sem repetir a análise inteira. "
+            "Se o contexto indicar 'coaching geral', responda a pergunta como coach de "
+            "poker (bad beats/tilt, estratégia, bankroll, ranges, mental game) — use o "
+            "perfil_do_jogador para personalizar quando existir. Use as tools para "
+            "qualquer número. Se o aluno discordar ou trouxer informação nova (range do "
+            "vilão, dinâmica da mesa), refaça o cálculo com ela."
             + (
                 "\nA IMAGEM ORIGINAL do print está anexada: se o aluno disser que algo "
                 "foi lido errado ou está faltando, RELEIA a imagem com atenção — nomes, "

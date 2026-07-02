@@ -175,8 +175,26 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                     "user_id": user["id"],
                 }
                 LAST_ANALYSIS[telegram_id] = ctx
+
     if not ctx:
-        return None
+        # modo coach geral: pergunta aberta de poker, sem mão específica —
+        # personaliza com o perfil do jogador quando existe
+        repo = get_repository()
+        stats = None
+        if repo.enabled:
+            user = repo.get_or_create_user(telegram_id, username)
+            stats = repo.get_player_stats(user["id"]) if user else None
+        ctx = {
+            "context": {
+                "modo": "coaching geral — sem mão específica; responda a pergunta "
+                "do aluno como coach de poker (estratégia, tilt, bankroll, ranges…)",
+                "perfil_do_jogador": stats,
+            },
+            "history": [],
+            "hand_row_id": None,
+            "user_id": None,
+        }
+        LAST_ANALYSIS[telegram_id] = ctx
 
     from app.agent.llm import followup
 

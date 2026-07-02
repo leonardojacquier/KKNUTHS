@@ -230,6 +230,13 @@ class Repository:
         ).execute()
 
     @_safe(None)
+    def get_player_stats(self, user_id: str) -> Optional[dict]:
+        if not self._guard():
+            return None
+        res = self.client.table("player_stats").select("*").eq("user_id", user_id).execute()
+        return res.data[0] if res.data else None
+
+    @_safe(None)
     def get_latest_analysis(self, user_id: str) -> Optional[dict]:
         """Última análise do usuário (para retomar o coach após restart)."""
         if not self._guard():
