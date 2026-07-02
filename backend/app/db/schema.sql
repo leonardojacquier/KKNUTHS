@@ -99,6 +99,19 @@ create table if not exists player_stats (
     updated_at  timestamptz not null default now()
 );
 
+-- ───────────────────────── eventos do bot ─────────────────────────
+-- Log de toda interação (comandos, uploads) — visibilidade estilo dashboard.
+create table if not exists bot_events (
+    id          uuid primary key default uuid_generate_v4(),
+    telegram_id bigint,
+    username    text,
+    event       text not null,   -- start|plano|stats|ask|treino|drill_answer|upload|error
+    detail      jsonb,
+    created_at  timestamptz not null default now()
+);
+create index if not exists idx_bot_events_time on bot_events (created_at desc);
+create index if not exists idx_bot_events_user on bot_events (telegram_id, created_at desc);
+
 -- ───────────────────────── segurança (RLS) ─────────────────────────
 -- O acesso é exclusivamente server-side via service role (que ignora RLS). Habilitar
 -- RLS sem políticas bloqueia anon/authenticated por completo — default seguro, pois

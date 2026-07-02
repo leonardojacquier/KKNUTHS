@@ -229,6 +229,27 @@ class Repository:
             {"user_id": user_id, "type": type_, "cost_credits": cost_credits}
         ).execute()
 
+    # ------------------------------ eventos ----------------------------
+    @_safe(None)
+    def log_event(
+        self,
+        telegram_id: int | None,
+        username: str | None,
+        event: str,
+        detail: dict | None = None,
+    ) -> None:
+        """Registra qualquer interação com o bot (visibilidade de dashboard)."""
+        if not self._guard():
+            return None
+        self.client.table("bot_events").insert(
+            {
+                "telegram_id": telegram_id,
+                "username": username,
+                "event": event,
+                "detail": detail or {},
+            }
+        ).execute()
+
     # ------------------------- knowledge base (RAG) -------------------
     @_safe([])
     def search_analysis(

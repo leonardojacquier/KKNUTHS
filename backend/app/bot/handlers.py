@@ -40,11 +40,21 @@ WELCOME = (
 )
 
 
+async def _log(update: Update, event: str, **detail) -> None:
+    """Registra a interação em bot_events (não bloqueia nem falha o handler)."""
+    u = update.effective_user
+    repo = get_repository()
+    if repo.enabled and u:
+        await asyncio.to_thread(repo.log_event, u.id, u.username, event, detail or None)
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await _log(update, "start")
     await update.message.reply_markdown(WELCOME)
 
 
 async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await _log(update, "plano")
     await update.message.reply_markdown(
         "🎁 *Beta gratuito*\n\n"
         f"Você tem {FREE_MONTHLY_ANALYSES} análises por mês, renovadas todo mês.\n"
@@ -55,6 +65,7 @@ async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await _log(update, "stats")
     tg_id = update.effective_user.id
 
     def _get_stats():
@@ -87,6 +98,7 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not query:
         await update.message.reply_text("Uso: /ask <sua pergunta sobre suas mãos>")
         return
+    await _log(update, "ask", query=query)
     tg_id = update.effective_user.id
 
     def _search():
@@ -116,6 +128,7 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Drill: um spot real das suas mãos — o que você faria?"""
     tg_id = update.effective_user.id
+    await _log(update, "treino")
     drill = await asyncio.to_thread(build_drill, tg_id)
     if not drill:
         await update.message.reply_text(
@@ -150,6 +163,7 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         await query.edit_message_text("Treino expirado. Use /treino para outro.")
         return
     choice = query.data.split(":", 1)[1]
+    await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
     text = await asyncio.to_thread(reveal_drill, drill, choice)
     ctx.user_data.pop("drill", None)
     await query.edit_message_text(text, parse_mode="Markdown")

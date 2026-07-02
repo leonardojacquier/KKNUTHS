@@ -96,6 +96,21 @@ def process_upload(
     consume_quota(telegram_id, user, repo)
     quota_after = check_quota(telegram_id, user, repo)
 
+    # ---- evento (visibilidade de dashboard) ----
+    repo.log_event(
+        telegram_id,
+        username,
+        "upload",
+        {
+            "format": result.source_format,
+            "site": result.site,
+            "hands": len(hands),
+            "confidence": result.confidence,
+            "is_tournament": is_tournament,
+            "quota_remaining": quota_after.remaining,
+        },
+    )
+
     header = f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"
     footer = ""
     if quota_after.remaining >= 0:
