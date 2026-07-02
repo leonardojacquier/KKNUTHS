@@ -17,6 +17,14 @@ echo "== Poker Bot deploy =="
 cd "$APP_DIR"
 
 # 2. git safety-net (lição do VPS: nada de .bak, tudo versionado)
+#    segredos e artefatos ficam fora do git do servidor
+cat > .gitignore <<'GITIGNORE'
+.env
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+GITIGNORE
 if [ ! -d .git ]; then
     git init -q && git add -A && git commit -qm "estado inicial do deploy"
 else

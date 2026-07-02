@@ -1,49 +1,60 @@
-# Deploy no VPS GNH (padrão GNHFIN / agente-century)
+# Poker Bot — Deploy no VPS GNH (padrão da casa)
 
-O bot roda no mesmo VPS dos outros sistemas (`root@187.127.13.220`), no mesmo
-padrão do bot financeiro (GNHFIN/Jarvis): app em `/opt/`, venv próprio, **pm2**.
+- Servidor: Hostinger srv1555380 — `ssh root@187.127.13.220` (chave; sem senha).
+- Terminal web (alternativa): https://cam.hostingervps.com/2548/
+- Processo: **pm2** (`poker-bot`), como o bot do Jarvis/GNHFIN. App em `/opt/poker-bot`, venv próprio.
+- Banco: Supabase (nada de Postgres a instalar). Bot em **polling** (não precisa de porta/Caddy/DNS).
 
-## Passo a passo (da sua máquina, onde está o repositório clonado)
+## Deploy — do PC do Leo (Windows, mesmo estilo do TitanCalc)
 
-```bash
-# 0. clonar o repo na sua máquina (se ainda não tiver)
+```bat
+:: 0. clonar/atualizar o repo (uma vez)
 git clone https://github.com/leonardojacquier/KKNUTHS.git
-cd KKNUTHS/backend
+cd KKNUTHS\backend
+git checkout claude/poker-analysis-telegram-bot-mfuyhf
 
-# 1. criar o .env local (copie de .env.example e preencha as chaves:
-#    ANTHROPIC_API_KEY, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN,
-#    SUPABASE_URL, SUPABASE_SERVICE_KEY)
-cp .env.example .env && nano .env
+:: 1. criar o .env (copie .env.example e preencha as 5 chaves:
+::    ANTHROPIC_API_KEY, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN,
+::    SUPABASE_URL, SUPABASE_SERVICE_KEY)
+copy .env.example .env
+notepad .env
 
-# 2. subir o código + .env para o VPS
+:: 2. enviar o código + .env pro VPS
 ssh root@187.127.13.220 "mkdir -p /opt/poker-bot"
-rsync -az --exclude venv --exclude __pycache__ --exclude .pytest_cache \
-    ./ root@187.127.13.220:/opt/poker-bot/
+scp -r app tests scripts deploy requirements.txt run_bot.py Procfile Dockerfile README.md .env.example root@187.127.13.220:/opt/poker-bot/
+scp .env root@187.127.13.220:/opt/poker-bot/.env
 
-# 3. rodar o deploy (idempotente — use o mesmo comando para atualizar depois)
+:: 3. rodar o deploy (idempotente — mesmo comando para atualizar depois)
 ssh root@187.127.13.220 "bash /opt/poker-bot/deploy/vps_deploy.sh"
 ```
 
-O script cuida de: git de segurança, venv, dependências, testes (aborta se
-falharem), pm2 (`poker-bot`) e cron do relatório semanal (domingo 18h).
+O script faz: git de segurança (sem `.bak`), venv próprio, dependências,
+**roda os 42 testes como gate** (aborta se falharem), sobe/reinicia no pm2 e
+instala o cron do relatório semanal (domingo 18h).
 
-## Operação (igual aos outros bots do VPS)
+## Verificação pós-deploy
 
 ```bash
-ssh root@187.127.13.220 "pm2 status"                      # está de pé?
-ssh root@187.127.13.220 "pm2 logs poker-bot --lines 50"   # logs
-ssh root@187.127.13.220 "pm2 restart poker-bot"           # reiniciar
+ssh root@187.127.13.220 "pm2 status poker-bot"
+ssh root@187.127.13.220 "pm2 logs poker-bot --lines 30 --nostream"
+# no Telegram: mandar /start pro bot e um .txt de hand history
+```
+
+## Operação
+
+```bash
+ssh root@187.127.13.220 "pm2 restart poker-bot"     # reiniciar
+ssh root@187.127.13.220 "pm2 logs poker-bot"        # logs ao vivo
 ```
 
 ## Atualizar versão
 
-Repita os passos 2 e 3 — o rsync manda só o que mudou e o script reinicia.
+Repita os passos 2 e 3 do deploy (scp + script). O script commita o estado
+anterior no git local do servidor antes de aplicar — rollback é `git checkout`.
 
-## Notas
+## Gotchas (herdados dos runbooks da casa)
 
-- O bot usa **polling** (não precisa de porta aberta nem domínio). Se um dia
-  migrar para webhook, o FastAPI está pronto em `app/api/main.py`.
-- Memória/banco ficam no **Supabase** (projeto kknuths-poker) — nada a instalar
-  no VPS além do Python.
-- Conforme a Revisão Geral de Código do VPS: venv próprio, sem segredos em
-  /root, logs via pm2 (instale `pm2 install pm2-logrotate` se ainda não tiver).
+- `pm2 install pm2-logrotate` uma vez, se ainda não tiver (recomendação da
+  Revisão Geral de Código do VPS — logs não crescem sem limite).
+- O `.env` NUNCA vai pro git (o script ignora); backup dele: copie antes de mexer.
+- Se os testes falharem no passo 3, o deploy aborta — nada sobe quebrado.
