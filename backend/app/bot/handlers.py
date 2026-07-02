@@ -21,7 +21,14 @@ from telegram.ext import (
 from app.agent.embeddings import embed_query
 from app.agent.llm import synthesize_answer
 from app.analysis import compute_player_stats
-from app.bot.processing import RECENT_HANDS, build_drill, process_upload, reveal_drill
+from app.bot.processing import (
+    LAST_ANALYSIS,
+    RECENT_HANDS,
+    build_drill,
+    process_followup,
+    process_upload,
+    reveal_drill,
+)
 from app.config import get_settings
 from app.db import get_repository
 from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
@@ -205,6 +212,22 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, reply)
 
 
+async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Texto livre = follow-up da última análise (discordar, aprofundar, dar contexto)."""
+    tg_user = update.effective_user
+    if tg_user.id not in LAST_ANALYSIS:
+        await update.message.reply_text(
+            "Para conversar sobre uma mão, primeiro envie um arquivo ou print para eu "
+            "analisar. Depois é só responder à análise. Comandos: /start"
+        )
+        return
+    await update.message.reply_text("🤔 Analisando sua colocação…")
+    answer = await asyncio.to_thread(
+        process_followup, tg_user.id, tg_user.username, update.message.text
+    )
+    await _safe_reply(update.message, answer or "Tente novamente em instantes.")
+
+
 async def _safe_reply(message, text: str) -> None:
     """Envia respeitando o limite de 4096 chars do Telegram; se o Markdown do LLM
     vier malformado (entidades desbalanceadas), reenvia como texto puro."""
@@ -237,6 +260,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     return app
 
 

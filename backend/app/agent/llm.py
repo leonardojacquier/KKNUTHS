@@ -88,6 +88,64 @@ TOOLS = [
         },
     },
     {
+        "name": "equity_vs_range",
+        "description": "Equity do herói contra um RANGE de vilão (Monte Carlo). PREFIRA esta "
+        "à 'equity' sempre que houver contexto da ação — profissional pensa em ranges. "
+        "Aceita notação padrão ('TT+, AQs+, KQs') ou 'top 15%'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "hero_cards": {"type": "array", "items": {"type": "string"}},
+                "villain_range": {"type": "string"},
+                "board": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["hero_cards", "villain_range"],
+        },
+    },
+    {
+        "name": "preflop_range",
+        "description": "Range de referência pré-flop: action='open' (posições UTG/UTG+1/MP/HJ/"
+        "CO/BTN/SB) ou action='3bet' (vs EP/MP/CO/BTN). Use como villain_range no "
+        "equity_vs_range.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "position": {"type": "string"},
+                "action": {"type": "string", "enum": ["open", "3bet"]},
+            },
+            "required": ["position"],
+        },
+    },
+    {
+        "name": "icm",
+        "description": "Equity em $ real de cada jogador (Malmuth-Harville) dado stacks e "
+        "payouts. Use em decisões de mesa final / bubble.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "stacks": {"type": "array", "items": {"type": "number"}},
+                "payouts": {"type": "array", "items": {"type": "number"}},
+            },
+            "required": ["stacks", "payouts"],
+        },
+    },
+    {
+        "name": "bubble_factor",
+        "description": "Pressão de ICM num all-in herói vs vilão: razão $perdido/$ganho "
+        "(>1 = precisa de mais equity que chip-EV) e a equity mínima de call "
+        "(threshold = bf/(1+bf)).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "stacks": {"type": "array", "items": {"type": "number"}},
+                "payouts": {"type": "array", "items": {"type": "number"}},
+                "hero_idx": {"type": "integer"},
+                "villain_idx": {"type": "integer"},
+            },
+            "required": ["stacks", "payouts", "hero_idx", "villain_idx"],
+        },
+    },
+    {
         "name": "push_fold",
         "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
         "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
@@ -110,9 +168,12 @@ _SYSTEM = {
         "com rigor técnico e objetividade. Regras invioláveis:\n"
         "1) NUNCA invente números. Para qualquer equity, pot odds, EV ou SPR, chame a "
         "ferramenta correspondente e use o valor retornado.\n"
-        "2) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
-        "3) Considere posição, profundidade de stack e, em torneio, pressão de ICM/bubble.\n"
-        "4) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
+        "2) Pense em RANGES: use preflop_range + equity_vs_range (não equity vs aleatória) "
+        "sempre que a ação der contexto do range do vilão.\n"
+        "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
+        "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
+        "de ICM; em stack curto, push_fold.\n"
+        "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "Formato: é uma mensagem de Telegram — não use cabeçalhos '#'; use *negrito*, "
         "emojis com moderação e parágrafos curtos; máximo ~3000 caracteres.\n"
         "Seja direto e prático. Responda em português."
@@ -135,6 +196,28 @@ def _dispatch(name: str, args: dict):
         from app.analysis.pushfold import push_fold
 
         return push_fold(args["cards"], args["stack_bb"], args.get("position") or "MP")
+    if name == "equity_vs_range":
+        from app.analysis.ranges import equity_vs_range
+
+        return equity_vs_range(
+            args["hero_cards"], args["villain_range"], args.get("board") or [],
+            iterations=4000, seed=17,
+        )
+    if name == "preflop_range":
+        from app.analysis.ranges import preflop_range
+
+        rng = preflop_range(args["position"], args.get("action", "open"))
+        return {"range": rng} if rng else {"error": "posição/ação sem chart"}
+    if name == "icm":
+        from app.analysis.icm import icm_equity
+
+        return {"equities": icm_equity(args["stacks"], args["payouts"])}
+    if name == "bubble_factor":
+        from app.analysis.icm import bubble_factor, icm_call_threshold
+
+        bf = bubble_factor(args["stacks"], args["payouts"], args["hero_idx"], args["villain_idx"])
+        thr = icm_call_threshold(args["stacks"], args["payouts"], args["hero_idx"], args["villain_idx"])
+        return {"bubble_factor": bf, "min_call_equity": thr}
     if name == "equity":
         return equity_vs_random(
             args["hero_cards"],
@@ -234,6 +317,79 @@ def coach(
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
         return fallback
+
+
+def followup(
+    context: dict,
+    history: list[dict],
+    question: str,
+    lang: str = "pt",
+) -> str | None:
+    """Continua a conversa sobre a última análise, com as mesmas tools.
+
+    `context`: análise estruturada + coaching anterior. `history`: turnos
+    anteriores do follow-up [{'q':..., 'a':...}]. Retorna None sem chave/erro.
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        system = _SYSTEM.get(lang, _SYSTEM["pt"]) + (
+            "\nVocê está numa CONVERSA DE ACOMPANHAMENTO sobre uma análise já entregue. "
+            "Responda à pergunta do aluno diretamente — sem repetir a análise inteira. "
+            "Use as tools para qualquer número novo. Se o aluno discordar ou trouxer "
+            "informação nova (range do vilão, dinâmica da mesa), refaça o cálculo com ela."
+        )
+        system_blocks = [
+            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+        ]
+        messages: list[dict] = [
+            {
+                "role": "user",
+                "content": "Contexto da análise em discussão:\n"
+                + json.dumps(context, ensure_ascii=False, indent=2),
+            },
+            {"role": "assistant", "content": "Entendido. Qual a sua dúvida sobre essa mão/torneio?"},
+        ]
+        for turn in history[-6:]:
+            messages.append({"role": "user", "content": turn["q"]})
+            messages.append({"role": "assistant", "content": turn["a"]})
+        messages.append({"role": "user", "content": question})
+
+        for _ in range(MAX_TOOL_ROUNDS):
+            resp = client.messages.create(
+                model=settings.analysis_model,
+                max_tokens=1200,
+                system=system_blocks,
+                tools=TOOLS,
+                messages=messages,
+            )
+            if resp.stop_reason != "tool_use":
+                return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+            messages.append({"role": "assistant", "content": resp.content})
+            tool_results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    try:
+                        value = _dispatch(block.name, block.input)
+                        if isinstance(value, (int, float)):
+                            value = round(value, 4)
+                        out = json.dumps({"result": value}, ensure_ascii=False)
+                    except Exception as exc:
+                        out = json.dumps({"error": str(exc)})
+                    tool_results.append(
+                        {"type": "tool_result", "tool_use_id": block.id, "content": out}
+                    )
+            messages.append({"role": "user", "content": tool_results})
+        return None
+    except Exception:
+        return None
 
 
 def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str | None:

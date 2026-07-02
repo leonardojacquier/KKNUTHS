@@ -24,6 +24,10 @@ log = logging.getLogger("processing")
 RECENT_HANDS: dict[int, list[CanonicalHand]] = {}
 _RECENT_CAP = 300
 
+# contexto da última análise por usuário — habilita a conversa de follow-up
+LAST_ANALYSIS: dict[int, dict] = {}
+_HISTORY_CAP = 6
+
 
 def remember_hands(telegram_id: int, hands: list[CanonicalHand]) -> None:
     cur = RECENT_HANDS.get(telegram_id, [])
@@ -111,11 +115,62 @@ def process_upload(
         },
     )
 
+    # contexto para follow-up ("não gostei da análise" / "e se o vilão só paga com AQ+?")
+    LAST_ANALYSIS[telegram_id] = {
+        "context": {
+            "analysis": structured,
+            "key_hands": key_hands,
+            "coaching_anterior": coaching,
+        },
+        "history": [],
+        "hand_row_id": hand_row_ids[0] if hand_row_ids else None,
+        "user_id": user["id"] if user else None,
+    }
+
     header = f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"
-    footer = ""
+    footer = "\n\n💬 _Discorda ou quer aprofundar? É só responder aqui._"
     if quota_after.remaining >= 0:
-        footer = f"\n\n_Análises restantes no mês: {quota_after.remaining}_"
+        footer += f"\n_Análises restantes no mês: {quota_after.remaining}_"
     return header + "\n" + coaching + footer
+
+
+def process_followup(telegram_id: int, username: str | None, question: str) -> str | None:
+    """Continua a conversa sobre a última análise. None se não há contexto.
+
+    Grava o que importa: cada troca vai para bot_events e, quando há mão
+    persistida, o insight (Q+A) entra na base de conhecimento com embedding —
+    o /ask encontra depois.
+    """
+    ctx = LAST_ANALYSIS.get(telegram_id)
+    if not ctx:
+        return None
+
+    from app.agent.llm import followup
+
+    answer = followup(ctx["context"], ctx["history"], question)
+    if not answer:
+        return (
+            "Não consegui aprofundar agora (LLM indisponível). "
+            "Tente de novo em instantes."
+        )
+
+    ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]
+
+    repo = get_repository()
+    if repo.enabled:
+        repo.log_event(telegram_id, username, "followup", {"q": question[:300]})
+        # insight importante -> base de conhecimento (buscável via /ask)
+        if ctx.get("hand_row_id"):
+            try:
+                insight = f"[Follow-up] Pergunta: {question}\nResposta: {answer}"
+                embedding = embed_text(insight)
+                repo.save_hand_analysis(
+                    ctx["hand_row_id"], {"net_bb": None, "spots": None}, insight, embedding
+                )
+            except Exception as exc:
+                log.warning("falha ao gravar insight de follow-up: %s", exc)
+
+    return answer
 
 
 def build_drill(telegram_id: int) -> dict | None:
