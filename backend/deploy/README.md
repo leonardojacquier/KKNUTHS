@@ -5,28 +5,32 @@
 - Processo: **pm2** (`poker-bot`), como o bot do Jarvis/GNHFIN. App em `/opt/poker-bot`, venv próprio.
 - Banco: Supabase (nada de Postgres a instalar). Bot em **polling** (não precisa de porta/Caddy/DNS).
 
-## Deploy — do PC do Leo (Windows, mesmo estilo do TitanCalc)
+## Deploy — do PC do Leo (PowerShell; o repo é público, o VPS clona sozinho)
 
-```bat
-:: 0. clonar/atualizar o repo (uma vez)
-git clone https://github.com/leonardojacquier/KKNUTHS.git
-cd KKNUTHS\backend
-git checkout claude/poker-analysis-telegram-bot-mfuyhf
+```powershell
+# 1. VPS clona/atualiza o repo e monta /opt/poker-bot (idempotente)
+ssh root@187.127.13.220 "git clone -b claude/poker-analysis-telegram-bot-mfuyhf https://github.com/leonardojacquier/KKNUTHS.git /opt/kknuths 2>/dev/null || git -C /opt/kknuths pull; mkdir -p /opt/poker-bot; cp -r /opt/kknuths/backend/. /opt/poker-bot/"
 
-:: 1. criar o .env (copie .env.example e preencha as 5 chaves:
-::    ANTHROPIC_API_KEY, OPENAI_API_KEY, TELEGRAM_BOT_TOKEN,
-::    SUPABASE_URL, SUPABASE_SERVICE_KEY)
-copy .env.example .env
-notepad .env
+# 2. criar o .env no VPS (here-string do PowerShell -> stdin do ssh)
+@'
+TELEGRAM_BOT_TOKEN=...
+ANTHROPIC_API_KEY=...
+ANALYSIS_MODEL=claude-opus-4-8
+CHEAP_MODEL=claude-haiku-4-5-20251001
+OPENAI_API_KEY=...
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIM=1536
+SUPABASE_URL=https://htvjviovcfvtpgeloekn.supabase.co
+SUPABASE_SERVICE_KEY=...
+DEFAULT_LANG=pt
+'@ | ssh root@187.127.13.220 "cat > /opt/poker-bot/.env"
 
-:: 2. enviar o código + .env pro VPS
-ssh root@187.127.13.220 "mkdir -p /opt/poker-bot"
-scp -r app tests scripts deploy requirements.txt run_bot.py Procfile Dockerfile README.md .env.example root@187.127.13.220:/opt/poker-bot/
-scp .env root@187.127.13.220:/opt/poker-bot/.env
-
-:: 3. rodar o deploy (idempotente — mesmo comando para atualizar depois)
+# 3. rodar o deploy (mesmo comando para atualizar depois)
 ssh root@187.127.13.220 "bash /opt/poker-bot/deploy/vps_deploy.sh"
 ```
+
+PowerShell: separar comandos com `;` (não `&`). Para atualizar versão:
+repetir os passos 1 e 3.
 
 O script faz: git de segurança (sem `.bak`), venv próprio, dependências,
 **roda os 42 testes como gate** (aborta se falharem), sobe/reinicia no pm2 e
