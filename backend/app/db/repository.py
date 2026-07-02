@@ -103,6 +103,26 @@ class Repository:
         )
         return row.data[0]["id"] if row.data else None
 
+    def get_all_hands(self, user_id: str, limit: int = 5000) -> list[CanonicalHand]:
+        """Histórico completo do usuário (para stats cumulativas)."""
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("hands")
+            .select("canonical")
+            .eq("user_id", user_id)
+            .order("played_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        out = []
+        for row in res.data or []:
+            try:
+                out.append(CanonicalHand.model_validate(row["canonical"]))
+            except Exception:
+                continue
+        return out
+
     def save_hand_analysis(
         self,
         hand_row_id: str,

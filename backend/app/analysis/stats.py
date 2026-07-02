@@ -22,15 +22,17 @@ class PlayerStats:
     detail: dict = field(default_factory=dict)
 
 
-def compute_player_stats(hands: list[CanonicalHand], player: str) -> PlayerStats:
+def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) -> PlayerStats:
+    """Stats de `player`; com player=None usa o herói de cada mão — correto para
+    histórico cumulativo, onde o nick do herói varia entre salas."""
     n = 0
     vpip_h = pfr_h = three_bet_h = 0
     three_bet_opps = 0
     post_bets = post_raises = post_calls = 0
 
     for h in hands:
-        names = {p.name for p in h.players}
-        if player not in names:
+        target = player if player is not None else h.hero
+        if not target or target not in {p.name for p in h.players}:
             continue
         n += 1
 
@@ -44,7 +46,7 @@ def compute_player_stats(hands: list[CanonicalHand], player: str) -> PlayerStats
             for a in pre.actions:
                 if a.type == ActionType.POST:
                     continue
-                if a.actor == player:
+                if a.actor == target:
                     hero_acted_pre = True
                     if a.type in (ActionType.CALL, ActionType.BET, ActionType.RAISE):
                         voluntarily = True
@@ -71,7 +73,7 @@ def compute_player_stats(hands: list[CanonicalHand], player: str) -> PlayerStats
             if not st:
                 continue
             for a in st.actions:
-                if a.actor != player:
+                if a.actor != target:
                     continue
                 if a.type == ActionType.BET:
                     post_bets += 1
@@ -80,7 +82,7 @@ def compute_player_stats(hands: list[CanonicalHand], player: str) -> PlayerStats
                 elif a.type == ActionType.CALL:
                     post_calls += 1
 
-    stats = PlayerStats(player=player, hands=n)
+    stats = PlayerStats(player=player or "hero", hands=n)
     if n == 0:
         return stats
 

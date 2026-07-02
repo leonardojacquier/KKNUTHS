@@ -64,24 +64,37 @@ Conectado, ativa com credenciais:
   em `POST /stripe/webhook` libera/atualiza plano. Defina `STRIPE_*`.
 - **Bot Telegram** (`/start`, `/stats`, `/ask`, `/plano`, `/assinar`, upload): "recebido → analisando".
 
-A conectar:
-- Fila de jobs (RQ) para processamento assíncrono de arquivos grandes.
-- Painel web (read-only) com gráficos do histórico.
+Recursos de lançamento:
+- **Cota gratuita** (`app/quota.py`): 15 análises/mês no free (env `FREE_MONTHLY_ANALYSES`),
+  limite de upload 2 MB, máx. 5 mãos coacheadas por torneio. Funciona com banco
+  (usage_events) ou em memória (dev). Planos pro/premium (coluna `users.plan`) = ilimitado.
+- **Bot não-bloqueante**: pipeline síncrono em `bot/processing.py` roda via
+  `asyncio.to_thread` — análises longas não travam os outros usuários.
+- **Stats cumulativas**: perfil calculado sobre TODO o histórico do banco (hero de
+  cada mão, robusto a nicks diferentes entre salas).
+- **História do torneio**: mãos decisivas (all-ins + maiores swings) analisadas
+  individualmente e narradas em conjunto pelo Claude.
+- **/treino**: drill interativo — um spot real seu, botões Fold/Call/Raise, com
+  referência Nash push/fold em stack curto.
+- **Push/fold Nash** (`analysis/pushfold.py`): tabela determinística por posição/stack,
+  exposta como tool ao Claude.
+- **Relatório semanal** (`scripts/weekly_report.py`): resumo + leak da semana via cron.
+- **Prompt caching** no coaching e **Haiku** na síntese do /ask (custo controlado).
+
+Adiado (decisão de produto): billing Stripe (código pronto em `app/billing/`, desligado
+sem `STRIPE_SECRET_KEY`; `scripts/setup_stripe.py` cria produtos quando for a hora).
 
 ## Colocar no ar (checklist)
 
-1. **Claude / OpenAI / Telegram** — chaves no `.env` (`ANTHROPIC_API_KEY`,
-   `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`).
-2. **Supabase service key** — a única que precisa de 2 cliques manuais (o MCP/API de
-   management não expõe a service_role por segurança):
-   Dashboard → projeto **kknuths-poker** → *Project Settings* → *API Keys* →
-   copie a **service_role** para `SUPABASE_SERVICE_KEY`.
+1. **Chaves no `.env`** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN` (feito).
+2. **Supabase service key** — 2 cliques manuais (a API de management não expõe a
+   service_role por segurança): Dashboard → projeto **kknuths-poker** → *Project
+   Settings* → *API Keys* → copie a **service_role** para `SUPABASE_SERVICE_KEY`.
    Link direto: https://supabase.com/dashboard/project/htvjviovcfvtpgeloekn/settings/api-keys
-3. **Stripe** — crie a conta em https://dashboard.stripe.com (~2 min), copie a
-   *Secret key* (`sk_test_...` primeiro) para `STRIPE_SECRET_KEY` e rode:
-   `PYTHONPATH=. python3 scripts/setup_stripe.py`
-   O script cria os produtos/preços (Pro R$49, Premium R$129) e imprime os
-   `STRIPE_PRICE_*`. Depois configure o webhook no dashboard →
-   `{PUBLIC_BASE_URL}/stripe/webhook` e copie o `whsec_...`.
-4. **Rodar o bot (dev)**: `PYTHONPATH=. python3 run_bot.py` (long-polling).
-   Produção: `uvicorn app.api.main:app` atrás de HTTPS + webhook do Telegram.
+   (Sem ela o bot funciona, mas sem memória entre reinícios.)
+3. **Rodar o bot (dev)**: `PYTHONPATH=. python3 run_bot.py` (long-polling).
+4. **Deploy**: `docker build -t kknuths . && docker run --env-file .env kknuths`
+   (Railway/Fly/Render detectam o Dockerfile). Cron do relatório semanal:
+   `0 18 * * 0 PYTHONPATH=/app python3 scripts/weekly_report.py`.
+5. **Depois do beta**: rotacionar as chaves (foram trocadas por chat) e, quando for
+   cobrar, `scripts/setup_stripe.py`.

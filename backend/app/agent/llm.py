@@ -87,6 +87,21 @@ TOOLS = [
             "required": ["bet", "pot"],
         },
     },
+    {
+        "name": "push_fold",
+        "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
+        "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
+        "spots de open-shove de MTT.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "cards": {"type": "array", "items": {"type": "string"}},
+                "stack_bb": {"type": "number"},
+                "position": {"type": "string"},
+            },
+            "required": ["cards", "stack_bb", "position"],
+        },
+    },
 ]
 
 _SYSTEM = {
@@ -113,7 +128,11 @@ _SYSTEM = {
 }
 
 
-def _dispatch(name: str, args: dict) -> float:
+def _dispatch(name: str, args: dict):
+    if name == "push_fold":
+        from app.analysis.pushfold import push_fold
+
+        return push_fold(args["cards"], args["stack_bb"], args.get("position") or "MP")
     if name == "equity":
         return equity_vs_random(
             args["hero_cards"],
@@ -133,8 +152,17 @@ def _dispatch(name: str, args: dict) -> float:
     raise ValueError(f"tool desconhecida: {name}")
 
 
-def coach(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
-    """Gera o coaching via Claude. Cai no resumo determinístico se o LLM indisponível."""
+def coach(
+    structured: dict,
+    stats: dict | None = None,
+    lang: str = "pt",
+    key_hands: list[dict] | None = None,
+) -> str:
+    """Gera o coaching via Claude. Cai no resumo determinístico se o LLM indisponível.
+
+    `key_hands`: análises das mãos decisivas de um torneio — o Claude narra a
+    "história do torneio" em cima delas, além do agregado.
+    """
     settings = get_settings()
     fallback = structured.get("summary", "")
     if not settings.anthropic_api_key:
@@ -149,22 +177,35 @@ def coach(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
         client = Anthropic(api_key=settings.anthropic_api_key)
         system = _SYSTEM.get(lang, _SYSTEM["pt"])
         context = {"analysis": structured, "player_stats": stats or {}}
+        instruction = (
+            "Analise esta mão/torneio. Dados estruturados (números já calculados, "
+            "use-os; chame tools só para cálculos adicionais):\n\n"
+        )
+        if key_hands:
+            context["key_hands"] = key_hands
+            instruction = (
+                "Analise este TORNEIO. Além do agregado, conte a 'história do torneio': "
+                "os momentos em key_hands foram os que decidiram o resultado — analise "
+                "cada um (use push_fold nos spots de stack curto) e conecte-os num "
+                "diagnóstico único. Dados estruturados:\n\n"
+            )
         messages = [
             {
                 "role": "user",
-                "content": (
-                    "Analise esta mão/torneio. Dados estruturados (números já calculados, "
-                    "use-os; chame tools só para cálculos adicionais):\n\n"
-                    + json.dumps(context, ensure_ascii=False, indent=2)
-                ),
+                "content": instruction + json.dumps(context, ensure_ascii=False, indent=2),
             }
         ]
 
+        # prompt caching: system + tools são idênticos em toda chamada -> cache
+        # da Anthropic corta o custo das leituras repetidas (TTL ~5 min).
+        system_blocks = [
+            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+        ]
         for _ in range(MAX_TOOL_ROUNDS):
             resp = client.messages.create(
                 model=settings.analysis_model,
-                max_tokens=1200,
-                system=system,
+                max_tokens=1500,
+                system=system_blocks,
                 tools=TOOLS,
                 messages=messages,
             )
@@ -177,7 +218,9 @@ def coach(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
                 if block.type == "tool_use":
                     try:
                         value = _dispatch(block.name, block.input)
-                        out = json.dumps({"result": round(value, 4)})
+                        if isinstance(value, (int, float)):
+                            value = round(value, 4)
+                        out = json.dumps({"result": value}, ensure_ascii=False)
                     except Exception as exc:  # erro de tool não derruba a análise
                         out = json.dumps({"error": str(exc)})
                     tool_results.append(
@@ -189,6 +232,43 @@ def coach(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
         return fallback
+
+
+def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str | None:
+    """Sintetiza uma resposta ao /ask a partir dos resumos recuperados (RAG).
+
+    Usa o modelo barato (Haiku) — tarefa simples de síntese, não de julgamento.
+    Retorna None sem chave/erro (o chamador mostra os resumos crus).
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key or not snippets:
+        return None
+    try:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        joined = "\n\n".join(f"- {s}" for s in snippets)
+        resp = client.messages.create(
+            model=settings.cheap_model,
+            max_tokens=500,
+            system=(
+                "Você é um coach de pôquer. Responda à pergunta do jogador usando APENAS "
+                "as análises de mãos fornecidas. Seja direto, aponte o padrão comum entre "
+                "as mãos e uma recomendação. Responda em português."
+                if lang == "pt"
+                else "You are a poker coach. Answer using ONLY the provided hand analyses. "
+                "Be direct, point out the common pattern and one recommendation."
+            ),
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Pergunta: {query}\n\nAnálises das mãos relacionadas:\n{joined}",
+                }
+            ],
+        )
+        return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+    except Exception:
+        return None
 
 
 _VISION_PROMPT = (

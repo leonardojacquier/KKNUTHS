@@ -115,6 +115,28 @@ def analyze_tournament(hands: list[CanonicalHand]) -> dict:
     }
 
 
+def select_key_hands(hands: list[CanonicalHand], k: int = 5) -> list[dict]:
+    """Seleciona as mãos decisivas de um torneio para coaching individual.
+
+    Critério: todos os all-ins do herói + maiores |resultado em BB|, deduplicado,
+    limitado a k — controla o custo de LLM cobrindo o que definiu o torneio.
+    """
+    analyses = [analyze_hand(h) for h in hands]
+    allins = [a for a in analyses if any(s.get("all_in") for s in a["spots"])]
+    by_swing = sorted(analyses, key=lambda a: abs(a["net_bb"]), reverse=True)
+
+    seen: set[str] = set()
+    key: list[dict] = []
+    for a in allins + by_swing:
+        if a["hand_id"] in seen:
+            continue
+        seen.add(a["hand_id"])
+        key.append(a)
+        if len(key) >= k:
+            break
+    return key
+
+
 def _hero_position(hand: CanonicalHand) -> str | None:
     seat = hand.hero_seat()
     return seat.position if seat else None
