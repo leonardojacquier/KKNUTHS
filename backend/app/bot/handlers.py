@@ -39,9 +39,10 @@ from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
 
 WELCOME = (
     "♠️ *Poker Hand Analyzer*\n\n"
-    "Me envie um arquivo de mãos (hand history `.txt` do PokerStars/GGPoker, PDF, "
-    "print ou export do seu tracker) e eu analiso suas jogadas, o torneio inteiro "
-    "e monto seu perfil de estilo.\n\n"
+    "Me envie suas mãos de qualquer jeito: arquivo `.txt` de hand history "
+    "(PokerStars/GGPoker), print/foto do replay, PDF — ou *cole o texto da mão "
+    "direto aqui no chat*. Eu analiso as jogadas, o torneio inteiro e monto seu "
+    "perfil de estilo.\n\n"
     "Comandos:\n"
     "• /stats — seu perfil de estilo\n"
     "• /ask <pergunta> — consulte seu histórico de mãos\n"
@@ -300,10 +301,36 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _log(update, "sim_done", decisoes=len(sim["results"]))
     await _safe_reply(query.message, summary)
 
+    # modo "e se": o coach avalia a linha ALTERNATIVA que o usuário escolheu
+    from app.bot.processing import sim_whatif
+
+    await query.message.reply_text("🧠 Avaliando a SUA linha (modo 'e se')…")
+    verdict = await asyncio.to_thread(sim_whatif, sim)
+    if verdict:
+        await _safe_reply(query.message, "🎓 *Veredito da sua linha:*\n\n" + verdict)
+    else:
+        await query.message.reply_text(
+            "Não consegui gerar o veredito agora — mas o resumo acima já mostra "
+            "os preços de cada decisão."
+        )
+
 
 async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Texto livre = follow-up da última análise (discordar, aprofundar, dar contexto)."""
+    """Texto livre: hand history colada = análise; senão, follow-up da última análise."""
     tg_user = update.effective_user
+    text = update.message.text or ""
+
+    # hand history colada direto no chat? (PokerStars/GGPoker .txt)
+    from app.parsers import detect_site
+
+    if detect_site(text):
+        await update.message.reply_text("✅ Hand history detectada! Analisando…")
+        reply = await asyncio.to_thread(
+            process_upload, text.encode(), "txt", tg_user.id, tg_user.username
+        )
+        await _safe_reply(update.message, reply)
+        return
+
     if tg_user.id not in LAST_ANALYSIS:
         await update.message.reply_text(
             "Para conversar sobre uma mão, primeiro envie um arquivo ou print para eu "

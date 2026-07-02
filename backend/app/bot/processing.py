@@ -260,13 +260,32 @@ def sim_choose(sim: dict, choice: str) -> None:
     sim["results"].append(
         {
             "street": e["street"],
+            "board": e.get("board") or [],
             "choice": choice,
             "actual": e["actual"] + (" (all-in)" if e.get("all_in") else ""),
+            "actual_amount": e.get("amount"),
             "pot": e["pot"],
             "to_call": e["to_call"],
         }
     )
     sim["pos"] += 1
+
+
+def sim_whatif(sim: dict) -> str | None:
+    """Modo "e se": veredito do coach sobre a linha alternativa escolhida.
+
+    None quando o LLM está indisponível (o resumo determinístico já foi enviado).
+    """
+    from app.agent.llm import evaluate_line
+
+    payload = {
+        "hero_cards": sim["cards"],
+        "position": sim["position"],
+        "big_blind": sim["bb"],
+        "resultado_real_bb": sim["net_bb_real"],
+        "decisoes": sim["results"],
+    }
+    return evaluate_line(payload)
 
 
 def sim_summary(sim: dict) -> str:

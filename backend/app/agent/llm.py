@@ -417,6 +417,72 @@ def followup(
         return None
 
 
+def evaluate_line(sim_data: dict, lang: str = "pt") -> str | None:
+    """Modo "e se": avalia a linha ALTERNATIVA que o aluno escolheu na simulação.
+
+    Para cada decisão divergente da real, julga (com as tools) se a escolha do
+    aluno era melhor, pior ou equivalente — e quantifica. None sem chave/erro.
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        system = _SYSTEM.get(lang, _SYSTEM["pt"]) + (
+            "\nMODO 'E SE': o aluno acabou de jogar uma SIMULAÇÃO de uma mão real dele. "
+            "Compare a linha que ELE escolheu com a linha real, decisão a decisão:\n"
+            "- Onde coincidiu: valide em 1 frase.\n"
+            "- Onde divergiu: julgue qual era melhor (use equity_vs_range/pot_odds/"
+            "push_fold para os números) e estime o impacto.\n"
+            "- Feche com o veredito: a linha do aluno era melhor, pior ou equivalente "
+            "à real — e a lição principal.\n"
+            "Seja curto (max ~1500 caracteres) e use a linguagem acessível da regra 6."
+        )
+        system_blocks = [
+            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+        ]
+        messages = [
+            {
+                "role": "user",
+                "content": "Dados da simulação (linha do aluno vs linha real):\n"
+                + json.dumps(sim_data, ensure_ascii=False, indent=2),
+            }
+        ]
+        for _ in range(MAX_TOOL_ROUNDS):
+            resp = client.messages.create(
+                model=settings.analysis_model,
+                max_tokens=900,
+                system=system_blocks,
+                tools=TOOLS,
+                messages=messages,
+            )
+            if resp.stop_reason != "tool_use":
+                return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+            messages.append({"role": "assistant", "content": resp.content})
+            tool_results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    try:
+                        value = _dispatch(block.name, block.input)
+                        if isinstance(value, (int, float)):
+                            value = round(value, 4)
+                        out = json.dumps({"result": value}, ensure_ascii=False)
+                    except Exception as exc:
+                        out = json.dumps({"error": str(exc)})
+                    tool_results.append(
+                        {"type": "tool_result", "tool_use_id": block.id, "content": out}
+                    )
+            messages.append({"role": "user", "content": tool_results})
+        return None
+    except Exception:
+        return None
+
+
 def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str | None:
     """Sintetiza uma resposta ao /ask a partir dos resumos recuperados (RAG).
 

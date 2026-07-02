@@ -66,3 +66,27 @@ def test_simulation_full_walkthrough():
 
 def test_simulation_none_without_hands():
     assert build_simulation(999999) is None
+
+
+def test_sim_choose_records_board_and_whatif_offline():
+    from app.bot.processing import sim_whatif
+
+    remember_hands(556, parse_text(PS.read_text()))
+    sim = build_simulation(556)
+    step = sim_advance(sim)
+    while not step["done"]:
+        sim_choose(sim, "raise")
+        step = sim_advance(sim)
+    # board registrado nas decisões pós-flop (payload do modo "e se")
+    flop = [r for r in sim["results"] if r["street"] == "flop"][0]
+    assert flop["board"] == ["Ah", "7c", "2d"]
+    # sem chave, o veredito é None e o fluxo não quebra
+    assert sim_whatif(sim) is None
+
+
+def test_pasted_hand_history_detected():
+    from app.parsers import detect_site
+
+    raw = PS.read_text()
+    assert detect_site(raw) == "PokerStars"      # cole no chat -> vira análise
+    assert detect_site("bela mão, hein?") is None  # conversa normal -> follow-up
