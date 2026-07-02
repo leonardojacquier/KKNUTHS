@@ -189,6 +189,116 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     return answer
 
 
+def build_simulation(telegram_id: int) -> dict | None:
+    """Monta uma simulação jogável a partir de uma mão real do usuário.
+
+    Escolhe a mão com mais pontos de decisão do herói. Retorna None sem material.
+    """
+    from app.agent.analyzer import analyze_hand as _ah
+    from app.agent.analyzer import hand_timeline
+
+    hands = list(RECENT_HANDS.get(telegram_id, []))
+    repo = get_repository()
+    if not hands and repo.enabled:
+        user = repo.get_or_create_user(telegram_id, None)
+        if user:
+            hands = repo.get_all_hands(user["id"], limit=200)
+
+    best, best_events = None, []
+    for h in hands:
+        if not (h.hero and h.hero_cards):
+            continue
+        ev = hand_timeline(h)
+        if sum(1 for e in ev if e["kind"] == "decision") > sum(
+            1 for e in best_events if e["kind"] == "decision"
+        ):
+            best, best_events = h, ev
+    if not best or not any(e["kind"] == "decision" for e in best_events):
+        return None
+
+    a = _ah(best)
+    return {
+        "hand_id": best.hand_id,
+        "cards": best.hero_cards,
+        "position": a["position"],
+        "bb": best.stakes.big_blind or 1,
+        "net_bb_real": a["net_bb"],
+        "events": best_events,
+        "pos": 0,
+        "results": [],
+    }
+
+
+def sim_advance(sim: dict) -> dict:
+    """Avança a simulação: narra ações dos vilões até a próxima decisão do herói.
+
+    Retorna {"narration": str, "decision": evento|None, "done": bool}.
+    """
+    lines: list[str] = []
+    last_street = None
+    while sim["pos"] < len(sim["events"]):
+        e = sim["events"][sim["pos"]]
+        if e["street"] != last_street:
+            board = " ".join(e["board"]) if e["board"] else "—"
+            lines.append(f"\n🃏 *{e['street'].upper()}*  (mesa: {board})")
+            last_street = e["street"]
+        if e["kind"] == "action":
+            lines.append(f"  {e['text']}")
+            sim["pos"] += 1
+            continue
+        # decisão do herói: para aqui e espera o botão
+        pot_txt = f"pote: {e['pot']:g}"
+        call_txt = f" | para pagar: {e['to_call']:g}" if e["to_call"] > 0 else ""
+        lines.append(f"\n👉 *Sua vez!*  {pot_txt}{call_txt}")
+        return {"narration": "\n".join(lines), "decision": e, "done": False}
+    return {"narration": "\n".join(lines), "decision": None, "done": True}
+
+
+def sim_choose(sim: dict, choice: str) -> None:
+    """Registra a escolha do usuário na decisão atual e avança o ponteiro."""
+    e = sim["events"][sim["pos"]]
+    sim["results"].append(
+        {
+            "street": e["street"],
+            "choice": choice,
+            "actual": e["actual"] + (" (all-in)" if e.get("all_in") else ""),
+            "pot": e["pot"],
+            "to_call": e["to_call"],
+        }
+    )
+    sim["pos"] += 1
+
+
+def sim_summary(sim: dict) -> str:
+    """Comparação final: sua linha vs a linha real, com o preço de cada decisão."""
+    from app.analysis.tools import pot_odds
+
+    lines = [
+        f"🏁 *Fim da simulação!*  ({' '.join(sim['cards'])} em {sim['position'] or '?'})\n"
+    ]
+    matches = 0
+    for r in sim["results"]:
+        same = r["choice"].split()[0] == r["actual"].split()[0]
+        matches += int(same)
+        icon = "✅" if same else "↔️"
+        price = ""
+        if r["to_call"] > 0:
+            req = pot_odds(r["pot"], r["to_call"])
+            price = f" — equity mínima p/ pagar (chance de ganhar necessária): {req*100:.0f}%"
+        lines.append(
+            f"{icon} *{r['street']}*: você: {r['choice']} | na mão real: {r['actual']}{price}"
+        )
+    lines.append(
+        f"\nResultado real da mão: {sim['net_bb_real']:+.1f} BB "
+        f"(BB = big blind, a aposta grande da mesa)."
+    )
+    lines.append(
+        f"Você repetiu a linha real em {matches}/{len(sim['results'])} decisões."
+    )
+    lines.append("\n💬 _Quer discutir alguma dessas decisões? É só responder aqui._")
+    return "\n".join(lines)
+
+
 def build_drill(telegram_id: int) -> dict | None:
     """Monta um spot de treino a partir das mãos do usuário (mais recente primeiro
     com hero conhecido). Retorna None se não houver material."""

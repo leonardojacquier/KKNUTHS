@@ -115,6 +115,58 @@ def analyze_tournament(hands: list[CanonicalHand]) -> dict:
     }
 
 
+def hand_timeline(hand: CanonicalHand) -> list[dict]:
+    """Linha do tempo da mão para o simulador: eventos na ordem, com o pote
+    reconstruído. Decisões do herói viram eventos 'decision' (com to_call);
+    ações dos vilões viram 'action' (narração)."""
+    hero = hand.hero
+    events: list[dict] = []
+    pot = 0.0
+
+    for sname in _STREET_ORDER:
+        st = hand.street(sname)
+        if not st:
+            continue
+        contrib: dict[str, float] = {}
+        for a in st.actions:
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - contrib.get(a.actor, 0.0)
+            counts = a.type != ActionType.POST or a.post_type in ("sb", "bb")
+            outstanding = max(contrib.values(), default=0.0)
+
+            if a.actor == hero and a.type != ActionType.POST:
+                to_call = max(0.0, outstanding - contrib.get(hero or "", 0.0))
+                events.append(
+                    {
+                        "kind": "decision",
+                        "street": sname.value,
+                        "board": list(st.board),
+                        "pot": round(pot, 2),
+                        "to_call": round(to_call, 2),
+                        "actual": a.type.value,
+                        "amount": round(add, 2),
+                        "all_in": a.all_in,
+                    }
+                )
+            elif a.type != ActionType.POST:
+                label = a.type.value + (f" {add:g}" if add else "")
+                events.append(
+                    {
+                        "kind": "action",
+                        "street": sname.value,
+                        "board": list(st.board),
+                        "text": f"{a.actor}: {label}",
+                    }
+                )
+
+            if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET, ActionType.RAISE):
+                pot += add
+                if counts:
+                    contrib[a.actor] = contrib.get(a.actor, 0.0) + add
+    return events
+
+
 def select_key_hands(hands: list[CanonicalHand], k: int = 5) -> list[dict]:
     """Seleciona as mãos decisivas de um torneio para coaching individual.
 

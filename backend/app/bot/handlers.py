@@ -25,9 +25,13 @@ from app.bot.processing import (
     LAST_ANALYSIS,
     RECENT_HANDS,
     build_drill,
+    build_simulation,
     process_followup,
     process_upload,
     reveal_drill,
+    sim_advance,
+    sim_choose,
+    sim_summary,
 )
 from app.config import get_settings
 from app.db import get_repository
@@ -41,7 +45,8 @@ WELCOME = (
     "Comandos:\n"
     "• /stats — seu perfil de estilo\n"
     "• /ask <pergunta> — consulte seu histórico de mãos\n"
-    "• /treino — drill com uma mão sua\n"
+    "• /treino — drill rápido com uma mão sua\n"
+    "• /simular — jogue uma mão sua decisão a decisão 🎮\n"
     "• /plano — sobre o beta gratuito\n\n"
     "Para começar, é só mandar o arquivo. 📎"
 )
@@ -212,6 +217,90 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, reply)
 
 
+def _sim_buttons(decision: dict) -> InlineKeyboardMarkup:
+    """Botões contextuais: com aposta a pagar = Fold/Call/Raise; sem = Check/Bet."""
+    if decision["to_call"] > 0:
+        row = [
+            InlineKeyboardButton("Fold (desistir)", callback_data="sim:fold"),
+            InlineKeyboardButton("Call (pagar)", callback_data="sim:call"),
+            InlineKeyboardButton("Raise (aumentar)", callback_data="sim:raise"),
+        ]
+    else:
+        row = [
+            InlineKeyboardButton("Check (passar)", callback_data="sim:check"),
+            InlineKeyboardButton("Bet (apostar)", callback_data="sim:bet"),
+        ]
+    return InlineKeyboardMarkup([row])
+
+
+async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
+    tg_id = update.effective_user.id
+    await _log(update, "simular")
+    sim = await asyncio.to_thread(build_simulation, tg_id)
+    if not sim:
+        await update.message.reply_text(
+            "Preciso de uma mão sua com a ação completa para simular. "
+            "Envie um hand history (.txt) ou um print de replay primeiro."
+        )
+        return
+    ctx.user_data["sim"] = sim
+    step = sim_advance(sim)
+    intro = (
+        "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
+        f"Suas cartas: *{' '.join(sim['cards'])}* | Posição: *{sim['position'] or '?'}*\n"
+        "No final eu comparo a sua linha (sequência de decisões) com a que "
+        "aconteceu de verdade."
+    )
+    await update.message.reply_markdown(
+        intro + "\n" + step["narration"],
+        reply_markup=_sim_buttons(step["decision"]) if step["decision"] else None,
+    )
+
+
+async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    sim = ctx.user_data.get("sim")
+    if not sim:
+        await query.edit_message_text("Simulação expirada. Use /simular para outra.")
+        return
+    choice = query.data.split(":", 1)[1]
+    sim_choose(sim, choice)
+    # remove os botões da mensagem anterior e registra a escolha
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    step = sim_advance(sim)
+    if step["decision"]:
+        await query.message.reply_markdown(
+            f"Você escolheu: *{choice}*\n" + step["narration"],
+            reply_markup=_sim_buttons(step["decision"]),
+        )
+        return
+
+    # fim: resumo + contexto para discutir em texto livre
+    summary = sim_summary(sim)
+    LAST_ANALYSIS[update.effective_user.id] = {
+        "context": {
+            "simulacao": sim["results"],
+            "mao": {
+                "cartas": sim["cards"],
+                "posicao": sim["position"],
+                "resultado_real_bb": sim["net_bb_real"],
+            },
+        },
+        "history": [],
+        "hand_row_id": None,
+        "user_id": None,
+    }
+    ctx.user_data.pop("sim", None)
+    await _log(update, "sim_done", decisoes=len(sim["results"]))
+    await _safe_reply(query.message, summary)
+
+
 async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Texto livre = follow-up da última análise (discordar, aprofundar, dar contexto)."""
     tg_user = update.effective_user
@@ -257,7 +346,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
+    app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
+    app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
