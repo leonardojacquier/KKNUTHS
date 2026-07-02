@@ -46,7 +46,8 @@ uvicorn app.api.main:app --reload
 
 Implementado e testável **sem chaves** (26 testes):
 - Formato canônico de mão (validação Pydantic).
-- Parsers **PokerStars** e **GGPoker** (torneio + cash) → canônico, com corpo compartilhado.
+- Parsers **PokerStars, GGPoker, Winamax, PartyPoker e 888poker** (torneio + cash)
+  → canônico; **CSV de trackers** (HM/PT) vira mãos-resumo.
 - Ferramentas de análise: pot odds, EV, SPR, blefe; equity Monte Carlo (interno + `treys`).
 - Agente determinístico: reconstrução de pote, spots, relatório de torneio, stats de estilo.
 - Degradação graciosa: sem chave o coaching cai no resumo determinístico; sem Supabase o

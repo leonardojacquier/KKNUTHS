@@ -2,11 +2,20 @@
 from __future__ import annotations
 
 from app.models.canonical import CanonicalHand
+from app.parsers.dealing_family import PartyPokerParser, Poker888Parser
 from app.parsers.ggpoker import GGPokerParser
 from app.parsers.pokerstars import PokerStarsParser
+from app.parsers.winamax import WinamaxParser
 
-# parsers determinísticos disponíveis (ordem importa: o primeiro que casar vence)
-_PARSERS = [PokerStarsParser(), GGPokerParser()]
+# parsers determinísticos disponíveis (ordem importa: o primeiro que casar vence;
+# 888 antes do Party porque o header do 888 também contém "Hand History for Game")
+_PARSERS = [
+    PokerStarsParser(),
+    GGPokerParser(),
+    WinamaxParser(),
+    Poker888Parser(),
+    PartyPokerParser(),
+]
 
 
 def detect_site(raw_text: str) -> str | None:

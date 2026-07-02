@@ -40,9 +40,9 @@ from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
 WELCOME = (
     "♠️ *Poker Hand Analyzer*\n\n"
     "Me envie suas mãos de qualquer jeito: arquivo `.txt` de hand history "
-    "(PokerStars/GGPoker), print/foto do replay, PDF — ou *cole o texto da mão "
-    "direto aqui no chat*. Eu analiso as jogadas, o torneio inteiro e monto seu "
-    "perfil de estilo.\n\n"
+    "(PokerStars, GGPoker, Winamax, PartyPoker, 888poker), CSV do seu tracker "
+    "(HM/PT), print/foto do replay, PDF — ou *cole o texto da mão direto aqui "
+    "no chat*. Eu analiso as jogadas, o torneio inteiro e monto seu perfil.\n\n"
     "Comandos:\n"
     "• /stats — seu perfil de estilo\n"
     "• /ask <pergunta> — consulte seu histórico de mãos\n"

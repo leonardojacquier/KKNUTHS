@@ -1,0 +1,29 @@
+Winamax Poker - CashGame - HandId: #12345678-901-2345678901 - Holdem no limit (0.01€/0.02€) - 2023/04/10 21:15:00 UTC
+Table: 'Nice 05' 5-max (real money) Seat #1 is the button
+Seat 1: Villain1 (2.00€)
+Seat 2: Hero (2.14€)
+Seat 3: Villain2 (1.85€)
+Seat 4: Villain3 (2.50€)
+Seat 5: Villain4 (0.95€)
+*** ANTE/BLINDS ***
+Hero posts small blind 0.01€
+Villain2 posts big blind 0.02€
+Dealt to Hero [Qs Qd]
+*** PRE-FLOP ***
+Villain3 folds
+Villain4 folds
+Villain1 raises 0.04€ to 0.06€
+Hero raises 0.14€ to 0.20€
+Villain2 folds
+Villain1 calls 0.14€
+*** FLOP *** [8h 5c 2s]
+Hero bets 0.28€
+Villain1 calls 0.28€
+*** TURN *** [8h 5c 2s] [Jd]
+Hero bets 0.60€
+Villain1 folds
+Hero collected 1.55€ from pot
+*** SUMMARY ***
+Total pot 1.55€ | No rake
+Board: [8h 5c 2s Jd]
+Seat 2: Hero (small blind) won 1.55€

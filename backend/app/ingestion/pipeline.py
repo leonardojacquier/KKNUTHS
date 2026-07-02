@@ -30,13 +30,24 @@ class IngestResult:
 def ingest(content: bytes | str, source_format: str = "txt", filename: str = "") -> IngestResult:
     fmt = (source_format or "").lower()
 
-    if fmt in ("txt", "text") or (isinstance(content, str)):
+    if fmt in ("txt", "text", "csv") or (isinstance(content, str) and fmt != "pdf"):
         text = content.decode("utf-8", "ignore") if isinstance(content, bytes) else content
         site = detect_site(text)
         if site:
             hands = parse_text(text)
             return IngestResult(hands, site, "txt", confidence=1.0)
-        # texto não reconhecido -> LLM de inferência (a conectar)
+        # CSV de tracker (por extensão ou por cheiro do conteúdo)
+        from app.parsers.csv_tracker import looks_like_tracker_csv, parse_tracker_csv
+
+        if fmt == "csv" or looks_like_tracker_csv(text):
+            hands = parse_tracker_csv(text)
+            if hands:
+                return IngestResult(
+                    hands, hands[0].site, "csv", confidence=0.9, needs_review=False,
+                    note="mãos-resumo de tracker (sem ação street a street)",
+                )
+            return IngestResult([], None, "csv", confidence=0.0, needs_review=True,
+                                note="CSV sem colunas reconhecíveis (hand id/cartas)")
         return IngestResult([], None, "txt", confidence=0.0, needs_review=True,
                             note="formato de texto não reconhecido; encaminhar ao LLM")
 
