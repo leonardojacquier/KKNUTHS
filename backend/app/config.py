@@ -42,6 +42,7 @@ class Settings:
 
         self.public_base_url: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000")
         self.default_lang: str = os.getenv("DEFAULT_LANG", "pt")
+        self.admin_token: str = os.getenv("ADMIN_TOKEN", "")
 
 
 @lru_cache

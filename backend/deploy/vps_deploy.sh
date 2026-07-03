@@ -59,6 +59,15 @@ else
 fi
 pm2 save
 
+# 6b. portal de gestão (uvicorn na 8014, atrás do Caddy)
+if pm2 describe poker-web >/dev/null 2>&1; then
+    pm2 restart poker-web --update-env
+else
+    pm2 start ./venv/bin/python --name poker-web --cwd "$APP_DIR" \
+        --interpreter none -- -m uvicorn app.api.main:app --host 127.0.0.1 --port 8014
+fi
+pm2 save
+
 # 7. crons do produto: relatório semanal (dom 18h) + quiz diário (19h)
 CRON_WEEKLY="0 18 * * 0 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/weekly_report.py >> /var/log/poker-weekly.log 2>&1"
 CRON_QUIZ="0 19 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/daily_quiz.py >> /var/log/poker-quiz.log 2>&1"
