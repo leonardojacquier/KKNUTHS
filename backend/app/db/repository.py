@@ -229,6 +229,29 @@ class Repository:
             {"user_id": user_id, "type": type_, "cost_credits": cost_credits}
         ).execute()
 
+    # --------------------------- drills/quiz ---------------------------
+    @_safe(None)
+    def set_pending_drill(self, telegram_id: int, drill: dict) -> None:
+        if not self._guard():
+            return None
+        self.client.table("pending_drills").upsert(
+            {"telegram_id": telegram_id, "drill": drill}, on_conflict="telegram_id"
+        ).execute()
+
+    @_safe(None)
+    def pop_pending_drill(self, telegram_id: int) -> Optional[dict]:
+        """Lê e remove o drill pendente (respondido uma vez só)."""
+        if not self._guard():
+            return None
+        res = (
+            self.client.table("pending_drills")
+            .select("drill").eq("telegram_id", telegram_id).execute()
+        )
+        if not res.data:
+            return None
+        self.client.table("pending_drills").delete().eq("telegram_id", telegram_id).execute()
+        return res.data[0]["drill"]
+
     @_safe(None)
     def get_player_stats(self, user_id: str) -> Optional[dict]:
         if not self._guard():

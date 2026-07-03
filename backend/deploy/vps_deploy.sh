@@ -59,9 +59,11 @@ else
 fi
 pm2 save
 
-# 7. cron do relatório semanal (domingo 18h) — instala só se não existir
-CRON_LINE="0 18 * * 0 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/weekly_report.py >> /var/log/poker-weekly.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly" ; echo "$CRON_LINE" ) | crontab -
+# 7. crons do produto: relatório semanal (dom 18h) + quiz diário (19h)
+CRON_WEEKLY="0 18 * * 0 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/weekly_report.py >> /var/log/poker-weekly.log 2>&1"
+CRON_QUIZ="0 19 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/daily_quiz.py >> /var/log/poker-quiz.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|weekly_report\|daily_quiz" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ) | crontab -
 
 echo "== OK: pm2 status =="
 pm2 status "$PM2_NAME"

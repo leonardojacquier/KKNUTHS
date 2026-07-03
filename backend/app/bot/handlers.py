@@ -149,6 +149,10 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
     ctx.user_data["drill"] = drill
+    # persiste também no banco: sobrevive a restart do auto-deploy
+    await asyncio.to_thread(
+        get_repository().set_pending_drill, update.effective_user.id, drill
+    )
     stack = f"{drill['stack_bb']}bb" if drill.get("stack_bb") else "?"
     await update.message.reply_markdown(
         "🎯 *Treino* — o que você faz?\n\n"
@@ -172,6 +176,11 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     await query.answer()
     drill = ctx.user_data.get("drill")
+    if not drill:
+        # quiz diário (enviado pelo cron) ou bot reiniciado: busca no banco
+        drill = await asyncio.to_thread(
+            get_repository().pop_pending_drill, update.effective_user.id
+        )
     if not drill:
         await query.edit_message_text("Treino expirado. Use /treino para outro.")
         return

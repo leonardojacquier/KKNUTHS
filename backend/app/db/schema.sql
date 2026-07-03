@@ -112,6 +112,14 @@ create table if not exists bot_events (
 create index if not exists idx_bot_events_time on bot_events (created_at desc);
 create index if not exists idx_bot_events_user on bot_events (telegram_id, created_at desc);
 
+-- Drill pendente por usuário (quiz diário + /treino à prova de restart)
+create table if not exists pending_drills (
+    telegram_id bigint primary key,
+    drill       jsonb not null,
+    created_at  timestamptz not null default now()
+);
+alter table pending_drills enable row level security;
+
 -- ───────────────────────── segurança (RLS) ─────────────────────────
 -- O acesso é exclusivamente server-side via service role (que ignora RLS). Habilitar
 -- RLS sem políticas bloqueia anon/authenticated por completo — default seguro, pois
