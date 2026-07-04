@@ -23,8 +23,9 @@ rq>=1.16
 supabase>=2.4
 psycopg[binary]>=3.1
 
-# Poker math (deterministic tools)
+# Poker math (deterministic tools + solvers)
 treys>=0.1.8
+numpy>=1.26
 
 # Ingestion (optional extras, lazy-imported)
 pdfplumber>=0.11

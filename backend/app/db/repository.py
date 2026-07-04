@@ -229,6 +229,23 @@ class Repository:
             {"user_id": user_id, "type": type_, "cost_credits": cost_credits}
         ).execute()
 
+    @_safe([])
+    def get_population_hands(self, limit: int = 2000) -> list[CanonicalHand]:
+        """Mãos de TODOS os usuários (dados agregados do motor explorativo)."""
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("hands").select("canonical")
+            .order("created_at", desc=True).limit(limit).execute()
+        )
+        out = []
+        for row in res.data or []:
+            try:
+                out.append(CanonicalHand.model_validate(row["canonical"]))
+            except Exception:
+                continue
+        return out
+
     # --------------------------- drills/quiz ---------------------------
     @_safe(None)
     def set_pending_drill(self, telegram_id: int, drill: dict) -> None:

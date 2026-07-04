@@ -146,6 +146,32 @@ TOOLS = [
         },
     },
     {
+        "name": "solve_river",
+        "description": "SOLVER de river (CFR+, equilíbrio real do sub-jogo): dado board de 5 "
+        "cartas, ranges OOP/IP (notação padrão), pote e stack efetivo, retorna a estratégia "
+        "de equilíbrio (frequência de check/bet/jam por range + exemplos de mãos). Use nos "
+        "spots de river importantes; ranges estreitos (<900 combos).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "board": {"type": "array", "items": {"type": "string"}},
+                "oop_range": {"type": "string"},
+                "ip_range": {"type": "string"},
+                "pot": {"type": "number"},
+                "stack": {"type": "number"},
+                "player": {"type": "string", "enum": ["oop", "ip"]},
+            },
+            "required": ["board", "oop_range", "ip_range", "pot", "stack"],
+        },
+    },
+    {
+        "name": "population_tendencies",
+        "description": "EXPLORATIVO: frequências agregadas do field (fold/call/raise contra "
+        "agressão por street) calculadas das mãos reais armazenadas, com dicas de exploit. "
+        "Use para recomendar desvios lucrativos do equilíbrio. Cautela com amostra pequena.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "push_fold",
         "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
         "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
@@ -172,7 +198,9 @@ _SYSTEM = {
         "sempre que a ação der contexto do range do vilão.\n"
         "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
-        "de ICM; em stack curto, push_fold.\n"
+        "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
+        "diga isso ao aluno). Em decisões de river relevantes, use solve_river (equilíbrio "
+        "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "6) LINGUAGEM ACESSÍVEL: na primeira vez que usar um termo técnico na resposta, "
         "explique entre parênteses de forma curtíssima. Ex.: pot odds (o preço que o pote "
@@ -199,9 +227,33 @@ _SYSTEM = {
 
 def _dispatch(name: str, args: dict):
     if name == "push_fold":
+        from app.analysis.nash_pushfold import nash_jam_fold
         from app.analysis.pushfold import push_fold
 
-        return push_fold(args["cards"], args["stack_bb"], args.get("position") or "MP")
+        pos = (args.get("position") or "MP").upper()
+        if pos in ("SB", "BB"):
+            exact = nash_jam_fold(args["cards"], args["stack_bb"], pos)
+            if exact:
+                return exact
+        return push_fold(args["cards"], args["stack_bb"], pos)
+    if name == "solve_river":
+        from app.analysis.river_solver import solve_river
+
+        return solve_river(
+            args["board"], args["oop_range"], args["ip_range"],
+            args["pot"], args["stack"], args.get("player", "oop"),
+        )
+    if name == "population_tendencies":
+        from app.analysis.population import exploit_hints, population_tendencies
+        from app.db import get_repository
+
+        repo = get_repository()
+        hands = repo.get_population_hands(limit=2000) if repo.enabled else []
+        if not hands:
+            return {"error": "sem dados de população ainda"}
+        t = population_tendencies(hands)
+        t["exploits"] = exploit_hints(t)
+        return t
     if name == "equity_vs_range":
         from app.analysis.ranges import equity_vs_range
 
