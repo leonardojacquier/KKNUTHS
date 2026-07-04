@@ -68,6 +68,24 @@ else
 fi
 pm2 save
 
+# 6c. tarefas one-shot (rodam UMA vez por arquivo, marcador em .oneshot-done/)
+#     Ex.: reprocessar uploads após correção de parser. Falha não aborta deploy.
+mkdir -p .oneshot-done
+if [ -d deploy/oneshot ]; then
+    for task in deploy/oneshot/*.sh; do
+        [ -e "$task" ] || continue
+        marker=".oneshot-done/$(basename "$task")"
+        if [ ! -f "$marker" ]; then
+            echo "== oneshot: $(basename "$task") =="
+            if bash "$task"; then
+                touch "$marker"
+            else
+                echo "AVISO: oneshot $(basename "$task") falhou; tentará no próximo deploy." >&2
+            fi
+        fi
+    done
+fi
+
 # 7. crons do produto: relatório semanal (dom 18h) + quiz diário (19h)
 CRON_WEEKLY="0 18 * * 0 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/weekly_report.py >> /var/log/poker-weekly.log 2>&1"
 CRON_QUIZ="0 19 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/daily_quiz.py >> /var/log/poker-quiz.log 2>&1"

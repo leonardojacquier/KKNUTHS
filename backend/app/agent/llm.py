@@ -223,6 +223,9 @@ _SYSTEM = {
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
         "nunca diga que não consegue enviar imagem.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
+        "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
+        "naipes diferentes são 'o' (ex.: Ad 3c = A3o), naipes iguais são 's'. Confira "
+        "antes de escrever.\n"
         "6) LINGUAGEM ACESSÍVEL: na primeira vez que usar um termo técnico na resposta, "
         "explique entre parênteses de forma curtíssima. Ex.: pot odds (o preço que o pote "
         "te oferece), equity (sua chance de ganhar a mão), range (conjunto de mãos que o "
@@ -241,6 +244,8 @@ _SYSTEM = {
         "2) Point out the concrete mistake(s), explain the better line, quantify the impact.\n"
         "3) Consider position, stack depth and, in MTT, ICM/bubble pressure.\n"
         "4) End with a short plan: 2-3 prioritized study actions.\n"
+        "5) NOTATION: quote hands with correct suited/offsuit — different suits = 'o' "
+        "(Ad 3c = A3o), same suit = 's'. Double-check before writing.\n"
         "Be direct and practical. Answer in English."
     ),
 }

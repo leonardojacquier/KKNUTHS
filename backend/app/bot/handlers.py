@@ -380,22 +380,26 @@ async def _route_text(update: Update, text: str) -> None:
     raw_len = len(text)
     pending = take_paste(tg_user.id)
     force = bool(pending) and text.strip().lower() in {"analisar", "analise", "pronto"}
+    continuation = False
     if force:
         text = pending
     elif pending and (detect_site(text) or _looks_like_poker_text(text)):
         text = pending + "\n" + text  # continuação do paste cortado
+        continuation = True
     elif pending:
         stash_paste(tg_user.id, pending)  # não era continuação; preserva
 
     if detect_site(text):
         if raw_len >= 3800 and not force:
-            # mensagem no limite do Telegram = quase certo que falta o resto
+            # mensagem no limite do Telegram = quase certo que falta o resto;
+            # instrução só na 1ª parte — as demais acumulam em silêncio
             stash_paste(tg_user.id, text)
-            await update.message.reply_text(
-                "📄 Recebi — mas o Telegram corta textos longos e essa mensagem "
-                "chegou no limite. Cole a continuação que eu analiso tudo junto. "
-                "(Se era só isso mesmo, responda “analisar”.)"
-            )
+            if not continuation:
+                await update.message.reply_text(
+                    "📄 Recebi — mas o Telegram corta textos longos e essa "
+                    "mensagem chegou no limite. Continue colando o resto que eu "
+                    "analiso tudo junto. (Se era só isso, responda “analisar”.)"
+                )
             return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")
         reply = await asyncio.to_thread(
