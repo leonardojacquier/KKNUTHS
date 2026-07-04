@@ -77,6 +77,24 @@ class Repository:
         )
         return created.data[0] if created.data else None
 
+    @_safe(None)
+    def store_raw_file(self, telegram_id: int, content: bytes, fmt: str) -> Optional[str]:
+        """Guarda o arquivo bruto no Storage (bucket privado 'uploads').
+
+        Permite auditoria e reprocessamento quando um formato falhar.
+        Retorna o caminho no bucket ou None.
+        """
+        if not self._guard() or not content:
+            return None
+        from datetime import datetime, timezone
+
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        path = f"{telegram_id}/{stamp}.{fmt or 'bin'}"
+        self.client.storage.from_("uploads").upload(
+            path, bytes(content), {"content-type": "application/octet-stream"}
+        )
+        return path
+
     # ------------------------------ uploads ---------------------------
     @_safe(None)
     def save_upload(

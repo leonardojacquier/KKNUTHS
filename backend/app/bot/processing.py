@@ -72,6 +72,13 @@ def process_upload(
             "Seu limite renova no próximo mês. Planos pagos chegam em breve!"
         )
 
+    # ---- arquivo bruto no Storage (auditoria/reprocessamento) ----
+    raw_path = None
+    if repo.enabled and isinstance(content, (bytes, bytearray)):
+        raw_path = repo.store_raw_file(telegram_id, bytes(content), fmt)
+    elif repo.enabled and isinstance(content, str):
+        raw_path = repo.store_raw_file(telegram_id, content.encode(), fmt or "txt")
+
     # ---- ingestão ----
     result = ingest(content, source_format=fmt)
     if not result.hands:
@@ -84,7 +91,8 @@ def process_upload(
             excerpt = content[:500]
         repo.log_event(
             telegram_id, username, "upload_failed",
-            {"format": fmt, "note": result.note, "excerpt": excerpt},
+            {"format": fmt, "note": result.note, "excerpt": excerpt,
+             "raw_path": raw_path},
         )
         return (
             "Ainda não consegui ler esse arquivo. 😕 Já registrei o formato para "
@@ -100,7 +108,7 @@ def process_upload(
     hand_row_ids: list[str | None] = []
     if user:
         upload_id = repo.save_upload(
-            user["id"], None, result.source_format, result.site, result.confidence
+            user["id"], raw_path, result.source_format, result.site, result.confidence
         )
         for h in hands:
             hand_row_ids.append(repo.save_hand(user["id"], h, upload_id))
