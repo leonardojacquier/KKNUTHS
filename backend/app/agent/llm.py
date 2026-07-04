@@ -664,9 +664,11 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         raw = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(raw))
         hand = _snapshot_to_canonical(data)
-        if hand:
-            hand.source_format = "txt"
-            hand.confidence = min(hand.confidence, 0.8)
+        # guarda anti-alucinação: sem cartas do herói E sem ação, não é mão
+        if hand is None or (not hand.hero_cards and not hand.streets):
+            return None
+        hand.source_format = "txt"
+        hand.confidence = min(hand.confidence, 0.8)
         return hand
     except Exception:
         return None

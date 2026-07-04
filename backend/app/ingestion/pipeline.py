@@ -48,10 +48,11 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
                 )
             return IngestResult([], None, "csv", confidence=0.0, needs_review=True,
                                 note="CSV sem colunas reconhecíveis (hand id/cartas)")
-        # formato desconhecido: fallback por IA (qualquer sala/idioma)
+        # formato desconhecido: fallback por IA — mas só se o texto PARECE poker
+        # (evita alucinar mão a partir de texto qualquer e economiza tokens)
         from app.agent.llm import extract_from_hand_text
 
-        hand = extract_from_hand_text(text)
+        hand = extract_from_hand_text(text) if _looks_like_poker_text(text) else None
         if hand is not None:
             return IngestResult(
                 [hand], hand.site if hand.site != "unknown" else None, "txt",
@@ -78,6 +79,23 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
 
     return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
                         note=f"formato '{fmt}' não suportado")
+
+
+def _looks_like_poker_text(text: str) -> bool:
+    """Heurística barata: o texto tem sinais de mão de poker?
+
+    Exige cartas em notação (As, Kd, 10h...) OU >=2 palavras-chave do jogo.
+    Protege o fallback de IA contra texto aleatório (alucinação + custo).
+    """
+    import re
+
+    cards = re.findall(r"\b(?:10|[AKQJTakqjt2-9])[shdc♠♥♦♣]\b", text)
+    if len(cards) >= 2:
+        return True
+    keywords = ("flop", "turn", "river", "blind", "all-in", "allin", "pot",
+                "raise", "fold", "showdown", "dealer", "button", "ante")
+    hits = sum(1 for k in keywords if k in text.lower())
+    return hits >= 2
 
 
 def _vision_ingest(content: bytes | str, fmt: str, media: str = "image/png") -> IngestResult:

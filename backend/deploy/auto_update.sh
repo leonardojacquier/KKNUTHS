@@ -15,7 +15,10 @@ flock -n 9 || exit 0
 
 cd "$REPO"
 git fetch origin "$BRANCH" -q
-LOCAL=$(git rev-parse HEAD)
+# compara com o último deploy BEM-SUCEDIDO (não com o HEAD do clone — um deploy
+# que falhou no meio deixaria o HEAD avançado e mascararia o retry)
+OK_FILE=/tmp/poker-autoupdate.ok
+LOCAL=$(cat "$OK_FILE" 2>/dev/null || git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
 [ "$LOCAL" = "$REMOTE" ] && exit 0
 
@@ -38,6 +41,7 @@ notify() {  # avisa o admin no Telegram (se configurado); nunca falha o deploy
 
 if bash "$APP/deploy/vps_deploy.sh"; then
     MSG=$(cd "$REPO" && git log -1 --format='%s')
+    echo "$REMOTE" > "$OK_FILE"
     echo "[$(date '+%F %T')] deploy OK em ${REMOTE:0:7}"
     notify "🔄 Bot atualizado (${REMOTE:0:7}): $MSG"
 else

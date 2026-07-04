@@ -15,9 +15,19 @@ def test_ingest_txt():
 
 
 def test_ingest_unknown_format_flags_review():
-    res = ingest("conteúdo aleatório sem formato de sala", "txt")
+    # texto sem NENHUM sinal de poker: a heurística barra antes do LLM —
+    # determinístico em qualquer ambiente, com ou sem chave de API
+    res = ingest("relatório de vendas do trimestre, nada a ver com cartas", "txt")
     assert res.hands == []
     assert res.needs_review is True
+
+
+def test_poker_text_heuristic():
+    from app.ingestion.pipeline import _looks_like_poker_text
+
+    assert _looks_like_poker_text("hero tem As Kd no button") is True
+    assert _looks_like_poker_text("no flop veio blank e ele foldou pro raise") is True
+    assert _looks_like_poker_text("ata da reunião de condomínio") is False
 
 
 def test_analyze_hand_pot_and_net():
