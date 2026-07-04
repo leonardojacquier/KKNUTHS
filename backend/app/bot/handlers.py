@@ -627,11 +627,22 @@ def build_application() -> Application:
 
 
 async def _on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Exceção não tratada em handler: loga e avisa o usuário — nunca silêncio
-    depois de um 'Analisando…'."""
+    """Exceção não tratada em handler: loga (arquivo + banco, para o portal de
+    gestão) e avisa o usuário — nunca silêncio depois de um 'Analisando…'."""
     import logging
 
     logging.getLogger("bot").exception("erro não tratado", exc_info=ctx.error)
+    tg_id, username = None, None
+    if isinstance(update, Update) and update.effective_user:
+        tg_id = update.effective_user.id
+        username = update.effective_user.username
+    try:
+        await asyncio.to_thread(
+            get_repository().log_event, tg_id or 0, username, "error",
+            {"error": str(ctx.error)[:300]},
+        )
+    except Exception:
+        pass
     try:
         if isinstance(update, Update) and update.effective_message:
             await update.effective_message.reply_text(

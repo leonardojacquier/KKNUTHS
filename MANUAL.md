@@ -35,8 +35,8 @@ estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
 | Jeito | Como fazer |
 |---|---|
 | 📸 **Print/foto** | Tire print do replay da mão (ou da mesa) e envie como foto. O KKNuths lê as cartas, stacks, posições e a ação completa |
-| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars, Winamax, PartyPoker e 888poker** |
-| 📋 **Colar o texto** | Copie o texto da mão e cole direto na conversa |
+| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars (inclusive Zoom), Winamax, PartyPoker e 888poker** — cash e torneio |
+| 📋 **Colar o texto** | Copie o texto da mão (ou da sessão inteira!) e cole direto na conversa. Texto longo demais? O Telegram corta em partes — **pode colar tudo em sequência que eu junto sozinho**; se a última parte não vier, é só responder “analisar” |
 | 📊 **CSV do seu tracker** | Exporte do Hold'em Manager / PokerTracker e anexe |
 | 📑 **PDF** | Relatórios em PDF também funcionam |
 | 🎙️ **Áudio** | Grave sua pergunta por voz — o coach entende e responde |
@@ -59,7 +59,8 @@ mais rápido.*
   preço de cada decisão, o custo dos erros
 - **📊 Gráfico de range junto**: quando o coach assume um range para o vilão ou
   cita um equilíbrio, a **matriz 13×13 chega como imagem** na sequência — você vê
-  exatamente as mãos de que ele está falando
+  exatamente as mãos de que ele está falando. E pode **pedir na conversa**:
+  *"me passa a tabela"*, *"e o EV de cada mão?"* — o gráfico vem em seguida
 - **Em torneios**: pressão de ICM (quanto suas fichas valem em dinheiro real),
   decisões de bubble e mesa final, all-ins de stack curto comparados com o
   **equilíbrio Nash calculado**
@@ -87,7 +88,7 @@ o coach responde levando em conta o **seu** perfil de jogo.
 | `/stats` | Seu perfil de estilo (VPIP, agressividade, tendência) calculado sobre todas as suas mãos |
 | `/simular` | **Simulador**: jogue uma mão SUA de novo, decisão a decisão, com botões — no final, compare sua linha com a real e receba o veredito do coach |
 | `/treino` | Drill rápido: um spot seu, o que você faria? |
-| `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) |
+| `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) · `/range sb 10 ev` (**EV em BB de cada mão**, verde = empurrar rende mais que foldar) · `/range sb 10 icm 1.5` (o mesmo **sob pressão de ICM** — veja o range mudar perto da bolha) |
 | `/ask` + pergunta | Pesquise no seu histórico: *"/ask minhas maiores perdas no river"* |
 | `/plano` | Seu plano e limites |
 
@@ -136,6 +137,11 @@ técnica de alto nível: use como um coach humano, questionando e discutindo
 
 **Funciona para cash game e torneio?**
 Os dois. Torneios têm análise extra de ICM/bubble e equilíbrios de stack curto.
+
+**Colei o histórico e o Telegram cortou no meio.**
+Sem problema — cole as partes em sequência que o KKNuths **remonta tudo sozinho**
+e analisa junto. Se ele ficar aguardando, responda “analisar” que ele fecha a
+conta com o que chegou.
 
 **Não achei minha sala na lista.**
 Manda um print que funciona para qualquer sala — e nos avise qual é a sua:
