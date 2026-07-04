@@ -185,6 +185,11 @@ def render_spec(spec: tuple) -> tuple[bytes, str] | None:
         if spec[0] == "nash":
             _, role, stack = spec
             return chart_for_query(role, str(stack))
+        if spec[0] == "nashmode":
+            _, role, stack, mode, bf = spec
+            return chart_for_query(
+                role, str(stack), mode if mode in ("ev", "icm") else None, bf
+            )
     except Exception:
         return None
     return None

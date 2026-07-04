@@ -172,6 +172,25 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "send_range_chart",
+        "description": "ENVIA ao aluno um gráfico de range 13×13 como imagem, logo após a "
+        "sua resposta. Use SEMPRE que o aluno pedir 'tabela', 'gráfico', 'range' ou 'EV "
+        "das mãos'. Modos: (a) range específico — passe range_notation + title; "
+        "(b) equilíbrio jam/fold — passe role (SB|BB) + stack_bb + mode "
+        "('freq' | 'ev' chip | 'icm' com bf). Confirme na resposta que o gráfico segue abaixo.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "range_notation": {"type": "string"},
+                "title": {"type": "string"},
+                "role": {"type": "string", "enum": ["SB", "BB"]},
+                "stack_bb": {"type": "number"},
+                "mode": {"type": "string", "enum": ["freq", "ev", "icm"]},
+                "bf": {"type": "number"},
+            },
+        },
+    },
+    {
         "name": "push_fold",
         "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
         "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
@@ -200,7 +219,9 @@ _SYSTEM = {
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
         "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
         "diga isso ao aluno). Em decisões de river relevantes, use solve_river (equilíbrio "
-        "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies.\n"
+        "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies. "
+        "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
+        "nunca diga que não consegue enviar imagem.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "6) LINGUAGEM ACESSÍVEL: na primeira vez que usar um termo técnico na resposta, "
         "explique entre parênteses de forma curtíssima. Ex.: pot odds (o preço que o pote "
@@ -226,6 +247,9 @@ _SYSTEM = {
 
 
 def _dispatch(name: str, args: dict):
+    if name == "send_range_chart":
+        # a spec é coletada por charts_from_tool_call; aqui só confirmamos
+        return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
     if name == "push_fold":
         from app.analysis.nash_pushfold import nash_jam_fold
         from app.analysis.pushfold import push_fold
@@ -298,9 +322,18 @@ def _dispatch(name: str, args: dict):
 def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
     """Se a tool usada implica um range visualizável, retorna a spec do gráfico.
 
-    Specs: ("range", notacao, titulo) | ("nash", "SB"|"BB", stack_bb)
+    Specs: ("range", notacao, titulo) | ("nash", role, stack_bb)
+         | ("nashmode", role, stack_bb, mode, bf)
     """
     try:
+        if name == "send_range_chart":
+            if args.get("range_notation"):
+                return ("range", args["range_notation"],
+                        args.get("title") or "Range")
+            if args.get("role") and args.get("stack_bb"):
+                return ("nashmode", args["role"].upper(), float(args["stack_bb"]),
+                        args.get("mode") or "freq", float(args.get("bf") or 1.5))
+            return None
         if name == "equity_vs_range" and args.get("villain_range"):
             return ("range", args["villain_range"], "Range assumido do vilão")
         if name == "preflop_range" and isinstance(result, dict) and result.get("range"):
