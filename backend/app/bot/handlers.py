@@ -368,16 +368,41 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _route_text(update: Update, text: str) -> None:
-    """Roteia texto (digitado ou transcrito de voz): hand history ou follow-up."""
+    """Roteia texto (digitado ou transcrito de voz): hand history ou follow-up.
+
+    Pastes longos chegam cortados pelo Telegram (limite 4096): as partes são
+    remontadas via stash/take_paste antes de analisar."""
     tg_user = update.effective_user
+    from app.bot.processing import stash_paste, take_paste
+    from app.ingestion.pipeline import _looks_like_poker_text
     from app.parsers import detect_site
 
+    raw_len = len(text)
+    pending = take_paste(tg_user.id)
+    force = bool(pending) and text.strip().lower() in {"analisar", "analise", "pronto"}
+    if force:
+        text = pending
+    elif pending and (detect_site(text) or _looks_like_poker_text(text)):
+        text = pending + "\n" + text  # continuação do paste cortado
+    elif pending:
+        stash_paste(tg_user.id, pending)  # não era continuação; preserva
+
     if detect_site(text):
+        if raw_len >= 3800 and not force:
+            # mensagem no limite do Telegram = quase certo que falta o resto
+            stash_paste(tg_user.id, text)
+            await update.message.reply_text(
+                "📄 Recebi — mas o Telegram corta textos longos e essa mensagem "
+                "chegou no limite. Cole a continuação que eu analiso tudo junto. "
+                "(Se era só isso mesmo, responda “analisar”.)"
+            )
+            return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")
         reply = await asyncio.to_thread(
             process_upload, text.encode(), "txt", tg_user.id, tg_user.username
         )
         await _safe_reply(update.message, reply)
+        await _send_pending_charts(update.message, tg_user.id)
         return
 
     await update.message.reply_text("🤔 Analisando sua colocação…")

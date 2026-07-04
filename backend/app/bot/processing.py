@@ -51,6 +51,29 @@ def pop_charts(telegram_id: int) -> list[tuple[bytes, str]]:
     return PENDING_CHARTS.pop(telegram_id, [])
 
 
+# paste de hand history cortado pelo Telegram (limite 4096): guarda a(s)
+# parte(s) já recebidas até a continuação chegar
+PENDING_PASTE: dict[int, tuple[str, float]] = {}
+_PASTE_TTL = 300.0
+
+
+def stash_paste(telegram_id: int, text: str) -> None:
+    import time
+
+    PENDING_PASTE[telegram_id] = (text, time.time())
+
+
+def take_paste(telegram_id: int) -> str:
+    """Remove e retorna o paste pendente ('' se não há ou expirou)."""
+    import time
+
+    item = PENDING_PASTE.pop(telegram_id, None)
+    if not item:
+        return ""
+    text, ts = item
+    return text if time.time() - ts < _PASTE_TTL else ""
+
+
 def remember_hands(telegram_id: int, hands: list[CanonicalHand]) -> None:
     cur = RECENT_HANDS.get(telegram_id, [])
     RECENT_HANDS[telegram_id] = (cur + hands)[-_RECENT_CAP:]

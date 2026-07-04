@@ -25,30 +25,40 @@ _HEADER = re.compile(
     r"PokerStars (?:Hand|Game) #(?P<hid>\d+):\s+"
     r"(?P<rest>.*?)\s+-\s+(?P<date>\d{4}/\d{2}/\d{2} \d{1,2}:\d{2}:\d{2})"
 )
+# valores podem vir com separador de milhar ("1,000") — GG/PS em níveis altos
+_NUM = r"[\d][\d,]*(?:\.\d+)?"
 _TOURNEY = re.compile(
     r"Tournament #(?P<tid>\d+),\s+(?P<buyin>[^ ]+)\s+(?P<cur>[A-Z]{3})?.*?"
-    r"Level\s+(?P<level>[^(]+)\((?P<sb>[\d.]+)/(?P<bb>[\d.]+)\)"
+    rf"Level\s+(?P<level>[^(]+)\((?P<sb>{_NUM})/(?P<bb>{_NUM})"
+    rf"(?:\((?P<ante>{_NUM})\))?\)"
 )
-_CASH = re.compile(r"\((?P<sb>[\d.]+)/(?P<bb>[\d.]+)\s+(?P<cur>[A-Z]{3})?\)")
+_CASH = re.compile(rf"\((?P<sb>{_NUM})/(?P<bb>{_NUM})\s+(?P<cur>[A-Z]{{3}})?\)")
 _TABLE = re.compile(
     r"Table '(?P<name>[^']+)'\s+(?P<max>\d+)-max\s+Seat #(?P<btn>\d+) is the button"
 )
-_SEAT = re.compile(r"Seat (?P<seat>\d+): (?P<name>.+?) \((?P<stack>[\d.]+) in chips\)")
-_POST_SB = re.compile(r"^(?P<name>.+?): posts small blind (?P<amt>[\d.]+)")
-_POST_BB = re.compile(r"^(?P<name>.+?): posts big blind (?P<amt>[\d.]+)")
-_POST_ANTE = re.compile(r"^(?P<name>.+?): posts (?:the )?ante (?P<amt>[\d.]+)")
+_SEAT = re.compile(rf"Seat (?P<seat>\d+): (?P<name>.+?) \((?P<stack>{_NUM}) in chips\)")
+_POST_SB = re.compile(rf"^(?P<name>.+?): posts small blind (?P<amt>{_NUM})")
+_POST_BB = re.compile(rf"^(?P<name>.+?): posts big blind (?P<amt>{_NUM})")
+_POST_ANTE = re.compile(rf"^(?P<name>.+?): posts (?:the )?ante (?P<amt>{_NUM})")
 _DEALT = re.compile(r"^Dealt to (?P<name>.+?) \[(?P<cards>[^\]]+)\]")
 _ACTION = re.compile(
     r"^(?P<name>.+?): (?P<verb>folds|checks|calls|bets|raises)"
-    r"(?:\s+(?P<a1>[\d.]+)(?:\s+to\s+(?P<a2>[\d.]+))?)?"
+    rf"(?:\s+(?P<a1>{_NUM})(?:\s+to\s+(?P<a2>{_NUM}))?)?"
     r"(?P<allin>\s+and is all-in)?"
 )
-_COLLECT = re.compile(r"^(?P<name>.+?) collected (?P<amt>[\d.]+) from")
-_FLOP = re.compile(r"\*\*\* FLOP \*\*\* \[(?P<b>[^\]]+)\]")
-_TURN = re.compile(r"\*\*\* TURN \*\*\* \[[^\]]+\] \[(?P<c>[^\]]+)\]")
-_RIVER = re.compile(r"\*\*\* RIVER \*\*\* \[[^\]]+\] \[(?P<c>[^\]]+)\]")
+_COLLECT = re.compile(rf"^(?P<name>.+?) collected (?P<amt>{_NUM}) from")
+# Telegram converte "*** FLOP ***" em "* FLOP *" (asteriscos viram negrito),
+# então os marcadores de street aceitam de 1 a 3 asteriscos
+_FLOP = re.compile(r"\*{1,3} FLOP \*{1,3} \[(?P<b>[^\]]+)\]")
+_TURN = re.compile(r"\*{1,3} TURN \*{1,3} \[[^\]]+\] \[(?P<c>[^\]]+)\]")
+_RIVER = re.compile(r"\*{1,3} RIVER \*{1,3} \[[^\]]+\] \[(?P<c>[^\]]+)\]")
 _BOARD = re.compile(r"^Board \[(?P<b>[^\]]+)\]")
-_TOTAL_POT = re.compile(r"^Total pot (?P<pot>[\d.]+)(?:.*?\|\s+Rake (?P<rake>[\d.]+))?")
+_TOTAL_POT = re.compile(rf"^Total pot (?P<pot>{_NUM})(?:.*?\|\s+Rake (?P<rake>{_NUM}))?")
+
+
+def _num(s: str) -> float:
+    """'1,400' -> 1400.0 ; '0.25' -> 0.25."""
+    return float(s.replace(",", ""))
 
 _VERB_MAP = {
     "folds": ActionType.FOLD,
@@ -63,12 +73,15 @@ class PokerStarsParser:
     site = "PokerStars"
 
     def matches(self, raw_text: str) -> bool:
-        return raw_text.lstrip().startswith("PokerStars")
+        # o header pode não estar na 1ª linha (paste do Telegram costuma começar
+        # com o rabo da mão anterior)
+        return bool(re.search(r"(?m)^PokerStars (?:Hand|Game) #", raw_text))
 
     def parse(self, raw_text: str) -> list[CanonicalHand]:
         hands: list[CanonicalHand] = []
-        # mãos separadas por linha(s) em branco; cada bloco começa com o header
-        blocks = re.split(r"\n\s*\n(?=PokerStars)", raw_text.strip())
+        # cada bloco começa no header (pastes podem perder as linhas em branco);
+        # fragmento antes do primeiro header é descartado no _parse_one
+        blocks = re.split(r"\n(?=PokerStars (?:Hand|Game) #)", raw_text.strip())
         for block in blocks:
             block = block.strip()
             if not block:
@@ -97,15 +110,17 @@ class PokerStarsParser:
             fmt = HandFormat.TOURNAMENT
             tournament_id = tm.group("tid")
             stakes.level = tm.group("level").strip()
-            stakes.small_blind = float(tm.group("sb"))
-            stakes.big_blind = float(tm.group("bb"))
+            stakes.small_blind = _num(tm.group("sb"))
+            stakes.big_blind = _num(tm.group("bb"))
+            if tm.group("ante"):
+                stakes.ante = _num(tm.group("ante"))
             stakes.currency = tm.group("cur") or "USD"
             stakes.buyin = _parse_buyin(tm.group("buyin"))
         else:
             cm = _CASH.search(header)
             if cm:
-                stakes.small_blind = float(cm.group("sb"))
-                stakes.big_blind = float(cm.group("bb"))
+                stakes.small_blind = _num(cm.group("sb"))
+                stakes.big_blind = _num(cm.group("bb"))
                 stakes.currency = cm.group("cur") or "USD"
 
         hand = CanonicalHand(
@@ -144,10 +159,10 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
                 PlayerSeat(
                     seat=int(s.group("seat")),
                     name=s.group("name"),
-                    stack=float(s.group("stack")),
+                    stack=_num(s.group("stack")),
                 )
             )
-        elif line.startswith("***") or line.startswith("Dealt"):
+        elif line.startswith("*") or line.startswith("Dealt"):
             break
 
     # posições
@@ -198,7 +213,7 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
         for rx, atype in ((_POST_SB, "sb"), (_POST_BB, "bb"), (_POST_ANTE, "ante")):
             pm = rx.match(line)
             if pm:
-                amt = float(pm.group("amt"))
+                amt = _num(pm.group("amt"))
                 streets[StreetName.PREFLOP].actions.append(
                     Action(
                         actor=pm.group("name"),
@@ -215,8 +230,8 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
             am = _ACTION.match(line)
             if am:
                 verb = am.group("verb")
-                a1 = float(am.group("a1")) if am.group("a1") else 0.0
-                a2 = float(am.group("a2")) if am.group("a2") else 0.0
+                a1 = _num(am.group("a1")) if am.group("a1") else 0.0
+                a2 = _num(am.group("a2")) if am.group("a2") else 0.0
                 streets[current].actions.append(
                     Action(
                         actor=am.group("name"),
@@ -232,20 +247,30 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
         c = _COLLECT.match(line)
         if c:
             hand.collected[c.group("name")] = (
-                hand.collected.get(c.group("name"), 0.0) + float(c.group("amt"))
+                hand.collected.get(c.group("name"), 0.0) + _num(c.group("amt"))
             )
         b = _BOARD.match(line)
         if b:
             hand.final_board = b.group("b").split()
         tp = _TOTAL_POT.match(line)
         if tp:
-            hand.total_pot = float(tp.group("pot"))
+            hand.total_pot = _num(tp.group("pot"))
             if tp.group("rake"):
-                hand.rake = float(tp.group("rake"))
+                hand.rake = _num(tp.group("rake"))
 
     hand.streets = [streets[name] for name in order]
     if not hand.final_board and StreetName.RIVER in streets:
         hand.final_board = list(streets[StreetName.RIVER].board)
+
+    # header sem blinds (formato exótico): recupera dos posts — a análise em BB
+    # depende de big_blind correto
+    if hand.stakes.big_blind is None:
+        for a in streets[StreetName.PREFLOP].actions:
+            if a.type == ActionType.POST:
+                if a.post_type == "sb" and hand.stakes.small_blind is None:
+                    hand.stakes.small_blind = a.amount
+                elif a.post_type == "bb":
+                    hand.stakes.big_blind = a.amount
     return hand
 
 

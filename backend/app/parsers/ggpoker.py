@@ -10,18 +10,20 @@ from __future__ import annotations
 import re
 
 from app.models.canonical import CanonicalHand, GameType, HandFormat, Stakes
-from app.parsers.pokerstars import _iso_date, _parse_buyin, parse_body
+from app.parsers.pokerstars import _NUM, _iso_date, _num, _parse_buyin, parse_body
 
 _HEADER = re.compile(
     r"Poker Hand #(?P<hid>[A-Za-z0-9-]+):\s+"
     r"(?P<rest>.*?)\s+-\s+(?P<date>\d{4}/\d{2}/\d{2} \d{1,2}:\d{2}:\d{2})"
 )
+# nível pode trazer o ante: "Level8(200/400(50))"
 _TOURNEY = re.compile(
     r"Tournament #(?P<tid>\d+),\s+(?P<name>.*?)"
-    r"Hold'em No Limit\s+-\s+Level\s*(?P<level>[^(]*)\((?P<sb>[\d.]+)/(?P<bb>[\d.]+)\)"
+    rf"Hold'em No Limit\s+-\s+Level\s*(?P<level>[^(]*)\((?P<sb>{_NUM})/(?P<bb>{_NUM})"
+    rf"(?:\((?P<ante>{_NUM})\))?\)"
 )
 _CASH = re.compile(
-    r"Hold'em No Limit\s+\((?:[^)]*?[\$€£])?(?P<sb>[\d.]+)/[\$€£]?(?P<bb>[\d.]+)\)"
+    rf"Hold'em No Limit\s+\((?:[^)]*?[\$€£])?(?P<sb>{_NUM})/[\$€£]?(?P<bb>{_NUM})\)"
 )
 
 
@@ -29,13 +31,14 @@ class GGPokerParser:
     site = "GGPoker"
 
     def matches(self, raw_text: str) -> bool:
-        head = raw_text.lstrip()[:200]
-        # "Poker Hand #" (não "PokerStars Hand #")
-        return head.startswith("Poker Hand #")
+        # "Poker Hand #" (não "PokerStars Hand #") em qualquer linha — paste do
+        # Telegram costuma começar com o rabo da mão anterior
+        return bool(re.search(r"(?m)^Poker Hand #", raw_text))
 
     def parse(self, raw_text: str) -> list[CanonicalHand]:
         hands: list[CanonicalHand] = []
-        blocks = re.split(r"\n\s*\n(?=Poker Hand #)", raw_text.strip())
+        # cada bloco começa no header; fragmento antes do primeiro é descartado
+        blocks = re.split(r"\n(?=Poker Hand #)", raw_text.strip())
         for block in blocks:
             block = block.strip()
             if not block:
@@ -62,14 +65,22 @@ class GGPokerParser:
             fmt = HandFormat.TOURNAMENT
             tournament_id = tm.group("tid")
             stakes.level = tm.group("level").strip()
-            stakes.small_blind = float(tm.group("sb"))
-            stakes.big_blind = float(tm.group("bb"))
+            stakes.small_blind = _num(tm.group("sb"))
+            stakes.big_blind = _num(tm.group("bb"))
+            if tm.group("ante"):
+                stakes.ante = _num(tm.group("ante"))
             stakes.buyin = _parse_buyin(tm.group("name"))
+        elif "Tournament #" in header:
+            # header de torneio que o regex não pegou por completo: não deixar a
+            # mão cair como cash (blinds ficam None e o corpo pode preenchê-los)
+            fmt = HandFormat.TOURNAMENT
+            tid = re.search(r"Tournament #(\d+)", header)
+            tournament_id = tid.group(1) if tid else None
         else:
             cm = _CASH.search(header)
             if cm:
-                stakes.small_blind = float(cm.group("sb"))
-                stakes.big_blind = float(cm.group("bb"))
+                stakes.small_blind = _num(cm.group("sb"))
+                stakes.big_blind = _num(cm.group("bb"))
 
         hand = CanonicalHand(
             hand_id=m.group("hid"),
