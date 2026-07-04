@@ -28,6 +28,28 @@ _RECENT_CAP = 300
 LAST_ANALYSIS: dict[int, dict] = {}
 _HISTORY_CAP = 6
 
+# gráficos de range gerados na última análise (o handler envia e limpa)
+PENDING_CHARTS: dict[int, list[tuple[bytes, str]]] = {}
+
+
+def _stash_charts(telegram_id: int, specs: list) -> None:
+    """Renderiza as specs coletadas do coach (máx. 2) para envio pelo handler."""
+    if not specs:
+        return
+    from app.analysis.range_chart import render_spec
+
+    charts = []
+    for spec in specs[:2]:
+        rendered = render_spec(spec)
+        if rendered:
+            charts.append(rendered)
+    if charts:
+        PENDING_CHARTS[telegram_id] = charts
+
+
+def pop_charts(telegram_id: int) -> list[tuple[bytes, str]]:
+    return PENDING_CHARTS.pop(telegram_id, [])
+
 
 def remember_hands(telegram_id: int, hands: list[CanonicalHand]) -> None:
     cur = RECENT_HANDS.get(telegram_id, [])
@@ -86,7 +108,10 @@ def process_upload(
         repo.upsert_player_stats(user["id"], stats)
 
     # ---- coaching (Claude com tools; fallback determinístico) ----
-    coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands)
+    chart_specs: list = []
+    coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
+                     collect_charts=chart_specs)
+    _stash_charts(telegram_id, chart_specs)
 
     # ---- base de conhecimento ----
     if user and hand_row_ids and hand_row_ids[0]:
@@ -198,13 +223,16 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
 
     from app.agent.llm import followup
 
+    chart_specs: list = []
     answer = followup(
         ctx["context"],
         ctx["history"],
         question,
         image_b64=ctx.get("image_b64"),
         media_type=ctx.get("media", "image/jpeg"),
+        collect_charts=chart_specs,
     )
+    _stash_charts(telegram_id, chart_specs)
     if not answer:
         return (
             "Não consegui aprofundar agora (LLM indisponível). "

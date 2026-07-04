@@ -244,6 +244,7 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, fmt, tg_user.id, tg_user.username
     )
     await _safe_reply(update.message, reply)
+    await _send_pending_charts(update.message, tg_user.id)
 
 
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -257,6 +258,7 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, "jpg", tg_user.id, tg_user.username
     )
     await _safe_reply(update.message, reply)
+    await _send_pending_charts(update.message, tg_user.id)
 
 
 def _sim_buttons(decision: dict) -> InlineKeyboardMarkup:
@@ -375,6 +377,7 @@ async def _route_text(update: Update, text: str) -> None:
     )
     if answer:
         await _safe_reply(update.message, answer)
+        await _send_pending_charts(update.message, tg_user.id)
     else:
         await update.message.reply_text(
             "Ainda não tenho nenhuma mão sua para conversar. Envie um arquivo, "
@@ -426,6 +429,19 @@ async def _safe_reply(message, text: str) -> None:
             await message.reply_markdown(chunk)
         except BadRequest:
             await message.reply_text(chunk)
+
+
+async def _send_pending_charts(message, telegram_id: int) -> None:
+    """Envia os gráficos de range que o coach usou na análise (se houver)."""
+    import io as _io
+
+    from app.bot.processing import pop_charts
+
+    for png, caption in pop_charts(telegram_id):
+        try:
+            await message.reply_photo(photo=_io.BytesIO(png), caption=caption[:1000])
+        except Exception:
+            pass
 
 
 def _ext(filename: str | None) -> str:

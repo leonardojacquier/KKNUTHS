@@ -109,6 +109,25 @@ def render_range_png(
     return buf.getvalue()
 
 
+def render_spec(spec: tuple) -> tuple[bytes, str] | None:
+    """Renderiza uma spec coletada do coach: ("range", notacao, titulo) ou
+    ("nash", role, stack_bb). Retorna (png, legenda) ou None."""
+    from app.analysis.ranges import parse_range
+
+    try:
+        if spec[0] == "range":
+            _, notation, title = spec
+            hands = parse_range(notation)
+            png = render_range_png({h: 1.0 for h in hands}, title, notation[:70])
+            return png, f"📊 {title}: {notation}"
+        if spec[0] == "nash":
+            _, role, stack = spec
+            return chart_for_query(role, str(stack))
+    except Exception:
+        return None
+    return None
+
+
 def chart_for_query(kind: str, arg: str | None = None) -> tuple[bytes, str] | None:
     """Resolve um pedido de chart. kind: posição de open, ou 'sb'/'bb' + stack.
 

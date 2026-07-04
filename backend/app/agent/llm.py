@@ -295,11 +295,32 @@ def _dispatch(name: str, args: dict):
     raise ValueError(f"tool desconhecida: {name}")
 
 
+def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
+    """Se a tool usada implica um range visualizável, retorna a spec do gráfico.
+
+    Specs: ("range", notacao, titulo) | ("nash", "SB"|"BB", stack_bb)
+    """
+    try:
+        if name == "equity_vs_range" and args.get("villain_range"):
+            return ("range", args["villain_range"], "Range assumido do vilão")
+        if name == "preflop_range" and isinstance(result, dict) and result.get("range"):
+            pos = args.get("position", "?").upper()
+            act = args.get("action", "open")
+            return ("range", result["range"], f"Range de {act} — {pos}")
+        if name == "push_fold" and isinstance(result, dict) and result.get("role"):
+            return ("nash", result["role"], float(result.get("stack_resolvido") or
+                                                  result.get("stack_bb") or 10))
+    except Exception:
+        return None
+    return None
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
     lang: str = "pt",
     key_hands: list[dict] | None = None,
+    collect_charts: list | None = None,
 ) -> str:
     """Gera o coaching via Claude. Cai no resumo determinístico se o LLM indisponível.
 
@@ -361,6 +382,10 @@ def coach(
                 if block.type == "tool_use":
                     try:
                         value = _dispatch(block.name, block.input)
+                        if collect_charts is not None:
+                            spec = charts_from_tool_call(block.name, block.input, value)
+                            if spec and spec not in collect_charts:
+                                collect_charts.append(spec)
                         if isinstance(value, (int, float)):
                             value = round(value, 4)
                         out = json.dumps({"result": value}, ensure_ascii=False)
@@ -384,6 +409,7 @@ def followup(
     lang: str = "pt",
     image_b64: str | None = None,
     media_type: str = "image/jpeg",
+    collect_charts: list | None = None,
 ) -> str | None:
     """Continua a conversa sobre a última análise, com as mesmas tools.
 
@@ -458,6 +484,10 @@ def followup(
                 if block.type == "tool_use":
                     try:
                         value = _dispatch(block.name, block.input)
+                        if collect_charts is not None:
+                            spec = charts_from_tool_call(block.name, block.input, value)
+                            if spec and spec not in collect_charts:
+                                collect_charts.append(spec)
                         if isinstance(value, (int, float)):
                             value = round(value, 4)
                         out = json.dumps({"result": value}, ensure_ascii=False)
@@ -524,6 +554,10 @@ def evaluate_line(sim_data: dict, lang: str = "pt") -> str | None:
                 if block.type == "tool_use":
                     try:
                         value = _dispatch(block.name, block.input)
+                        if collect_charts is not None:
+                            spec = charts_from_tool_call(block.name, block.input, value)
+                            if spec and spec not in collect_charts:
+                                collect_charts.append(spec)
                         if isinstance(value, (int, float)):
                             value = round(value, 4)
                         out = json.dumps({"result": value}, ensure_ascii=False)
