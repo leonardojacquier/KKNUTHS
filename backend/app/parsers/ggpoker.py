@@ -72,7 +72,7 @@ class GGPokerParser:
             stakes.buyin = _parse_buyin(tm.group("name"))
         elif "Tournament #" in header:
             # header de torneio que o regex não pegou por completo: não deixar a
-            # mão cair como cash (blinds ficam None e o corpo pode preenchê-los)
+            # mão cair como cash (blinds ficam 0 e o corpo os recupera dos posts)
             fmt = HandFormat.TOURNAMENT
             tid = re.search(r"Tournament #(\d+)", header)
             tournament_id = tid.group(1) if tid else None

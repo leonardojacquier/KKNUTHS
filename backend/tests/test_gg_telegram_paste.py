@@ -71,16 +71,16 @@ def test_paste_reassembly_stash_take():
     from app.bot.processing import stash_paste, take_paste
 
     stash_paste(999001, "parte 1")
-    assert take_paste(999001) == "parte 1"
-    assert take_paste(999001) == ""  # consumido
+    assert take_paste(999001) == ("parte 1", 1)
+    assert take_paste(999001) == ("", 0)  # consumido
 
     # expirado -> descartado
     import app.bot.processing as proc
 
-    stash_paste(999001, "velho")
-    text, ts = proc.PENDING_PASTE[999001]
-    proc.PENDING_PASTE[999001] = (text, ts - proc._PASTE_TTL - 1)
-    assert take_paste(999001) == ""
+    stash_paste(999001, "velho", parts=3)
+    text, ts, parts = proc.PENDING_PASTE[999001]
+    proc.PENDING_PASTE[999001] = (text, ts - proc._PASTE_TTL - 1, parts)
+    assert take_paste(999001) == ("", 0)
 
 
 def test_split_paste_parses_when_recombined():
@@ -90,3 +90,72 @@ def test_split_paste_parses_when_recombined():
     assert detect_site(part1) == "GGPoker"
     assert detect_site(part2) == "GGPoker"  # fragmento no início, headers depois
     assert len(parse_text(part1 + part2)) == 4
+
+
+# ------------- achados da revisão adversarial (regressões) -------------
+def test_blinds_recovered_from_posts_when_header_incomplete():
+    # header de torneio SEM nível entre parênteses: o regex completo falha, o
+    # fallback marca torneio e o corpo recupera os blinds dos posts (não 0)
+    from app.models.canonical import HandFormat
+
+    exotic = PASTE.split("\n\n")[1].replace(
+        "Level8(200/400(50))", "Level8 200/400"
+    )
+    (h,) = parse_text(exotic)
+    assert h.format == HandFormat.TOURNAMENT
+    assert h.stakes.small_blind == 200 and h.stakes.big_blind == 400
+
+
+def test_question_is_not_a_paste_continuation():
+    from app.bot.handlers import _hh_fragment
+
+    # perguntas ao coach falam de poker mas NÃO têm linha com formato de HH
+    assert not _hh_fragment("devo dar fold no river nesse pot?")
+    assert not _hh_fragment("should I fold or raise the turn here?")
+    assert not _hh_fragment("e se o vilão der all-in no river?")
+    # fragmentos reais de HH têm
+    assert _hh_fragment("Seat 3: Hero (button) won (58,200)")
+    assert _hh_fragment("609c9948: raises 1,000 to 1,400\nHero: calls 1,000")
+    assert _hh_fragment("chips)\nSeat 8: 7adfdc5b (12,784 in chips)\nHero: folds")
+
+
+def test_join_paste_reconstructs_midline_and_midnumber_cut():
+    from app.bot.handlers import _join_paste
+
+    # corte no meio do número: "raises 1," + "000 to 1,400"
+    cut = PASTE.index("000 to 1,400")
+    joined = _join_paste(PASTE[:cut], PASTE[cut:])
+    assert joined == PASTE
+    h = next(x for x in parse_text(joined) if x.hand_id == "TM6146070388")
+    raise_a = next(a for s in h.streets for a in s.actions if a.type.value == "raise")
+    assert raise_a.amount == 1000 and raise_a.to_amount == 1400
+
+    # corte exatamente numa quebra de linha: a nova parte começa com linha de
+    # HH válida -> emenda com \n normal
+    cut2 = PASTE.index("Hero: calls 1,000")
+    joined2 = _join_paste(PASTE[:cut2].rstrip("\n"), PASTE[cut2:])
+    assert len(parse_text(joined2)) == 4
+
+
+def test_reprocess_picks_most_complete_version():
+    import importlib.util
+    from pathlib import Path as P
+
+    spec = importlib.util.spec_from_file_location(
+        "reprocess_uploads",
+        P(__file__).parent.parent / "scripts" / "reprocess_uploads.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    complete = parse_text(PASTE)
+    # fragmento: a última mão cortada no meio (sem ações/summary)
+    truncated_txt = PASTE[: PASTE.index("bb50544: folds\n609c9948: folds")]
+    truncated = parse_text(truncated_txt)
+    assert any(h.hand_id == "TM6146070194" for h in truncated)
+
+    # fragmento visto PRIMEIRO não pode vencer a versão completa
+    best = mod.pick_best(truncated + complete)
+    winner = best["TM6146070194"]
+    assert sum(len(s.actions) for s in winner.streets) > 0
+    assert winner.collected.get("Hero") == 1400

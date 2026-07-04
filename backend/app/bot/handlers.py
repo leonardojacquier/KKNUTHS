@@ -7,6 +7,7 @@ respondendo aos demais usuários enquanto uma análise longa executa.
 from __future__ import annotations
 
 import asyncio
+import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -367,6 +368,36 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+# linhas inconfundíveis de hand history — usadas para distinguir "continuação de
+# paste cortado" de "pergunta ao coach" (palavras-chave soltas não bastam: uma
+# pergunta como "devo dar fold no river?" também fala de poker)
+_HH_LINE = re.compile(
+    r"^(?:Poker Hand #|PokerStars |Winamax |Seat \d+: |Dealt to |Board \[|"
+    r"Total pot |Uncalled bet \(|"
+    r"\*{1,3} (?:HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN|SUMMARY)|"
+    r"\S[^\n]*?: (?:folds|checks|calls|bets|raises|posts|shows)\b|"
+    r"\S+ collected [\d,.]+ from)",
+    re.MULTILINE,
+)
+
+
+def _hh_fragment(text: str) -> bool:
+    """True se o texto contém pelo menos uma linha com formato de hand history."""
+    return bool(_HH_LINE.search(text))
+
+
+def _join_paste(pending: str, part: str) -> str:
+    """Emenda partes de um paste cortado pelo Telegram.
+
+    O corte acontece no limite de 4096 chars, muitas vezes NO MEIO de uma linha
+    (até no meio de um número: 'calls 1,' + '500'). Se a nova parte não começa
+    com uma linha reconhecível de HH, a emenda é direta — sem \\n."""
+    first = part.lstrip("\n").split("\n", 1)[0]
+    if pending.endswith("\n") or _HH_LINE.match(first):
+        return pending + "\n" + part
+    return pending + part
+
+
 async def _route_text(update: Update, text: str) -> None:
     """Roteia texto (digitado ou transcrito de voz): hand history ou follow-up.
 
@@ -374,31 +405,35 @@ async def _route_text(update: Update, text: str) -> None:
     remontadas via stash/take_paste antes de analisar."""
     tg_user = update.effective_user
     from app.bot.processing import stash_paste, take_paste
-    from app.ingestion.pipeline import _looks_like_poker_text
     from app.parsers import detect_site
 
     raw_len = len(text)
-    pending = take_paste(tg_user.id)
+    pending, parts = take_paste(tg_user.id)
     force = bool(pending) and text.strip().lower() in {"analisar", "analise", "pronto"}
     continuation = False
     if force:
         text = pending
-    elif pending and (detect_site(text) or _looks_like_poker_text(text)):
-        text = pending + "\n" + text  # continuação do paste cortado
+    elif pending and (detect_site(text) or _hh_fragment(text)):
+        text = _join_paste(pending, text)  # continuação do paste cortado
         continuation = True
     elif pending:
-        stash_paste(tg_user.id, pending)  # não era continuação; preserva
+        stash_paste(tg_user.id, pending, parts)  # não era continuação; preserva
 
     if detect_site(text):
         if raw_len >= 3800 and not force:
-            # mensagem no limite do Telegram = quase certo que falta o resto;
-            # instrução só na 1ª parte — as demais acumulam em silêncio
-            stash_paste(tg_user.id, text)
+            # mensagem no limite do Telegram = quase certo que falta o resto
+            stash_paste(tg_user.id, text, parts + 1)
             if not continuation:
                 await update.message.reply_text(
-                    "📄 Recebi — mas o Telegram corta textos longos e essa "
-                    "mensagem chegou no limite. Continue colando o resto que eu "
-                    "analiso tudo junto. (Se era só isso, responda “analisar”.)"
+                    "📄 Recebi a primeira parte — o Telegram corta textos longos, "
+                    "então continue colando o resto que eu junto tudo. Se a última "
+                    "parte for curta eu percebo sozinho e analiso na hora; se não, "
+                    "responda “analisar” quando terminar."
+                )
+            elif parts + 1 == 2:
+                await update.message.reply_text(
+                    "📄 Parte recebida — sigo juntando. Responda “analisar” "
+                    "quando terminar de colar."
                 )
             return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")

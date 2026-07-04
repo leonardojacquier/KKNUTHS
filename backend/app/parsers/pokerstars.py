@@ -263,11 +263,11 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
         hand.final_board = list(streets[StreetName.RIVER].board)
 
     # header sem blinds (formato exótico): recupera dos posts — a análise em BB
-    # depende de big_blind correto
-    if hand.stakes.big_blind is None:
+    # depende de big_blind correto. Atenção: o default do modelo é 0 (não None).
+    if not hand.stakes.big_blind:
         for a in streets[StreetName.PREFLOP].actions:
             if a.type == ActionType.POST:
-                if a.post_type == "sb" and hand.stakes.small_blind is None:
+                if a.post_type == "sb" and not hand.stakes.small_blind:
                     hand.stakes.small_blind = a.amount
                 elif a.post_type == "bb":
                     hand.stakes.big_blind = a.amount

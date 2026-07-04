@@ -128,13 +128,16 @@ class Repository:
             return None
         payload = {
             "user_id": user_id,
-            "upload_id": upload_id,
             "site": hand.site,
             "hand_id": hand.hand_id,
             "format": hand.format.value,
             "canonical": hand.model_dump(mode="json"),
             "played_at": hand.played_at,
         }
+        # upsert sobrescreve toda coluna presente no payload — só incluir o
+        # upload_id quando há um, para não apagar a linhagem em reprocessamentos
+        if upload_id is not None:
+            payload["upload_id"] = upload_id
         row = (
             self.client.table("hands")
             .upsert(payload, on_conflict="user_id,site,hand_id")
