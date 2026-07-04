@@ -90,3 +90,13 @@ class TestNashReal:
     def test_source_labeled_as_computed(self):
         r = nash.nash_jam_fold(["As", "Kd"], 10, "SB")
         assert "calculado" in r["source"]
+
+
+# ---------------------------- gráfico de range ---------------------------
+def test_range_chart_png():
+    from app.analysis.range_chart import chart_for_query, render_range_png
+
+    png = render_range_png({"AA": 1.0, "AKs": 0.5}, "Teste")
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert chart_for_query("BTN") is not None
+    assert chart_for_query("XYZ") is None

@@ -48,6 +48,7 @@ WELCOME = (
     "• /ask <pergunta> — consulte seu histórico de mãos\n"
     "• /treino — drill rápido com uma mão sua\n"
     "• /simular — jogue uma mão sua decisão a decisão 🎮\n"
+    "• /range — gráficos de range 13×13 (opens e Nash) 📊\n"
     "• /plano — sobre o beta gratuito\n\n"
     "Para começar, é só mandar o arquivo. 📎"
 )
@@ -138,6 +139,35 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(err)
         return
     await _safe_reply(update.message, f"*{query}*\n\n{body}")
+
+
+async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Gráfico de range 13×13: /range btn · /range sb 10 · /range bb 8."""
+    args = [a.lower() for a in (ctx.args or [])]
+    await _log(update, "range", query=" ".join(args))
+    if not args:
+        await update.message.reply_markdown(
+            "*Gráficos de range* 📊\n\n"
+            "• `/range utg` `mp` `hj` `co` `btn` `sb` — open-raise por posição\n"
+            "• `/range sb 10` — Nash de *all-in* do SB com 10bb (equilíbrio calculado)\n"
+            "• `/range bb 8` — Nash de *call* do BB contra shove com 8bb"
+        )
+        return
+
+    from app.analysis.range_chart import chart_for_query
+
+    result = await asyncio.to_thread(
+        chart_for_query, args[0], args[1] if len(args) > 1 else None
+    )
+    if result is None:
+        await update.message.reply_text(
+            "Não reconheci. Exemplos: /range btn · /range sb 10 · /range bb 8"
+        )
+        return
+    png, caption = result
+    import io as _io
+
+    await update.message.reply_photo(photo=_io.BytesIO(png), caption=caption)
 
 
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -414,6 +444,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
+    app.add_handler(CommandHandler("range", cmd_range))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
