@@ -13,6 +13,18 @@ STATE=/tmp/poker-autoupdate.last
 exec 9>/tmp/poker-autoupdate.lock
 flock -n 9 || exit 0
 
+notify() {  # avisa o admin no Telegram (se configurado); nunca falha o deploy
+    if grep -q '^TELEGRAM_ADMIN_CHAT_ID=' "$APP/.env" 2>/dev/null; then
+        ADMIN=$(grep '^TELEGRAM_ADMIN_CHAT_ID=' "$APP/.env" | cut -d= -f2)
+        (cd "$APP" && PYTHONPATH="$APP" ./venv/bin/python scripts/tg.py send "$ADMIN" "$1" >/dev/null 2>&1) || true
+    fi
+}
+
+# set -e mata o script em qualquer erro (ex.: git fetch com rede instável) —
+# sem este trap o aborto era SILENCIOSO: nem 🔄 nem ⚠️, e o commit ficava
+# marcado como tentado (sem retry até o próximo push)
+trap 'notify "⚠️ Auto-deploy abortou inesperadamente (linha $LINENO). Um push novo (pode ser vazio) reativa."' ERR
+
 cd "$REPO"
 git fetch origin "$BRANCH" -q
 # compara com o último deploy BEM-SUCEDIDO (não com o HEAD do clone — um deploy
@@ -40,13 +52,6 @@ if command -v rsync >/dev/null 2>&1; then
 else
     cp -r "$REPO/backend/." "$APP/"
 fi
-
-notify() {  # avisa o admin no Telegram (se configurado); nunca falha o deploy
-    if grep -q '^TELEGRAM_ADMIN_CHAT_ID=' "$APP/.env" 2>/dev/null; then
-        ADMIN=$(grep '^TELEGRAM_ADMIN_CHAT_ID=' "$APP/.env" | cut -d= -f2)
-        cd "$APP" && PYTHONPATH="$APP" ./venv/bin/python scripts/tg.py send "$ADMIN" "$1" >/dev/null 2>&1 || true
-    fi
-}
 
 if bash "$APP/deploy/vps_deploy.sh"; then
     MSG=$(cd "$REPO" && git log -1 --format='%s')
