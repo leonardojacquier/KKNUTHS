@@ -48,8 +48,18 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
                 )
             return IngestResult([], None, "csv", confidence=0.0, needs_review=True,
                                 note="CSV sem colunas reconhecíveis (hand id/cartas)")
+        # formato desconhecido: fallback por IA (qualquer sala/idioma)
+        from app.agent.llm import extract_from_hand_text
+
+        hand = extract_from_hand_text(text)
+        if hand is not None:
+            return IngestResult(
+                [hand], hand.site if hand.site != "unknown" else None, "txt",
+                confidence=hand.confidence, needs_review=True,
+                note="mão extraída por IA de formato não padronizado — confira os valores",
+            )
         return IngestResult([], None, "txt", confidence=0.0, needs_review=True,
-                            note="formato de texto não reconhecido; encaminhar ao LLM")
+                            note="formato não reconhecido")
 
     if fmt == "pdf":
         text = _pdf_to_text(content)

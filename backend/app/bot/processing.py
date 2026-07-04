@@ -75,9 +75,23 @@ def process_upload(
     # ---- ingestão ----
     result = ingest(content, source_format=fmt)
     if not result.hands:
+        # registra a falha COM um trecho do conteúdo — permite diagnóstico e
+        # correção do parser sem pedir o arquivo de novo
+        excerpt = ""
+        if isinstance(content, (bytes, bytearray)):
+            excerpt = bytes(content[:500]).decode("utf-8", "ignore")
+        elif isinstance(content, str):
+            excerpt = content[:500]
+        repo.log_event(
+            telegram_id, username, "upload_failed",
+            {"format": fmt, "note": result.note, "excerpt": excerpt},
+        )
         return (
-            "Não consegui ler esse arquivo automaticamente. "
-            f"({result.note}) Em breve suporto mais formatos."
+            "Ainda não consegui ler esse arquivo. 😕 Já registrei o formato para "
+            "melhorar o suporte!\n\nEnquanto isso, tente:\n"
+            "• enviar um *print do replay* da mão (funciona para qualquer sala)\n"
+            "• ou *colar o texto de uma mão* aqui na conversa\n"
+            "• ou o hand history `.txt` oficial (GGPoker: PokerCraft → download)"
         )
     hands = result.hands
     remember_hands(telegram_id, hands)

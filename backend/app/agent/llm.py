@@ -635,6 +635,43 @@ _VISION_PROMPT = (
 )
 
 
+def extract_from_hand_text(text: str) -> CanonicalHand | None:
+    """Fallback por IA para texto de mão em formato desconhecido.
+
+    Qualquer sala/idioma/estilo (inclusive resumos escritos à mão): o modelo
+    converte para o mesmo JSON da visão e reaproveitamos _snapshot_to_canonical.
+    Retorna None sem chave ou se a extração falhar.
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key or not text.strip():
+        return None
+    try:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        prompt = (
+            "O texto abaixo descreve uma mão de pôquer num formato não padronizado "
+            "(pode ser de qualquer sala, idioma ou até descrição livre). Extraia a "
+            "PRIMEIRA mão completa no MESMO formato JSON a seguir — apenas o JSON:\n"
+            + _VISION_PROMPT.split("{", 1)[1].rsplit("}", 1)[0].join(["{", "}"])
+            + "\n\nTEXTO:\n" + text[:6000]
+        )
+        resp = client.messages.create(
+            model=settings.analysis_model,
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = "".join(b.text for b in resp.content if b.type == "text").strip()
+        data = json.loads(_strip_code_fence(raw))
+        hand = _snapshot_to_canonical(data)
+        if hand:
+            hand.source_format = "txt"
+            hand.confidence = min(hand.confidence, 0.8)
+        return hand
+    except Exception:
+        return None
+
+
 def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> CanonicalHand | None:
     """Extrai um snapshot de mão de um print via visão do Claude.
 
