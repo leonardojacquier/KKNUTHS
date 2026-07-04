@@ -62,7 +62,9 @@ async def _log(update: Update, event: str, **detail) -> None:
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    await _log(update, "start")
+    # t.me/BOT?start=<origem> — rastreia de qual convite/grupo o usuário veio
+    ref = ctx.args[0][:60] if ctx.args else None
+    await _log(update, "start", ref=ref)
     await update.message.reply_markdown(WELCOME)
 
 
