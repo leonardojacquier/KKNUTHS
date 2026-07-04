@@ -109,6 +109,68 @@ def render_range_png(
     return buf.getvalue()
 
 
+RED = (168, 58, 46)
+RED_LIGHT = (232, 180, 172)
+
+
+def _ev_color(ev: float, fold_ev: float, scale: float) -> tuple[int, int, int]:
+    """Diverge em torno do EV do fold: melhor que foldar = verde; pior = vermelho."""
+    delta = ev - fold_ev
+    t = max(-1.0, min(1.0, delta / max(scale, 1e-9)))
+    if t >= 0:
+        base, strong = (200, 226, 212), FELT_DARK
+    else:
+        base, strong, t = RED_LIGHT, RED, -t
+    return tuple(int(base[k] + (strong[k] - base[k]) * t) for k in range(3))
+
+
+def render_ev_range_png(
+    evs: dict[str, float], fold_ev: float, title: str, subtitle: str,
+) -> bytes:
+    """Grade 13×13 colorida pelo EV da ação vs fold, com o valor em BB na célula."""
+    size = MARGIN * 2 + CELL * 13
+    height = TITLE_H + size + LEGEND_H
+    img = Image.new("RGB", (size, height), PAPER)
+    d = ImageDraw.Draw(img)
+
+    f_title = _font(24)
+    f_sub = _font(14, bold=False)
+    f_cell = _font(14)
+    f_ev = _font(11, bold=False)
+
+    d.text((MARGIN, 10), title, fill=INK, font=f_title)
+    d.text((MARGIN, 36), subtitle, fill=GREY_TEXT, font=f_sub)
+
+    deltas = [abs(evs.get(_cell_hand(r, c), fold_ev) - fold_ev)
+              for r in range(13) for c in range(13)]
+    scale = max(sorted(deltas)[int(len(deltas) * 0.9)], 0.1)  # p90 evita outliers
+
+    top = TITLE_H
+    for row in range(13):
+        for col in range(13):
+            hand = _cell_hand(row, col)
+            ev = float(evs.get(hand, fold_ev))
+            x = MARGIN + col * CELL
+            y = top + row * CELL
+            color = _ev_color(ev, fold_ev, scale)
+            d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=color)
+            luminous = sum(color) / 3
+            text_col = PAPER if luminous < 140 else INK
+            d.text((x + 6, y + 7), hand, fill=text_col, font=f_cell)
+            d.text((x + 6, y + CELL - 22), f"{ev - fold_ev:+.1f}",
+                   fill=text_col, font=f_ev)
+
+    d.text(
+        (MARGIN, top + size - MARGIN + 6),
+        "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; vermelho: "
+        "foldar)  ·  KKNuths ♠",
+        fill=GREY_TEXT, font=f_sub,
+    )
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def render_spec(spec: tuple) -> tuple[bytes, str] | None:
     """Renderiza uma spec coletada do coach: ("range", notacao, titulo) ou
     ("nash", role, stack_bb). Retorna (png, legenda) ou None."""
@@ -128,15 +190,52 @@ def render_spec(spec: tuple) -> tuple[bytes, str] | None:
     return None
 
 
-def chart_for_query(kind: str, arg: str | None = None) -> tuple[bytes, str] | None:
+def chart_for_query(
+    kind: str, arg: str | None = None,
+    mode: str | None = None, bf: float = 1.5,
+) -> tuple[bytes, str] | None:
     """Resolve um pedido de chart. kind: posição de open, ou 'sb'/'bb' + stack.
 
+    mode: None (frequências) | 'ev' (EV chip) | 'icm' (EV sob bubble factor bf).
     Retorna (png, legenda) ou None se não reconhecido.
     """
     from app.analysis.nash_pushfold import _table, available
     from app.analysis.ranges import OPEN_RANGES, parse_range
 
     kind = kind.upper()
+
+    # grade de EV por mão (equilíbrio re-resolvido; chip-EV ou ICM)
+    if kind in ("SB", "BB") and arg and mode in ("ev", "icm"):
+        from app.analysis.jam_fold_solver import available as solver_ok
+        from app.analysis.jam_fold_solver import solve_jam_fold
+
+        if not solver_ok():
+            return None
+        try:
+            stack = float(arg.replace("bb", ""))
+        except ValueError:
+            return None
+        use_bf = bf if mode == "icm" else 1.0
+        sol = solve_jam_fold(round(stack, 1), round(use_bf, 2))
+        if sol is None:
+            return None
+        evs = sol["sb_ev"] if kind == "SB" else sol["bb_ev"]
+        fold_ev = sol["sb_fold_ev"] if kind == "SB" else sol["bb_fold_ev"]
+        action = "all-in" if kind == "SB" else "call de all-in"
+        badge = "💰 chip-EV" if mode == "ev" else f"🏆 ICM (bubble factor {use_bf:g})"
+        png = render_ev_range_png(
+            evs, fold_ev,
+            f"EV do {action} — {kind} · {stack:g}bb · {badge}",
+            "EV em BB vs fold · equilíbrio re-resolvido nesta utilidade",
+        )
+        cap = (
+            f"♠ EV de cada mão no {action} do {kind} com {stack:g}bb — {badge}. "
+            "Verde = a ação rende mais que foldar; vermelho = fold é melhor. "
+        )
+        if mode == "icm":
+            cap += (f"Sob ICM (perder fichas custa {use_bf:g}x mais), o range aperta — "
+                    "compare com a versão chip-EV.")
+        return png, cap
 
     # Nash jam/fold calculado (SB empurra / BB paga) por stack
     if kind in ("SB", "BB") and arg:

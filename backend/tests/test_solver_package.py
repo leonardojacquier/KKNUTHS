@@ -100,3 +100,33 @@ def test_range_chart_png():
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
     assert chart_for_query("BTN") is not None
     assert chart_for_query("XYZ") is None
+
+
+# ------------------------- EV por mão (chip vs ICM) ----------------------
+def test_jam_fold_ev_and_icm():
+    solver = pytest.importorskip("app.analysis.jam_fold_solver")
+    if not solver.available():
+        pytest.skip("matriz não gerada")
+    chip = solver.solve_jam_fold(10.0, 1.0)
+    icm = solver.solve_jam_fold(10.0, 1.5)
+    # AA sempre +EV; ICM reduz o EV (perder custa mais)
+    assert chip["sb_ev"]["AA"] > 0 and icm["sb_ev"]["AA"] > 0
+    assert icm["sb_ev"]["AA"] < chip["sb_ev"]["AA"]
+    # 72o: jam pior que fold no chip-EV a 10bb
+    assert chip["sb_ev"]["72o"] < chip["sb_fold_ev"]
+    # ICM aperta (ou mantém) o range de jam
+    jam_chip = sum(1 for v in chip["sb_jam"].values() if v > 0.5)
+    jam_icm = sum(1 for v in icm["sb_jam"].values() if v > 0.5)
+    assert jam_icm <= jam_chip
+
+
+def test_ev_chart_renders():
+    from app.analysis.range_chart import chart_for_query
+
+    solver = pytest.importorskip("app.analysis.jam_fold_solver")
+    if not solver.available():
+        pytest.skip("matriz não gerada")
+    png, cap = chart_for_query("SB", "10", "ev")
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and "chip-EV" in cap
+    png2, cap2 = chart_for_query("BB", "8", "icm", 2.0)
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n" and "ICM" in cap2

@@ -149,15 +149,24 @@ async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_markdown(
             "*Gráficos de range* 📊\n\n"
             "• `/range utg` `mp` `hj` `co` `btn` `sb` — open-raise por posição\n"
-            "• `/range sb 10` — Nash de *all-in* do SB com 10bb (equilíbrio calculado)\n"
-            "• `/range bb 8` — Nash de *call* do BB contra shove com 8bb"
+            "• `/range sb 10` — Nash de *all-in* do SB com 10bb (frequências)\n"
+            "• `/range bb 8` — Nash de *call* do BB contra shove\n"
+            "• `/range sb 10 ev` — 💰 *EV de cada mão* (chip-EV)\n"
+            "• `/range sb 10 icm 1.5` — 🏆 EV sob *ICM* (bubble factor 1.5)"
         )
         return
 
     from app.analysis.range_chart import chart_for_query
 
+    mode = args[2] if len(args) > 2 and args[2] in ("ev", "icm") else None
+    bf = 1.5
+    if mode == "icm" and len(args) > 3:
+        try:
+            bf = float(args[3].replace(",", "."))
+        except ValueError:
+            pass
     result = await asyncio.to_thread(
-        chart_for_query, args[0], args[1] if len(args) > 1 else None
+        chart_for_query, args[0], args[1] if len(args) > 1 else None, mode, bf
     )
     if result is None:
         await update.message.reply_text(
