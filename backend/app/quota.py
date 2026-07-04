@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-FREE_MONTHLY_ANALYSES = int(os.getenv("FREE_MONTHLY_ANALYSES", "15"))
+FREE_MONTHLY_ANALYSES = int(os.getenv("FREE_MONTHLY_ANALYSES", "100"))
 MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "2"))
 MAX_COACHED_HANDS = int(os.getenv("MAX_COACHED_HANDS", "5"))
 

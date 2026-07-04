@@ -95,7 +95,7 @@ Todo domingo: suas mãos da semana, resultado, evolução das estatísticas e o
 
 | | **Grátis** | **Pro** *(em breve)* |
 |---|---|---|
-| Análises por mês | 15 | Ilimitadas |
+| Análises por mês | 100 | Ilimitadas |
 | Torneio completo + história | ✔️ | ✔️ |
 | Simulador e quiz diário | ✔️ | ✔️ |
 | Voz, prints, todos os formatos | ✔️ | ✔️ |
