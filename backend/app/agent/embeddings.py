@@ -20,6 +20,7 @@ def embed_text(text: str) -> list[float] | None:
     """Gera o embedding de um texto. None se nenhum provedor estiver configurado."""
     if not text:
         return None
+    text = text[:24000]  # limite do provedor (~8191 tokens); estourar = análise sem vetor
     s = get_settings()
     try:
         if s.voyage_api_key:

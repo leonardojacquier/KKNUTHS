@@ -50,6 +50,10 @@ def assign_positions(seats: list[int], button_seat: int) -> dict[int, str]:
 
     labels: list[str] = ["SB", "BB"]
     labels += tail[:middle_count]
+    # entrada corrompida pode trazer mais assentos que rótulos: preenche em vez
+    # de estourar IndexError (que derrubaria a mão inteira)
+    while len(labels) < middle_count + 2:
+        labels.append("MP?")
     if has_co:
         labels.append("CO")
     labels.append("BTN")

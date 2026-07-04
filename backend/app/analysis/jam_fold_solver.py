@@ -52,9 +52,12 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
     n = len(hands)
 
     # utilidades (referência: início da mão; SB postou 0.5, BB postou 1)
-    # showdown: ganha s (peso 1) ou perde s (peso bf)
-    show_sb = E * s - (1 - E) * s * bf          # E[i,j] = equity de i vs j
-    show_bb = E * s - (1 - E) * s * bf          # E[j,i] via mesma matriz transposta no uso
+    # showdown: ganha s (peso 1) ou perde s (peso bf).
+    # E[i,j] = equity da mão da LINHA vs a da coluna. A mesma matriz serve aos
+    # dois papéis: ev[x] = soma sobre a coluna com a PRÓPRIA mão na linha x.
+    # (NUNCA transpor aqui — transposta calcula o EV do BB com a equity do SB
+    # e inverte a estratégia inteira: bug real que mandava pagar com 72o.)
+    show = E * s - (1 - E) * s * bf
     sb_fold = -0.5 * bf
     bb_fold = -1.0 * bf
 
@@ -66,12 +69,12 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
     for t in range(1, _ITERS + 1):
         reach = W * avg_sb[None, :]
         denom = np.maximum(reach.sum(axis=1), 1e-12)
-        ev_call_bb = (reach * show_bb.T).sum(axis=1) / denom   # [j]
+        ev_call_bb = (reach * show).sum(axis=1) / denom   # [mão do BB]
         br_bb = (ev_call_bb > bb_fold).astype(float)
 
         denom_sb = np.maximum(W.sum(axis=1), 1e-12)
         ev_jam_sb = (W * ((1 - avg_bb[None, :]) * 1.0
-                          + avg_bb[None, :] * show_sb)).sum(axis=1) / denom_sb
+                          + avg_bb[None, :] * show)).sum(axis=1) / denom_sb
         br_sb = (ev_jam_sb > sb_fold).astype(float)
 
         avg_sb += (br_sb - avg_sb) / t
@@ -80,10 +83,10 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
     # EVs finais contra as estratégias médias (equilíbrio)
     reach = W * avg_sb[None, :]
     denom = np.maximum(reach.sum(axis=1), 1e-12)
-    ev_call_bb = (reach * show_bb.T).sum(axis=1) / denom
+    ev_call_bb = (reach * show).sum(axis=1) / denom
     denom_sb = np.maximum(W.sum(axis=1), 1e-12)
     ev_jam_sb = (W * ((1 - avg_bb[None, :]) * 1.0
-                      + avg_bb[None, :] * show_sb)).sum(axis=1) / denom_sb
+                      + avg_bb[None, :] * show)).sum(axis=1) / denom_sb
 
     return {
         "hands": hands,

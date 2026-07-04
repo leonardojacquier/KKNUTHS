@@ -109,6 +109,12 @@ class CanonicalHand(BaseModel):
     total_pot: Optional[float] = None
     rake: float = 0
     collected: dict[str, float] = Field(default_factory=dict)  # name -> chips ganhos
+    # aposta não paga devolvida ("Uncalled bet (X) returned to Y") — sem isso o
+    # resultado líquido de toda mão ganha sem showdown sai errado
+    uncalled: dict[str, float] = Field(default_factory=dict)
+    # resultado líquido do herói quando a fonte já o traz pronto (CSV de tracker,
+    # que não tem ações para reconstruir) — inclusive negativo
+    net_won: Optional[float] = None
     final_board: list[str] = Field(default_factory=list)
 
     played_at: Optional[str] = None  # ISO string

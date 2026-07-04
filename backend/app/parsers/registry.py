@@ -1,6 +1,8 @@
 """Roteia texto bruto para o parser de sala correto."""
 from __future__ import annotations
 
+import re
+
 from app.models.canonical import CanonicalHand
 from app.parsers.dealing_family import PartyPokerParser, Poker888Parser
 from app.parsers.ggpoker import GGPokerParser
@@ -17,6 +19,16 @@ _PARSERS = [
     PartyPokerParser(),
 ]
 
+# início de mão de QUALQUER sala conhecida — para segmentar pastes mistos
+_ANY_HEADER = re.compile(
+    r"(?m)(?=^PokerStars (?:Zoom |Home Game )?(?:Hand|Game) #"
+    r"|^Poker Hand #"
+    r"|^Winamax Poker - "
+    r"|^\*{5} Hand History"
+    r"|^#Game No"
+    r"|^\*{5} 888poker)"
+)
+
 
 def detect_site(raw_text: str) -> str | None:
     for p in _PARSERS:
@@ -26,15 +38,30 @@ def detect_site(raw_text: str) -> str | None:
 
 
 def parse_text(raw_text: str) -> list[CanonicalHand]:
-    """Detecta a sala e retorna as mãos canônicas.
+    """Detecta a(s) sala(s) e retorna as mãos canônicas.
+
+    Um paste pode misturar salas (ex.: PS + GG copiados juntos): nesse caso o
+    texto é segmentado por header e cada mão vai ao seu parser — um parser só
+    nunca deve "engolir" as linhas da mão de outra sala.
 
     Levanta `ValueError` se nenhum parser determinístico reconhecer o formato —
     nesse ponto o orquestrador deve cair no fluxo de LLM (visão/inferência).
     """
-    for p in _PARSERS:
-        if p.matches(raw_text):
-            return p.parse(raw_text)
-    raise ValueError(
-        "formato não reconhecido por parser determinístico; "
-        "encaminhar para o fluxo de inferência por LLM"
-    )
+    matching = [p for p in _PARSERS if p.matches(raw_text)]
+    if not matching:
+        raise ValueError(
+            "formato não reconhecido por parser determinístico; "
+            "encaminhar para o fluxo de inferência por LLM"
+        )
+    if len(matching) == 1:
+        return matching[0].parse(raw_text)
+
+    hands: list[CanonicalHand] = []
+    for segment in _ANY_HEADER.split(raw_text):
+        if not segment.strip():
+            continue
+        for p in _PARSERS:
+            if p.matches(segment):
+                hands.extend(p.parse(segment))
+                break
+    return hands

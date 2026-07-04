@@ -38,8 +38,7 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) 
 
         pre = h.street(StreetName.PREFLOP)
         voluntarily = raised = three_bet = False
-        raises_before_hero = 0
-        hero_acted_pre = False
+        had_3bet_opp = False
 
         if pre:
             seen_raise = 0
@@ -47,20 +46,22 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) 
                 if a.type == ActionType.POST:
                     continue
                 if a.actor == target:
-                    hero_acted_pre = True
                     if a.type in (ActionType.CALL, ActionType.BET, ActionType.RAISE):
                         voluntarily = True
                     if a.type == ActionType.RAISE:
                         raised = True
-                        # 3-bet = raise quando já houve >=1 raise antes (o 1º raise = "open")
-                        if seen_raise >= 1:
+                    # oportunidade de 3-bet: QUALQUER decisão do jogador diante
+                    # de exatamente 1 raise (o open) — inclusive fold/call, senão
+                    # o denominador só conta as mãos em que ele 3-betou e a
+                    # estatística vira ~100%. Raise diante de 2+ é 4-bet, não 3-bet.
+                    if seen_raise == 1:
+                        had_3bet_opp = True
+                        if a.type == ActionType.RAISE:
                             three_bet = True
-                        raises_before_hero = seen_raise
                 if a.type == ActionType.RAISE:
                     seen_raise += 1
 
-            # oportunidade de 3-bet: houve um open antes do jogador agir
-            if hero_acted_pre and raises_before_hero >= 1:
+            if had_3bet_opp:
                 three_bet_opps += 1
 
         vpip_h += int(voluntarily)

@@ -82,6 +82,21 @@ def remember_hands(telegram_id: int, hands: list[CanonicalHand]) -> None:
     RECENT_HANDS[telegram_id] = (cur + hands)[-_RECENT_CAP:]
 
 
+# análises em andamento por usuário: N mensagens simultâneas com 1 análise
+# restante não podem TODAS passar no check de cota (a análise demora ~30s)
+_INFLIGHT: dict[int, int] = {}
+_INFLIGHT_LOCK = None
+
+
+def _inflight_lock():
+    global _INFLIGHT_LOCK
+    if _INFLIGHT_LOCK is None:
+        import threading
+
+        _INFLIGHT_LOCK = threading.Lock()
+    return _INFLIGHT_LOCK
+
+
 def process_upload(
     content: bytes, fmt: str, telegram_id: int, username: str | None, lang: str = "pt"
 ) -> str:
@@ -90,13 +105,34 @@ def process_upload(
     user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
 
     # ---- cota (P0): protege o custo de LLM mesmo sem billing ----
-    quota = check_quota(telegram_id, user, repo)
-    if not quota.allowed:
-        return (
-            "🚦 Você atingiu o limite gratuito deste mês "
-            f"({quota.plan}: análises esgotadas).\n"
-            "Seu limite renova no próximo mês. Planos pagos chegam em breve!"
+    with _inflight_lock():
+        quota = check_quota(telegram_id, user, repo)
+        inflight = _INFLIGHT.get(telegram_id, 0)
+        if quota.degraded:
+            return (
+                "😵 Meu banco de dados está instável agora e não consigo conferir "
+                "sua cota. Tente de novo em alguns minutos — sua mão não foi "
+                "descontada."
+            )
+        if not quota.allowed or (quota.remaining >= 0 and inflight >= quota.remaining):
+            return (
+                "🚦 Você atingiu o limite gratuito deste mês "
+                f"({quota.plan}: análises esgotadas).\n"
+                "Seu limite renova no próximo mês. Planos pagos chegam em breve!"
+            )
+        _INFLIGHT[telegram_id] = inflight + 1
+    try:
+        return _process_upload_inner(
+            content, fmt, telegram_id, username, lang, repo, user
         )
+    finally:
+        with _inflight_lock():
+            _INFLIGHT[telegram_id] = max(0, _INFLIGHT.get(telegram_id, 1) - 1)
+
+
+def _process_upload_inner(
+    content, fmt, telegram_id: int, username: str | None, lang: str, repo, user
+) -> str:
 
     # ---- arquivo bruto no Storage (auditoria/reprocessamento) ----
     raw_path = None
@@ -152,7 +188,10 @@ def process_upload(
     all_hands = repo.get_all_hands(user["id"]) if user else []
     stats_source = all_hands or RECENT_HANDS.get(telegram_id, hands)
     stats = compute_player_stats(stats_source, player=None)
-    if user and stats.hands:
+    # só grava stats calculadas do HISTÓRICO COMPLETO: uma falha transitória do
+    # get_all_hands não pode sobrescrever o perfil acumulado com a amostra em
+    # memória (ex.: 5000 mãos viram 3)
+    if user and all_hands and stats.hands:
         repo.upsert_player_stats(user["id"], stats)
 
     # ---- coaching (Claude com tools; fallback determinístico) ----
@@ -189,14 +228,17 @@ def process_upload(
     )
 
     # contexto para follow-up ("não gostei da análise" / "e se o vilão só paga com AQ+?")
-    # se veio de print, guarda a imagem: o coach pode RELÊ-LA no follow-up
+    # se veio de PRINT, guarda a imagem: o coach pode RELÊ-LA no follow-up.
+    # PDF fica de fora: bytes de PDF rotulados como image/jpeg fazem a API
+    # rejeitar TODO follow-up daquela análise
     image_b64 = None
     media = "image/jpeg"
-    if result.source_format in ("image", "pdf") and isinstance(content, (bytes, bytearray)):
+    if result.source_format == "image" and isinstance(content, (bytes, bytearray)):
         import base64 as _b64
 
-        image_b64 = _b64.standard_b64encode(bytes(content)).decode()
-        media = "image/png" if fmt in ("png",) else "image/jpeg"
+        if len(content) <= 3_700_000:  # base64 infla 4/3; limite da API ~5MB
+            image_b64 = _b64.standard_b64encode(bytes(content)).decode()
+            media = "image/png" if fmt in ("png",) else "image/jpeg"
     LAST_ANALYSIS[telegram_id] = {
         "context": {
             "analysis": structured,

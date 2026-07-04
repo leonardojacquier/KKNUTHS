@@ -230,7 +230,11 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
     text = await asyncio.to_thread(reveal_drill, drill, choice)
     ctx.user_data.pop("drill", None)
-    await query.edit_message_text(text, parse_mode="Markdown")
+    try:
+        await query.edit_message_text(text, parse_mode="Markdown")
+    except Exception:
+        # nick com _/* desbalanceia o Markdown legado — reenvia sem formatação
+        await query.edit_message_text(text)
 
 
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -271,18 +275,21 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _send_pending_charts(update.message, tg_user.id)
 
 
-def _sim_buttons(decision: dict) -> InlineKeyboardMarkup:
-    """Botões contextuais: com aposta a pagar = Fold/Call/Raise; sem = Check/Bet."""
+def _sim_buttons(decision: dict, pos: int) -> InlineKeyboardMarkup:
+    """Botões contextuais: com aposta a pagar = Fold/Call/Raise; sem = Check/Bet.
+
+    O índice da decisão vai no callback_data: um duplo-clique no celular não
+    pode responder a decisão SEGUINTE (que o usuário nem viu)."""
     if decision["to_call"] > 0:
         row = [
-            InlineKeyboardButton("Fold (desistir)", callback_data="sim:fold"),
-            InlineKeyboardButton("Call (pagar)", callback_data="sim:call"),
-            InlineKeyboardButton("Raise (aumentar)", callback_data="sim:raise"),
+            InlineKeyboardButton("Fold (desistir)", callback_data=f"sim:fold:{pos}"),
+            InlineKeyboardButton("Call (pagar)", callback_data=f"sim:call:{pos}"),
+            InlineKeyboardButton("Raise (aumentar)", callback_data=f"sim:raise:{pos}"),
         ]
     else:
         row = [
-            InlineKeyboardButton("Check (passar)", callback_data="sim:check"),
-            InlineKeyboardButton("Bet (apostar)", callback_data="sim:bet"),
+            InlineKeyboardButton("Check (passar)", callback_data=f"sim:check:{pos}"),
+            InlineKeyboardButton("Bet (apostar)", callback_data=f"sim:bet:{pos}"),
         ]
     return InlineKeyboardMarkup([row])
 
@@ -306,10 +313,19 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "No final eu comparo a sua linha (sequência de decisões) com a que "
         "aconteceu de verdade."
     )
-    await update.message.reply_markdown(
-        intro + "\n" + step["narration"],
-        reply_markup=_sim_buttons(step["decision"]) if step["decision"] else None,
-    )
+    try:
+        await update.message.reply_markdown(
+            intro + "\n" + step["narration"],
+            reply_markup=_sim_buttons(step["decision"], sim["pos"])
+            if step["decision"] else None,
+        )
+    except Exception:
+        # nick com _/* quebra o Markdown legado do Telegram — manda sem formatação
+        await update.message.reply_text(
+            intro + "\n" + step["narration"],
+            reply_markup=_sim_buttons(step["decision"], sim["pos"])
+            if step["decision"] else None,
+        )
 
 
 async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -319,7 +335,14 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not sim:
         await query.edit_message_text("Simulação expirada. Use /simular para outra.")
         return
-    choice = query.data.split(":", 1)[1]
+    parts = query.data.split(":")
+    choice = parts[1]
+    # callback velho (duplo-clique / retoque em mensagem antiga): ignora em vez
+    # de registrar resposta numa decisão que o usuário nem viu
+    if len(parts) > 2 and parts[2].isdigit() and int(parts[2]) != sim["pos"]:
+        return
+    if sim["pos"] >= len(sim["events"]):
+        return
     sim_choose(sim, choice)
     # remove os botões da mensagem anterior e registra a escolha
     try:
@@ -329,10 +352,16 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     step = sim_advance(sim)
     if step["decision"]:
-        await query.message.reply_markdown(
-            f"Você escolheu: *{choice}*\n" + step["narration"],
-            reply_markup=_sim_buttons(step["decision"]),
-        )
+        try:
+            await query.message.reply_markdown(
+                f"Você escolheu: *{choice}*\n" + step["narration"],
+                reply_markup=_sim_buttons(step["decision"], sim["pos"]),
+            )
+        except Exception:
+            await query.message.reply_text(
+                f"Você escolheu: {choice}\n" + step["narration"],
+                reply_markup=_sim_buttons(step["decision"], sim["pos"]),
+            )
         return
 
     # fim: resumo + contexto para discutir em texto livre
@@ -381,21 +410,59 @@ _HH_LINE = re.compile(
 )
 
 
+# subconjunto INCONFUNDÍVEL: uma pergunta nunca começa assim ("Seat 3: ..."),
+# mas pode casar com o formato de ação ("meu oponente: calls tudo, como ajusto?")
+_HH_STRICT = re.compile(
+    r"^(?:Poker Hand #|PokerStars |Winamax |Seat \d+: |Dealt to |Board \[|"
+    r"Total pot |Uncalled bet \(|"
+    r"\*{1,3} (?:HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN|SUMMARY)|"
+    r"\S+ collected [\d,.]+ from)",
+    re.MULTILINE,
+)
+
+
 def _hh_fragment(text: str) -> bool:
-    """True se o texto contém pelo menos uma linha com formato de hand history."""
-    return bool(_HH_LINE.search(text))
+    """True se o texto PARECE pedaço de hand history — não pergunta ao coach.
+
+    Multi-linha com formato de HH = continuação. Linha ÚNICA só conta se for de
+    formato inconfundível: o formato de ação também casa com pergunta."""
+    hits = _HH_LINE.findall(text)
+    if len(hits) >= 2 or (hits and "\n" in text.strip()):
+        return True
+    return bool(_HH_STRICT.search(text))
 
 
 def _join_paste(pending: str, part: str) -> str:
     """Emenda partes de um paste cortado pelo Telegram.
 
     O corte acontece no limite de 4096 chars, muitas vezes NO MEIO de uma linha
-    (até no meio de um número: 'calls 1,' + '500'). Se a nova parte não começa
-    com uma linha reconhecível de HH, a emenda é direta — sem \\n."""
-    first = part.lstrip("\n").split("\n", 1)[0]
-    if pending.endswith("\n") or _HH_LINE.match(first):
+    (até no meio de um número: 'calls 1,' + '500') — e o resto da linha cortada
+    pode ele mesmo parecer uma linha válida ('ro: raises 300' do meio de
+    'Hero: raises 300'). O teste decisivo é a COSTURA: se o fim da parte antiga
+    + o começo da nova formam uma linha de HH válida, o corte foi no meio da
+    linha e a emenda é direta. (Validado por varredura de todos os pontos de
+    corte possíveis nos formatos suportados: zero corrupção.)"""
+    if pending.endswith("\n") or part.startswith("\n"):
+        return pending + part
+    last = pending.rsplit("\n", 1)[-1]
+    first = part.split("\n", 1)[0]
+    if _HH_LINE.match(last + first):
+        return pending + part
+    if _HH_LINE.match(first) and not _HH_LINE.match(last):
         return pending + "\n" + part
     return pending + part
+
+
+def _normalize_force_word(text: str) -> str:
+    """'Analisar!' / 'análise.' -> 'analisar' / 'analise' (acentos e pontuação)."""
+    import unicodedata
+
+    t = text.strip().lower().strip("!?.…,;: ")
+    return "".join(c for c in unicodedata.normalize("NFD", t)
+                   if unicodedata.category(c) != "Mn")
+
+
+_FORCE_WORDS = {"analisar", "analise", "pronto"}
 
 
 async def _route_text(update: Update, text: str) -> None:
@@ -409,7 +476,14 @@ async def _route_text(update: Update, text: str) -> None:
 
     raw_len = len(text)
     pending, parts = take_paste(tg_user.id)
-    force = bool(pending) and text.strip().lower() in {"analisar", "analise", "pronto"}
+    is_force_word = _normalize_force_word(text) in _FORCE_WORDS
+    if is_force_word and not pending:
+        await update.message.reply_text(
+            "Não tenho nenhum paste pendente seu (ou ele expirou). Cole o "
+            "histórico de novo que eu analiso."
+        )
+        return
+    force = bool(pending) and is_force_word
     continuation = False
     if force:
         text = pending
@@ -430,10 +504,10 @@ async def _route_text(update: Update, text: str) -> None:
                     "parte for curta eu percebo sozinho e analiso na hora; se não, "
                     "responda “analisar” quando terminar."
                 )
-            elif parts + 1 == 2:
+            elif parts + 1 == 2 or (parts + 1) % 5 == 0:
                 await update.message.reply_text(
-                    "📄 Parte recebida — sigo juntando. Responda “analisar” "
-                    "quando terminar de colar."
+                    f"📄 {parts + 1} partes recebidas — sigo juntando. Responda "
+                    "“analisar” quando terminar de colar."
                 )
             return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")
@@ -548,7 +622,24 @@ def build_application() -> Application:
             on_unsupported,
         )
     )
+    app.add_error_handler(_on_error)
     return app
+
+
+async def _on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Exceção não tratada em handler: loga e avisa o usuário — nunca silêncio
+    depois de um 'Analisando…'."""
+    import logging
+
+    logging.getLogger("bot").exception("erro não tratado", exc_info=ctx.error)
+    try:
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "😵 Algo deu errado do meu lado agora. Tente de novo em instantes "
+                "— se persistir, me mande a mão novamente."
+            )
+    except Exception:
+        pass
 
 
 def run_polling() -> None:

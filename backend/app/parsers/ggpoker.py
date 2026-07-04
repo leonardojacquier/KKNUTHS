@@ -82,10 +82,11 @@ class GGPokerParser:
                 stakes.small_blind = _num(cm.group("sb"))
                 stakes.big_blind = _num(cm.group("bb"))
 
+        game = GameType.PLO if "omaha" in m.group("rest").lower() else GameType.NLHE
         hand = CanonicalHand(
             hand_id=m.group("hid"),
             site=self.site,
-            game=GameType.NLHE,
+            game=game,
             format=fmt,
             stakes=stakes,
             tournament_id=tournament_id,

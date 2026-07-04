@@ -22,14 +22,29 @@ SUITS = "cdhs"
 # ---------------------------------------------------------------- parser ----
 
 
+_COMBOS_TOTAL = 1326
+
+
+def _combos_of(hand: str) -> int:
+    return 6 if len(hand) == 2 else (4 if hand.endswith("s") else 12)
+
+
 def parse_range(spec: str) -> list[str]:
     """Converte a notação em lista de mãos canônicas ('AKs', 'QQ', 'T9o')."""
     spec = spec.strip()
     m = re.match(r"^top\s*([\d.]+)\s*%$", spec, re.I)
     if m:
-        pct = float(m.group(1)) / 100
-        n = max(1, round(len(HAND_RANKING) * pct))
-        return list(HAND_RANKING[:n])
+        # percentil medido em COMBOS (padrão da indústria), não em classes de
+        # mão — pares valem 6, suited 4, offsuit 12
+        target = max(1.0, float(m.group(1)) / 100 * _COMBOS_TOTAL)
+        out: list[str] = []
+        acc = 0
+        for h in HAND_RANKING:
+            out.append(h)
+            acc += _combos_of(h)
+            if acc >= target:
+                break
+        return out
 
     hands: set[str] = set()
     for token in re.split(r"[,;]\s*", spec):
@@ -47,6 +62,22 @@ def _parse_token(token: str) -> list[str]:
     if m:
         lo, hi = sorted((RANK_ORDER.index(m.group(1)), RANK_ORDER.index(m.group(2))))
         return [RANK_ORDER[i] * 2 for i in range(lo, hi + 1)]
+    # não-par com intervalo: 'A5s-A2s' (mesmo high card, kicker desce) ou
+    # '76s-32s' (conectores/gappers descem mantendo o gap)
+    m = re.match(r"^([2-9TJQKA])([2-9TJQKA])([so])-([2-9TJQKA])([2-9TJQKA])\3$", t)
+    if m:
+        h1, l1, suit, h2, l2 = m.groups()
+        hi1, lo1 = RANK_ORDER.index(h1), RANK_ORDER.index(l1)
+        hi2, lo2 = RANK_ORDER.index(h2), RANK_ORDER.index(l2)
+        if hi1 == hi2:  # A5s-A2s
+            a, b = sorted((lo1, lo2))
+            return [f"{h1}{RANK_ORDER[k]}{suit}" for k in range(a, b + 1)]
+        if hi1 - lo1 == hi2 - lo2:  # 76s-32s (gap constante)
+            gap = hi1 - lo1
+            top, bot = max(hi1, hi2), min(hi1, hi2)
+            return [f"{RANK_ORDER[k]}{RANK_ORDER[k - gap]}{suit}"
+                    for k in range(bot, top + 1)]
+        raise ValueError(f"intervalo de range inválido: {token!r}")
     # par (com ou sem +): 88, TT+
     m = re.match(r"^([2-9TJQKA])\1(\+?)$", t)
     if m:

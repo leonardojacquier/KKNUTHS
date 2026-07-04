@@ -251,10 +251,59 @@ _SYSTEM = {
 }
 
 
+def _coerce_args(args: dict) -> dict:
+    """Normaliza argumentos vindos do modelo: cartas em string -> lista, '10h' ->
+    'Th', naipe unicode -> letra, números em string ('10bb') -> float. O modelo
+    erra formato com frequência — erro críptico aqui queima rounds de tool."""
+    import re as _re
+
+    args = dict(args or {})
+    for key in ("cards", "hero_cards", "board"):
+        v = args.get(key)
+        if isinstance(v, str):
+            v = [t for t in _re.split(r"[,\s]+", v.strip()) if t]
+        if isinstance(v, list):
+            args[key] = [(_norm_card(c) or str(c)) for c in v]
+    for key in ("stack_bb", "pot", "to_call", "stack", "bet", "effective_stack",
+                "equity", "bf", "num_opponents"):
+        v = args.get(key)
+        if isinstance(v, str):
+            try:
+                args[key] = float(v.lower().replace("bb", "").strip())
+            except ValueError:
+                pass
+    return args
+
+
 def _dispatch(name: str, args: dict):
+    args = _coerce_args(args)
     if name == "send_range_chart":
-        # a spec é coletada por charts_from_tool_call; aqui só confirmamos
-        return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
+        # valida JÁ: confirmar "gráfico agendado" e não entregar destrói a
+        # confiança do aluno — erro aqui deixa o modelo se corrigir
+        if args.get("range_notation"):
+            from app.analysis.ranges import parse_range
+
+            try:
+                parse_range(str(args["range_notation"]))
+            except ValueError as exc:
+                return {"error": f"notação de range inválida: {exc}"}
+            return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
+        role = str(args.get("role") or "").upper()
+        stack = args.get("stack_bb")
+        if role in ("SB", "BB") and isinstance(stack, (int, float)) and stack > 0:
+            if args.get("mode") in ("ev", "icm"):
+                from app.analysis.jam_fold_solver import available as _solver_ok
+
+                if not _solver_ok():
+                    return {"error": "solver de EV indisponível — use mode='freq'"}
+            else:
+                from app.analysis.nash_pushfold import available as _nash_ok
+
+                if not _nash_ok():
+                    return {"error": "tabela Nash indisponível"}
+            return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
+        return {"error": "parâmetros insuficientes: passe range_notation OU "
+                         "role ('SB'/'BB') + stack_bb (número > 0)"}
     if name == "push_fold":
         from app.analysis.nash_pushfold import nash_jam_fold
         from app.analysis.pushfold import push_fold
@@ -314,10 +363,14 @@ def _dispatch(name: str, args: dict):
             seed=13,
         )
     if name == "pot_odds":
+        if not args.get("to_call") or args["to_call"] <= 0:
+            return {"error": "to_call deve ser > 0 (sem aposta a pagar não há pot odds)"}
         return pot_odds(args["pot"], args["to_call"])
     if name == "ev_call":
         return ev_call(args["equity"], args["pot"], args["to_call"])
     if name == "spr":
+        if not args.get("pot") or args["pot"] <= 0:
+            return {"error": "pot deve ser > 0 para calcular SPR"}
         return spr(args["effective_stack"], args["pot"])
     if name == "breakeven_bluff":
         return breakeven_bluff(args["bet"], args["pot"])
@@ -331,12 +384,15 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
          | ("nashmode", role, stack_bb, mode, bf)
     """
     try:
+        if isinstance(result, dict) and result.get("error"):
+            return None  # tool falhou — não prometer gráfico que não sai
         if name == "send_range_chart":
+            args = _coerce_args(args)
             if args.get("range_notation"):
                 return ("range", args["range_notation"],
                         args.get("title") or "Range")
             if args.get("role") and args.get("stack_bb"):
-                return ("nashmode", args["role"].upper(), float(args["stack_bb"]),
+                return ("nashmode", str(args["role"]).upper(), float(args["stack_bb"]),
                         args.get("mode") or "freq", float(args.get("bf") or 1.5))
             return None
         if name == "equity_vs_range" and args.get("villain_range"):
@@ -540,7 +596,8 @@ def followup(
         return None
 
 
-def evaluate_line(sim_data: dict, lang: str = "pt") -> str | None:
+def evaluate_line(sim_data: dict, lang: str = "pt",
+                  collect_charts: list | None = None) -> str | None:
     """Modo "e se": avalia a linha ALTERNATIVA que o aluno escolheu na simulação.
 
     Para cada decisão divergente da real, julga (com as tools) se a escolha do
@@ -702,8 +759,11 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         raw = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(raw))
         hand = _snapshot_to_canonical(data)
-        # guarda anti-alucinação: sem cartas do herói E sem ação, não é mão
-        if hand is None or (not hand.hero_cards and not hand.streets):
+        # guarda anti-alucinação: sem cartas do herói E sem AÇÃO, não é mão
+        # (board sozinho não basta — street sem ação pode ser fabricada)
+        if hand is None or (
+            not hand.hero_cards and not any(st.actions for st in hand.streets)
+        ):
             return None
         hand.source_format = "txt"
         hand.confidence = min(hand.confidence, 0.8)
@@ -762,10 +822,12 @@ def _strip_code_fence(text: str) -> str:
 
 
 def _norm_card(card) -> str | None:
-    """Normaliza carta da visão: '10h'->'Th', 'AS'->'As'. None se irrecuperável."""
+    """Normaliza carta: '10h'->'Th', 'AS'->'As', 'A♥'->'Ah'. None se irrecuperável."""
     if not card or not isinstance(card, str):
         return None
     c = card.strip().replace("10", "T")
+    for sym, letter in (("♠", "s"), ("♥", "h"), ("♦", "d"), ("♣", "c")):
+        c = c.replace(sym, letter)
     if len(c) != 2:
         return None
     rank, suit = c[0].upper(), c[1].lower()
@@ -858,10 +920,16 @@ def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
                 )
             except Exception:
                 continue
-        if acts or (sname != StreetName.PREFLOP and boards[sname]):
+        # a street só existe se tem ação OU se a carta DELA foi vista —
+        # turn/river não podem ser fabricadas a partir do board do flop
+        card_seen = {
+            StreetName.PREFLOP: False,
+            StreetName.FLOP: bool(flop),
+            StreetName.TURN: bool(turn_c),
+            StreetName.RIVER: bool(river_c),
+        }[sname]
+        if acts or card_seen:
             streets.append(Street(name=sname, board=boards[sname], actions=acts))
-        elif sname == StreetName.PREFLOP and acts:
-            streets.append(Street(name=sname, actions=acts))
 
     has_actions = any(s.actions for s in streets)
     fmt = data.get("format") or "cash"

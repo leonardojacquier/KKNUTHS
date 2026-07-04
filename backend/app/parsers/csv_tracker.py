@@ -31,13 +31,26 @@ _COLUMN_HINTS: dict[str, list[str]] = {
 
 
 def _find_columns(header: list[str]) -> dict[str, int]:
-    """Mapeia campo lógico -> índice da coluna, por correspondência tolerante."""
+    """Mapeia campo lógico -> índice da coluna, por correspondência tolerante.
+
+    Duas passadas: igualdade exata primeiro, substring depois — senão a coluna
+    "Network" (site) seria capturada pelo hint "net" (resultado)."""
     cols: dict[str, int] = {}
+    used: set[int] = set()
     norm = [h.strip().lower() for h in header]
     for field, hints in _COLUMN_HINTS.items():
         for i, name in enumerate(norm):
-            if any(hint in name for hint in hints):
+            if i not in used and name in hints:
                 cols[field] = i
+                used.add(i)
+                break
+    for field, hints in _COLUMN_HINTS.items():
+        if field in cols:
+            continue
+        for i, name in enumerate(norm):
+            if i not in used and any(hint in name for hint in hints):
+                cols[field] = i
+                used.add(i)
                 break
     return cols
 
@@ -119,8 +132,10 @@ def parse_tracker_csv(text: str) -> list[CanonicalHand]:
                 source_format="csv",
                 confidence=0.9,
             )
-            if net and net > 0:
-                hand.collected["Hero"] = net
+            if net is not None:
+                hand.net_won = net  # inclusive prejuízo — perdas não podem sumir
+                if net > 0:
+                    hand.collected["Hero"] = net
             hands.append(hand)
         except Exception:
             continue

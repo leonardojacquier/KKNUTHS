@@ -46,6 +46,8 @@ async def stripe_webhook(request: Request) -> dict:
 
     Valida a assinatura (STRIPE_WEBHOOK_SECRET) e libera/atualiza o plano do usuário.
     """
+    from fastapi import HTTPException
+
     from app.billing import handle_webhook
 
     payload = await request.body()
@@ -53,4 +55,6 @@ async def stripe_webhook(request: Request) -> dict:
     try:
         return handle_webhook(payload, sig)
     except Exception as exc:  # assinatura inválida / payload malformado
-        return {"error": str(exc)}
+        # não-2xx: o Stripe reenvia eventos legítimos que falharam; 200 com
+        # {"error"} marcaria como entregue e o evento se perderia
+        raise HTTPException(status_code=400, detail=str(exc))

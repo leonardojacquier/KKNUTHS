@@ -43,8 +43,13 @@ def test_parse_plus_and_interval():
 
 
 def test_parse_top_percent():
+    # "top X%" é medido em COMBOS (pares=6, suited=4, offsuit=12), padrão da
+    # indústria — não em classes de mão
+    from app.analysis.ranges import _combos_of
+
     top10 = parse_range("top 10%")
-    assert len(top10) == 17  # 169 * 0.10 ≈ 17
+    combos = sum(_combos_of(h) for h in top10)
+    assert 0.09 * 1326 <= combos <= 0.12 * 1326
     assert "AA" in top10 and "KK" in top10
 
 

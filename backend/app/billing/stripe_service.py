@@ -68,14 +68,16 @@ def handle_webhook(payload: bytes, sig_header: str | None) -> dict:
     if not is_enabled():
         return {"ignored": "billing desabilitado"}
 
+    # assinatura é OBRIGATÓRIA: sem ela, qualquer POST na internet viraria
+    # "me dá premium" — um secret esquecido no .env não pode abrir essa porta
+    if not s.stripe_webhook_secret:
+        raise ValueError(
+            "STRIPE_WEBHOOK_SECRET não configurado — webhook rejeitado por segurança"
+        )
+    if not sig_header:
+        raise ValueError("cabeçalho stripe-signature ausente — evento rejeitado")
     stripe = _client()
-    if s.stripe_webhook_secret and sig_header:
-        event = stripe.Webhook.construct_event(payload, sig_header, s.stripe_webhook_secret)
-    else:
-        # sem secret (dev): aceita o payload como JSON, sem verificação de assinatura
-        import json
-
-        event = json.loads(payload)
+    event = stripe.Webhook.construct_event(payload, sig_header, s.stripe_webhook_secret)
 
     etype = event["type"]
     obj = event["data"]["object"]

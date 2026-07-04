@@ -21,12 +21,14 @@ from app.models.canonical import (
 )
 from app.parsers.base import assign_positions
 
+# "Zoom Hand" e "Home Game Hand" são variantes do mesmo formato
 _HEADER = re.compile(
-    r"PokerStars (?:Hand|Game) #(?P<hid>\d+):\s+"
+    r"PokerStars (?:Zoom |Home Game )?(?:Hand|Game) #(?P<hid>\d+):\s+"
     r"(?P<rest>.*?)\s+-\s+(?P<date>\d{4}/\d{2}/\d{2} \d{1,2}:\d{2}:\d{2})"
 )
-# valores podem vir com separador de milhar ("1,000") — GG/PS em níveis altos
-_NUM = r"[\d][\d,]*(?:\.\d+)?"
+# valores podem vir com separador de milhar ("1,000") e, em cash real,
+# prefixo de moeda ("$0.25", "€1.50") — GG/PS compartilham o corpo
+_NUM = r"[\$€£]?[\d][\d,]*(?:\.\d+)?"
 _TOURNEY = re.compile(
     r"Tournament #(?P<tid>\d+),\s+(?P<buyin>[^ ]+)\s+(?P<cur>[A-Z]{3})?.*?"
     rf"Level\s+(?P<level>[^(]+)\((?P<sb>{_NUM})/(?P<bb>{_NUM})"
@@ -40,6 +42,8 @@ _SEAT = re.compile(rf"Seat (?P<seat>\d+): (?P<name>.+?) \((?P<stack>{_NUM}) in c
 _POST_SB = re.compile(rf"^(?P<name>.+?): posts small blind (?P<amt>{_NUM})")
 _POST_BB = re.compile(rf"^(?P<name>.+?): posts big blind (?P<amt>{_NUM})")
 _POST_ANTE = re.compile(rf"^(?P<name>.+?): posts (?:the )?ante (?P<amt>{_NUM})")
+# jogador voltando à mesa: "posts small & big blinds 300"
+_POST_BOTH = re.compile(rf"^(?P<name>.+?): posts small & big blinds? (?P<amt>{_NUM})")
 _DEALT = re.compile(r"^Dealt to (?P<name>.+?) \[(?P<cards>[^\]]+)\]")
 _ACTION = re.compile(
     r"^(?P<name>.+?): (?P<verb>folds|checks|calls|bets|raises)"
@@ -47,6 +51,7 @@ _ACTION = re.compile(
     r"(?P<allin>\s+and is all-in)?"
 )
 _COLLECT = re.compile(rf"^(?P<name>.+?) collected (?P<amt>{_NUM}) from")
+_UNCALLED = re.compile(rf"^Uncalled bet \((?P<amt>{_NUM})\) returned to (?P<name>.+)")
 # Telegram converte "*** FLOP ***" em "* FLOP *" (asteriscos viram negrito),
 # então os marcadores de street aceitam de 1 a 3 asteriscos
 _FLOP = re.compile(r"\*{1,3} FLOP \*{1,3} \[(?P<b>[^\]]+)\]")
@@ -57,8 +62,8 @@ _TOTAL_POT = re.compile(rf"^Total pot (?P<pot>{_NUM})(?:.*?\|\s+Rake (?P<rake>{_
 
 
 def _num(s: str) -> float:
-    """'1,400' -> 1400.0 ; '0.25' -> 0.25."""
-    return float(s.replace(",", ""))
+    """'1,400' -> 1400.0 ; '$0.25' -> 0.25."""
+    return float(s.lstrip("$€£").replace(",", ""))
 
 _VERB_MAP = {
     "folds": ActionType.FOLD,
@@ -75,13 +80,17 @@ class PokerStarsParser:
     def matches(self, raw_text: str) -> bool:
         # o header pode não estar na 1ª linha (paste do Telegram costuma começar
         # com o rabo da mão anterior)
-        return bool(re.search(r"(?m)^PokerStars (?:Hand|Game) #", raw_text))
+        return bool(re.search(
+            r"(?m)^PokerStars (?:Zoom |Home Game )?(?:Hand|Game) #", raw_text
+        ))
 
     def parse(self, raw_text: str) -> list[CanonicalHand]:
         hands: list[CanonicalHand] = []
         # cada bloco começa no header (pastes podem perder as linhas em branco);
         # fragmento antes do primeiro header é descartado no _parse_one
-        blocks = re.split(r"\n(?=PokerStars (?:Hand|Game) #)", raw_text.strip())
+        blocks = re.split(
+            r"\n(?=PokerStars (?:Zoom |Home Game )?(?:Hand|Game) #)", raw_text.strip()
+        )
         for block in blocks:
             block = block.strip()
             if not block:
@@ -123,10 +132,11 @@ class PokerStarsParser:
                 stakes.big_blind = _num(cm.group("bb"))
                 stakes.currency = cm.group("cur") or "USD"
 
+        game = GameType.PLO if "omaha" in m.group("rest").lower() else GameType.NLHE
         hand = CanonicalHand(
             hand_id=m.group("hid"),
             site=self.site,
-            game=GameType.NLHE,
+            game=game,
             format=fmt,
             stakes=stakes,
             tournament_id=tournament_id,
@@ -210,7 +220,8 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
             continue
 
         # blinds / antes (sempre na preflop)
-        for rx, atype in ((_POST_SB, "sb"), (_POST_BB, "bb"), (_POST_ANTE, "ante")):
+        for rx, atype in ((_POST_SB, "sb"), (_POST_BB, "bb"), (_POST_ANTE, "ante"),
+                          (_POST_BOTH, "bb")):
             pm = rx.match(line)
             if pm:
                 amt = _num(pm.group("amt"))
@@ -249,6 +260,10 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
             hand.collected[c.group("name")] = (
                 hand.collected.get(c.group("name"), 0.0) + _num(c.group("amt"))
             )
+        u = _UNCALLED.match(line)
+        if u:
+            name = u.group("name").strip()
+            hand.uncalled[name] = hand.uncalled.get(name, 0.0) + _num(u.group("amt"))
         b = _BOARD.match(line)
         if b:
             hand.final_board = b.group("b").split()

@@ -114,10 +114,13 @@ def test_jam_fold_ev_and_icm():
     assert icm["sb_ev"]["AA"] < chip["sb_ev"]["AA"]
     # 72o: jam pior que fold no chip-EV a 10bb
     assert chip["sb_ev"]["72o"] < chip["sb_fold_ev"]
-    # ICM aperta (ou mantém) o range de jam
-    jam_chip = sum(1 for v in chip["sb_jam"].values() if v > 0.5)
-    jam_icm = sum(1 for v in icm["sb_jam"].values() if v > 0.5)
-    assert jam_icm <= jam_chip
+    # sob ICM quem PAGA aperta muito (precisa de ~bf/(1+bf) de equity); o SB,
+    # vendo o BB foldar mais, pode até ALARGAR o jam (abuso de bolha)
+    call_chip = sum(1 for v in chip["bb_call"].values() if v > 0.5)
+    call_icm = sum(1 for v in icm["bb_call"].values() if v > 0.5)
+    assert call_icm < call_chip
+    # sanity do equilíbrio corrigido: BB paga AA e folda 72o
+    assert chip["bb_call"]["AA"] > 0.5 and chip["bb_call"]["72o"] < 0.5
 
 
 def test_ev_chart_renders():

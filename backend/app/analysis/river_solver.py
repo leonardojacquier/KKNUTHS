@@ -235,6 +235,11 @@ def solve_river(
     iterations: int = 400,
 ) -> dict:
     """Interface (e tool do agente): resolve e resume a estratégia de equilíbrio."""
+    if len(board) != 5:
+        raise ValueError(
+            f"solve_river exige board completo de 5 cartas (recebi {len(board)}) — "
+            "para flop/turn use equity_vs_range"
+        )
     key = f"{'/'.join(sorted(board))}|{oop_range}|{ip_range}|{pot}|{stack}|{player}"
     if key in _CACHE:
         return _CACHE[key]

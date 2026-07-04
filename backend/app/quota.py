@@ -30,15 +30,28 @@ class QuotaResult:
     allowed: bool
     remaining: int
     plan: str = "free"
+    degraded: bool = False  # banco caiu: não dá para SABER a cota (fail-closed)
 
 
 def check_quota(telegram_id: int, user: dict | None, repo=None) -> QuotaResult:
-    """Verifica (sem consumir) se o usuário pode rodar mais uma análise no mês."""
+    """Verifica (sem consumir) se o usuário pode rodar mais uma análise no mês.
+
+    Fail-CLOSED: se a contagem no banco falhar, bloqueia (degraded=True) em vez
+    de liberar — banco instável não pode virar análise de LLM ilimitada e grátis.
+    """
     plan = (user or {}).get("plan", "free")
     if plan in _UNLIMITED_PLANS:
         return QuotaResult(True, -1, plan)
 
+    # banco ligado mas usuário não veio (falha transitória do get_or_create):
+    # também é "não sei a cota" — sem isso cairia no contador em memória, que
+    # zera a cada restart do processo
+    if repo is not None and getattr(repo, "enabled", False) and not user:
+        return QuotaResult(False, 0, plan, degraded=True)
+
     used = _count_used(telegram_id, user, repo)
+    if used is None:
+        return QuotaResult(False, 0, plan, degraded=True)
     remaining = max(0, FREE_MONTHLY_ANALYSES - used)
     return QuotaResult(remaining > 0, remaining, plan)
 
@@ -55,7 +68,9 @@ def consume_quota(telegram_id: int, user: dict | None, repo=None, kind: str = "a
     _mem[telegram_id] = (month, count + 1)
 
 
-def _count_used(telegram_id: int, user: dict | None, repo) -> int:
+def _count_used(telegram_id: int, user: dict | None, repo) -> int | None:
+    """Análises usadas no mês. None = banco indisponível (chamador decide;
+    devolver 0 aqui liberaria análises ilimitadas durante qualquer instabilidade)."""
     if repo is not None and getattr(repo, "enabled", False) and user:
         try:
             month_start = datetime.now(timezone.utc).replace(
@@ -70,7 +85,7 @@ def _count_used(telegram_id: int, user: dict | None, repo) -> int:
             )
             return res.count or 0
         except Exception:
-            return 0
+            return None
     month, count = _mem.get(telegram_id, (_month_key(), 0))
     return count if month == _month_key() else 0
 

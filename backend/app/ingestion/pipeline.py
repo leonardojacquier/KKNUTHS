@@ -73,10 +73,6 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
         media = "image/jpeg" if fmt in ("jpg", "jpeg") else "image/png"
         return _vision_ingest(content, "image", media)
 
-    if fmt == "csv":
-        return IngestResult([], None, "csv", confidence=0.0, needs_review=True,
-                            note="mapeamento de CSV de tracker ainda não conectado")
-
     return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
                         note=f"formato '{fmt}' não suportado")
 
@@ -84,17 +80,26 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
 def _looks_like_poker_text(text: str) -> bool:
     """Heurística barata: o texto tem sinais de mão de poker?
 
-    Exige cartas em notação (As, Kd, 10h...) OU >=2 palavras-chave do jogo.
     Protege o fallback de IA contra texto aleatório (alucinação + custo).
+    Cartas só contam na notação exata (rank maiúsculo + naipe minúsculo, ou
+    naipe unicode): 'Kd', 'A♥'. Tokens que colidem com português corrente
+    ('As' = artigo; '5h' = horário) não bastam sozinhos.
     """
     import re
 
-    cards = re.findall(r"\b(?:10|[AKQJTakqjt2-9])[shdc♠♥♦♣]\b", text)
-    if len(cards) >= 2:
-        return True
+    cards = re.findall(r"\b(?:10|[AKQJT2-9])[shdc]\b", text)
+    cards += re.findall(r"(?:10|[AKQJT2-9])[♠♥♦♣](?!\w)", text)
+    ambiguous = {"As", "2h", "3h", "4h", "5h", "6h", "7h", "8h", "9h", "10h"}
+    strong = [c for c in cards if c not in ambiguous]
+
     keywords = ("flop", "turn", "river", "blind", "all-in", "allin", "pot",
                 "raise", "fold", "showdown", "dealer", "button", "ante")
     hits = sum(1 for k in keywords if k in text.lower())
+
+    if len(strong) >= 2:
+        return True
+    if len(cards) >= 2 and hits >= 1:
+        return True
     return hits >= 2
 
 

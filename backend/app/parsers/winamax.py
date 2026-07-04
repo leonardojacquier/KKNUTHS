@@ -64,11 +64,13 @@ class WinamaxParser:
     site = "Winamax"
 
     def matches(self, raw_text: str) -> bool:
-        return raw_text.lstrip().startswith("Winamax Poker")
+        # tolera fragmento antes do 1º header (paste do Telegram)
+        return bool(re.search(r"(?m)^Winamax Poker - ", raw_text))
 
     def parse(self, raw_text: str) -> list[CanonicalHand]:
         hands = []
-        for block in re.split(r"\n\s*\n(?=Winamax Poker)", raw_text.strip()):
+        # pastes podem perder as linhas em branco entre mãos
+        for block in re.split(r"\n(?=Winamax Poker - )", raw_text.strip()):
             block = block.strip()
             if not block:
                 continue

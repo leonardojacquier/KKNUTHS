@@ -30,7 +30,16 @@ echo "$REMOTE" > "$STATE"
 
 echo "[$(date '+%F %T')] novo commit: ${LOCAL:0:7} -> ${REMOTE:0:7}; atualizando…"
 git reset --hard -q "origin/$BRANCH"
-cp -r "$REPO/backend/." "$APP/"
+# rsync --delete: arquivo removido do repo sai do servidor também (cp -r só
+# sobrepõe — módulo deletado ficava vivo em /opt/poker-bot para sempre)
+if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete \
+        --exclude='.env' --exclude='venv/' --exclude='.git/' \
+        --exclude='.oneshot-done/' --exclude='__pycache__/' \
+        "$REPO/backend/" "$APP/"
+else
+    cp -r "$REPO/backend/." "$APP/"
+fi
 
 notify() {  # avisa o admin no Telegram (se configurado); nunca falha o deploy
     if grep -q '^TELEGRAM_ADMIN_CHAT_ID=' "$APP/.env" 2>/dev/null; then

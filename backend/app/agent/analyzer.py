@@ -68,9 +68,15 @@ def analyze_hand(hand: CanonicalHand) -> dict:
                     street_contrib[a.actor] = street_contrib.get(a.actor, 0.0) + add
                 contributed[a.actor] = contributed.get(a.actor, 0.0) + add
 
+    # aposta não paga devolvida: sai do pote e do investimento de quem apostou
+    returned = sum(hand.uncalled.values())
+    pot -= returned
+
     won = hand.collected.get(hero or "", 0.0)
-    invested = contributed.get(hero or "", 0.0)
+    invested = contributed.get(hero or "", 0.0) - hand.uncalled.get(hero or "", 0.0)
     net = round(won - invested, 2)
+    if hand.net_won is not None:  # fonte-resumo (CSV) já traz o líquido pronto
+        net = round(hand.net_won, 2)
 
     bb = hand.stakes.big_blind or 1
     return {

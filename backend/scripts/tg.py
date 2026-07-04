@@ -36,6 +36,12 @@ def main() -> int:
         print(__doc__)
         return 1
     cmd = sys.argv[1]
+    if cmd in ("chat", "send") and len(sys.argv) < 3:
+        print(f"uso: tg.py {cmd} <chat_id>" + (" <mensagem>" if cmd == "send" else ""))
+        return 1
+    if cmd == "send" and len(sys.argv) < 4:
+        print("uso: tg.py send <chat_id> <mensagem>")
+        return 1
 
     if cmd == "me":
         out = call("getMe")

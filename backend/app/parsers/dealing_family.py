@@ -150,8 +150,21 @@ class _DealingBase:
                 verb = a.group("verb").lower()
                 amt = _num(a.group("amt"))
                 if verb.startswith("is all"):
+                    # "is all-In" pode ser call, bet ou raise: classifica pelo
+                    # valor vs a maior aposta pendente da street
+                    biggest = max(
+                        (x.to_amount or x.amount for x in streets[current].actions
+                         if x.type in (ActionType.BET, ActionType.RAISE)),
+                        default=0.0,
+                    )
+                    if biggest == 0.0:
+                        atype = ActionType.BET
+                    elif amt and amt <= biggest:
+                        atype = ActionType.CALL
+                    else:
+                        atype = ActionType.RAISE
                     streets[current].actions.append(Action(
-                        actor=a.group("name"), type=ActionType.RAISE,
+                        actor=a.group("name"), type=atype,
                         amount=amt, to_amount=amt, all_in=True,
                     ))
                 else:
@@ -183,19 +196,23 @@ class _DealingBase:
 
 class PartyPokerParser(_DealingBase):
     site = "PartyPoker"
-    _split_re = re.compile(r"\n\s*\n(?=\*{5} Hand History)")
+    # pastes do Telegram podem perder as linhas em branco entre mãos
+    _split_re = re.compile(r"\n(?=\*{5} Hand History)")
     _id_re = re.compile(r"\*{5} Hand History for Game (?P<hid>\d+)")
 
     def matches(self, raw_text: str) -> bool:
-        head = raw_text.lstrip()[:300]
-        return "Hand History for Game" in head and "888poker" not in head
+        return ("Hand History for Game" in raw_text[:4000]
+                and "888poker" not in raw_text[:4000])
 
 
 class Poker888Parser(_DealingBase):
     site = "888poker"
-    _split_re = re.compile(r"\n\s*\n(?=#Game No|\*{5} 888poker)")
+    # corta em "#Game No" (início real da mão); o banner "***** 888poker" vem na
+    # linha SEGUINTE ao #Game No, então só corta nele com linha em branco antes
+    # (export antigo sem #Game No)
+    _split_re = re.compile(r"\n(?=#Game No)|\n\s*\n(?=\*{5} 888poker)")
     _id_re = re.compile(r"(?:#Game No\s*:\s*|888poker Hand History for Game )(?P<hid>\d+)")
 
     def matches(self, raw_text: str) -> bool:
-        head = raw_text.lstrip()[:300]
-        return "888poker" in head or head.startswith("#Game No")
+        head = raw_text[:4000]
+        return "888poker" in head or bool(re.search(r"(?m)^#Game No", head))
