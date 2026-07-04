@@ -12,8 +12,10 @@ na mesa e o que treinar para evoluir.
 
 **A diferença para "perguntar pro ChatGPT"?** O KKNuths não estima números — ele
 **calcula**. Equity contra o range real do vilão, pressão de ICM na mesa final,
-preço exato de cada call. E as decisões de all-in em stack curto saem de
-**equilíbrio Nash computado**, não de opinião. Números certos, conselho certo.
+preço exato de cada call. As decisões de all-in em stack curto saem de
+**equilíbrio Nash computado**, e os rivers importantes passam por um **solver de
+verdade**. Números certos, conselho certo — e o gráfico de range junto, para você
+VER o que o coach está falando.
 
 E ele **lembra de você**: cada mão enviada alimenta seu perfil — estilo de jogo,
 estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
@@ -33,7 +35,7 @@ estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
 | Jeito | Como fazer |
 |---|---|
 | 📸 **Print/foto** | Tire print do replay da mão (ou da mesa) e envie como foto. O KKNuths lê as cartas, stacks, posições e a ação completa |
-| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe o arquivo. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars, Winamax, PartyPoker e 888poker** |
+| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars, Winamax, PartyPoker e 888poker** |
 | 📋 **Colar o texto** | Copie o texto da mão e cole direto na conversa |
 | 📊 **CSV do seu tracker** | Exporte do Hold'em Manager / PokerTracker e anexe |
 | 📑 **PDF** | Relatórios em PDF também funcionam |
@@ -55,18 +57,25 @@ mais rápido.*
   explicado na primeira vez (ex.: *pot odds — o preço que o pote te oferece*)
 - **Números calculados**: sua chance real de ganhar contra o range do vilão, o
   preço de cada decisão, o custo dos erros
+- **📊 Gráfico de range junto**: quando o coach assume um range para o vilão ou
+  cita um equilíbrio, a **matriz 13×13 chega como imagem** na sequência — você vê
+  exatamente as mãos de que ele está falando
 - **Em torneios**: pressão de ICM (quanto suas fichas valem em dinheiro real),
   decisões de bubble e mesa final, all-ins de stack curto comparados com o
   **equilíbrio Nash calculado**
 - **Plano de melhoria**: 2–3 pontos priorizados para estudar
 
-### 💬 E o melhor: você pode DISCUTIR a análise
-Discordou? Tem mais contexto? É só responder na conversa (texto ou áudio):
+### 💬 Converse com o coach — sobre a mão ou sobre QUALQUER coisa de poker
+Discordou da análise? Tem mais contexto? Responda na conversa (texto ou áudio):
 
 > *"Mas o vilão era super tight, só pagava com JJ+"*
 
-O coach **recalcula tudo com a informação nova** e te responde. Se algo do print
-foi mal lido, diga — ele relê a imagem e corrige.
+O coach **recalcula tudo com a informação nova** — e manda o gráfico do novo range.
+Se algo do print foi mal lido, diga — ele relê a imagem e corrige.
+
+E não precisa ser sobre uma mão: pergunte o que quiser —
+*"como lidar com downswing?"*, *"que stakes devo jogar com banca de $500?"* —
+o coach responde levando em conta o **seu** perfil de jogo.
 
 ---
 
@@ -78,6 +87,7 @@ foi mal lido, diga — ele relê a imagem e corrige.
 | `/stats` | Seu perfil de estilo (VPIP, agressividade, tendência) calculado sobre todas as suas mãos |
 | `/simular` | **Simulador**: jogue uma mão SUA de novo, decisão a decisão, com botões — no final, compare sua linha com a real e receba o veredito do coach |
 | `/treino` | Drill rápido: um spot seu, o que você faria? |
+| `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) |
 | `/ask` + pergunta | Pesquise no seu histórico: *"/ask minhas maiores perdas no river"* |
 | `/plano` | Seu plano e limites |
 
@@ -97,10 +107,10 @@ Todo domingo: suas mãos da semana, resultado, evolução das estatísticas e o
 |---|---|---|
 | Análises por mês | 100 | Ilimitadas |
 | Torneio completo + história | ✔️ | ✔️ |
-| Simulador e quiz diário | ✔️ | ✔️ |
+| Simulador, quiz diário e gráficos de range | ✔️ | ✔️ |
 | Voz, prints, todos os formatos | ✔️ | ✔️ |
 | Relatório semanal | ✔️ | ✔️ |
-| Análises ilimitadas + recursos avançados | — | ✔️ |
+| Recursos avançados de solver e exploit | — | ✔️ |
 
 Durante o **beta**, tudo liberado no plano Grátis. Aproveite e mande feedback —
 os melhores testadores ganham benefícios no lançamento. 🎁
@@ -125,7 +135,7 @@ técnica de alto nível: use como um coach humano, questionando e discutindo
 (é para isso que a conversa existe!).
 
 **Funciona para cash game e torneio?**
-Os dois. Torneios têm análise extra de ICM/bubble.
+Os dois. Torneios têm análise extra de ICM/bubble e equilíbrios de stack curto.
 
 **Não achei minha sala na lista.**
 Manda um print que funciona para qualquer sala — e nos avise qual é a sua:
@@ -137,5 +147,8 @@ adicionamos suporte rapidinho.
 
 Poker se estuda melhor em grupo. Compartilhe:
 **https://t.me/KKNUts_BOT?start=convite**
+
+E experimente mandar `/range sb 10` num grupo de poker — o gráfico do equilíbrio
+calculado costuma abrir uma boa discussão. 😉
 
 *KKNuths — pare de achar. Calcule.* ♠️
