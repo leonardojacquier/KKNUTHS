@@ -39,20 +39,48 @@ from app.db import get_repository
 from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
 
 WELCOME = (
-    "♠️ *Poker Hand Analyzer*\n\n"
+    "♠️ *KKNuths — seu coach de poker*\n\n"
     "Me envie suas mãos de qualquer jeito: arquivo `.txt` de hand history "
-    "(PokerStars, GGPoker, Winamax, PartyPoker, 888poker), CSV do seu tracker "
-    "(HM/PT), print/foto do replay, PDF — ou *cole o texto da mão direto aqui "
-    "no chat*. Eu analiso as jogadas, o torneio inteiro e monto seu perfil.\n\n"
-    "Comandos:\n"
-    "• /stats — seu perfil de estilo\n"
-    "• /ask <pergunta> — consulte seu histórico de mãos\n"
-    "• /treino — drill rápido com uma mão sua\n"
-    "• /simular — jogue uma mão sua decisão a decisão 🎮\n"
-    "• /range — gráficos de range 13×13 (opens e Nash) 📊\n"
-    "• /plano — sobre o beta gratuito\n\n"
-    "Para começar, é só mandar o arquivo. 📎"
+    "(GGPoker, PokerStars — inclusive Zoom —, Winamax, PartyPoker, 888poker), "
+    "CSV do tracker, print/foto do replay, PDF, áudio — ou *cole o texto da "
+    "mão direto aqui* (se o Telegram cortar em partes, eu junto sozinho).\n\n"
+    "📊 *Análise e perfil*\n"
+    "• /stats — seu perfil de estilo (e com qual pro você parece)\n"
+    "• /estilo — cartão visual do seu estilo vs os grandes + plano de transição\n"
+    "• /evolucao — sua linha do tempo (VPIP, PFR, resultado…) com gráficos\n"
+    "• /torneio — quadro do último campeonato: curva do stack mão a mão\n\n"
+    "🎮 *Treino*\n"
+    "• /simular — jogue uma mão sua de novo, decisão a decisão\n"
+    "• /treino — drill rápido: o que você faria neste spot?\n\n"
+    "📐 *Ferramentas*\n"
+    "• /range — gráficos 13×13: `/range btn` · `/range sb 10` · "
+    "`/range sb 10 ev` · `/range sb 10 icm 1.5`\n"
+    "• /ask <pergunta> — busque no seu histórico de mãos\n"
+    "• /plano — seu plano e limites\n\n"
+    "E converse comigo em texto ou áudio: discorde da análise, peça a tabela, "
+    "pergunte qualquer coisa de poker. Para começar, manda uma mão! 📎"
 )
+
+
+async def _set_bot_menu(app: Application) -> None:
+    """Menu '/' do Telegram — precisa refletir TODOS os comandos vivos."""
+    from telegram import BotCommand
+
+    try:
+        await app.bot.set_my_commands([
+            BotCommand("stats", "Seu perfil de estilo"),
+            BotCommand("estilo", "Você vs os grandes jogadores"),
+            BotCommand("evolucao", "Sua linha do tempo com gráficos"),
+            BotCommand("torneio", "Quadro do último campeonato"),
+            BotCommand("simular", "Rejogue uma mão sua 🎮"),
+            BotCommand("treino", "Drill rápido de um spot seu"),
+            BotCommand("range", "Gráficos de range 13×13"),
+            BotCommand("ask", "Busque no seu histórico"),
+            BotCommand("plano", "Seu plano e limites"),
+            BotCommand("start", "Menu inicial"),
+        ])
+    except Exception:
+        pass  # menu é cosmético; nunca derruba o bot
 
 
 async def _log(update: Update, event: str, **detail) -> None:
@@ -723,7 +751,8 @@ def build_application() -> Application:
     settings = get_settings()
     if not settings.telegram_bot_token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN não configurado")
-    app = Application.builder().token(settings.telegram_bot_token).build()
+    app = (Application.builder().token(settings.telegram_bot_token)
+           .post_init(_set_bot_menu).build())
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("plano", cmd_plano))
     app.add_handler(CommandHandler("stats", cmd_stats))
