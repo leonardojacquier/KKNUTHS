@@ -212,6 +212,16 @@ def _process_upload_inner(
                      collect_charts=chart_specs)
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
+    # quadro-resumo do campeonato: chega ANTES dos outros gráficos
+    if is_tournament and len(hands) >= 3:
+        try:
+            from app.analysis.tournament_board import render_tournament_board
+
+            board = render_tournament_board(hands)
+            PENDING_CHARTS.setdefault(telegram_id, []).insert(0, board)
+        except Exception as exc:
+            log.warning("quadro do torneio falhou: %s", exc)
+
     # ---- base de conhecimento ----
     if user and hand_row_ids and hand_row_ids[0]:
         try:
@@ -394,6 +404,41 @@ def evolution_report(telegram_id: int) -> tuple[bytes | None, str]:
         for n in reversed(notes):
             text += f"\n• _[{n['kind']}]_ {n['note']}"
     return png, text
+
+
+def tournament_board_report(telegram_id: int) -> tuple[bytes, str] | None:
+    """Quadro-resumo do torneio mais recente do usuário (None sem material)."""
+    repo = get_repository()
+    hands: list[CanonicalHand] = []
+    if repo.enabled:
+        user = repo.get_or_create_user(telegram_id, None)
+        all_hands = repo.get_all_hands(user["id"]) if user else []
+        tourneys = [h for h in all_hands if h.tournament_id]
+        if tourneys:
+            latest = max(tourneys, key=lambda h: h.played_at or "")
+            hands = [h for h in tourneys
+                     if h.tournament_id == latest.tournament_id]
+    if not hands:
+        hands = [h for h in RECENT_HANDS.get(telegram_id, []) if h.tournament_id]
+    if len(hands) < 2:
+        return None
+    from app.analysis.tournament_board import render_tournament_board
+
+    return render_tournament_board(hands)
+
+
+def indicator_chart(telegram_id: int, indicator: str) -> bytes | None:
+    """Gráfico de UM indicador da evolução (vpip|pfr|3bet|af|bb)."""
+    repo = get_repository()
+    if not repo.enabled:
+        return None
+    user = repo.get_or_create_user(telegram_id, None)
+    history = repo.get_stats_history(user["id"]) if user else []
+    if len(history) < 2:
+        return None
+    from app.analysis.evolution_chart import render_indicator_png
+
+    return render_indicator_png(history, indicator)
 
 
 def stats_report(telegram_id: int, username: str | None) -> str | None:

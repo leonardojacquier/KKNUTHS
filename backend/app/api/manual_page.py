@@ -183,7 +183,11 @@ def build_manual_html() -> str:
       Dwan, Negreanu…).</td></tr>
       <tr><td><code>/evolucao</code></td><td><b>Sua linha do tempo</b>: gráfico da
       evolução do estilo e do resultado + o caderno de observações que o coach
-      mantém sobre o seu jogo.</td></tr>
+      mantém sobre o seu jogo. Toque nos botões (VPIP · PFR · 3-bet · AF · BB)
+      para ampliar um indicador.</td></tr>
+      <tr><td><code>/torneio</code></td><td><b>Quadro do campeonato</b>: KPIs e a
+      curva do seu stack mão a mão no último torneio enviado — a história do
+      campeonato num olhar (chega automático após o upload).</td></tr>
       <tr><td><code>/simular</code></td><td><b>Simulador</b>: jogue uma mão SUA de novo,
       decisão a decisão, com botões — no final o coach compara sua linha com a real
       e dá o veredito do “e se”.</td></tr>

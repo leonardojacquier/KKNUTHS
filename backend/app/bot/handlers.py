@@ -95,18 +95,84 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, msg)
 
 
-async def cmd_evolucao(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Linha do tempo do jogador: gráfico de estilo + resultado + caderno."""
-    await _log(update, "evolucao")
-    from app.bot.processing import evolution_report
+_EVO_BUTTONS = InlineKeyboardMarkup([[
+    InlineKeyboardButton("VPIP", callback_data="evo:vpip"),
+    InlineKeyboardButton("PFR", callback_data="evo:pfr"),
+    InlineKeyboardButton("3-bet", callback_data="evo:3bet"),
+    InlineKeyboardButton("AF", callback_data="evo:af"),
+    InlineKeyboardButton("BB 💰", callback_data="evo:bb"),
+]])
 
-    png, text = await asyncio.to_thread(evolution_report, update.effective_user.id)
+
+async def cmd_evolucao(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Linha do tempo do jogador: gráfico de estilo + resultado + caderno.
+
+    `/evolucao vpip` (ou pfr/3bet/af/bb) abre direto um indicador; sem
+    argumento, manda o painel completo com botões para trocar de indicador."""
+    await _log(update, "evolucao")
+    from app.bot.processing import evolution_report, indicator_chart
+
+    tg_id = update.effective_user.id
+    arg = (ctx.args[0].lower() if ctx.args else "").replace("3-bet", "3bet")
+    if arg:
+        png = await asyncio.to_thread(indicator_chart, tg_id, arg)
+        if png:
+            await update.message.reply_photo(
+                png, caption=f"📈 {arg.upper()} ao longo do tempo — KKNuths ♠",
+                reply_markup=_EVO_BUTTONS,
+            )
+            return
+        await update.message.reply_text(
+            "Indicadores: vpip, pfr, 3bet, af, bb — ou use /evolucao sem nada "
+            "para o painel completo."
+        )
+        return
+
+    png, text = await asyncio.to_thread(evolution_report, tg_id)
     if png:
         try:
-            await update.message.reply_photo(png, caption="📈 Sua evolução — KKNuths ♠")
+            await update.message.reply_photo(
+                png, caption="📈 Sua evolução — toque num indicador para ampliar",
+                reply_markup=_EVO_BUTTONS,
+            )
         except Exception:
             pass
     await _safe_reply(update.message, text)
+
+
+async def on_evo_indicator(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botão de indicador do /evolucao: amplia o gráfico escolhido."""
+    query = update.callback_query
+    await query.answer()
+    from app.bot.processing import indicator_chart
+
+    ind = query.data.split(":", 1)[1]
+    png = await asyncio.to_thread(indicator_chart, update.effective_user.id, ind)
+    if png:
+        await query.message.reply_photo(
+            png, caption=f"📈 {ind.upper()} ao longo do tempo — KKNuths ♠",
+            reply_markup=_EVO_BUTTONS,
+        )
+    else:
+        await query.message.reply_text(
+            "Ainda não tenho pontos suficientes para esse indicador."
+        )
+
+
+async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quadro-resumo do último campeonato enviado (curva do stack + KPIs)."""
+    await _log(update, "torneio")
+    from app.bot.processing import tournament_board_report
+
+    board = await asyncio.to_thread(tournament_board_report, update.effective_user.id)
+    if not board:
+        await update.message.reply_text(
+            "Ainda não tenho um torneio seu com mãos suficientes. Envie o hand "
+            "history do campeonato (arquivo ou colado) que eu monto o quadro."
+        )
+        return
+    png, cap = board
+    await update.message.reply_photo(png, caption=cap)
 
 
 async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -606,6 +672,8 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("plano", cmd_plano))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("evolucao", cmd_evolucao))
+    app.add_handler(CommandHandler("torneio", cmd_torneio))
+    app.add_handler(CallbackQueryHandler(on_evo_indicator, pattern=r"^evo:"))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))

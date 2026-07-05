@@ -120,6 +120,78 @@ def render_evolution_png(history: list[dict], title: str = "Sua evolução") -> 
     return buf.getvalue()
 
 
+INDICATORS = {
+    "vpip": ("VPIP%", FELT, False),
+    "pfr": ("PFR%", GOLD, False),
+    "3bet": ("3-bet%", BLUE, False),
+    "af": ("Agressão (AF)", FELT, False),
+    "bb": ("Resultado acumulado (BB)", GREEN, True),
+}
+_KEYMAP = {"vpip": "vpip", "pfr": "pfr", "3bet": "three_bet", "af": "af", "bb": "net_bb"}
+
+
+def render_indicator_png(history: list[dict], indicator: str) -> bytes | None:
+    """Um indicador só, em destaque. `indicator`: vpip|pfr|3bet|af|bb."""
+    ind = indicator.lower().strip()
+    if ind not in INDICATORS or len(history) < 2:
+        return None
+    label, color, cumulative = INDICATORS[ind]
+    key = _KEYMAP[ind]
+
+    vals = [float(h.get(key) or 0) for h in history]
+    if cumulative:
+        acc, out = 0.0, []
+        for v in vals:
+            acc += v
+            out.append(acc)
+        vals = out
+        color = GREEN if vals[-1] >= 0 else RED
+
+    n = len(history)
+    Wi, Hi = 900, 420
+    img = Image.new("RGB", (Wi, Hi), PAPER)
+    d = ImageDraw.Draw(img)
+    d.text((PAD_L, 14), label, fill=INK, font=_font(22))
+    d.text((PAD_L, 40),
+           f"{n} snapshots · atual: {vals[-1]:+.1f}" if cumulative
+           else f"{n} snapshots · atual: {vals[-1]:.1f}",
+           fill=GREY_TEXT, font=_font(12, bold=False))
+
+    top, height = 84, 250
+    lo = min(vals + ([0.0] if cumulative else []))
+    hi = max(vals + ([0.0] if cumulative else []))
+    span = max(hi - lo, 1.0)
+    lo -= span * 0.08
+    span *= 1.16
+
+    plot_w = Wi - PAD_L - PAD_R
+    xs = [PAD_L + plot_w * i / max(n - 1, 1) for i in range(n)]
+    for frac in (0, 0.5, 1.0):
+        y = top + height - frac * height
+        d.line([PAD_L, y, Wi - PAD_R, y], fill=GRID)
+        d.text((12, y - 7), f"{lo + span*frac:.0f}", fill=GREY_TEXT,
+               font=_font(12, bold=False))
+    if cumulative and lo < 0 < lo + span:
+        zy = top + height - ((0 - lo) / span) * height
+        d.line([PAD_L, zy, Wi - PAD_R, zy], fill=(200, 205, 200), width=2)
+
+    pts = [(xs[i], top + height - ((vals[i] - lo) / span) * height)
+           for i in range(n)]
+    d.line(pts, fill=color, width=4)
+    for p in pts:
+        d.ellipse([p[0] - 5, p[1] - 5, p[0] + 5, p[1] + 5], fill=color)
+    for i in (0, n - 1):
+        date = str(history[i].get("created_at") or "")[5:10]
+        d.text((xs[i] - 14, top + height + 10), date, fill=GREY_TEXT,
+               font=_font(12, bold=False))
+
+    d.text((PAD_L, Hi - 26), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT,
+           font=_font(12, bold=False))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def evolution_text(history: list[dict]) -> str:
     """Leitura determinística da evolução (sem custo de LLM)."""
     first, last = history[0], history[-1]

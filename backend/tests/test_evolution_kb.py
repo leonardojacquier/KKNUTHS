@@ -68,3 +68,40 @@ def test_compare_style_tool_dispatch():
                   {"vpip": 23, "pfr": 18, "af": 2.5, "three_bet": 8, "desired": "gto"})
     assert "estilo" in r and r["jogadores_parecidos"]
     assert "transicao_para" in r
+
+
+def test_tournament_board_from_real_hands():
+    from pathlib import Path
+
+    from app.analysis.tournament_board import (
+        render_tournament_board, tournament_summary,
+    )
+    from app.parsers import parse_text
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    png, cap = render_tournament_board(hands)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert "295746366" in cap
+    s = tournament_summary(hands)
+    assert s["hands"] == 4 and s["net_bb"] > 20
+    # curva do stack: começa ~25bb e termina ~49.5bb (pote grande do A3o)
+    assert abs(s["stacks_bb"][0][1] - 25.0) < 0.5
+    assert abs(s["stacks_bb"][-1][1] - 49.5) < 1.0
+
+
+def test_indicator_charts_render():
+    from app.analysis.evolution_chart import render_indicator_png
+
+    hist = [
+        {"created_at": "2026-06-14", "vpip": 34.0, "pfr": 12.0, "three_bet": 4.0,
+         "af": 1.1, "net_bb": -18.0},
+        {"created_at": "2026-07-04", "vpip": 25.0, "pfr": 19.0, "three_bet": 9.0,
+         "af": 2.4, "net_bb": 14.0},
+    ]
+    for ind in ("vpip", "pfr", "3bet", "af", "bb"):
+        png = render_indicator_png(hist, ind)
+        assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert render_indicator_png(hist, "xyz") is None
+    assert render_indicator_png(hist[:1], "vpip") is None
