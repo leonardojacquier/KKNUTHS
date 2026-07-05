@@ -4,10 +4,12 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 
 from app.api.admin import router as admin_router
+from app.api.landing import router as landing_router
 from app.config import get_settings
 
 app = FastAPI(title="Poker Hand Analyzer API")
 app.include_router(admin_router)
+app.include_router(landing_router)
 
 
 @app.get("/health")

@@ -36,3 +36,12 @@ def test_admin_denied_when_token_unset(monkeypatch):
     client = TestClient(app)
     # sem token configurado, portal fica fechado (nunca aberto por default)
     assert client.get("/admin?key=").status_code == 401
+
+
+def test_landing_public_and_robots():
+    client = TestClient(app)
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "KKNuths" in r.text and "t.me/KKNUts_BOT" in r.text
+    r2 = client.get("/robots.txt")
+    assert "Disallow: /admin" in r2.text
