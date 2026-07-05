@@ -83,30 +83,30 @@ async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _log(update, "stats")
-    tg_id = update.effective_user.id
+    from app.bot.processing import stats_report
 
-    def _get_stats():
-        repo = get_repository()
-        if repo.enabled:
-            user = repo.get_or_create_user(tg_id, update.effective_user.username)
-            hands = repo.get_all_hands(user["id"]) if user else []
-            if hands:
-                return compute_player_stats(hands, player=None)
-        recent = RECENT_HANDS.get(tg_id, [])
-        return compute_player_stats(recent, player=None) if recent else None
-
-    stats = await asyncio.to_thread(_get_stats)
-    if not stats or not stats.hands:
+    tg_user = update.effective_user
+    msg = await asyncio.to_thread(stats_report, tg_user.id, tg_user.username)
+    if not msg:
         await update.message.reply_text(
             "Ainda não tenho mãos suas. Envie um arquivo para começar."
         )
         return
-    await update.message.reply_markdown(
-        f"*Seu perfil* ({stats.hands} mãos)\n"
-        f"• VPIP {stats.vpip}% | PFR {stats.pfr}% | 3-bet {stats.three_bet}%\n"
-        f"• Agressão (AF) {stats.af}\n"
-        f"• Estilo: *{stats.label}*"
-    )
+    await _safe_reply(update.message, msg)
+
+
+async def cmd_evolucao(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Linha do tempo do jogador: gráfico de estilo + resultado + caderno."""
+    await _log(update, "evolucao")
+    from app.bot.processing import evolution_report
+
+    png, text = await asyncio.to_thread(evolution_report, update.effective_user.id)
+    if png:
+        try:
+            await update.message.reply_photo(png, caption="📈 Sua evolução — KKNuths ♠")
+        except Exception:
+            pass
+    await _safe_reply(update.message, text)
 
 
 async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -605,6 +605,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("plano", cmd_plano))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("evolucao", cmd_evolucao))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))

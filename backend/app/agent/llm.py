@@ -172,6 +172,41 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "compare_style_to_pros",
+        "description": "Classifica o ESTILO do aluno (eixos VPIP/PFR/AF/3-bet) e o "
+        "compara com perfis públicos de grandes jogadores (Yuri Dzivielevski, Akkari, "
+        "Rafael Moraes, Ivey, Dwan, Negreanu, Loeliger...). Se o aluno quiser MUDAR de "
+        "estilo, passe desired ('tag'|'lag'|'gto'|'exploit') e receba o caminho de "
+        "transição com ajustes numéricos. Use quando o aluno perguntar sobre estilo, "
+        "'com quem eu pareço' ou 'como jogar mais agressivo'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vpip": {"type": "number"},
+                "pfr": {"type": "number"},
+                "af": {"type": "number"},
+                "three_bet": {"type": "number"},
+                "desired": {"type": "string", "enum": ["tag", "lag", "gto", "exploit"]},
+            },
+            "required": ["vpip", "pfr", "af", "three_bet"],
+        },
+    },
+    {
+        "name": "record_student_note",
+        "description": "Anota no CADERNO do aluno uma observação duradoura sobre o "
+        "jogo dele: um leak identificado, um progresso visível, uma meta combinada "
+        "ou um traço de estilo. Use 1x por análise quando houver algo que valha "
+        "lembrar na próxima sessão. NÃO anote números de uma mão específica.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["leak", "progresso", "meta", "estilo"]},
+                "note": {"type": "string", "description": "1-2 frases, específicas e acionáveis"},
+            },
+            "required": ["kind", "note"],
+        },
+    },
+    {
         "name": "send_range_chart",
         "description": "ENVIA ao aluno um gráfico de range 13×13 como imagem, logo após a "
         "sua resposta. Use SEMPRE que o aluno pedir 'tabela', 'gráfico', 'range' ou 'EV "
@@ -223,6 +258,7 @@ _SYSTEM = {
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
         "nunca diga que não consegue enviar imagem.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
+        "5a) CADERNO DO ALUNO: quando identificar um leak recorrente, um progresso real ou combinar uma meta, chame record_student_note (1x por análise). É a sua memória de coach entre sessões.\n"
         "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
         "naipes diferentes são 'o' (ex.: Ad 3c = A3o), naipes iguais são 's'. Confira "
         "antes de escrever.\n"
@@ -277,6 +313,19 @@ def _coerce_args(args: dict) -> dict:
 
 def _dispatch(name: str, args: dict):
     args = _coerce_args(args)
+    if name == "compare_style_to_pros":
+        from app.analysis.pro_styles import match_pro_style
+
+        return match_pro_style(
+            float(args.get("vpip") or 0), float(args.get("pfr") or 0),
+            float(args.get("af") or 0), float(args.get("three_bet") or 0),
+            args.get("desired"),
+        )
+    if name == "record_student_note":
+        # a nota é coletada por charts_from_tool_call e persistida pelo caller
+        if not (args.get("note") or "").strip():
+            return {"error": "note vazia"}
+        return {"ok": True, "info": "anotado no caderno do aluno"}
     if name == "send_range_chart":
         # valida JÁ: confirmar "gráfico agendado" e não entregar destrói a
         # confiança do aluno — erro aqui deixa o modelo se corrigir
@@ -386,6 +435,10 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
     try:
         if isinstance(result, dict) and result.get("error"):
             return None  # tool falhou — não prometer gráfico que não sai
+        if name == "record_student_note":
+            kind = args.get("kind") or "leak"
+            note = (args.get("note") or "").strip()
+            return ("note", kind, note) if note else None
         if name == "send_range_chart":
             args = _coerce_args(args)
             if args.get("range_notation"):

@@ -32,14 +32,23 @@ _HISTORY_CAP = 6
 PENDING_CHARTS: dict[int, list[tuple[bytes, str]]] = {}
 
 
-def _stash_charts(telegram_id: int, specs: list) -> None:
-    """Renderiza as specs coletadas do coach (máx. 2) para envio pelo handler."""
+def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> None:
+    """Processa as specs coletadas do coach: notas de caderno vão para o banco;
+    gráficos (máx. 2) são renderizados para envio pelo handler."""
     if not specs:
         return
     from app.analysis.range_chart import render_spec
 
+    notes = [s for s in specs if s and s[0] == "note"]
+    chart_specs = [s for s in specs if s and s[0] != "note"]
+
+    if notes and user_id:
+        repo = get_repository()
+        for _, kind, note in notes[:3]:
+            repo.save_note(user_id, kind, note)
+
     charts = []
-    for spec in specs[:2]:
+    for spec in chart_specs[:2]:
         rendered = render_spec(spec)
         if rendered:
             charts.append(rendered)
@@ -193,12 +202,15 @@ def _process_upload_inner(
     # memória (ex.: 5000 mãos viram 3)
     if user and all_hands and stats.hands:
         repo.upsert_player_stats(user["id"], stats)
+        # ponto na linha do tempo de evolução (/evolucao): net do lote atual
+        repo.snapshot_player_stats(user["id"], stats,
+                                   net_bb=structured.get("net_bb"))
 
     # ---- coaching (Claude com tools; fallback determinístico) ----
     chart_specs: list = []
     coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs)
-    _stash_charts(telegram_id, chart_specs)
+    _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
     # ---- base de conhecimento ----
     if user and hand_row_ids and hand_row_ids[0]:
@@ -296,6 +308,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         # personaliza com o perfil do jogador quando existe
         repo = get_repository()
         stats = None
+        user = None
         if repo.enabled:
             user = repo.get_or_create_user(telegram_id, username)
             stats = repo.get_player_stats(user["id"]) if user else None
@@ -307,9 +320,18 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             },
             "history": [],
             "hand_row_id": None,
-            "user_id": None,
+            "user_id": user["id"] if user else None,
         }
         LAST_ANALYSIS[telegram_id] = ctx
+
+    # memória de coach: as últimas notas do caderno entram no contexto — o
+    # coach lembra dos leaks/metas do aluno entre sessões
+    if ctx.get("user_id") and "caderno_do_coach" not in ctx["context"]:
+        notes = get_repository().get_notes(ctx["user_id"], limit=6)
+        if notes:
+            ctx["context"]["caderno_do_coach"] = [
+                f"[{n['kind']}] {n['note']}" for n in notes
+            ]
 
     from app.agent.llm import followup
 
@@ -322,7 +344,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         media_type=ctx.get("media", "image/jpeg"),
         collect_charts=chart_specs,
     )
-    _stash_charts(telegram_id, chart_specs)
+    _stash_charts(telegram_id, chart_specs, ctx.get("user_id"))
     if not answer:
         return (
             "Não consegui aprofundar agora (LLM indisponível). "
@@ -346,6 +368,92 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                 log.warning("falha ao gravar insight de follow-up: %s", exc)
 
     return answer
+
+
+def evolution_report(telegram_id: int) -> tuple[bytes | None, str]:
+    """Gráfico + leitura da evolução do jogador (para o /evolucao)."""
+    repo = get_repository()
+    if not repo.enabled:
+        return None, "Preciso do banco para montar sua linha do tempo — tente mais tarde."
+    user = repo.get_or_create_user(telegram_id, None)
+    history = repo.get_stats_history(user["id"]) if user else []
+    if len(history) < 2:
+        return None, (
+            "📈 Sua linha do tempo está começando — cada lote de mãos analisado "
+            "vira um ponto no gráfico. Envie mais sessões e me chame de novo!"
+        )
+
+    from app.analysis.evolution_chart import evolution_text, render_evolution_png
+
+    png = render_evolution_png(history)
+    text = evolution_text(history)
+
+    notes = repo.get_notes(user["id"], limit=4)
+    if notes:
+        text += "\n\n📒 *Caderno do coach:*"
+        for n in reversed(notes):
+            text += f"\n• _[{n['kind']}]_ {n['note']}"
+    return png, text
+
+
+def stats_report(telegram_id: int, username: str | None) -> str | None:
+    """Perfil atual + benchmark contra o field da ferramenta + caderno."""
+    repo = get_repository()
+    stats = None
+    user = None
+    if repo.enabled:
+        user = repo.get_or_create_user(telegram_id, username)
+        hands = repo.get_all_hands(user["id"]) if user else []
+        if hands:
+            stats = compute_player_stats(hands, player=None)
+    if stats is None:
+        recent = RECENT_HANDS.get(telegram_id, [])
+        stats = compute_player_stats(recent, player=None) if recent else None
+    if not stats or not stats.hands:
+        return None
+
+    msg = (
+        f"*Seu perfil* ({stats.hands} mãos)\n"
+        f"• VPIP {stats.vpip}% | PFR {stats.pfr}% | 3-bet {stats.three_bet}%\n"
+        f"• Agressão (AF) {stats.af}\n"
+        f"• Estilo: *{stats.label}*"
+    )
+
+    # com amostra decente, aproxima dos grandes nomes (perfis públicos)
+    if stats.hands >= 30:
+        from app.analysis.pro_styles import match_pro_style
+
+        m = match_pro_style(stats.vpip, stats.pfr, stats.af, stats.three_bet)
+        top = m["jogadores_parecidos"][0]
+        msg += (
+            f"\n\n🏅 *Seu estilo lembra:* {m['estilo']}\n"
+            f"Na linha de *{top['nome']}* — {top['por_que']}.\n"
+            f"_Quer mudar de estilo? Pergunte ao coach: “como jogo mais LAG?”_"
+        )
+
+    # você vs o field da ferramenta (só usuários com amostra decente)
+    field = repo.get_field_averages() if repo.enabled else []
+    others = [f for f in field if f]
+    if len(others) >= 2:
+        import statistics as st
+
+        med_vpip = st.median(float(f.get("vpip") or 0) for f in others)
+        med_pfr = st.median(float(f.get("pfr") or 0) for f in others)
+        msg += (
+            f"\n\n*Você vs o field KKNuths* ({len(others)} jogadores)\n"
+            f"• VPIP: você {stats.vpip}% · field {med_vpip:.0f}%\n"
+            f"• PFR: você {stats.pfr}% · field {med_pfr:.0f}%"
+        )
+
+    if user:
+        notes = repo.get_notes(user["id"], limit=3)
+        if notes:
+            msg += "\n\n📒 *Caderno do coach:*"
+            for n in reversed(notes):
+                msg += f"\n• _[{n['kind']}]_ {n['note']}"
+
+    msg += "\n\n📈 Veja sua linha do tempo com /evolucao"
+    return msg
 
 
 def build_simulation(telegram_id: int) -> dict | None:

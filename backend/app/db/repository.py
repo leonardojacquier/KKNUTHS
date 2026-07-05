@@ -210,6 +210,68 @@ class Repository:
             on_conflict="user_id",
         ).execute()
 
+    @_safe(None)
+    def snapshot_player_stats(self, user_id: str, stats: Any,
+                              net_bb: float | None = None) -> None:
+        """Grava um ponto na linha do tempo de evolução (além do upsert atual)."""
+        if not self._guard():
+            return None
+        self.client.table("player_stats_history").insert(
+            {
+                "user_id": user_id,
+                "hands": stats.hands,
+                "vpip": stats.vpip,
+                "pfr": stats.pfr,
+                "three_bet": stats.three_bet,
+                "af": stats.af,
+                "net_bb": net_bb,
+                "label": stats.label,
+            }
+        ).execute()
+
+    @_safe([])
+    def get_stats_history(self, user_id: str, limit: int = 60) -> list[dict]:
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("player_stats_history").select("*")
+            .eq("user_id", user_id).order("created_at", desc=False)
+            .limit(limit).execute()
+        )
+        return res.data or []
+
+    @_safe([])
+    def get_field_averages(self) -> list[dict]:
+        """Stats atuais de TODOS os usuários (>=20 mãos) — benchmark do field."""
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("player_stats")
+            .select("hands, vpip, pfr, three_bet, af")
+            .gte("hands", 20).limit(500).execute()
+        )
+        return res.data or []
+
+    # --------------------------- caderno do coach ----------------------
+    @_safe(None)
+    def save_note(self, user_id: str, kind: str, note: str) -> None:
+        if not self._guard() or not note:
+            return None
+        self.client.table("player_notes").insert(
+            {"user_id": user_id, "kind": kind, "note": note[:500]}
+        ).execute()
+
+    @_safe([])
+    def get_notes(self, user_id: str, limit: int = 12) -> list[dict]:
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("player_notes").select("kind, note, created_at")
+            .eq("user_id", user_id).order("created_at", desc=True)
+            .limit(limit).execute()
+        )
+        return res.data or []
+
     # ------------------------------ billing ---------------------------
     @_safe(None)
     def get_user_by_id(self, user_id: str) -> Optional[dict]:

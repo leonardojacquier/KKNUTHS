@@ -154,3 +154,32 @@ $$;
 -- search_path fixo (advisor: function_search_path_mutable).
 alter function public.match_hand_analysis(uuid, vector, int)
     set search_path = public, pg_temp;
+
+-- ───────────────────── evolução e caderno do coach ─────────────────────
+-- Snapshot das stats a cada lote analisado — alimenta o /evolucao.
+create table if not exists player_stats_history (
+    id          uuid primary key default gen_random_uuid(),
+    user_id     uuid not null references users(id) on delete cascade,
+    hands       integer not null default 0,
+    vpip        real,
+    pfr         real,
+    three_bet   real,
+    af          real,
+    net_bb      real,
+    label       text,
+    created_at  timestamptz not null default now()
+);
+create index if not exists idx_psh_user_time on player_stats_history(user_id, created_at);
+
+-- Observações qualitativas do coach por aluno (leak | progresso | meta | estilo).
+create table if not exists player_notes (
+    id          uuid primary key default gen_random_uuid(),
+    user_id     uuid not null references users(id) on delete cascade,
+    kind        text not null default 'leak',
+    note        text not null,
+    created_at  timestamptz not null default now()
+);
+create index if not exists idx_notes_user_time on player_notes(user_id, created_at);
+
+alter table public.player_stats_history enable row level security;
+alter table public.player_notes         enable row level security;

@@ -179,7 +179,11 @@ def build_manual_html() -> str:
     <div class="tbl"><table>
       <tr><th style="width:170px">Comando</th><th>O que faz</th></tr>
       <tr><td><code>/stats</code></td><td>Seu perfil de estilo (VPIP, agressividade,
-      3-bet, tendência) calculado sobre todas as suas mãos.</td></tr>
+      3-bet) — e com <b>qual grande jogador</b> seu jogo parece (Yuri, Akkari,
+      Dwan, Negreanu…).</td></tr>
+      <tr><td><code>/evolucao</code></td><td><b>Sua linha do tempo</b>: gráfico da
+      evolução do estilo e do resultado + o caderno de observações que o coach
+      mantém sobre o seu jogo.</td></tr>
       <tr><td><code>/simular</code></td><td><b>Simulador</b>: jogue uma mão SUA de novo,
       decisão a decisão, com botões — no final o coach compara sua linha com a real
       e dá o veredito do “e se”.</td></tr>
