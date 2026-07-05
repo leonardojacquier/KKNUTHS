@@ -183,44 +183,12 @@ async def landing() -> str:
     return _HTML
 
 
-_MANUAL_CSS = """
-*{box-sizing:border-box}
-body{margin:0;background:#0F1512;color:#EDF1ED;line-height:1.65;
-font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px}
-.wrap{max-width:820px;margin:0 auto;padding:40px 22px 60px}
-h1,h2,h3{line-height:1.25}
-h1{font-size:30px}
-h2{color:#43A97C;border-bottom:1px solid #243029;padding-bottom:6px;margin-top:40px}
-h3{color:#D2A55C}
-a{color:#43A97C}
-table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
-th,td{border:1px solid #243029;padding:9px 12px;text-align:left;vertical-align:top}
-th{background:#161D18;color:#9AA69F;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
-code{background:#161D18;border:1px solid #243029;padding:1px 6px;border-radius:5px;font-size:14px}
-blockquote{border-left:3px solid #43A97C;margin:14px 0;padding:4px 16px;color:#9AA69F}
-hr{border:0;border-top:1px solid #243029;margin:34px 0}
-.top{font-size:13.5px;margin-bottom:18px;display:block}
-@media(max-width:520px){.wrap{padding:24px 14px 40px}}
-"""
-
-
 @router.get("/manual", response_class=HTMLResponse, include_in_schema=False)
 async def manual() -> str:
-    """Manual do jogador (MANUAL.md renderizado) — link público compartilhável."""
-    from pathlib import Path
+    """Manual do jogador — versão comercial com as imagens reais do produto."""
+    from app.api.manual_page import build_manual_html
 
-    import markdown as md
-
-    src = Path(__file__).parent / "MANUAL.md"
-    body = md.markdown(src.read_text(encoding="utf-8"), extensions=["tables"])
-    return (
-        "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>Manual do Jogador — KKNuths ♠</title>"
-        f"<style>{_MANUAL_CSS}</style></head><body><div class='wrap'>"
-        "<a class='top' href='/'>← voltar ao site</a>"
-        f"{body}</div></body></html>"
-    )
+    return build_manual_html()
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
