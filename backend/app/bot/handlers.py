@@ -76,6 +76,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("range", "Gráficos de range 13×13"),
             BotCommand("ask", "Busque no seu histórico"),
+            BotCommand("manual", "Manual do jogador em PDF 📖"),
             BotCommand("plano", "Seu plano e limites"),
             BotCommand("start", "Menu inicial"),
         ])
@@ -241,6 +242,25 @@ async def on_style_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
                                f"Aluno definiu meta de estilo: migrar para {target.upper()}.")
 
     await asyncio.to_thread(_save_goal)
+
+
+async def cmd_manual(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Envia o manual do jogador em PDF (asset gerado da página /manual)."""
+    await _log(update, "manual")
+    from pathlib import Path
+
+    pdf = Path(__file__).resolve().parent.parent / "api" / "assets" / "KKNuths-Manual.pdf"
+    if not pdf.exists():
+        await update.message.reply_text(
+            "Manual indisponível agora — use /start para ver todos os comandos."
+        )
+        return
+    with pdf.open("rb") as f:
+        await update.message.reply_document(
+            f, filename="KKNuths-Manual.pdf",
+            caption="♠ Manual do Jogador — tudo que o KKNuths faz, com as imagens "
+                    "reais. Dúvidas? É só perguntar aqui!",
+        )
 
 
 async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -759,6 +779,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("evolucao", cmd_evolucao))
     app.add_handler(CommandHandler("torneio", cmd_torneio))
     app.add_handler(CommandHandler("estilo", cmd_estilo))
+    app.add_handler(CommandHandler("manual", cmd_manual))
     app.add_handler(CallbackQueryHandler(on_evo_indicator, pattern=r"^evo:"))
     app.add_handler(CallbackQueryHandler(on_style_target, pattern=r"^est:"))
     app.add_handler(CommandHandler("ask", cmd_ask))

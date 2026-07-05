@@ -114,3 +114,11 @@ def test_style_card_renders():
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
     png2 = render_style_png(40.0, 8.0, 0.9, 2.0)  # calling station
     assert png2[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_manual_pdf_asset_exists():
+    from pathlib import Path
+
+    pdf = Path(__file__).parent.parent / "app" / "api" / "assets" / "KKNuths-Manual.pdf"
+    assert pdf.exists() and pdf.stat().st_size > 100_000
+    assert pdf.read_bytes()[:5] == b"%PDF-"
