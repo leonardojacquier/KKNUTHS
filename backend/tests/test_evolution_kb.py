@@ -105,3 +105,12 @@ def test_indicator_charts_render():
         assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
     assert render_indicator_png(hist, "xyz") is None
     assert render_indicator_png(hist[:1], "vpip") is None
+
+
+def test_style_card_renders():
+    from app.analysis.style_chart import render_style_png
+
+    png = render_style_png(23.0, 18.0, 2.5, 8.0)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    png2 = render_style_png(40.0, 8.0, 0.9, 2.0)  # calling station
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n"

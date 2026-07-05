@@ -159,6 +159,62 @@ async def on_evo_indicator(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> No
         )
 
 
+_STYLE_BUTTONS = InlineKeyboardMarkup([[
+    InlineKeyboardButton("Virar TAG", callback_data="est:tag"),
+    InlineKeyboardButton("Virar LAG", callback_data="est:lag"),
+    InlineKeyboardButton("GTO", callback_data="est:gto"),
+    InlineKeyboardButton("Explorador", callback_data="est:exploit"),
+]])
+
+
+async def cmd_estilo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cartão visual do estilo vs grandes jogadores + botões de transição."""
+    await _log(update, "estilo")
+    from app.bot.processing import style_report
+
+    tg_user = update.effective_user
+    r = await asyncio.to_thread(style_report, tg_user.id, tg_user.username)
+    if not r:
+        await update.message.reply_text(
+            "Preciso de pelo menos ~10 mãos suas para ler seu estilo. "
+            "Envie uma sessão e me chame de novo!"
+        )
+        return
+    png, text = r
+    if png:
+        await update.message.reply_photo(
+            png, caption="♠ Seu estilo vs os grandes — toque para traçar a transição",
+            reply_markup=_STYLE_BUTTONS,
+        )
+    await _safe_reply(update.message, text)
+
+
+async def on_style_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botão 'quero virar X': mostra o caminho e anota a meta no caderno."""
+    query = update.callback_query
+    await query.answer()
+    from app.bot.processing import style_report
+
+    target = query.data.split(":", 1)[1]
+    tg_user = update.effective_user
+    r = await asyncio.to_thread(style_report, tg_user.id, tg_user.username, target)
+    if not r:
+        await query.message.reply_text("Preciso de mais mãos suas primeiro.")
+        return
+    _, text = r
+    await _safe_reply(query.message, text)
+
+    def _save_goal():
+        repo = get_repository()
+        if repo.enabled:
+            user = repo.get_or_create_user(tg_user.id, tg_user.username)
+            if user:
+                repo.save_note(user["id"], "meta",
+                               f"Aluno definiu meta de estilo: migrar para {target.upper()}.")
+
+    await asyncio.to_thread(_save_goal)
+
+
 async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Quadro-resumo do último campeonato enviado (curva do stack + KPIs)."""
     await _log(update, "torneio")
@@ -673,7 +729,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("evolucao", cmd_evolucao))
     app.add_handler(CommandHandler("torneio", cmd_torneio))
+    app.add_handler(CommandHandler("estilo", cmd_estilo))
     app.add_handler(CallbackQueryHandler(on_evo_indicator, pattern=r"^evo:"))
+    app.add_handler(CallbackQueryHandler(on_style_target, pattern=r"^est:"))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))

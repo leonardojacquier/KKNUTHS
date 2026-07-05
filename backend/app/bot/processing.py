@@ -441,7 +441,42 @@ def indicator_chart(telegram_id: int, indicator: str) -> bytes | None:
     return render_indicator_png(history, indicator)
 
 
-def stats_report(telegram_id: int, username: str | None) -> str | None:
+def style_report(telegram_id: int, username: str | None,
+                 desired: str | None = None) -> tuple[bytes | None, str] | None:
+    """Cartão visual de estilo + texto (e caminho de transição se `desired`)."""
+    repo = get_repository()
+    stats = None
+    if repo.enabled:
+        user = repo.get_or_create_user(telegram_id, username)
+        hands = repo.get_all_hands(user["id"]) if user else []
+        if hands:
+            stats = compute_player_stats(hands, player=None)
+    if stats is None:
+        recent = RECENT_HANDS.get(telegram_id, [])
+        stats = compute_player_stats(recent, player=None) if recent else None
+    if not stats or stats.hands < 10:
+        return None
+
+    from app.analysis.pro_styles import match_pro_style
+    from app.analysis.style_chart import render_style_png
+
+    m = match_pro_style(stats.vpip, stats.pfr, stats.af, stats.three_bet, desired)
+    png = render_style_png(stats.vpip, stats.pfr, stats.af, stats.three_bet)
+
+    text = (
+        f"🏅 *{m['estilo']}*\n{m['descricao']}\n\n"
+        f"_2º estilo mais próximo: {m['segundo_estilo_mais_proximo']}_"
+    )
+    if desired and m.get("transicao_para"):
+        text = (
+            f"🎯 *Caminho: {m['estilo'].split(' (')[0]} → {m['transicao_para']}*\n\n"
+            f"{m['caminho']}\n\n"
+            f"Ajustes numéricos: {' · '.join(m['ajustes_numericos'])}\n\n"
+            "_Vou acompanhar essa meta nas próximas análises._"
+        )
+    if stats.hands < 30:
+        text += "\n\n⚠️ _Amostra pequena — mande mais mãos para firmar a leitura._"
+    return png if not desired else None, text
     """Perfil atual + benchmark contra o field da ferramenta + caderno."""
     repo = get_repository()
     stats = None
@@ -473,7 +508,7 @@ def stats_report(telegram_id: int, username: str | None) -> str | None:
         msg += (
             f"\n\n🏅 *Seu estilo lembra:* {m['estilo']}\n"
             f"Na linha de *{top['nome']}* — {top['por_que']}.\n"
-            f"_Quer mudar de estilo? Pergunte ao coach: “como jogo mais LAG?”_"
+            f"_Veja o cartão visual com /estilo_"
         )
 
     # você vs o field da ferramenta (só usuários com amostra decente)

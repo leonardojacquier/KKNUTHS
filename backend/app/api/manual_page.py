@@ -185,6 +185,10 @@ def build_manual_html() -> str:
       evolução do estilo e do resultado + o caderno de observações que o coach
       mantém sobre o seu jogo. Toque nos botões (VPIP · PFR · 3-bet · AF · BB)
       para ampliar um indicador.</td></tr>
+      <tr><td><code>/estilo</code></td><td><b>Cartão de estilo</b>: suas stats
+      lado a lado com o arquétipo dos grandes (Yuri, Akkari, Dwan, Negreanu…) e
+      botões para traçar a transição — “quero virar LAG” vira meta acompanhada
+      pelo coach.</td></tr>
       <tr><td><code>/torneio</code></td><td><b>Quadro do campeonato</b>: KPIs e a
       curva do seu stack mão a mão no último torneio enviado — a história do
       campeonato num olhar (chega automático após o upload).</td></tr>
