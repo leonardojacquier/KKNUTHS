@@ -122,3 +122,36 @@ def test_manual_pdf_asset_exists():
     pdf = Path(__file__).parent.parent / "app" / "api" / "assets" / "KKNuths-Manual.pdf"
     assert pdf.exists() and pdf.stat().st_size > 100_000
     assert pdf.read_bytes()[:5] == b"%PDF-"
+
+
+def test_professional_quiz_drill():
+    import random
+
+    from pathlib import Path
+
+    import app.bot.processing as proc
+    from app.parsers import parse_text
+
+    random.seed(4)
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    proc.RECENT_HANDS[999777] = hands
+    try:
+        drill = proc.build_drill(999777)
+        assert drill and drill.get("story"), "quiz sem história da mão"
+        msg = proc.drill_message(drill)
+        # contexto profissional: formato, jogadores, pote e a vez do herói
+        assert "blinds" in msg and "jogadores" in msg
+        assert "pote:" in msg and "Sua vez" in msg
+        # spot interessante: tem preço a pagar (não fold trivial pré-flop)
+        assert drill["to_call_bb"] > 0 and drill["required_eq"]
+        # gabarito com matemática e ação real com sizing
+        reveal = proc.reveal_drill(drill, "call")
+        assert "A conta" in reveal and "equity" in reveal
+        assert "Na mão real" in reveal
+        # botões contextuais
+        btns = [b["text"] for row in proc.drill_buttons(drill) for b in row]
+        assert "Fold" in btns and "Call" in btns
+    finally:
+        proc.RECENT_HANDS.pop(999777, None)

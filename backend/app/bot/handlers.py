@@ -365,23 +365,18 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await asyncio.to_thread(
         get_repository().set_pending_drill, update.effective_user.id, drill
     )
-    stack = f"{drill['stack_bb']}bb" if drill.get("stack_bb") else "?"
-    await update.message.reply_markdown(
-        "🎯 *Treino* — o que você faz?\n\n"
-        f"Suas cartas: *{' '.join(drill['cards'])}*\n"
-        f"Posição: *{drill['position'] or '?'}* | Stack: *{stack}* | "
-        f"Blinds: {drill['blinds']}\n"
-        f"Formato: {drill['format']}",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("Fold", callback_data="drill:fold"),
-                    InlineKeyboardButton("Call", callback_data="drill:call"),
-                    InlineKeyboardButton("Raise/All-in", callback_data="drill:raise"),
-                ]
-            ]
-        ),
-    )
+    from app.bot.processing import drill_buttons, drill_message
+
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(b["text"], callback_data=b["callback_data"])
+         for b in row]
+        for row in drill_buttons(drill)
+    ])
+    text = drill_message(drill, title="🎯 *Treino* — mão real sua")
+    try:
+        await update.message.reply_markdown(text, reply_markup=markup)
+    except Exception:
+        await update.message.reply_text(text, reply_markup=markup)
 
 
 async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -400,6 +395,19 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
     text = await asyncio.to_thread(reveal_drill, drill, choice)
     ctx.user_data.pop("drill", None)
+    # o spot vira contexto de conversa: "por que fold?" já funciona em seguida
+    LAST_ANALYSIS[update.effective_user.id] = {
+        "context": {
+            "modo": "discussão de um spot de treino/quiz — o aluno acabou de "
+            "responder e pode discordar ou pedir aprofundamento",
+            "spot": {k: v for k, v in drill.items() if k != "story"},
+            "historia_da_mao": drill.get("story"),
+            "escolha_do_aluno": choice,
+        },
+        "history": [],
+        "hand_row_id": None,
+        "user_id": None,
+    }
     try:
         await query.edit_message_text(text, parse_mode="Markdown")
     except Exception:

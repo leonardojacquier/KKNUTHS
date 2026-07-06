@@ -122,6 +122,8 @@ def test_drill_flow():
     process_upload(PS.read_text().encode(), "txt", tg, "tester")
     drill = build_drill(tg)
     assert drill is not None
-    assert drill["cards"] and drill["actual"] in ("fold", "call", "raise")
+    # o quiz v2 escolhe a decisão mais interessante — pode ser pós-flop
+    assert drill["cards"]
+    assert drill["actual"] in ("fold", "check", "call", "bet", "raise")
     text = reveal_drill(drill, "call")
     assert "Você escolheu" in text

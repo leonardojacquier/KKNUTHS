@@ -18,20 +18,10 @@ from app.db import get_repository
 
 
 def send_quiz(token: str, chat_id: int, drill: dict) -> bool:
-    stack = f"{drill['stack_bb']}bb" if drill.get("stack_bb") else "?"
-    text = (
-        "🃏 *Quiz do dia* — spot real seu. O que você faz?\n\n"
-        f"Suas cartas: *{' '.join(drill['cards'])}*\n"
-        f"Posição: *{drill['position'] or '?'}* | Stack: *{stack}* | "
-        f"Blinds: {drill['blinds']}"
-    )
-    keyboard = {
-        "inline_keyboard": [[
-            {"text": "Fold", "callback_data": "drill:fold"},
-            {"text": "Call", "callback_data": "drill:call"},
-            {"text": "Raise/All-in", "callback_data": "drill:raise"},
-        ]]
-    }
+    from app.bot.processing import drill_buttons, drill_message
+
+    text = drill_message(drill)
+    keyboard = {"inline_keyboard": drill_buttons(drill)}
     body = json.dumps({
         "chat_id": chat_id, "text": text, "parse_mode": "Markdown",
         "reply_markup": keyboard,

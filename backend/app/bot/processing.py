@@ -665,10 +665,83 @@ def sim_summary(sim: dict) -> str:
     return "\n".join(lines)
 
 
+def _pretty_cards(cards: list[str]) -> str:
+    sym = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
+    return " ".join(c[0] + sym.get(c[1], c[1]) for c in cards if len(c) == 2)
+
+
+def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
+    """Percorre a mão narrando por POSIÇÃO e em BB; devolve (linhas, decisões).
+
+    Cada decisão do herói vem com o índice da narrativa naquele momento +
+    street, mesa, pote, preço e a ação real — a matéria-prima do quiz."""
+    from app.models.canonical import ActionType, StreetName
+
+    bb = h.stakes.big_blind or 1
+    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
+    verbs = {"fold": "folda", "check": "dá check", "call": "paga",
+             "bet": "aposta", "raise": "aumenta para"}
+    lines: list[str] = []
+    decisions: list[dict] = []
+    pot = 0.0
+    order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN, StreetName.RIVER]
+
+    for sname in order:
+        st = h.street(sname)
+        if not st:
+            continue
+        contrib: dict[str, float] = {}
+        started = False
+        for a in st.actions:
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - contrib.get(a.actor, 0.0)
+            counts = a.type != ActionType.POST or a.post_type in ("sb", "bb")
+            outstanding = max(contrib.values(), default=0.0)
+
+            if a.type != ActionType.POST and not started:
+                board = _pretty_cards(st.board) if st.board else ""
+                lines.append(f"*{sname.value.upper()}*" + (f"  ({board})" if board else ""))
+                started = True
+
+            if a.actor == h.hero and a.type != ActionType.POST:
+                to_call = max(0.0, outstanding - contrib.get(h.hero or "", 0.0))
+                decisions.append({
+                    "line_idx": len(lines),
+                    "street": sname.value,
+                    "board": list(st.board),
+                    "pot_bb": round(pot / bb, 1),
+                    "to_call_bb": round(to_call / bb, 1),
+                    "actual": a.type.value,
+                    "amount_bb": round(((a.to_amount or a.amount) / bb), 1),
+                    "all_in": a.all_in,
+                })
+                amt = (a.to_amount or a.amount) / bb
+                lines.append(f"  VOCÊ {verbs.get(a.type.value, a.type.value)}"
+                             + (f" {amt:g}bb" if amt else "")
+                             + (" (all-in)" if a.all_in else ""))
+            elif a.type != ActionType.POST:
+                who = pos.get(a.actor, a.actor[:8])
+                amt = (a.to_amount or a.amount) / bb
+                lines.append(f"  {who} {verbs.get(a.type.value, a.type.value)}"
+                             + (f" {amt:g}bb" if amt else "")
+                             + (" (all-in)" if a.all_in else ""))
+
+            if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET, ActionType.RAISE):
+                pot += add
+                if counts:
+                    contrib[a.actor] = contrib.get(a.actor, 0.0) + add
+    return lines, decisions
+
+
 def build_drill(telegram_id: int) -> dict | None:
-    """Monta um spot de treino a partir das mãos do usuário (mais recente primeiro
-    com hero conhecido). Retorna None se não houver material."""
+    """Monta um spot de treino PROFISSIONAL: escolhe a decisão mais interessante
+    das mãos do usuário (preço a pagar, pós-flop, all-in, stack curto — nada de
+    fold trivial nem open óbvio de AA sem ação) com a história completa da mão
+    até aquele momento. Retorna None sem material."""
     import random
+
+    from app.analysis.tools import pot_odds
 
     hands = list(RECENT_HANDS.get(telegram_id, []))
     repo = get_repository()
@@ -680,48 +753,163 @@ def build_drill(telegram_id: int) -> dict | None:
     if not candidates:
         return None
 
-    h = random.choice(candidates)
+    scored: list[tuple[float, CanonicalHand, int]] = []
+    for h in candidates[:150]:
+        try:
+            _, decisions = _walk_hand(h)
+        except Exception:
+            continue
+        seat = h.hero_seat()
+        stack_bb = (seat.stack / h.stakes.big_blind) if seat else None
+        ranks = {c[0] for c in h.hero_cards}
+        premium_pair = len(h.hero_cards) == 2 and len(ranks) == 1 and ranks <= {"A", "K", "Q"}
+        for di, d in enumerate(decisions):
+            score = 0.0
+            if d["to_call_bb"] > 0:
+                score += 3          # tem preço a pagar = tem matemática
+            if d["street"] != "preflop":
+                score += 2          # pós-flop ensina mais
+            if d["all_in"]:
+                score += 2
+            score += min(d["pot_bb"] / 10, 2)
+            if stack_bb and stack_bb <= 15 and d["street"] == "preflop":
+                score += 2          # zona de push/fold: Nash entra no gabarito
+            if d["street"] == "preflop" and d["to_call_bb"] <= 1 and premium_pair:
+                score -= 3          # "o que fazer com AA sem ação"? trivial
+            if d["street"] == "preflop" and d["to_call_bb"] <= 1 and d["actual"] == "fold":
+                score -= 2          # fold de lixo no pré sem raise = sem lição
+            scored.append((score + random.random() * 0.8, h, di))
+
+    if not scored:
+        return None
+    scored.sort(key=lambda t: t[0], reverse=True)
+    _, h, di = random.choice(scored[:5])
+
+    lines, decisions = _walk_hand(h)
+    d = decisions[di]
     seat = h.hero_seat()
-    stack_bb = round((seat.stack / h.stakes.big_blind), 1) if seat else None
-    analysis = analyze_hand(h)
+    bb = h.stakes.big_blind
+    stack_bb = round(seat.stack / bb, 1) if seat else None
+    story = lines[:d["line_idx"]]
+    if len(story) > 14:
+        story = ["  (…início resumido…)"] + story[-12:]
 
-    # ação real do herói no preflop (primeira não-post)
-    actual = "fold"
-    for s in analysis["spots"]:
-        if s["street"] == "preflop":
-            actual = "raise" if s["decision"] == "aggression" else "call"
-            break
-
+    required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {
         "hand_id": h.hand_id,
         "cards": h.hero_cards,
-        "position": analysis["position"],
+        "cards_pretty": _pretty_cards(h.hero_cards),
+        "position": (seat.position if seat else None),
         "stack_bb": stack_bb,
-        "blinds": f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}",
+        "blinds": f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}"
+                  + (f" (ante {h.stakes.ante:g})" if h.stakes.ante else ""),
+        "players": len(h.players),
         "format": h.format.value,
-        "actual": actual,
-        "net_bb": analysis["net_bb"],
-        "summary": analysis["summary"],
+        "street": d["street"],
+        "board": d["board"],
+        "board_pretty": _pretty_cards(d["board"]),
+        "pot_bb": d["pot_bb"],
+        "to_call_bb": d["to_call_bb"],
+        "required_eq": round(required, 3) if required is not None else None,
+        "story": "\n".join(story).strip(),
+        "actual": d["actual"],
+        "actual_amount_bb": d["amount_bb"],
+        "all_in": d["all_in"],
+        "net_bb": analyze_hand(h)["net_bb"],
     }
 
 
+def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real sua") -> str:
+    """Texto do quiz/treino: contexto completo, história da mão e o preço."""
+    fmt = "Torneio" if drill.get("format") in ("tournament", "sng") else "Cash"
+    stack = f"{drill['stack_bb']:g}bb" if drill.get("stack_bb") else "?"
+    head = (
+        f"{title}\n"
+        f"_{fmt} · blinds {drill['blinds']} · {drill.get('players') or '?'} jogadores_\n\n"
+        f"Você: *{drill['cards_pretty']}* no *{drill['position'] or '?'}* · stack *{stack}*\n"
+    )
+    body = ("\n" + drill["story"] + "\n") if drill.get("story") else "\n"
+    mesa = f"\nMesa: *{drill['board_pretty']}*" if drill.get("board_pretty") else ""
+    price = (f" | pagar: *{drill['to_call_bb']:g}bb* "
+             f"(precisa de ≈{drill['required_eq']*100:.0f}% de equity)"
+             if drill.get("to_call_bb") else "")
+    ask = (f"{mesa}\n👉 *Sua vez no {drill['street'].upper()}* — "
+           f"pote: *{drill['pot_bb']:g}bb*{price}\n\nO que você faz?")
+    return head + body + ask
+
+
+def drill_buttons(drill: dict) -> list[list[dict]]:
+    """Botões contextuais (formato Bot API): com preço = Fold/Call/Raise;
+    sem = Check/Bet."""
+    if drill.get("to_call_bb"):
+        return [[{"text": "Fold", "callback_data": "drill:fold"},
+                 {"text": "Call", "callback_data": "drill:call"},
+                 {"text": "Raise/All-in", "callback_data": "drill:raise"}]]
+    return [[{"text": "Check", "callback_data": "drill:check"},
+             {"text": "Bet", "callback_data": "drill:bet"}]]
+
+
 def reveal_drill(drill: dict, choice: str) -> str:
-    """Compara a escolha do usuário com o que aconteceu + referência push/fold."""
+    """Gabarito profissional: sua escolha vs a real, a matemática do spot
+    (equity vs preço), a referência Nash quando aplicável e o convite para
+    discutir com o coach."""
+    from app.analysis.equity import equity_vs_random
+
+    verb = choice.upper()
+    real = drill["actual"].upper()
+    if drill.get("actual_amount_bb"):
+        real += f" {drill['actual_amount_bb']:g}bb"
+    if drill.get("all_in"):
+        real += " (all-in)"
+
     lines = [
-        f"Você escolheu: *{choice.upper()}*",
-        f"Na mão real você fez: *{drill['actual'].upper()}* "
-        f"(resultado: {drill['net_bb']:+.1f} BB)",
+        f"Você escolheu: *{verb}*",
+        f"Na mão real: *{real}* — a mão terminou em *{drill['net_bb']:+.1f} BB* para você.",
     ]
+
+    # a matemática do spot: equity da sua mão vs o preço oferecido
+    eq = None
+    try:
+        eq = equity_vs_random(drill["cards"], drill.get("board") or [],
+                              1, iterations=2500, seed=11)
+    except Exception:
+        pass
+    req = drill.get("required_eq")
+    if eq is not None and req:
+        margin = (eq - req) * 100
+        if margin >= 3:
+            veredito = "CALL é lucrativo pela matemática pura"
+        elif margin <= -3:
+            veredito = "pagar QUEIMA fichas pela matemática pura"
+        else:
+            veredito = "spot no fio da navalha — a leitura do vilão decide"
+        lines.append(
+            f"\n📐 *A conta:* sua equity ≈ *{eq*100:.0f}%* vs *{req*100:.0f}%* "
+            f"exigidos pelo pote → {veredito}.\n"
+            f"_(equity vs mão aleatória; contra o range real do vilão muda — "
+            f"pergunte ao coach!)_"
+        )
+    elif eq is not None:
+        lines.append(
+            f"\n📐 Sem aposta a pagar; sua equity bruta ≈ *{eq*100:.0f}%* — "
+            "aqui a pergunta certa é valor vs controle do pote."
+        )
+
+    # referência Nash para pré-flop de stack curto em torneio
     stack_bb = drill.get("stack_bb")
-    if stack_bb and stack_bb <= 20 and drill["format"] in ("tournament", "sng"):
+    if (stack_bb and stack_bb <= 20 and drill.get("street") == "preflop"
+            and drill.get("format") in ("tournament", "sng")):
         from app.analysis.pushfold import push_fold
 
         pf = push_fold(drill["cards"], stack_bb, drill.get("position") or "MP")
         if pf.get("applicable"):
             lines.append(
-                f"📐 Referência Nash ({stack_bb}bb, {drill['position']}): "
-                f"*{pf['decision'].upper()}* — sua mão está no top {pf['hand_top_pct']}%, "
-                f"range de shove ≈ {pf['shove_range_pct']}%."
+                f"\n⚖️ *Equilíbrio ({stack_bb:g}bb, {drill.get('position') or '?'}):* "
+                f"{pf['decision'].upper()} — sua mão está no top {pf['hand_top_pct']}% "
+                f"e o range de shove é ≈{pf['shove_range_pct']}%."
             )
-    lines.append(f"\n_{drill['summary']}_")
+
+    lines.append("\n💬 _Discorda ou quer aprofundar? Responda aqui que o coach "
+                 "abre o spot com você._")
     return "\n".join(lines)
+
