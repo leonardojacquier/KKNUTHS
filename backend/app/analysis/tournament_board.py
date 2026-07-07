@@ -11,10 +11,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
-W, H = 900, 560
+W, H = 900, 660
 PAD_L, PAD_R = 64, 24
 KPI_Y, KPI_H = 96, 84
-CHART_Y, CHART_H = 236, 240
+KPI2_Y = 192
+CHART_Y, CHART_H = 336, 240
 
 PAPER = (250, 250, 247)
 CARD = (241, 243, 239)
@@ -82,7 +83,31 @@ def tournament_summary(hands: list[CanonicalHand]) -> dict:
             stacks.append((len(hands), max(0.0, s + per[-1]["net_bb"])))
 
     biggest = sorted(per, key=lambda a: a["net_bb"])
+
+    # stats estilo PokerCraft/HUD para o quadro
+    from app.analysis.stats import compute_player_stats
+
+    st = compute_player_stats(hands, player=None)
+    pre_raises = 0
+    wtsd = wsd = 0
+    for h, a in zip(hands, per):
+        pre = h.street(StreetName.PREFLOP)
+        if pre and any(x.actor == h.hero and x.type == ActionType.RAISE
+                       for x in pre.actions):
+            pre_raises += 1
+        hero_folded = any(
+            x.actor == h.hero and x.type == ActionType.FOLD
+            for stt in h.streets for x in stt.actions
+        )
+        if len(h.final_board) == 5 and not hero_folded and a["pot_total"]:
+            wtsd += 1
+            if a["net_bb"] > 0:
+                wsd += 1
+
     return {
+        "pfr": st.pfr, "three_bet": st.three_bet, "af": st.af,
+        "pre_raises": pre_raises, "wtsd": wtsd, "wsd": wsd,
+        "maior_pote_bb": round(biggest[-1]["net_bb"], 1) if biggest else 0,
         "site": hands[0].site if hands else "?",
         "tournament_id": hands[0].tournament_id if hands else None,
         "buyin": hands[0].stakes.buyin if hands else None,
@@ -115,22 +140,32 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
     d.text((PAD_L, 48), f"níveis {s['levels']}{buyin}", fill=GREY_TEXT, font=f_sub)
 
     # ------------------------------- KPIs -------------------------------
-    kpis = [
+    row1 = [
         (f"{s['hands']}", "mãos"),
         (f"{s['net_bb']:+.1f}", "resultado (BB)"),
-        (f"{s['vpip_pct']:.0f}%", "VPIP no torneio"),
-        (f"{s['allins']}", "all-ins do herói"),
+        (f"{s['vpip_pct']:.0f}%", "VPIP"),
+        (f"{s['pfr']:.0f}%", "PFR"),
+        (f"{s['three_bet']:.0f}%", "3-bet"),
     ]
-    box_w = (W - PAD_L - PAD_R - 3 * 12) / 4
-    for i, (val, lab) in enumerate(kpis):
-        x = PAD_L + i * (box_w + 12)
-        d.rectangle([x, KPI_Y, x + box_w, KPI_Y + KPI_H], fill=CARD,
-                    outline=GRID)
-        color = INK
-        if lab.startswith("resultado"):
-            color = GREEN if s["net_bb"] >= 0 else RED
-        d.text((x + 14, KPI_Y + 14), val, fill=color, font=f_kpi)
-        d.text((x + 14, KPI_Y + 52), lab, fill=GREY_TEXT, font=f_kpi_l)
+    row2 = [
+        (f"{s['af']:g}", "agressão (AF)"),
+        (f"{s['pre_raises']}", "raises pré"),
+        (f"{s['allins']}", "all-ins"),
+        (f"{s['wsd']}/{s['wtsd']}", "showdowns (ganhou/foi)"),
+        (f"{s['maior_pote_bb']:+.1f}", "maior pote (BB)"),
+    ]
+    for row_i, kpis in enumerate((row1, row2)):
+        y0 = KPI_Y if row_i == 0 else KPI2_Y
+        box_w = (W - PAD_L - PAD_R - 4 * 12) / 5
+        for i, (val, lab) in enumerate(kpis):
+            x = PAD_L + i * (box_w + 12)
+            d.rectangle([x, y0, x + box_w, y0 + KPI_H], fill=CARD, outline=GRID)
+            color = INK
+            if lab.startswith("resultado") or lab.startswith("maior"):
+                ref = s["net_bb"] if lab.startswith("resultado") else s["maior_pote_bb"]
+                color = GREEN if ref >= 0 else RED
+            d.text((x + 14, y0 + 14), val, fill=color, font=f_kpi)
+            d.text((x + 14, y0 + 52), lab, fill=GREY_TEXT, font=f_kpi_l)
 
     # --------------------------- curva do stack ---------------------------
     d.text((PAD_L, CHART_Y - 24), "Stack do herói ao longo do torneio (BB)",
@@ -190,8 +225,9 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
     img.save(buf, format="PNG")
 
     cap = (
-        f"♠ Quadro do torneio #{s['tournament_id'] or '?'}: {s['hands']} mãos, "
-        f"{s['net_bb']:+.1f} BB, {s['allins']} all-in(s), VPIP {s['vpip_pct']:.0f}%. "
-        "Pergunte ao coach sobre qualquer momento da curva!"
+        f"♠ Torneio #{s['tournament_id'] or '?'}: {s['hands']} mãos, "
+        f"{s['net_bb']:+.1f} BB · VPIP {s['vpip_pct']:.0f}% · PFR {s['pfr']:.0f}% · "
+        f"3-bet {s['three_bet']:.0f}% · AF {s['af']:g} · {s['pre_raises']} raises pré · "
+        f"showdowns {s['wsd']}/{s['wtsd']} · maior pote {s['maior_pote_bb']:+.1f}bb"
     )
     return buf.getvalue(), cap
