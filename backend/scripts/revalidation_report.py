@@ -1,6 +1,9 @@
 """Revalidação + relatório mão a mão para um usuário — roda no VPS.
 
-Uso: python scripts/revalidation_report.py <telegram_id>
+Uso: python scripts/revalidation_report.py <telegram_id> [chat_destino]
+
+`chat_destino` (opcional): envia a CÓPIA para outro chat (ex.: admin conferindo
+o que o usuário recebeu) sem notificar o usuário nem gravar evento.
 
 1. Carrega o torneio mais recente do usuário no banco.
 2. Coach analisa os PADRÕES (folds, c-bets, all-ins) com os stacks corretos.
@@ -61,6 +64,8 @@ def main() -> int:
         print(__doc__)
         return 1
     tg_id = int(sys.argv[1])
+    dest = int(sys.argv[2]) if len(sys.argv) > 2 else tg_id
+    admin_copy = dest != tg_id
     settings = get_settings()
     repo = get_repository()
     if not settings.telegram_bot_token or not repo.enabled:
@@ -107,8 +112,11 @@ def main() -> int:
     tmp.write_text(html, encoding="utf-8")
 
     token = settings.telegram_bot_token
+    if admin_copy:
+        _send_text(token, dest,
+                   f"👁 Cópia de admin — o que o usuário {tg_id} recebeu:")
     _send_text(
-        token, tg_id,
+        token, dest,
         "🔎 Revalidação concluída!\n\n"
         "Encontramos e corrigimos um erro que afetava análises anteriores: o "
         "coach às vezes usava o VALOR DO BIG BLIND como se fosse o seu stack "
@@ -126,13 +134,14 @@ def main() -> int:
         "E se tiver o arquivo daquela MESA FINAL (blinds 6k/12k), me manda — "
         "refaço o 98o e o BTN com os stacks efetivos certos. 🃏",
     )
-    _send_photo(token, tg_id, board_png, board_cap)
-    out = send_document(str(tg_id), tmp,
+    _send_photo(token, dest, board_png, board_cap)
+    out = send_document(str(dest), tmp,
                         "📋 Relatório mão a mão — abra no navegador. Para discutir "
                         "uma mão, me diga as cartas aqui no chat.")
     print("documento:", out.get("ok"))
-    repo.log_event(tg_id, None, "revalidation_sent",
-                   {"tournament": latest.tournament_id, "hands": len(hands)})
+    if not admin_copy:
+        repo.log_event(tg_id, None, "revalidation_sent",
+                       {"tournament": latest.tournament_id, "hands": len(hands)})
     return 0
 
 
