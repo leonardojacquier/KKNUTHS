@@ -201,6 +201,34 @@ def test_search_hands_dispatch_needs_user():
 
     set_tool_user(None)
     assert "error" in _dispatch("search_hands", {"pattern": "fold"})
+    assert "error" in _dispatch("get_hand", {"query": "A3o"})
+
+
+def test_find_hand_by_number_and_cards():
+    # promessa feita ao beta: "me diga as cartas ou o Nº da mão que eu abro"
+    from pathlib import Path
+
+    from app.analysis.handsearch import _classes_from_query, find_hand
+    from app.parsers import parse_text
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    # pelo Nº da sala (como aparece no relatório mão a mão), até parcial
+    got = find_hand(hands, "TM6146070388")
+    assert len(got) == 1 and got[0]["classe"] == "A3o"
+    assert got[0]["historia"] and got[0]["numeros_calculados"] is not None
+    assert got[0]["hero_stack_bb"] and got[0]["blinds"]
+    assert find_hand(hands, "6146070388")[0]["hand_id"] == "TM6146070388"
+    # pelas cartas: classe exata, ambígua ('A3') e naipes exatos
+    assert find_hand(hands, "a3o")[0]["hand_id"] == "TM6146070388"
+    assert find_hand(hands, "A3")[0]["hand_id"] == "TM6146070388"
+    # notação com 10: 'A10o' -> 'ATo'
+    assert _classes_from_query("A10o") == {"ATo"}
+    assert _classes_from_query("kk") == {"KK"}
+    assert _classes_from_query("98") == {"98s", "98o"}
+    assert _classes_from_query("xyz") == set()
+    assert find_hand(hands, "") == []
 
 
 def test_hand_by_hand_report():

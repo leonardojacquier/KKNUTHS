@@ -77,6 +77,82 @@ def match_pattern(h: CanonicalHand, pattern: str, street: str | None = None) -> 
     return False
 
 
+_RANK_ALIAS = {"10": "T"}
+
+
+def _classes_from_query(q: str) -> set[str]:
+    """'a3o'->{'A3o'}, 'kk'->{'KK'}, 'A10s'->{'ATs'}, 'Ah 3c'->{'A3o'};
+    sem sufixo ('A3') casa suited E offsuit. Vazio se não é notação de mão."""
+    import re
+
+    from app.analysis.handreport import hand_class
+
+    s = q.strip().replace("10", "T").upper()
+    # duas cartas exatas com naipe: "AH 3C" / "AH3C"
+    m = re.fullmatch(r"([2-9TJQKA][SHDC])\s*([2-9TJQKA][SHDC])", s)
+    if m:
+        cls = hand_class([m.group(1).capitalize(), m.group(2).capitalize()])
+        return {cls} if cls else set()
+    # classe: "A3O", "98S", "QQ", "A3" (ambíguo -> os dois)
+    m = re.fullmatch(r"([2-9TJQKA])([2-9TJQKA])([SO])?", s)
+    if not m:
+        return set()
+    r1, r2, suff = m.group(1), m.group(2), m.group(3)
+    if r1 == r2:
+        return {r1 + r2}
+    base = hand_class([r1 + "h", r2 + "c"])[:2]  # ordem carta alta primeiro
+    if suff:
+        return {base + suff.lower()}
+    return {base + "s", base + "o"}
+
+
+def find_hand(hands: list[CanonicalHand], query: str, limit: int = 3) -> list[dict]:
+    """Localiza mãos específicas pelo Nº da sala ou pelas cartas e devolve o
+    DETALHE (história lance a lance + números calculados) — é o que abre a mão
+    que o aluno citou do relatório mão a mão."""
+    from app.analysis.handreport import hand_class, played_facts
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    want_classes = _classes_from_query(q)
+    q_id = q.lower()
+
+    out = []
+    for h in reversed(hands):  # mais recentes primeiro
+        try:
+            if not h.hero or not h.stakes.big_blind:
+                continue
+            by_id = len(q_id) >= 5 and q_id in (h.hand_id or "").lower()
+            by_cards = bool(want_classes) and hand_class(h.hero_cards) in want_classes
+            if not (by_id or by_cards):
+                continue
+            f = played_facts(h)
+            a = f["analysis"]
+            out.append({
+                "hand_id": h.hand_id,
+                "site": h.site,
+                "torneio": h.tournament_id,
+                "quando": h.played_at,
+                "cards": h.hero_cards,
+                "classe": hand_class(h.hero_cards),
+                "position": a["position"],
+                "blinds": a["blinds"],
+                "hero_stack_bb": a["hero_stack_bb"],
+                "effective_bb": a["effective_bb"],
+                "stacks_bb": a["stacks_bb"],
+                "board": h.final_board,
+                "net_bb": a["net_bb"],
+                "historia": f["story"],
+                "numeros_calculados": f["numbers"],
+            })
+            if len(out) >= limit:
+                break
+        except Exception:
+            continue
+    return out
+
+
 def search_hands(hands: list[CanonicalHand], pattern: str,
                  street: str | None = None, limit: int = 12) -> list[dict]:
     """Filtra e resume. Resumo compacto por mão: tudo em BB."""

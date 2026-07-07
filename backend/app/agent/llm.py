@@ -193,6 +193,23 @@ TOOLS = [
         },
     },
     {
+        "name": "get_hand",
+        "description": "ABRE uma mão específica do histórico do PRÓPRIO aluno "
+        "quando ele cita o Nº da mão (ex.: 'TM6146070388' — vem no relatório "
+        "mão a mão e no PokerCraft) ou as cartas (ex.: 'a mão do A3o', 'meus "
+        "reis', 'Ah 3c'). Retorna a história lance a lance + números calculados "
+        "(pot odds, equity, sizing, stacks em BB) para você analisar EXATAMENTE "
+        "aquela mão — nunca diga que não tem acesso à mão antes de tentar isto.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string",
+                          "description": "Nº da mão OU cartas (A3o, KK, Ah 3c)"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "compare_style_to_pros",
         "description": "Classifica o ESTILO do aluno (eixos VPIP/PFR/AF/3-bet) e o "
         "compara com perfis públicos de grandes jogadores (Yuri Dzivielevski, Akkari, "
@@ -286,6 +303,9 @@ _SYSTEM = {
         "folds dele), chame search_hands e analise o CONJUNTO — não responda por "
         "uma mão só. Em lotes grandes: 3 momentos-chave + 1 leak + plano, sem "
         "narrar mão a mão.\n"
+        "4d) MÃO ESPECÍFICA: se o aluno citar o Nº de uma mão (ex.: TM614607…, "
+        "está no relatório mão a mão) ou as cartas ('abre a mão do A3o'), chame "
+        "get_hand e analise AQUELA mão com a história e os números retornados.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "5a) CADERNO DO ALUNO: quando identificar um leak recorrente, um progresso real ou combinar uma meta, chame record_student_note (1x por análise). É a sua memória de coach entre sessões.\n"
         "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
@@ -370,6 +390,20 @@ def _dispatch(name: str, args: dict):
         return {"total_no_filtro": len(found), "maos": found} if found else {
             "total_no_filtro": 0,
             "info": "nenhuma mão do aluno casa com esse filtro"}
+    if name == "get_hand":
+        from app.analysis.handsearch import find_hand
+        from app.db import get_repository
+
+        user_id = _TOOL_USER.get()
+        repo = get_repository()
+        if not user_id or not repo.enabled:
+            return {"error": "histórico indisponível nesta conversa"}
+        hands = repo.get_all_hands(user_id, limit=500)
+        found = find_hand(hands, str(args.get("query") or ""))
+        return {"encontradas": len(found), "maos": found} if found else {
+            "encontradas": 0,
+            "info": "nenhuma mão do aluno casa com esse Nº/cartas — peça o Nº "
+                    "da mão (está no relatório) ou as cartas exatas"}
     if name == "compare_style_to_pros":
         from app.analysis.pro_styles import match_pro_style
 
