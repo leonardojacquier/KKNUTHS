@@ -201,3 +201,19 @@ def test_search_hands_dispatch_needs_user():
 
     set_tool_user(None)
     assert "error" in _dispatch("search_hands", {"pattern": "fold"})
+
+
+def test_hand_by_hand_report():
+    from pathlib import Path
+
+    from app.analysis.handreport import build_report_html
+    from app.parsers import parse_text
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    html = build_report_html(hands, "leitura do coach aqui")
+    assert "Análise mão a mão" in html and "295746366" in html
+    assert html.count("<tr") >= 5  # header + 4 mãos
+    assert "leitura do coach aqui" in html
+    assert "ef</span>" in html  # stack efetivo por mão
