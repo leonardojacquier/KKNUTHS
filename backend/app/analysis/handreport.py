@@ -81,21 +81,22 @@ def fold_verdict(h: CanonicalHand, a: dict) -> str:
     if raises == 0:
         rng = OPEN_RANGES.get(pos)
         if hc and rng and hc in parse_range(rng):
-            return (f"⚠️ {hc} está no range de open de {pos} — fold passivo; "
-                    f"abrir era o padrão")
+            return (f"⚠️ dava para abrir — {hc} de {pos} é mão de ataque; "
+                    f"largar aqui é passivo demais")
         if stack and stack <= 12 and hc:
             from app.analysis.pushfold import push_fold
 
             pf = push_fold(h.hero_cards, stack, pos)
             if pf.get("applicable") and pf["decision"] == "push":
-                return (f"⚠️ com {stack:g}bb, {hc} é JAM pelo equilíbrio "
-                        f"(top {pf['hand_top_pct']}%) — fold deixa EV na mesa")
-        return f"✅ fold padrão — {hc or '?'} fora do range de {pos}"
+                return (f"⚠️ com {stack:g}bb era shove — {hc} é lucrativo aqui; "
+                        f"largar deixou dinheiro na mesa")
+        return f"✅ fold padrão — {hc or '?'} não vale a briga de {pos}"
 
-    quem = f" vs open de {opener}" if opener else " vs raise"
+    quem = f" contra o open de {opener}" if opener else " contra um raise"
     if hc and hc in parse_range("99+, AQs+, AQo+"):
-        return f"🟡 fold de {hc}{quem} — mão forte; só correto vs range muito apertado"
-    return f"✅ fold correto de {hc or '?'}{quem}"
+        return (f"🟡 {hc} é mão forte demais para largar{quem} — "
+                f"só ok se o vilão for muito apertado")
+    return f"✅ fold padrão — {hc or '?'}{quem} não compensa"
 
 
 def played_facts(h: CanonicalHand) -> dict:
@@ -138,12 +139,18 @@ def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
         if "equity_minima" in n:
             eq, req = n.get("equity_vs_aleatoria"), n["equity_minima"]
             if eq is not None:
-                ok = "preço bom" if eq >= req else "pagou caro vs mão aleatória"
-                bits.append(f"{n['street']}: pagou {n['pagou_bb']:g}bb precisando "
-                            f"de {req*100:.0f}% (equity bruta {eq*100:.0f}% — {ok})")
+                ok = ("o preço estava bom" if eq >= req
+                      else "pagou mais caro do que a mão valia")
+                bits.append(
+                    f"No {n['street']} você pagou {n['pagou_bb']:g}bb — para esse "
+                    f"preço precisava ganhar {req*100:.0f}% das vezes, e sua mão "
+                    f"ganha ~{eq*100:.0f}%: {ok}")
         elif n.get("sizing_pct_pote"):
-            bits.append(f"{n['street']}: {n['acao']} {n['valor_bb']:g}bb "
-                        f"({n['sizing_pct_pote']}% do pote)")
+            pct = n["sizing_pct_pote"]
+            tam = ("aposta pequena" if pct < 45 else
+                   "aposta média" if pct <= 80 else "aposta pesada")
+            bits.append(f"No {n['street']} você apostou {n['valor_bb']:g}bb — "
+                        f"{pct}% do pote, {tam}")
     stack = a.get("effective_bb")
     pre_jam = any(s.get("all_in") and s["street"] == "preflop" for s in a["spots"])
     if pre_jam and stack and stack <= 20:
@@ -151,11 +158,12 @@ def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
 
         pf = push_fold(h.hero_cards, stack, a.get("position") or "MP")
         if pf.get("applicable"):
-            icon = "✅" if pf["decision"] == "push" else "❌"
-            bits.append(f"{icon} jam de {stack:g}bb efetivos: equilíbrio diz "
-                        f"{pf['decision'].upper()} com {hc}")
-    res = f"resultado {a['net_bb']:+.1f}bb"
-    return "; ".join(bits + [res]) if bits else f"{hc}: {res}"
+            bits.append(
+                f"✅ shove certo: com {stack:g}bb, {hc} é all-in lucrativo"
+                if pf["decision"] == "push" else
+                f"❌ shove exagerado: com {stack:g}bb, {hc} ainda não vale all-in")
+    res = f"Saldo da mão: {a['net_bb']:+.1f}bb"
+    return ". ".join(bits + [res]) if bits else f"{hc} — {res.lower()}"
 
 
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
@@ -266,11 +274,10 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 {coach_html}
 <h2>🃏 Mãos jogadas — análise completa ({len(played_cards)})</h2>
 {''.join(played_cards) or '<p>nenhuma mão jogada voluntariamente neste lote.</p>'}
-<h2>🚫 Folds pré-flop — veredito por range ({len(fold_rows)})</h2>
+<h2>🚫 Mãos que você largou no pré-flop ({len(fold_rows)})</h2>
 <table><tr><th>#</th><th>Nº da mão</th><th>Hora</th><th>Cartas</th><th>Pos</th>
 <th>Stack (bb)</th><th>Veredito</th></tr>
 {''.join(fold_rows)}</table>
-<div class=foot>Números calculados (equity Monte Carlo, pot odds, equilíbrio Nash);
-folds avaliados contra ranges de referência ~padrão de MTT. Para aprofundar
-qualquer mão, cite o Nº dela no chat. · KKNuths ♠ t.me/KKNUts_BOT</div>
+<div class=foot>Quer abrir qualquer mão dessas? Me manda o Nº dela (ou as cartas)
+no chat que a gente destrincha juntos. · KKNuths ♠ t.me/KKNUts_BOT</div>
 </body></html>"""

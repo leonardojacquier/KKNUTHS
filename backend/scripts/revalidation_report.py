@@ -89,12 +89,14 @@ def per_hand_llm(hands_played) -> dict[str, str]:
                 "resultado_bb": a.get("net_bb"),
             })
         prompt = (
-            "Você é um coach profissional de MTT. Para CADA mão abaixo, escreva "
-            "uma análise de 2-3 frases em português: julgue as decisões do herói "
-            "usando APENAS os numeros_calculados fornecidos (equity, pot odds, "
-            "sizing) e os stacks dados — NUNCA invente números nem estime stacks. "
-            "Seja específico e direto (estilo coach). Responda SOMENTE um JSON "
-            "{hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
+            "Você é um coach de poker brasileiro, informal e claro, falando com "
+            "seu aluno. Para CADA mão abaixo, escreva 2-3 frases em português: "
+            "comece pelo veredito em uma frase simples ('Bem jogada', 'Aqui você "
+            "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
+            "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
+            "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
+            "nada de mencionar sistema/dados/análises anteriores. Responda SOMENTE "
+            "um JSON {hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
         )
         try:
             resp = client.messages.create(
@@ -144,10 +146,10 @@ def main() -> int:
     allins = search_hands(hands, "allin", limit=10)
     coach_text = followup(
         {
-            "modo": "REVALIDAÇÃO pós-correção de stacks: a equipe corrigiu um bug "
-            "em que o stack do herói era estimado errado (ex.: '12bb' quando era "
-            "58bb). Reanalise os PADRÕES deste torneio com os dados corretos "
-            "abaixo (tudo em BB, com stack efetivo). Seja específico e cite mãos.",
+            "modo": "Leitura completa dos padrões do aluno neste torneio (dados "
+            "abaixo, tudo em BB, com stack efetivo). Fale como coach, direto com "
+            "o aluno — NUNCA mencione sistema, correções ou análises anteriores. "
+            "Seja específico e cite as mãos pelas cartas.",
             "instrucao": "3 blocos curtos: (1) seus FOLDS — algum fold caro/errado? "
             "(2) seus C-BETS — padrão de sizing; (3) seus ALL-INS — vs equilíbrio "
             "com o stack EFETIVO. Feche com 1 leak principal e 1 ponto forte.",
@@ -175,13 +177,13 @@ def main() -> int:
     if update_mode:
         _send_text(
             token, dest,
-            ("👁 Cópia de admin — versão 2 do relatório:" if admin_copy else
-             "📋 Relatório mão a mão ATUALIZADO — agora com análise em TODAS "
-             "as mãos e o Nº de cada mão da sala, para você conferir no "
-             "PokerCraft/HM. Obrigado pelo feedback! 🙏"),
+            ("👁 Cópia de admin — relatório mão a mão:" if admin_copy else
+             "📋 Seu relatório mão a mão ficou pronto! Cada mão analisada, "
+             "com o Nº da sala pra você conferir no PokerCraft. Quer abrir "
+             "alguma? Me manda o Nº ou as cartas aqui no chat. 🃏"),
         )
         out = send_document(str(dest), tmp,
-                            "Versão 2 — análise completa mão a mão.")
+                            "Relatório mão a mão — abra no navegador.")
         print("documento:", out.get("ok"))
         return 0
     if admin_copy:
@@ -189,22 +191,16 @@ def main() -> int:
                    f"👁 Cópia de admin — o que o usuário {tg_id} recebeu:")
     _send_text(
         token, dest,
-        "🔎 Revalidação concluída!\n\n"
-        "Encontramos e corrigimos um erro que afetava análises anteriores: o "
-        "coach às vezes usava o VALOR DO BIG BLIND como se fosse o seu stack "
-        "(ex.: dizia \"12bb\" quando você tinha 58bb). Agora ele recebe os "
-        "stacks reais de toda a mesa — inclusive o stack EFETIVO, que é o que "
-        "manda num all-in.\n\n"
-        "Reanalisei seu torneio inteiro com os dados corretos. Está chegando:\n"
-        "1️⃣ o quadro do campeonato (curva do seu stack)\n"
-        "2️⃣ o RELATÓRIO MÃO A MÃO — as 54 mãos, uma a uma, com sua linha, "
-        "stacks e veredito nos spots de all-in\n"
-        "3️⃣ a leitura dos seus padrões (folds, c-bets, all-ins) vai dentro do "
+        "🃏 Revisei seu torneio inteiro, mão a mão!\n\n"
+        "Está chegando aí:\n"
+        "1️⃣ o quadro do campeonato (a curva do seu stack, do início ao fim)\n"
+        "2️⃣ o RELATÓRIO MÃO A MÃO — cada mão com sua linha, stacks e veredito\n"
+        "3️⃣ a leitura dos seus padrões (folds, c-bets, all-ins) dentro do "
         "relatório\n\n"
-        "Para abrir qualquer mão: me diga as cartas ou o momento (ex.: \"abre a "
-        "mão do A3o no BB\"). "
-        "E se tiver o arquivo daquela MESA FINAL (blinds 6k/12k), me manda — "
-        "refaço o 98o e o BTN com os stacks efetivos certos. 🃏",
+        "Quer discutir qualquer mão? Me manda o Nº dela (está no relatório) ou "
+        "as cartas — ex.: \"abre a mão do A3o\". "
+        "Ah, e se tiver o arquivo da MESA FINAL (blinds 6k/12k), me manda que "
+        "eu revejo aquele 98o com os stacks certos. 🚀",
     )
     _send_photo(token, dest, board_png, board_cap)
     out = send_document(str(dest), tmp,

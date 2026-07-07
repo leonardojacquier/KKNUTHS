@@ -119,15 +119,13 @@ def process_upload(
         inflight = _INFLIGHT.get(telegram_id, 0)
         if quota.degraded:
             return (
-                "😵 Meu banco de dados está instável agora e não consigo conferir "
-                "sua cota. Tente de novo em alguns minutos — sua mão não foi "
-                "descontada."
+                "😅 Deu um engasgo aqui do meu lado — me manda de novo em alguns "
+                "minutos? Essa mão não conta na sua cota."
             )
         if not quota.allowed or (quota.remaining >= 0 and inflight >= quota.remaining):
             return (
-                "🚦 Você atingiu o limite gratuito deste mês "
-                f"({quota.plan}: análises esgotadas).\n"
-                "Seu limite renova no próximo mês. Planos pagos chegam em breve!"
+                "🚦 Suas análises gratuitas deste mês acabaram!\n"
+                "Elas renovam no próximo mês — e os planos pagos chegam em breve."
             )
         _INFLIGHT[telegram_id] = inflight + 1
     try:
@@ -371,8 +369,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             repo.log_event(telegram_id, username, "followup_failed",
                            {"q": question[:300]})
         return (
-            "Não consegui aprofundar agora (LLM indisponível). "
-            "Tente de novo em instantes."
+            "Opa, me embananei aqui — me pergunta de novo em um instante? 🙏"
         )
 
     ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]

@@ -114,7 +114,7 @@ def test_process_upload_blocks_over_quota():
     for _ in range(FREE_MONTHLY_ANALYSES):
         consume_quota(tg, None)
     reply = process_upload(PS.read_text().encode(), "txt", tg, "tester")
-    assert "limite" in reply.lower()
+    assert "gratuitas" in reply.lower() and "renovam" in reply.lower()
 
 
 def test_drill_flow():

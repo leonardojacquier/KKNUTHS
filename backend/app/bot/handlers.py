@@ -291,10 +291,10 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     def _search():
         repo = get_repository()
         if not repo.enabled:
-            return None, "Base de conhecimento indisponível (persistência off)."
+            return None, "Não consegui buscar no seu histórico agora — tenta de novo daqui a pouco. 🙏"
         emb = embed_query(query)
         if emb is None:
-            return None, "Busca semântica inativa (embeddings não configurados)."
+            return None, "Não consegui buscar no seu histórico agora — tenta de novo daqui a pouco. 🙏"
         user = repo.get_or_create_user(tg_id, update.effective_user.username)
         hits = repo.search_analysis(user["id"], emb, limit=5)
         if not hits:

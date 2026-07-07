@@ -139,7 +139,7 @@ def test_bubble_factor_validates_indexes():
 def test_general_chat_creates_context_even_without_hands():
     # pergunta aleatória sem mão: entra no modo coach geral (offline -> fallback)
     out = process_followup(424242, "x", "como lidar com bad beats?")
-    assert out is not None and "indisponível" in out.lower()
+    assert out is not None and "de novo" in out.lower()  # fallback amigável, sem jargão de sistema
     ctx = LAST_ANALYSIS[424242]
     assert "coaching geral" in ctx["context"]["modo"]
 
@@ -152,4 +152,4 @@ def test_followup_fallback_without_llm():
         "user_id": None,
     }
     out = process_followup(424243, "x", "e se o vilão for tight?")
-    assert out is not None and "indisponível" in out.lower()
+    assert out is not None and "de novo" in out.lower()  # fallback amigável, sem jargão de sistema
