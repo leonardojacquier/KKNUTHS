@@ -79,6 +79,26 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         net = round(hand.net_won, 2)
 
     bb = hand.stakes.big_blind or 1
+
+    # contexto de stacks EM BB — sem isto o LLM estimava o stack do herói (caso
+    # real: coach chamou push_fold com '12bb' quando o aluno tinha 58bb; o 12
+    # era o valor do big blind). O que importa num all-in é o stack EFETIVO.
+    hero_seat = hand.hero_seat()
+    hero_stack_bb = round(hero_seat.stack / bb, 1) if hero_seat else None
+    others_bb = [round(p.stack / bb, 1) for p in hand.players if not p.is_hero]
+    effective_bb = (round(min(hero_stack_bb, max(others_bb)), 1)
+                    if hero_stack_bb is not None and others_bb else hero_stack_bb)
+    stacks_bb = {
+        (p.position or p.name[:8]): round(p.stack / bb, 1) for p in hand.players
+    }
+
+    # spots também em BB (o modelo raciocina em BB, não em fichas)
+    for s in spots:
+        for k_chips, k_bb in (("to_call", "to_call_bb"), ("pot_before", "pot_bb"),
+                              ("amount", "amount_bb")):
+            if k_chips in s:
+                s[k_bb] = round(s[k_chips] / bb, 1)
+
     return {
         "hand_id": hand.hand_id,
         "site": hand.site,
@@ -86,6 +106,12 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "hero": hero,
         "hero_cards": hand.hero_cards,
         "position": _hero_position(hand),
+        "blinds": f"{hand.stakes.small_blind or 0:g}/{bb:g}"
+                  + (f" ante {hand.stakes.ante:g}" if hand.stakes.ante else ""),
+        "players": len(hand.players),
+        "hero_stack_bb": hero_stack_bb,
+        "effective_bb": effective_bb,
+        "stacks_bb": stacks_bb,
         "final_board": hand.final_board,
         "pot_total": round(pot, 2),
         "net_chips": net,

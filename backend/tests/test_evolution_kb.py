@@ -155,3 +155,49 @@ def test_professional_quiz_drill():
         assert "Fold" in btns and "Call" in btns
     finally:
         proc.RECENT_HANDS.pop(999777, None)
+
+
+def test_analysis_carries_stack_context():
+    # caso real: coach disse "12bb" quando o aluno tinha 58bb — o 12 era o BB.
+    # A análise agora entrega os stacks; o prompt proíbe estimar.
+    from pathlib import Path
+
+    from app.agent.analyzer import analyze_hand
+    from app.parsers import parse_text
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    a = analyze_hand(hands[0])  # A3o no BB, stack 10.850 / bb 400
+    assert a["hero_stack_bb"] == 27.1
+    assert a["blinds"].startswith("200/400")
+    assert a["players"] == 8
+    assert a["effective_bb"] == 27.1  # tem vilão maior que o herói
+    assert "BB" in a["stacks_bb"] and a["stacks_bb"]["BB"] == 27.1
+    # spots em BB também
+    spot = a["spots"][0]
+    assert "pot_bb" in spot and "to_call_bb" in spot
+
+
+def test_search_hands_patterns():
+    from pathlib import Path
+
+    from app.analysis.handsearch import search_hands
+    from app.parsers import parse_text
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+    folds = search_hands(hands, "fold", street="preflop")
+    assert folds and all("linha_do_heroi" in f for f in folds)
+    assert all(f["hero_stack_bb"] for f in folds)
+    raises = search_hands(hands, "raise")
+    assert raises  # A3o (raise no turn) e 78s (open)
+    assert search_hands(hands, "cbet") == []  # herói nunca c-betou nesse lote
+
+
+def test_search_hands_dispatch_needs_user():
+    from app.agent.llm import _dispatch, set_tool_user
+
+    set_tool_user(None)
+    assert "error" in _dispatch("search_hands", {"pattern": "fold"})

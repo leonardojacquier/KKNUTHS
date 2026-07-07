@@ -207,6 +207,9 @@ def _process_upload_inner(
                                    net_bb=structured.get("net_bb"))
 
     # ---- coaching (Claude com tools; fallback determinístico) ----
+    from app.agent.llm import set_tool_user
+
+    set_tool_user(user["id"] if user else None)  # habilita search_hands
     chart_specs: list = []
     coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs)
@@ -343,8 +346,9 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                 f"[{n['kind']}] {n['note']}" for n in notes
             ]
 
-    from app.agent.llm import followup
+    from app.agent.llm import followup, set_tool_user
 
+    set_tool_user(ctx.get("user_id"))  # habilita search_hands na conversa
     chart_specs: list = []
     answer = followup(
         ctx["context"],

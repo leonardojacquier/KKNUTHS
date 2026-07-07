@@ -172,6 +172,27 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "search_hands",
+        "description": "BUSCA no histórico de mãos do PRÓPRIO aluno por padrão de "
+        "ação: use quando ele pedir 'analise todos os meus c-bets/folds/all-ins/"
+        "3-bets' ou quando você precisar de VOLUME para achar um padrão. Retorna "
+        "resumos compactos (cartas, posição, stacks em BB, linha do herói, "
+        "resultado). pattern: cbet|fold|call|raise|3bet|allin|bet|check|showdown|"
+        "win|loss. street opcional restringe (preflop|flop|turn|river).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string",
+                            "enum": ["cbet", "fold", "call", "raise", "3bet",
+                                     "allin", "bet", "check", "showdown", "win", "loss"]},
+                "street": {"type": "string",
+                           "enum": ["preflop", "flop", "turn", "river"]},
+                "limit": {"type": "integer", "default": 12},
+            },
+            "required": ["pattern"],
+        },
+    },
+    {
         "name": "compare_style_to_pros",
         "description": "Classifica o ESTILO do aluno (eixos VPIP/PFR/AF/3-bet) e o "
         "compara com perfis públicos de grandes jogadores (Yuri Dzivielevski, Akkari, "
@@ -257,6 +278,14 @@ _SYSTEM = {
         "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies. "
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
         "nunca diga que não consegue enviar imagem.\n"
+        "4b) STACKS: use SEMPRE hero_stack_bb/effective_bb/stacks_bb do contexto — "
+        "NUNCA estime o stack (o valor do big blind NÃO é o stack!). Em all-in, "
+        "o que manda é o stack EFETIVO: min(seu stack, stack do vilão relevante). "
+        "Shove de stack grande contra vilão curto = jam do efetivo curto.\n"
+        "4c) VOLUME: quando o aluno pedir análise de um PADRÃO (todos os c-bets/"
+        "folds dele), chame search_hands e analise o CONJUNTO — não responda por "
+        "uma mão só. Em lotes grandes: 3 momentos-chave + 1 leak + plano, sem "
+        "narrar mão a mão.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "5a) CADERNO DO ALUNO: quando identificar um leak recorrente, um progresso real ou combinar uma meta, chame record_student_note (1x por análise). É a sua memória de coach entre sessões.\n"
         "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
@@ -287,6 +316,19 @@ _SYSTEM = {
 }
 
 
+import contextvars
+
+# usuário dono da conversa atual — permite tools user-scoped (search_hands)
+# sem acoplar o dispatch à assinatura de cada loop
+_TOOL_USER: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_TOOL_USER", default=None
+)
+
+
+def set_tool_user(user_id: str | None) -> None:
+    _TOOL_USER.set(user_id)
+
+
 def _coerce_args(args: dict) -> dict:
     """Normaliza argumentos vindos do modelo: cartas em string -> lista, '10h' ->
     'Th', naipe unicode -> letra, números em string ('10bb') -> float. O modelo
@@ -313,6 +355,21 @@ def _coerce_args(args: dict) -> dict:
 
 def _dispatch(name: str, args: dict):
     args = _coerce_args(args)
+    if name == "search_hands":
+        from app.analysis.handsearch import search_hands
+        from app.db import get_repository
+
+        user_id = _TOOL_USER.get()
+        repo = get_repository()
+        if not user_id or not repo.enabled:
+            return {"error": "histórico indisponível nesta conversa"}
+        hands = repo.get_all_hands(user_id, limit=500)
+        found = search_hands(hands, str(args.get("pattern") or ""),
+                             args.get("street"),
+                             int(args.get("limit") or 12))
+        return {"total_no_filtro": len(found), "maos": found} if found else {
+            "total_no_filtro": 0,
+            "info": "nenhuma mão do aluno casa com esse filtro"}
     if name == "compare_style_to_pros":
         from app.analysis.pro_styles import match_pro_style
 
