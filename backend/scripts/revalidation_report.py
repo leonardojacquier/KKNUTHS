@@ -21,7 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.agent.llm import followup, set_tool_user  # noqa: E402
-from app.analysis.handreport import build_report_html  # noqa: E402
+from app.analysis.handreport import (  # noqa: E402
+    _played, build_report_html, hand_class, played_facts,
+)
 from app.analysis.handsearch import search_hands  # noqa: E402
 from app.analysis.tournament_board import render_tournament_board  # noqa: E402
 from app.config import get_settings  # noqa: E402
@@ -59,12 +61,64 @@ def _send_photo(token: str, chat_id: int, png: bytes, caption: str) -> None:
     urllib.request.urlopen(req, timeout=60).read()
 
 
+def per_hand_llm(hands_played) -> dict[str, str]:
+    """Análise 2-3 frases POR MÃO (lotes de 6) — só com os números calculados."""
+    import anthropic
+
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return {}
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    out: dict[str, str] = {}
+    batch = 6
+    for i in range(0, len(hands_played), batch):
+        chunk = hands_played[i:i + batch]
+        payload = []
+        for h in chunk:
+            f = played_facts(h)
+            a = f["analysis"]
+            payload.append({
+                "hand_id": h.hand_id,
+                "mao": hand_class(h.hero_cards),
+                "posicao": a.get("position"),
+                "stack_bb": a.get("hero_stack_bb"),
+                "efetivo_bb": a.get("effective_bb"),
+                "blinds": a.get("blinds"),
+                "historia": f["story"],
+                "numeros_calculados": f["numbers"],
+                "resultado_bb": a.get("net_bb"),
+            })
+        prompt = (
+            "Você é um coach profissional de MTT. Para CADA mão abaixo, escreva "
+            "uma análise de 2-3 frases em português: julgue as decisões do herói "
+            "usando APENAS os numeros_calculados fornecidos (equity, pot odds, "
+            "sizing) e os stacks dados — NUNCA invente números nem estime stacks. "
+            "Seja específico e direto (estilo coach). Responda SOMENTE um JSON "
+            "{hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
+        )
+        try:
+            resp = client.messages.create(
+                model=settings.analysis_model, max_tokens=1800,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = "".join(b.text for b in resp.content if b.type == "text").strip()
+            if raw.startswith("```"):
+                raw = raw.strip("`\n")
+                raw = raw[raw.index("{"):]
+            out.update(json.loads(raw[raw.index("{"):raw.rindex("}") + 1]))
+        except Exception as exc:
+            print(f"lote {i//batch}: LLM falhou ({exc}) — fallback determinístico")
+    return out
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(__doc__)
         return 1
-    tg_id = int(sys.argv[1])
-    dest = int(sys.argv[2]) if len(sys.argv) > 2 else tg_id
+    update_mode = "--update" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    tg_id = int(args[0])
+    dest = int(args[1]) if len(args) > 1 else tg_id
     admin_copy = dest != tg_id
     settings = get_settings()
     repo = get_repository()
@@ -105,13 +159,31 @@ def main() -> int:
     ) or ""
     print(f"coach: {len(coach_text)} chars")
 
+    # ---- análise POR MÃO (as jogadas) ----
+    played = [h for h in hands if _played(h)]
+    per_hand = per_hand_llm(played)
+    print(f"análises por mão: {len(per_hand)}/{len(played)}")
+
     # ---- monta e envia ----
     board_png, board_cap = render_tournament_board(hands)
-    html = build_report_html(hands, coach_text, board_png)
+    html = build_report_html(hands, coach_text, board_png,
+                             per_hand_analysis=per_hand)
     tmp = Path(tempfile.gettempdir()) / f"KKNuths-MaoAMao-{latest.tournament_id}.html"
     tmp.write_text(html, encoding="utf-8")
 
     token = settings.telegram_bot_token
+    if update_mode:
+        _send_text(
+            token, dest,
+            ("👁 Cópia de admin — versão 2 do relatório:" if admin_copy else
+             "📋 Relatório mão a mão ATUALIZADO — agora com análise em TODAS "
+             "as mãos e o Nº de cada mão da sala, para você conferir no "
+             "PokerCraft/HM. Obrigado pelo feedback! 🙏"),
+        )
+        out = send_document(str(dest), tmp,
+                            "Versão 2 — análise completa mão a mão.")
+        print("documento:", out.get("ok"))
+        return 0
     if admin_copy:
         _send_text(token, dest,
                    f"👁 Cópia de admin — o que o usuário {tg_id} recebeu:")

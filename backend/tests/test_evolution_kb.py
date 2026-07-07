@@ -212,8 +212,16 @@ def test_hand_by_hand_report():
     hands = parse_text(
         (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
     )
-    html = build_report_html(hands, "leitura do coach aqui")
+    html = build_report_html(
+        hands, "leitura do coach aqui",
+        per_hand_analysis={"TM6146070388": "análise específica do A3o"},
+    )
     assert "Análise mão a mão" in html and "295746366" in html
-    assert html.count("<tr") >= 5  # header + 4 mãos
+    # mãos jogadas viram cards com análise; folds viram tabela com veredito
+    assert html.count("class=hand") == 2
+    assert "análise específica do A3o" in html
+    assert "fold padrão" in html            # veredito técnico em TODO fold
+    assert "TM6146070321" in html           # Nº da mão identifica cada linha
     assert "leitura do coach aqui" in html
-    assert "ef</span>" in html  # stack efetivo por mão
+    # NUNCA "pergunte ao coach" como veredito
+    assert "pergunte ao coach para abrir" not in html

@@ -1,9 +1,11 @@
 """Relatório MÃO A MÃO de um torneio — o dossiê completo, em HTML.
 
-Uma linha por mão (cartas, posição, stacks em BB, linha do herói, pote,
-resultado) com veredito determinístico nos spots de jam/fold curtos (Nash) e
-destaques nos momentos-chave. Autossuficiente (CSS inline, board embutido) —
-pronto para o bot enviar como documento no Telegram.
+Duas camadas, como um coach humano faria:
+- MÃOS JOGADAS: um card por mão com identificação completa (ID da sala, hora,
+  nível), a história lance a lance, os números e a ANÁLISE (texto do coach,
+  preenchido pelo chamador; fallback determinístico sempre presente).
+- FOLDS DE ROTINA: tabela compacta com veredito técnico por range em CADA
+  linha — nunca "pergunte ao coach": o relatório É a análise.
 """
 from __future__ import annotations
 
@@ -12,10 +14,11 @@ import html as _html
 
 from app.agent.analyzer import analyze_hand
 from app.analysis.handsearch import _hero_line
-from app.models.canonical import CanonicalHand
+from app.models.canonical import ActionType, CanonicalHand, StreetName
 
 _SYM = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
 _RED = {"h", "d"}
+_RANKS = "23456789TJQKA"
 
 
 def _cards_html(cards: list[str]) -> str:
@@ -28,70 +31,191 @@ def _cards_html(cards: list[str]) -> str:
     return " ".join(out) or "—"
 
 
-def _verdict(h: CanonicalHand, a: dict) -> str:
-    """Veredito determinístico quando a teoria tem resposta clara."""
-    stack = a.get("effective_bb") or a.get("hero_stack_bb")
-    pre_allin = any(
-        s.get("all_in") and s["street"] == "preflop" for s in a["spots"]
-    )
-    if pre_allin and stack and stack <= 20 and a["format"] in ("tournament", "sng"):
+def hand_class(cards: list[str]) -> str | None:
+    """['Ad','3c'] -> 'A3o'; ['8h','9h'] -> '98s'."""
+    if not cards or len(cards) != 2 or any(len(c) != 2 for c in cards):
+        return None
+    (r1, s1), (r2, s2) = cards[0], cards[1]
+    if r1 == r2:
+        return r1 + r2
+    hi, lo = (r1, r2) if _RANKS.index(r1) > _RANKS.index(r2) else (r2, r1)
+    return hi + lo + ("s" if s1 == s2 else "o")
+
+
+def _played(h: CanonicalHand) -> bool:
+    """O herói colocou fichas voluntariamente?"""
+    for st in h.streets:
+        for a in st.actions:
+            if (a.actor == h.hero and a.type in
+                    (ActionType.CALL, ActionType.BET, ActionType.RAISE)):
+                return True
+    return False
+
+
+def _facing_preflop(h: CanonicalHand) -> tuple[int, str]:
+    """(nº de raises antes da 1ª decisão do herói, posição de quem abriu)."""
+    pre = h.street(StreetName.PREFLOP)
+    if not pre:
+        return 0, ""
+    pos = {p.name: (p.position or "?") for p in h.players}
+    raises = 0
+    opener = ""
+    for a in pre.actions:
+        if a.actor == h.hero and a.type != ActionType.POST:
+            return raises, opener
+        if a.type == ActionType.RAISE:
+            raises += 1
+            opener = pos.get(a.actor, "?")
+    return raises, opener
+
+
+def fold_verdict(h: CanonicalHand, a: dict) -> str:
+    """Veredito técnico para fold pré-flop — baseado em range, nunca vago."""
+    from app.analysis.ranges import OPEN_RANGES, parse_range
+
+    hc = hand_class(h.hero_cards)
+    pos = a.get("position") or "?"
+    raises, opener = _facing_preflop(h)
+    stack = a.get("hero_stack_bb")
+
+    if raises == 0:
+        rng = OPEN_RANGES.get(pos)
+        if hc and rng and hc in parse_range(rng):
+            return (f"⚠️ {hc} está no range de open de {pos} — fold passivo; "
+                    f"abrir era o padrão")
+        if stack and stack <= 12 and hc:
+            from app.analysis.pushfold import push_fold
+
+            pf = push_fold(h.hero_cards, stack, pos)
+            if pf.get("applicable") and pf["decision"] == "push":
+                return (f"⚠️ com {stack:g}bb, {hc} é JAM pelo equilíbrio "
+                        f"(top {pf['hand_top_pct']}%) — fold deixa EV na mesa")
+        return f"✅ fold padrão — {hc or '?'} fora do range de {pos}"
+
+    quem = f" vs open de {opener}" if opener else " vs raise"
+    if hc and hc in parse_range("99+, AQs+, AQo+"):
+        return f"🟡 fold de {hc}{quem} — mão forte; só correto vs range muito apertado"
+    return f"✅ fold correto de {hc or '?'}{quem}"
+
+
+def played_facts(h: CanonicalHand) -> dict:
+    """Fatos calculados de uma mão jogada — o insumo da análise (nada estimado)."""
+    from app.analysis.equity import equity_vs_random
+    from app.bot.processing import _walk_hand
+
+    a = analyze_hand(h)
+    lines, decisions = _walk_hand(h)
+    key_numbers = []
+    for d in decisions:
+        if d["to_call_bb"] > 0 and d["actual"] != "fold":
+            req = d["to_call_bb"] / (d["pot_bb"] + d["to_call_bb"])
+            try:
+                eq = equity_vs_random(h.hero_cards, d["board"], 1,
+                                      iterations=1500, seed=5)
+            except Exception:
+                eq = None
+            key_numbers.append({
+                "street": d["street"], "pagou_bb": d["to_call_bb"],
+                "pote_bb": d["pot_bb"], "equity_minima": round(req, 2),
+                "equity_vs_aleatoria": round(eq, 2) if eq else None,
+            })
+        elif d["actual"] in ("bet", "raise") and d["pot_bb"]:
+            key_numbers.append({
+                "street": d["street"], "acao": d["actual"],
+                "valor_bb": d["amount_bb"], "pote_bb": d["pot_bb"],
+                "sizing_pct_pote": round(100 * d["amount_bb"] / d["pot_bb"])
+                if d["pot_bb"] else None,
+            })
+    return {"analysis": a, "story": lines, "numbers": key_numbers}
+
+
+def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
+    """Análise determinística de mão jogada (usada quando não há texto do coach)."""
+    a = facts["analysis"]
+    hc = hand_class(h.hero_cards) or "?"
+    bits = []
+    for n in facts["numbers"][:2]:
+        if "equity_minima" in n:
+            eq, req = n.get("equity_vs_aleatoria"), n["equity_minima"]
+            if eq is not None:
+                ok = "preço bom" if eq >= req else "pagou caro vs mão aleatória"
+                bits.append(f"{n['street']}: pagou {n['pagou_bb']:g}bb precisando "
+                            f"de {req*100:.0f}% (equity bruta {eq*100:.0f}% — {ok})")
+        elif n.get("sizing_pct_pote"):
+            bits.append(f"{n['street']}: {n['acao']} {n['valor_bb']:g}bb "
+                        f"({n['sizing_pct_pote']}% do pote)")
+    stack = a.get("effective_bb")
+    pre_jam = any(s.get("all_in") and s["street"] == "preflop" for s in a["spots"])
+    if pre_jam and stack and stack <= 20:
         from app.analysis.pushfold import push_fold
 
         pf = push_fold(h.hero_cards, stack, a.get("position") or "MP")
         if pf.get("applicable"):
-            ok = pf["decision"] == "push"
-            icon = "✅" if ok else "❌"
-            return (f"{icon} jam de {stack:g}bb efetivos — equilíbrio diz "
-                    f"{pf['decision'].upper()} (mão no top {pf['hand_top_pct']}%, "
-                    f"range ≈{pf['shove_range_pct']}%)")
-    if any(s.get("all_in") for s in a["spots"]):
-        return "⚔️ all-in — pergunte ao coach para abrir este spot"
-    if abs(a["net_bb"]) >= 15:
-        return "💥 pote decisivo"
-    return ""
+            icon = "✅" if pf["decision"] == "push" else "❌"
+            bits.append(f"{icon} jam de {stack:g}bb efetivos: equilíbrio diz "
+                        f"{pf['decision'].upper()} com {hc}")
+    res = f"resultado {a['net_bb']:+.1f}bb"
+    return "; ".join(bits + [res]) if bits else f"{hc}: {res}"
 
 
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
-                      board_png: bytes | None = None) -> str:
+                      board_png: bytes | None = None,
+                      per_hand_analysis: dict[str, str] | None = None) -> str:
+    """`per_hand_analysis`: hand_id -> análise do coach (mãos jogadas)."""
     hands = sorted(hands, key=lambda h: h.played_at or "")
+    per_hand_analysis = per_hand_analysis or {}
     from app.analysis.tournament_board import tournament_summary
 
     s = tournament_summary(hands)
     esc = _html.escape
 
-    rows = []
-    for i, h in enumerate(hands, 1):
+    def ident(i: int, h: CanonicalHand, a: dict) -> tuple[str, str, str]:
+        hora = (h.played_at or "")[11:16]
+        return (f"#{i}", f"{h.hand_id}", f"{hora} · blinds {a['blinds']}")
+
+    played_cards, fold_rows = [], []
+    seq = 0
+    for h in hands:
+        seq += 1
         try:
             a = analyze_hand(h)
         except Exception:
             continue
-        line = " → ".join(
-            f"{st}: {v}" + (f" {amt:g}bb" if amt else "")
-            for st, v, amt in _hero_line(h)
-        ) or "fold sem ação"
-        net = a["net_bb"]
-        color = "#2E7D5B" if net > 0 else ("#C0564A" if net < 0 else "#828A84")
-        verdict = _verdict(h, a)
-        big = abs(net) >= 15 or any(sp.get("all_in") for sp in a["spots"])
-        rows.append(
-            f"<tr{' class=hot' if big else ''}>"
-            f"<td class=n>{i}</td>"
-            f"<td>{_cards_html(h.hero_cards)}</td>"
-            f"<td>{esc(a.get('position') or '?')}</td>"
-            f"<td class=n>{a.get('hero_stack_bb') or '?'}"
-            f"<span class=mut>/{a.get('effective_bb') or '?'}ef</span></td>"
-            f"<td class=line>{esc(line)}</td>"
-            f"<td>{_cards_html(h.final_board)}</td>"
-            f"<td class=n style='color:{color};font-weight:700'>{net:+.1f}</td>"
-            f"<td class=vd>{esc(verdict)}</td></tr>"
-        )
+        n_lab, hid, meta = ident(seq, h, a)
+        if _played(h):
+            facts = played_facts(h)
+            analysis = per_hand_analysis.get(h.hand_id) or \
+                played_fallback_verdict(h, facts)
+            story = "<br>".join(esc(x) for x in facts["story"])
+            net = a["net_bb"]
+            color = "#2E7D5B" if net > 0 else ("#C0564A" if net < 0 else "#828A84")
+            played_cards.append(f"""
+<div class=hand>
+  <div class=hh><span class=seq>{n_lab}</span> {_cards_html(h.hero_cards)}
+  <span class=pos>{esc(a.get('position') or '?')}</span>
+  <span class=meta>mão {esc(hid)} · {esc(meta)} · stack {a.get('hero_stack_bb') or '?'}bb
+  (efetivo {a.get('effective_bb') or '?'}bb)</span>
+  <span class=net style='color:{color}'>{net:+.1f} BB</span></div>
+  <div class=story>{story}</div>
+  <div class=an><b>Análise:</b> {esc(analysis)}</div>
+</div>""")
+        else:
+            verdict = fold_verdict(h, a)
+            fold_rows.append(
+                f"<tr><td class=n>{n_lab}</td>"
+                f"<td class=n>{esc(hid)}</td>"
+                f"<td class=n>{esc((h.played_at or '')[11:16])}</td>"
+                f"<td>{_cards_html(h.hero_cards)}</td>"
+                f"<td>{esc(a.get('position') or '?')}</td>"
+                f"<td class=n>{a.get('hero_stack_bb') or '?'}</td>"
+                f"<td>{esc(verdict)}</td></tr>"
+            )
 
     board_img = ""
     if board_png:
         b64 = base64.standard_b64encode(board_png).decode()
         board_img = (f"<img style='width:100%;border-radius:10px;margin:14px 0' "
                      f"src='data:image/png;base64,{b64}'>")
-
     coach_html = ""
     if coach_text:
         coach_html = ("<div class=coach><h2>🎓 Leitura do coach — seus padrões</h2>"
@@ -99,42 +223,54 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 
     css = """
     body{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;color:#1B211D;
-    margin:26px;line-height:1.5}
-    h1{font-size:22px;margin:0 0 2px} h2{font-size:15px;color:#2E7D5B;margin:20px 0 8px}
+    margin:26px;line-height:1.5;max-width:980px}
+    h1{font-size:22px;margin:0 0 2px} h2{font-size:16px;color:#2E7D5B;margin:24px 0 10px}
     .sub{color:#828A84;font-size:12px;margin-bottom:12px}
-    .kpis{display:flex;gap:10px;margin:12px 0}
+    .kpis{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
     .kpi{border:1px solid #DDE3DE;border-top:3px solid #2E7D5B;border-radius:8px;
     padding:8px 14px} .kpi b{display:block;font-size:19px}
     .kpi span{font-size:10.5px;color:#828A84;text-transform:uppercase}
-    table{border-collapse:collapse;width:100%;font-size:11.5px}
-    th{background:#F0F4F1;color:#5A665E;text-align:left;padding:6px 8px;font-size:10px;
-    text-transform:uppercase;position:sticky;top:0}
-    td{padding:5px 8px;border-bottom:1px solid #E8ECE8;vertical-align:top}
-    td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
-    td.line{max-width:270px} td.vd{max-width:220px;font-size:11px}
-    .mut{color:#9AA69F;font-size:10px} tr.hot{background:#FBF6EC}
     .coach{border:1px solid #D2A55C;border-radius:10px;background:#FBF6EC;
     padding:4px 16px 10px;margin:16px 0}
+    .hand{border:1px solid #DDE3DE;border-left:4px solid #2E7D5B;border-radius:8px;
+    padding:10px 14px;margin:10px 0;page-break-inside:avoid}
+    .hh{font-size:14px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+    .seq{font-weight:800;color:#A67E35}
+    .pos{background:#F0F4F1;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700}
+    .meta{color:#828A84;font-size:11px}
+    .net{margin-left:auto;font-weight:800;font-size:14px}
+    .story{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#4A554E;
+    background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0}
+    .an{font-size:12.5px}
+    table{border-collapse:collapse;width:100%;font-size:11.5px}
+    th{background:#F0F4F1;color:#5A665E;text-align:left;padding:6px 8px;font-size:10px;
+    text-transform:uppercase}
+    td{padding:5px 8px;border-bottom:1px solid #E8ECE8;vertical-align:top}
+    td.n{font-variant-numeric:tabular-nums;white-space:nowrap;color:#5A665E}
     .foot{color:#828A84;font-size:11px;margin-top:18px}
     """
     buyin = f" · buy-in ${s['buyin']:g}" if s.get("buyin") else ""
     return f"""<!doctype html><html lang=pt-BR><head><meta charset=utf-8>
 <title>Mão a mão — Torneio #{s['tournament_id']}</title><style>{css}</style></head><body>
 <h1>♠ Análise mão a mão — Torneio #{s['tournament_id']}</h1>
-<div class=sub>{s['site']}{buyin} · níveis {esc(str(s['levels']))} · relatório KKNuths</div>
+<div class=sub>{s['site']}{buyin} · níveis {esc(str(s['levels']))} ·
+{s['hands']} mãos · cada mão identificada pelo Nº da sala (confira no PokerCraft/HM)</div>
 <div class=kpis>
   <div class=kpi><b>{s['hands']}</b><span>mãos</span></div>
   <div class=kpi><b>{s['net_bb']:+.1f}</b><span>resultado (BB)</span></div>
   <div class=kpi><b>{s['vpip_pct']:.0f}%</b><span>VPIP no torneio</span></div>
   <div class=kpi><b>{s['allins']}</b><span>all-ins</span></div>
+  <div class=kpi><b>{len(played_cards)}</b><span>mãos jogadas</span></div>
 </div>
 {board_img}
 {coach_html}
-<h2>Mão a mão ({s['hands']} mãos — stacks em BB; “ef” = efetivo)</h2>
-<table><tr><th>#</th><th>Cartas</th><th>Pos</th><th>Stack/ef</th>
-<th>Sua linha</th><th>Board</th><th>BB</th><th>Veredito</th></tr>
-{''.join(rows)}</table>
-<div class=foot>Linhas destacadas = potes decisivos/all-ins. Vereditos automáticos
-apenas onde a teoria é inequívoca (jam/fold curto vs equilíbrio) — para qualquer
-mão, pergunte no chat: “abre a mão #N do relatório”. · KKNuths ♠ t.me/KKNUts_BOT</div>
+<h2>🃏 Mãos jogadas — análise completa ({len(played_cards)})</h2>
+{''.join(played_cards) or '<p>nenhuma mão jogada voluntariamente neste lote.</p>'}
+<h2>🚫 Folds pré-flop — veredito por range ({len(fold_rows)})</h2>
+<table><tr><th>#</th><th>Nº da mão</th><th>Hora</th><th>Cartas</th><th>Pos</th>
+<th>Stack (bb)</th><th>Veredito</th></tr>
+{''.join(fold_rows)}</table>
+<div class=foot>Números calculados (equity Monte Carlo, pot odds, equilíbrio Nash);
+folds avaliados contra ranges de referência ~padrão de MTT. Para aprofundar
+qualquer mão, cite o Nº dela no chat. · KKNuths ♠ t.me/KKNUts_BOT</div>
 </body></html>"""
