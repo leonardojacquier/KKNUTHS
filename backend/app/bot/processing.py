@@ -346,6 +346,13 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                 f"[{n['kind']}] {n['note']}" for n in notes
             ]
 
+    # registra a pergunta ANTES de gerar a resposta: se o LLM falhar (ou o
+    # processo cair no meio), o rastro fica — caso real: perguntas do beta
+    # sumiram do log e o portal ficou cego para parte do uso
+    repo = get_repository()
+    if repo.enabled:
+        repo.log_event(telegram_id, username, "followup", {"q": question[:300]})
+
     from app.agent.llm import followup, set_tool_user
 
     set_tool_user(ctx.get("user_id"))  # habilita search_hands na conversa
@@ -360,6 +367,9 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     )
     _stash_charts(telegram_id, chart_specs, ctx.get("user_id"))
     if not answer:
+        if repo.enabled:
+            repo.log_event(telegram_id, username, "followup_failed",
+                           {"q": question[:300]})
         return (
             "Não consegui aprofundar agora (LLM indisponível). "
             "Tente de novo em instantes."
@@ -367,9 +377,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
 
     ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]
 
-    repo = get_repository()
     if repo.enabled:
-        repo.log_event(telegram_id, username, "followup", {"q": question[:300]})
         # insight importante -> base de conhecimento (buscável via /ask)
         if ctx.get("hand_row_id"):
             try:
