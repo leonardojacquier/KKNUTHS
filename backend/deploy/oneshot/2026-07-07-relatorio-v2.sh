@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# Relatório mão a mão v2 (feedback do admin: análise em TODAS as mãos +
-# identificação por Nº da mão). Envia ao beta user e cópia ao admin.
-set -uo pipefail
-cd /opt/poker-bot || exit 1
-
-fail=0
-PYTHONPATH=/opt/poker-bot ./venv/bin/python scripts/revalidation_report.py 8972465711 --update || fail=1
-PYTHONPATH=/opt/poker-bot ./venv/bin/python scripts/revalidation_report.py 8972465711 6452742024 --update || fail=1
-exit $fail
+# NEUTRALIZADO: este oneshot falhava sem deixar rastro. O reenvio agora é
+# feito por 2026-07-07-relatorio-v2-diagnostico.sh, que captura o log e
+# reporta o desfecho ao admin no Telegram. Sai 0 só para gravar o marcador.
+exit 0
