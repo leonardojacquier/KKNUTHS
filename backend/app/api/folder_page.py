@@ -9,8 +9,8 @@ from app.api.manual_page import BOT_URL, _img
 
 _CSS = """
 *{box-sizing:border-box}
-:root{--bg:#0F1512;--card:#161D18;--ink:#EDF1ED;--mut:#9AA69F;--felt:#43A97C;
---felt2:#2E7D5B;--gold:#D2A55C;--line:#243029;
+:root{--bg:#0F1512;--card:#161D18;--ink:#F0F4F0;--mut:#A9B5AC;--felt:#43A97C;
+--felt2:#2E7D5B;--gold:#D2A55C;--line:#2B382F;
 --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif}
 @page{size:A4;margin:0}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;

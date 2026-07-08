@@ -88,6 +88,14 @@ def tournament_summary(hands: list[CanonicalHand]) -> dict:
     from app.analysis.stats import compute_player_stats
 
     st = compute_player_stats(hands, player=None)
+    tbet, af = st.three_bet, st.af
+    from app.config import get_settings
+    if get_settings().bayes_stats:
+        # taxa por oportunidade com meia duzia de casos mente ("3-bet 100%");
+        # o quadro usa a estimativa corrigida, como o resto do produto
+        from app.analysis.bayes import bayes_stats
+        b = bayes_stats(st)
+        tbet, af = b["three_bet"]["mean"], b["af"]["mean"]
     pre_raises = 0
     wtsd = wsd = 0
     for h, a in zip(hands, per):
@@ -105,7 +113,7 @@ def tournament_summary(hands: list[CanonicalHand]) -> dict:
                 wsd += 1
 
     return {
-        "pfr": st.pfr, "three_bet": st.three_bet, "af": st.af,
+        "pfr": st.pfr, "three_bet": tbet, "af": af,
         "pre_raises": pre_raises, "wtsd": wtsd, "wsd": wsd,
         "maior_pote_bb": round(biggest[-1]["net_bb"], 1) if biggest else 0,
         "site": hands[0].site if hands else "?",

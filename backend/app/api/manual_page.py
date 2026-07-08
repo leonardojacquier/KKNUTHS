@@ -25,8 +25,8 @@ def _img(name: str) -> str:
 
 _CSS = """
 *{box-sizing:border-box}
-:root{--bg:#0F1512;--card:#161D18;--ink:#EDF1ED;--mut:#9AA69F;--felt:#43A97C;
---felt2:#2E7D5B;--gold:#D2A55C;--goldink:#E8C083;--line:#243029;
+:root{--bg:#0F1512;--card:#161D18;--ink:#F0F4F0;--mut:#A9B5AC;--felt:#43A97C;
+--felt2:#2E7D5B;--gold:#D2A55C;--goldink:#E8C083;--line:#2B382F;
 --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
 font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;
@@ -146,30 +146,6 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
-    <span class="eyebrow">Como começar</span>
-    <h2>📥 Envie suas mãos <span class="n">do seu jeito</span></h2>
-    <p class="lead">Qualquer formato. De qualquer sala. Sem configurar nada.</p>
-    <div class="grid">
-      <div class="card"><h3>📸 Print ou foto</h3><p>Print do replay ou da mesa — o
-      KKNuths lê cartas, stacks, posições e a ação completa. Funciona para
-      <b>qualquer</b> sala.</p></div>
-      <div class="card"><h3>📄 Arquivo de mãos (.txt)</h3><p>GGPoker (PokerCraft →
-      download), PokerStars — inclusive Zoom —, Winamax, PartyPoker e 888poker.
-      Um torneio inteiro de uma vez.</p></div>
-      <div class="card"><h3>📋 Texto colado</h3><p>Cole a sessão direto no chat. O
-      Telegram cortou em partes? Cole em sequência que o bot <b>remonta tudo
-      sozinho</b> — e responda “analisar” se quiser fechar a conta.</p></div>
-      <div class="card"><h3>📊 CSV do tracker</h3><p>Hold'em Manager, PokerTracker
-      e afins — os resumos entram no seu perfil e nos relatórios.</p></div>
-      <div class="card"><h3>🎙️ Áudio</h3><p>Grave a pergunta por voz. O coach
-      entende e responde — no seu contexto, com as suas mãos.</p></div>
-      <div class="card"><h3>📑 PDF</h3><p>Relatórios em PDF também são lidos.</p></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
     <span class="eyebrow">Na prática</span>
     <h2>💬 Assim é <span class="n">uma análise</span></h2>
     <p class="lead">Números calculados — nunca estimados — e o gráfico junto, na conversa.</p>
@@ -187,30 +163,6 @@ def build_manual_html() -> str:
       <div class="msg me">me passa a tabela 👊</div>
       <div class="msg bot">Segue o equilíbrio calculado 👇
       <img src="{_img('nash_sb10.png')}" alt="Range Nash SB 10bb"></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <span class="eyebrow">A artilharia</span>
-    <h2>📊 Os gráficos que <span class="n">só o KKNuths</span> te manda</h2>
-    <p class="lead">Matriz 13×13 clássica — gerada na hora, do equilíbrio calculado,
-    para o SEU stack. Peça na conversa ou use <code style="background:#0B100D;
-    border:1px solid var(--line);padding:1px 7px;border-radius:6px;color:var(--gold)">/range</code>.</p>
-    <div class="shots">
-      <figure class="shot"><img src="{_img('btn_open.png')}" alt="Range de open BTN">
-      <figcaption><b>Open-raise por posição</b> · <code>/range btn</code> — o range de
-      referência para cada assento da mesa.</figcaption></figure>
-      <figure class="shot"><img src="{_img('nash_sb10.png')}" alt="Nash SB 10bb">
-      <figcaption><b>Equilíbrio Nash de all-in</b> · <code>/range sb 10</code> — jam/fold
-      resolvido de verdade, com frequências mistas.</figcaption></figure>
-      <figure class="shot"><img src="{_img('ev_sb10.png')}" alt="EV por mão (fichas)">
-      <figcaption><b>EV de cada mão em fichas</b> · <code>/range sb 10 ev</code> — verde:
-      empurrar rende mais que foldar; vermelho: fold é melhor. Em BB, mão por mão.</figcaption></figure>
-      <figure class="shot"><img src="{_img('icm_sb10.png')}" alt="EV por mão sob ICM">
-      <figcaption><b>O mesmo, sob pressão de ICM</b> · <code>/range sb 10 icm 1.5</code> —
-      perto da bolha o dinheiro muda a conta. Compare com o chip-EV ao lado.</figcaption></figure>
     </div>
   </div>
 </section>
@@ -283,6 +235,54 @@ def build_manual_html() -> str:
         estimada “de cabeça” pela IA.</span></div>
     </div>
     <p class="cta2"><a class="cta" href="{BOT_URL}">Testar o Motor KKN grátis →</a></p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">A artilharia</span>
+    <h2>📊 Os gráficos que <span class="n">só o KKNuths</span> te manda</h2>
+    <p class="lead">Matriz 13×13 clássica — gerada na hora, do equilíbrio calculado,
+    para o SEU stack. Peça na conversa ou use <code style="background:#0B100D;
+    border:1px solid var(--line);padding:1px 7px;border-radius:6px;color:var(--gold)">/range</code>.</p>
+    <div class="shots">
+      <figure class="shot"><img src="{_img('btn_open.png')}" alt="Range de open BTN">
+      <figcaption><b>Open-raise por posição</b> · <code>/range btn</code> — o range de
+      referência para cada assento da mesa.</figcaption></figure>
+      <figure class="shot"><img src="{_img('nash_sb10.png')}" alt="Nash SB 10bb">
+      <figcaption><b>Equilíbrio Nash de all-in</b> · <code>/range sb 10</code> — jam/fold
+      resolvido de verdade, com frequências mistas.</figcaption></figure>
+      <figure class="shot"><img src="{_img('ev_sb10.png')}" alt="EV por mão (fichas)">
+      <figcaption><b>EV de cada mão em fichas</b> · <code>/range sb 10 ev</code> — verde:
+      empurrar rende mais que foldar; vermelho: fold é melhor. Em BB, mão por mão.</figcaption></figure>
+      <figure class="shot"><img src="{_img('icm_sb10.png')}" alt="EV por mão sob ICM">
+      <figcaption><b>O mesmo, sob pressão de ICM</b> · <code>/range sb 10 icm 1.5</code> —
+      perto da bolha o dinheiro muda a conta. Compare com o chip-EV ao lado.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Como começar</span>
+    <h2>📥 Envie suas mãos <span class="n">do seu jeito</span></h2>
+    <p class="lead">Qualquer formato. De qualquer sala. Sem configurar nada.</p>
+    <div class="grid">
+      <div class="card"><h3>📸 Print ou foto</h3><p>Print do replay ou da mesa — o
+      KKNuths lê cartas, stacks, posições e a ação completa. Funciona para
+      <b>qualquer</b> sala.</p></div>
+      <div class="card"><h3>📄 Arquivo de mãos (.txt)</h3><p>GGPoker (PokerCraft →
+      download), PokerStars — inclusive Zoom —, Winamax, PartyPoker e 888poker.
+      Um torneio inteiro de uma vez.</p></div>
+      <div class="card"><h3>📋 Texto colado</h3><p>Cole a sessão direto no chat. O
+      Telegram cortou em partes? Cole em sequência que o bot <b>remonta tudo
+      sozinho</b> — e responda “analisar” se quiser fechar a conta.</p></div>
+      <div class="card"><h3>📊 CSV do tracker</h3><p>Hold'em Manager, PokerTracker
+      e afins — os resumos entram no seu perfil e nos relatórios.</p></div>
+      <div class="card"><h3>🎙️ Áudio</h3><p>Grave a pergunta por voz. O coach
+      entende e responde — no seu contexto, com as suas mãos.</p></div>
+      <div class="card"><h3>📑 PDF</h3><p>Relatórios em PDF também são lidos.</p></div>
+    </div>
   </div>
 </section>
 

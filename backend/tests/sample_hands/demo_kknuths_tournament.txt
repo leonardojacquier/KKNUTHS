@@ -1,0 +1,416 @@
+Poker Hand #TM7000000001: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level5(100/200(25)) - 2026/07/08 20:01:10
+Table '3' 6-max Seat #4 is the button
+Seat 1: a1b2c3d4 (12,400 in chips)
+Seat 2: e5f6a7b8 (9,850 in chips)
+Seat 3: c9d0e1f2 (15,200 in chips)
+Seat 4: Hero (10,000 in chips)
+Seat 5: b3c4d5e6 (8,300 in chips)
+Seat 6: f7a8b9c0 (11,050 in chips)
+a1b2c3d4: posts the ante 25
+e5f6a7b8: posts the ante 25
+c9d0e1f2: posts the ante 25
+Hero: posts the ante 25
+b3c4d5e6: posts the ante 25
+f7a8b9c0: posts the ante 25
+b3c4d5e6: posts small blind 100
+f7a8b9c0: posts big blind 200
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [As Kd]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+a1b2c3d4: folds
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: raises 300 to 500
+b3c4d5e6: folds
+f7a8b9c0: calls 300
+* FLOP * [Ah 7c 2d]
+f7a8b9c0: checks
+Hero: bets 600
+f7a8b9c0: folds
+Uncalled bet (600) returned to Hero
+Hero collected 1,250 from pot
+* SUMMARY *
+Total pot 1,250 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [Ah 7c 2d]
+Seat 4: Hero (button) collected (1,250)
+Seat 6: f7a8b9c0 (big blind) folded on the Flop
+
+Poker Hand #TM7000000002: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level5(100/200(25)) - 2026/07/08 20:03:42
+Table '3' 6-max Seat #5 is the button
+Seat 1: a1b2c3d4 (12,375 in chips)
+Seat 2: e5f6a7b8 (9,825 in chips)
+Seat 3: c9d0e1f2 (15,175 in chips)
+Seat 4: Hero (11,025 in chips)
+Seat 5: b3c4d5e6 (8,175 in chips)
+Seat 6: f7a8b9c0 (10,325 in chips)
+a1b2c3d4: posts the ante 25
+e5f6a7b8: posts the ante 25
+c9d0e1f2: posts the ante 25
+Hero: posts the ante 25
+b3c4d5e6: posts the ante 25
+f7a8b9c0: posts the ante 25
+f7a8b9c0: posts small blind 100
+a1b2c3d4: posts big blind 200
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [7h 7s]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: raises 300 to 500
+b3c4d5e6: folds
+f7a8b9c0: raises 1,100 to 1,600
+a1b2c3d4: folds
+Hero: calls 1,100
+* FLOP * [Kc 9h 4s]
+f7a8b9c0: bets 1,800
+Hero: folds
+Uncalled bet (1,800) returned to f7a8b9c0
+f7a8b9c0 collected 3,750 from pot
+* SUMMARY *
+Total pot 3,750 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [Kc 9h 4s]
+Seat 4: Hero folded on the Flop
+Seat 6: f7a8b9c0 (small blind) collected (3,750)
+
+Poker Hand #TM7000000003: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level5(100/200(25)) - 2026/07/08 20:05:18
+Table '3' 6-max Seat #6 is the button
+Seat 1: a1b2c3d4 (12,550 in chips)
+Seat 2: e5f6a7b8 (9,800 in chips)
+Seat 3: c9d0e1f2 (15,150 in chips)
+Seat 4: Hero (9,400 in chips)
+Seat 5: b3c4d5e6 (8,150 in chips)
+Seat 6: f7a8b9c0 (12,450 in chips)
+a1b2c3d4: posts the ante 25
+e5f6a7b8: posts the ante 25
+c9d0e1f2: posts the ante 25
+Hero: posts the ante 25
+b3c4d5e6: posts the ante 25
+f7a8b9c0: posts the ante 25
+a1b2c3d4: posts small blind 100
+e5f6a7b8: posts big blind 200
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [9d 2c]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+c9d0e1f2: folds
+Hero: folds
+b3c4d5e6: folds
+f7a8b9c0: raises 300 to 500
+a1b2c3d4: folds
+e5f6a7b8: folds
+Uncalled bet (300) returned to f7a8b9c0
+f7a8b9c0 collected 650 from pot
+* SUMMARY *
+Total pot 650 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Seat 4: Hero folded before Flop
+Seat 6: f7a8b9c0 (button) collected (650)
+
+Poker Hand #TM7000000004: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level6(150/300(40)) - 2026/07/08 20:08:55
+Table '3' 6-max Seat #1 is the button
+Seat 1: a1b2c3d4 (12,425 in chips)
+Seat 2: e5f6a7b8 (9,575 in chips)
+Seat 3: c9d0e1f2 (15,125 in chips)
+Seat 4: Hero (9,375 in chips)
+Seat 5: b3c4d5e6 (8,125 in chips)
+Seat 6: f7a8b9c0 (13,075 in chips)
+a1b2c3d4: posts the ante 40
+e5f6a7b8: posts the ante 40
+c9d0e1f2: posts the ante 40
+Hero: posts the ante 40
+b3c4d5e6: posts the ante 40
+f7a8b9c0: posts the ante 40
+e5f6a7b8: posts small blind 150
+c9d0e1f2: posts big blind 300
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [Ts 9s]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+Hero: raises 450 to 750
+b3c4d5e6: folds
+f7a8b9c0: folds
+a1b2c3d4: calls 750
+e5f6a7b8: folds
+c9d0e1f2: folds
+* FLOP * [8h 7s 2c]
+Hero: bets 900
+a1b2c3d4: calls 900
+* TURN * [8h 7s 2c] [Jd]
+Hero: bets 2,600
+a1b2c3d4: calls 2,600
+* RIVER * [8h 7s 2c Jd] [2h]
+Hero: bets 5,085 and is all-in
+a1b2c3d4: calls 5,085
+Hero: shows [Ts 9s] (a straight, Seven to Jack)
+a1b2c3d4: shows [8c 8d] (a full house, Eights full of Deuces)
+* SHOWDOWN *
+a1b2c3d4 collected 19,360 from pot
+* SUMMARY *
+Total pot 19,360 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [8h 7s 2c Jd 2h]
+Seat 1: a1b2c3d4 (button) showed [8c 8d] and won (19,360) with a full house, Eights full of Deuces
+Seat 4: Hero showed [Ts 9s] and lost with a straight, Seven to Jack
+
+Poker Hand #TM7000000005: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level6(150/300(40)) - 2026/07/08 20:12:30
+Table '3' 6-max Seat #2 is the button
+Seat 1: a1b2c3d4 (22,410 in chips)
+Seat 2: e5f6a7b8 (9,385 in chips)
+Seat 3: c9d0e1f2 (14,785 in chips)
+Seat 5: b3c4d5e6 (8,085 in chips)
+Seat 6: f7a8b9c0 (13,035 in chips)
+Seat 4: Hero (10,300 in chips)
+a1b2c3d4: posts the ante 40
+e5f6a7b8: posts the ante 40
+c9d0e1f2: posts the ante 40
+Hero: posts the ante 40
+b3c4d5e6: posts the ante 40
+f7a8b9c0: posts the ante 40
+c9d0e1f2: posts small blind 150
+Hero: posts big blind 300
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [Qd Qs]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+b3c4d5e6: folds
+f7a8b9c0: raises 450 to 750
+a1b2c3d4: folds
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: raises 1,750 to 2,500
+f7a8b9c0: raises 10,495 to 12,995 and is all-in
+Hero: calls 7,760 and is all-in
+Uncalled bet (2,735) returned to f7a8b9c0
+Hero: shows [Qd Qs] (a pair of Queens)
+f7a8b9c0: shows [Ac Ah] (a pair of Aces)
+* FLOP * [Kd 5c 3h]
+* TURN * [Kd 5c 3h] [6s]
+* RIVER * [Kd 5c 3h 6s] [9c]
+* SHOWDOWN *
+f7a8b9c0 collected 20,910 from pot
+* SUMMARY *
+Total pot 20,910 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [Kd 5c 3h 6s 9c]
+Seat 4: Hero (big blind) showed [Qd Qs] and lost with a pair of Queens
+Seat 6: f7a8b9c0 showed [Ac Ah] and won (20,910) with a pair of Aces
+
+Poker Hand #TM7000000006: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level7(200/400(50)) - 2026/07/08 20:15:05
+Table '3' 6-max Seat #3 is the button
+Seat 1: a1b2c3d4 (22,370 in chips)
+Seat 2: e5f6a7b8 (9,345 in chips)
+Seat 3: c9d0e1f2 (14,595 in chips)
+Seat 4: Hero (10,400 in chips)
+Seat 5: b3c4d5e6 (8,045 in chips)
+Seat 6: f7a8b9c0 (23,645 in chips)
+a1b2c3d4: posts the ante 50
+e5f6a7b8: posts the ante 50
+c9d0e1f2: posts the ante 50
+Hero: posts the ante 50
+b3c4d5e6: posts the ante 50
+f7a8b9c0: posts the ante 50
+b3c4d5e6: posts small blind 200
+f7a8b9c0: posts big blind 400
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [7d 2s]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+a1b2c3d4: folds
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: folds
+b3c4d5e6: folds
+Uncalled bet (200) returned to f7a8b9c0
+f7a8b9c0 collected 700 from pot
+* SUMMARY *
+Total pot 700 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Seat 4: Hero folded before Flop
+Seat 6: f7a8b9c0 (big blind) collected (700)
+
+Poker Hand #TM7000000007: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level7(200/400(50)) - 2026/07/08 20:16:40
+Table '3' 6-max Seat #4 is the button
+Seat 1: a1b2c3d4 (22,320 in chips)
+Seat 2: e5f6a7b8 (9,295 in chips)
+Seat 3: c9d0e1f2 (14,545 in chips)
+Seat 4: Hero (10,000 in chips)
+Seat 5: b3c4d5e6 (7,795 in chips)
+Seat 6: f7a8b9c0 (24,045 in chips)
+a1b2c3d4: posts the ante 50
+e5f6a7b8: posts the ante 50
+c9d0e1f2: posts the ante 50
+Hero: posts the ante 50
+b3c4d5e6: posts the ante 50
+f7a8b9c0: posts the ante 50
+b3c4d5e6: posts small blind 200
+f7a8b9c0: posts big blind 400
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [Kh 5d]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+a1b2c3d4: folds
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: calls 400
+b3c4d5e6: folds
+f7a8b9c0: checks
+* FLOP * [Qc 8s 3d]
+f7a8b9c0: bets 600
+Hero: calls 600
+* TURN * [Qc 8s 3d] [Kc]
+f7a8b9c0: bets 1,500
+Hero: calls 1,500
+* RIVER * [Qc 8s 3d Kc] [Ad]
+f7a8b9c0: bets 3,200
+Hero: folds
+Uncalled bet (3,200) returned to f7a8b9c0
+f7a8b9c0 collected 5,500 from pot
+* SUMMARY *
+Total pot 5,500 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [Qc 8s 3d Kc Ad]
+Seat 4: Hero (button) folded on the River
+Seat 6: f7a8b9c0 (big blind) collected (5,500)
+
+Poker Hand #TM7000000008: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level7(200/400(50)) - 2026/07/08 20:19:22
+Table '3' 6-max Seat #5 is the button
+Seat 1: a1b2c3d4 (22,270 in chips)
+Seat 2: e5f6a7b8 (9,245 in chips)
+Seat 3: c9d0e1f2 (14,495 in chips)
+Seat 4: Hero (7,450 in chips)
+Seat 5: b3c4d5e6 (7,545 in chips)
+Seat 6: f7a8b9c0 (29,495 in chips)
+a1b2c3d4: posts the ante 50
+e5f6a7b8: posts the ante 50
+c9d0e1f2: posts the ante 50
+Hero: posts the ante 50
+b3c4d5e6: posts the ante 50
+f7a8b9c0: posts the ante 50
+f7a8b9c0: posts small blind 200
+a1b2c3d4: posts big blind 400
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [Jc 8h]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+e5f6a7b8: folds
+c9d0e1f2: folds
+Hero: raises 400 to 800
+b3c4d5e6: folds
+f7a8b9c0: raises 2,000 to 2,800
+a1b2c3d4: folds
+Hero: folds
+Uncalled bet (2,000) returned to f7a8b9c0
+f7a8b9c0 collected 2,500 from pot
+* SUMMARY *
+Total pot 2,500 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Seat 4: Hero folded before Flop
+Seat 6: f7a8b9c0 (small blind) collected (2,500)
+
+Poker Hand #TM7000000009: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level8(300/600(75)) - 2026/07/08 20:23:48
+Table '3' 6-max Seat #6 is the button
+Seat 1: a1b2c3d4 (22,220 in chips)
+Seat 2: e5f6a7b8 (9,195 in chips)
+Seat 3: c9d0e1f2 (14,445 in chips)
+Seat 4: Hero (6,600 in chips)
+Seat 5: b3c4d5e6 (7,495 in chips)
+Seat 6: f7a8b9c0 (32,045 in chips)
+a1b2c3d4: posts the ante 75
+e5f6a7b8: posts the ante 75
+c9d0e1f2: posts the ante 75
+Hero: posts the ante 75
+b3c4d5e6: posts the ante 75
+f7a8b9c0: posts the ante 75
+a1b2c3d4: posts small blind 300
+e5f6a7b8: posts big blind 600
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [Ad Qd]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+c9d0e1f2: folds
+Hero: raises 5,925 to 6,525 and is all-in
+b3c4d5e6: folds
+f7a8b9c0: folds
+a1b2c3d4: folds
+e5f6a7b8: folds
+Uncalled bet (5,925) returned to Hero
+Hero collected 1,950 from pot
+* SUMMARY *
+Total pot 1,950 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Seat 4: Hero collected (1,950)
+
+Poker Hand #TM7000000010: Tournament #300777888, KKN Demo $22 Hold'em No Limit - Level8(300/600(75)) - 2026/07/08 20:27:15
+Table '3' 6-max Seat #1 is the button
+Seat 1: a1b2c3d4 (21,845 in chips)
+Seat 2: e5f6a7b8 (8,520 in chips)
+Seat 3: c9d0e1f2 (14,370 in chips)
+Seat 4: Hero (7,950 in chips)
+Seat 5: b3c4d5e6 (7,420 in chips)
+Seat 6: f7a8b9c0 (31,970 in chips)
+a1b2c3d4: posts the ante 75
+e5f6a7b8: posts the ante 75
+c9d0e1f2: posts the ante 75
+Hero: posts the ante 75
+b3c4d5e6: posts the ante 75
+f7a8b9c0: posts the ante 75
+e5f6a7b8: posts small blind 300
+c9d0e1f2: posts big blind 600
+* HOLE CARDS *
+Dealt to a1b2c3d4
+Dealt to e5f6a7b8
+Dealt to c9d0e1f2
+Dealt to Hero [6d 6c]
+Dealt to b3c4d5e6
+Dealt to f7a8b9c0
+Hero: calls 600
+b3c4d5e6: folds
+f7a8b9c0: folds
+a1b2c3d4: folds
+e5f6a7b8: calls 300
+c9d0e1f2: checks
+* FLOP * [6h 8d Qs]
+e5f6a7b8: checks
+c9d0e1f2: bets 900
+Hero: raises 1,500 to 2,400
+e5f6a7b8: folds
+c9d0e1f2: calls 1,500
+* TURN * [6h 8d Qs] [3c]
+c9d0e1f2: checks
+Hero: bets 2,700
+c9d0e1f2: calls 2,700
+* RIVER * [6h 8d Qs 3c] [Th]
+c9d0e1f2: checks
+Hero: bets 2,175 and is all-in
+c9d0e1f2: calls 2,175
+Hero: shows [6d 6c] (three of a kind, Sixes)
+c9d0e1f2: shows [Qh 9h] (a pair of Queens)
+* SHOWDOWN *
+Hero collected 17,400 from pot
+* SUMMARY *
+Total pot 17,400 | Rake 0 | Jackpot 0 | Bingo 0 | Fortune 0 | Tax 0
+Board [6h 8d Qs 3c Th]
+Seat 3: c9d0e1f2 (big blind) showed [Qh 9h] and lost with a pair of Queens
+Seat 4: Hero showed [6d 6c] and won (17,400) with three of a kind, Sixes
