@@ -342,7 +342,11 @@ def build_manual_html() -> str:
     <h2>📊 Os gráficos que <span class="n">só o KKNuths</span> te manda</h2>
     <p class="lead">Matriz 13×13 clássica — gerada na hora, do equilíbrio calculado,
     para o SEU stack. Peça na conversa ou use <code style="background:#0B100D;
-    border:1px solid var(--line);padding:1px 7px;border-radius:6px;color:var(--gold)">/range</code>.</p>
+    border:1px solid var(--line);padding:1px 7px;border-radius:6px;color:var(--gold)">/range</code>.
+    E o coach monta <b style="color:var(--ink)">sob medida</b>: peça no chat
+    <i>“me monta a tabela de TT+, AQs+, KQs”</i> e qualquer combinação de mãos
+    vira gráfico — inclusive o equilíbrio de all-in para o stack que você quiser,
+    em fichas ou sob ICM.</p>
     <div class="shots">
       <figure class="shot"><img src="{_img('btn_open.png')}" alt="Range de open BTN">
       <figcaption><b>Open-raise por posição</b> · <code>/range btn</code> — o range de
