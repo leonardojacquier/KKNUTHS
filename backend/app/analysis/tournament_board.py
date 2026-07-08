@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
-W, H = 900, 660
+W, H = 900, 704
 PAD_L, PAD_R = 64, 24
 KPI_Y, KPI_H = 96, 84
 KPI2_Y = 192
@@ -191,24 +191,29 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
             d.line([PAD_L, y, W - PAD_R, y], fill=GRID)
             d.text((16, y - 7), f"{ymax*frac:.0f}", fill=GREY_TEXT, font=f_lab)
 
-        # zona de perigo (<10bb)
+        # zona de perigo (<10bb) — rótulo à esquerda para não brigar com o fim
+        # da curva
         if ymax > 10:
             y10 = CHART_Y + CHART_H - (10 / ymax) * CHART_H
             d.line([PAD_L, y10, W - PAD_R, y10], fill=(224, 190, 186), width=2)
-            d.text((W - PAD_R - 96, y10 - 16), "zona de shove", fill=RED, font=f_lab)
+            d.text((PAD_L + 6, y10 - 16), "zona de shove", fill=RED, font=f_lab)
 
         pts = [
             (PAD_L + plot_w * (xi - x0) / max(x1 - x0, 1),
              CHART_Y + CHART_H - (v / ymax) * CHART_H)
             for xi, v in pts_data
         ]
-        # área sob a curva
+        # área sob a curva; com muitas mãos os marcadores viram poluição —
+        # mostra 1 a cada N e o ponto final
         poly = pts + [(pts[-1][0], CHART_Y + CHART_H), (pts[0][0], CHART_Y + CHART_H)]
         d.polygon(poly, fill=(208, 228, 218))
         d.line(pts, fill=FELT_DARK, width=3)
-        for p in pts:
-            d.ellipse([p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3], fill=FELT)
-        d.text((pts[-1][0] - 40, pts[-1][1] - 22),
+        step = max(1, len(pts) // 36)
+        for i, p in enumerate(pts):
+            if i % step == 0 or i == len(pts) - 1:
+                d.ellipse([p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3], fill=FELT)
+        lbl_y = pts[-1][1] - 22 if pts[-1][1] > CHART_Y + 26 else pts[-1][1] + 10
+        d.text((min(pts[-1][0] - 40, W - PAD_R - 52), lbl_y),
                f"{ys_v[-1]:.0f}bb", fill=FELT_DARK, font=_font(13))
         d.text((PAD_L, CHART_Y + CHART_H + 8), "mão 1", fill=GREY_TEXT, font=f_lab)
         d.text((W - PAD_R - 60, CHART_Y + CHART_H + 8),
@@ -217,18 +222,18 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         d.text((PAD_L, CHART_Y + 40), "stack indisponível nas mãos enviadas",
                fill=GREY_TEXT, font=f_sub)
 
-    # ----------------------- melhores/piores momentos -----------------------
-    y = CHART_Y + CHART_H + 40
+    # --------------------- melhores/piores momentos (lado a lado) ----------
+    y = CHART_Y + CHART_H + 42
     if s["best"] and s["worst"]:
         best, worst = s["best"], s["worst"]
         d.text((PAD_L, y),
                f"▲ melhor mão: {' '.join(best.get('hero_cards') or ['?'])} "
                f"({best['net_bb']:+.1f} BB)", fill=GREEN, font=_font(14))
-        d.text((PAD_L, y + 24),
+        d.text((W // 2 + 10, y),
                f"▼ pior mão: {' '.join(worst.get('hero_cards') or ['?'])} "
                f"({worst['net_bb']:+.1f} BB)", fill=RED, font=_font(14))
 
-    d.text((PAD_L, H - 26), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT, font=f_lab)
+    d.text((PAD_L, H - 28), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT, font=f_lab)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
 

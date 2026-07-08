@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 RANKS = "AKQJT98765432"
 
-CELL = 58
+CELL = 66
 MARGIN = 16
 TITLE_H = 54
 LEGEND_H = 40
@@ -92,9 +92,14 @@ def render_range_png(
             y = top + row * CELL
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=_blend(freq))
             text_col = PAPER if freq > 0.45 else (INK if freq > 0.005 else GREY_TEXT)
-            d.text((x + 6, y + 8), hand, fill=text_col, font=f_cell)
-            if 0.005 < freq < 0.995:
-                d.text((x + 6, y + CELL - 22), f"{freq*100:.0f}%",
+            has_pct = 0.005 < freq < 0.995
+            hy = y + (10 if has_pct else (CELL - 16) // 2)
+            w = d.textlength(hand, font=f_cell)
+            d.text((x + (CELL - 2 - w) / 2, hy), hand, fill=text_col, font=f_cell)
+            if has_pct:
+                t = f"{freq*100:.0f}%"
+                w = d.textlength(t, font=f_pct)
+                d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
                        fill=text_col, font=f_pct)
 
     pct = 100 * in_range / total_combos
@@ -156,8 +161,11 @@ def render_ev_range_png(
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=color)
             luminous = sum(color) / 3
             text_col = PAPER if luminous < 140 else INK
-            d.text((x + 6, y + 7), hand, fill=text_col, font=f_cell)
-            d.text((x + 6, y + CELL - 22), f"{ev - fold_ev:+.1f}",
+            w = d.textlength(hand, font=f_cell)
+            d.text((x + (CELL - 2 - w) / 2, y + 9), hand, fill=text_col, font=f_cell)
+            t = f"{ev - fold_ev:+.1f}"
+            w = d.textlength(t, font=f_ev)
+            d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
                    fill=text_col, font=f_ev)
 
     d.text(
