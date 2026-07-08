@@ -51,7 +51,8 @@ WELCOME = (
     "• /stats — perfil de estilo, leaks em bb/100 e KKN Tilt Detector\n"
     "• /estilo — cartão visual do seu estilo vs os grandes + plano de transição\n"
     "• /evolucao — sua linha do tempo (VPIP, PFR, resultado…) com gráficos\n"
-    "• /torneio — quadro do último campeonato: curva do stack mão a mão\n\n"
+    "• /torneio — quadro do último campeonato: curva do stack mão a mão\n"
+    "• /relatorio — o torneio inteiro analisado, mão por mão (HTML)\n\n"
     "🎮 *Treino*\n"
     "• /simular — jogue uma mão sua de novo, decisão a decisão\n"
     "• /treino — drill rápido: o que você faria neste spot?\n\n"
@@ -76,6 +77,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("estilo", "Você vs os grandes jogadores"),
             BotCommand("evolucao", "Sua linha do tempo com gráficos"),
             BotCommand("torneio", "Quadro do último campeonato"),
+            BotCommand("relatorio", "Relatório mão a mão 📋"),
             BotCommand("simular", "Rejogue uma mão sua 🎮"),
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("range", "Gráficos de range 13×13"),
@@ -246,6 +248,29 @@ async def on_style_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
                                f"Aluno definiu meta de estilo: migrar para {target.upper()}.")
 
     await asyncio.to_thread(_save_goal)
+
+
+async def cmd_relatorio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Relatório mão a mão do último torneio, sob demanda."""
+    import io as _io
+
+    await _log(update, "relatorio_cmd")
+    await update.message.reply_text("📋 Montando o relatório mão a mão do seu "
+                                    "último torneio… (leva ~1 min)")
+    from app.bot.processing import report_doc_for_user
+
+    tg_user = update.effective_user
+    doc = await asyncio.to_thread(report_doc_for_user, tg_user.id, tg_user.username)
+    if not doc:
+        await update.message.reply_text(
+            "Ainda não tenho um torneio seu com mãos suficientes (mínimo 8). "
+            "Manda o arquivo do campeonato que eu preparo o relatório."
+        )
+        return
+    data, fname, caption = doc
+    await update.message.reply_document(
+        document=_io.BytesIO(data), filename=fname, caption=caption[:1000]
+    )
 
 
 async def cmd_manual(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -825,6 +850,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("torneio", cmd_torneio))
     app.add_handler(CommandHandler("estilo", cmd_estilo))
     app.add_handler(CommandHandler("manual", cmd_manual))
+    app.add_handler(CommandHandler("relatorio", cmd_relatorio))
     app.add_handler(CallbackQueryHandler(on_evo_indicator, pattern=r"^evo:"))
     app.add_handler(CallbackQueryHandler(on_style_target, pattern=r"^est:"))
     app.add_handler(CommandHandler("ask", cmd_ask))

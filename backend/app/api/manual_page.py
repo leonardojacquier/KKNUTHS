@@ -193,6 +193,10 @@ def build_manual_html() -> str:
       blefando?”</i> e receba a leitura em odds — <b>“o sizing derrubou blefe de
       40% pra 20%: 4 pra 1 que é valor”</b> — comparada com o preço do seu
       call.</p></div>
+      <div class="card"><h3>📋 Análise completa, mão a mão</h3><p>Envie um
+      torneio e receba o relatório com <b>todas</b> as mãos analisadas — cada
+      uma com a linha, os números e a leitura do coach (e a versão 🎈 simples
+      junto). Identificadas pelo Nº da sala, para conferir no tracker.</p></div>
       <div class="card"><h3>⚖️ Decisão ≠ resultado</h3><p>Cada mão do relatório
       leva dois selos independentes: <b>decisão</b> (julgada pelo preço na hora)
       e <b>resultado</b>. Ganhar com decisão ruim continua ruim — perder com
@@ -308,6 +312,11 @@ def build_manual_html() -> str:
       <tr><td><code>/torneio</code></td><td><b>Quadro do campeonato</b>: KPIs e a
       curva do seu stack mão a mão no último torneio enviado — a história do
       campeonato num olhar (chega automático após o upload).</td></tr>
+      <tr><td><code>/relatorio</code></td><td><b>Relatório mão a mão</b>: o torneio
+      inteiro num arquivo — cada mão jogada com análise do coach, selo de
+      <b>decisão ✅/❌</b> separado do resultado, versão <b>🎈 mais simples</b> em
+      cada mão e veredito técnico de todos os folds. Chega automático quando você
+      envia um torneio, e este comando reenvia quando quiser.</td></tr>
       <tr><td><code>/simular</code></td><td><b>Simulador</b>: jogue uma mão SUA de novo,
       decisão a decisão, com botões — no final o coach compara sua linha com a real
       e dá o veredito do “e se”.</td></tr>

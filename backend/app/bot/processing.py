@@ -236,8 +236,8 @@ def _process_upload_inner(
 
     # relatório mão a mão COMPLETO em anexo — quem sobe um torneio recebe o
     # detalhe de TODAS as mãos, não só o resumo (feedback duro do beta/admin:
-    # "pedi a análise completa das mãos")
-    if is_tournament and len(hands) >= 8:
+    # "pedi a análise completa das mãos"). REPORT_AUTO=0 -> só via /relatorio
+    if is_tournament and len(hands) >= 8 and get_settings().report_auto:
         try:
             from app.analysis.handreport import (
                 _played, build_report_html, per_hand_analysis_llm,
@@ -421,6 +421,53 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                 log.warning("falha ao gravar insight de follow-up: %s", exc)
 
     return answer
+
+
+def report_doc_for_user(telegram_id: int,
+                        username: str | None) -> tuple[bytes, str, str] | None:
+    """/relatorio: relatório mão a mão do ÚLTIMO torneio do usuário no banco.
+
+    Retorna (bytes, filename, caption) ou None sem material.
+    """
+    repo = get_repository()
+    if not repo.enabled:
+        return None
+    user = repo.get_or_create_user(telegram_id, username)
+    if not user:
+        return None
+    tourneys = [h for h in repo.get_all_hands(user["id"]) if h.tournament_id]
+    if len(tourneys) < 8:
+        return None
+    latest = max(tourneys, key=lambda h: h.played_at or "")
+    hands = sorted((h for h in tourneys
+                    if h.tournament_id == latest.tournament_id),
+                   key=lambda h: h.played_at or "")
+    if len(hands) < 8:
+        return None
+
+    from app.analysis.handreport import (
+        _played, build_report_html, per_hand_analysis_llm,
+    )
+
+    board_png = None
+    try:
+        from app.analysis.tournament_board import render_tournament_board
+
+        board_png = render_tournament_board(hands)[0]
+    except Exception:
+        pass
+    played = [h for h in hands if _played(h)]
+    per_hand = per_hand_analysis_llm(played) if len(played) <= 40 else {}
+    html = build_report_html(hands, "", board_png, per_hand_analysis=per_hand)
+    repo.log_event(telegram_id, username, "relatorio",
+                   {"tournament": latest.tournament_id, "hands": len(hands)})
+    return (
+        html.encode("utf-8"),
+        f"KKNuths-MaoAMao-{latest.tournament_id or 'torneio'}.html",
+        "📋 Relatório mão a mão do seu último torneio — cada mão com análise "
+        "e a versão 🎈 mais simples. Quer abrir alguma? Me manda o Nº ou as "
+        "cartas aqui no chat.",
+    )
 
 
 def simplify_last(telegram_id: int, username: str | None) -> str | None:

@@ -47,6 +47,10 @@ class Settings:
         # flag de rollout do shrinkage bayesiano nas stats (BAYES_STATS=0
         # desliga em produção sem deploy); morre quando estabilizar
         self.bayes_stats: bool = os.getenv("BAYES_STATS", "1") != "0"
+        # relatório mão a mão anexado automaticamente no upload de torneio;
+        # REPORT_AUTO=0 muda para só sob demanda (/relatorio) — alavanca de
+        # plano no futuro (free = sob demanda, Pro = automático)
+        self.report_auto: bool = os.getenv("REPORT_AUTO", "1") != "0"
 
 
 @lru_cache
