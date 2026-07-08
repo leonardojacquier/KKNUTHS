@@ -256,7 +256,7 @@ def test_detect_mental_runs_on_real_hands():
     out = detect_mental(_hands())          # 4 mãos: sem diagnóstico, sem crash
     assert out == []
     assert mental_text(out) == ""
-    assert "Cabeça no jogo" in mental_text(
+    assert "Tilt Detector" in mental_text(
         [{"frase": "depois de perder um pote grande você abre 40%"}])
 
 

@@ -28,7 +28,7 @@ def main() -> int:
     _send_text(token, dest,
                f"👁 Prévia de admin — o /stats do usuário {owner} como sai "
                "hoje (números corrigidos por amostra, leaks em bb/100 e "
-               "leitura de cabeça):")
+               "Tilt Detector):")
     _send_text(token, dest, msg)
     print(f"prévia de {owner} enviada a {dest} ({len(msg)} chars)")
     return 0

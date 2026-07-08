@@ -26,23 +26,28 @@ def _img(name: str) -> str:
 _CSS = """
 *{box-sizing:border-box}
 :root{--bg:#0F1512;--card:#161D18;--ink:#EDF1ED;--mut:#9AA69F;--felt:#43A97C;
---felt2:#2E7D5B;--gold:#D2A55C;--line:#243029}
+--felt2:#2E7D5B;--gold:#D2A55C;--goldink:#E8C083;--line:#243029;
+--serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif}
 body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
 font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;
 print-color-adjust:exact;-webkit-print-color-adjust:exact}
 a{color:var(--felt);text-decoration:none}
 .wrap{max-width:900px;margin:0 auto;padding:0 20px}
-.hero{padding:56px 0 40px;text-align:center;
+.hero{padding:64px 0 46px;text-align:center;
 background:radial-gradient(ellipse at top,#1A2620 0%,var(--bg) 70%)}
-h1{font-size:clamp(26px,5vw,38px);margin:10px 0 6px}
+h1{font-family:var(--serif);font-size:clamp(30px,5.5vw,46px);margin:10px 0 8px;
+letter-spacing:-.01em;text-wrap:balance}
 h1 em{color:var(--gold);font-style:normal}
-.tag{color:var(--mut);max-width:600px;margin:0 auto 22px}
+.tag{color:var(--mut);max-width:620px;margin:0 auto 24px}
 .cta{display:inline-block;background:var(--felt);color:#08120D;font-weight:700;
 padding:13px 30px;border-radius:10px;font-size:16px}
-h2{font-size:clamp(20px,3.5vw,26px);margin:0 0 4px;text-align:center}
+h2{font-family:var(--serif);font-size:clamp(22px,3.8vw,31px);margin:0 0 6px;
+text-align:center;letter-spacing:-.01em;text-wrap:balance}
 h2 .n{color:var(--gold)}
-section{padding:38px 0}
-.lead{color:var(--mut);text-align:center;max-width:640px;margin:0 auto 26px}
+.eyebrow{display:block;text-align:center;color:var(--gold);font-size:11.5px;
+letter-spacing:.24em;text-transform:uppercase;font-weight:700;margin:0 0 10px}
+section{padding:46px 0}
+.lead{color:var(--mut);text-align:center;max-width:660px;margin:0 auto 28px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
 padding:18px 20px;border-top:3px solid var(--felt2)}
@@ -79,7 +84,25 @@ footer{border-top:1px solid var(--line);padding:30px 0;text-align:center;
 color:var(--mut);font-size:13.5px}
 .final{padding:52px 0;text-align:center;
 background:radial-gradient(ellipse at bottom,#1A2620 0%,var(--bg) 70%)}
+.final h2{font-size:clamp(24px,4vw,34px)}
 .top{font-size:13.5px;display:block;padding:14px 20px}
+.sci{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.sci-row{display:flex;gap:14px;align-items:baseline;background:var(--card);
+border:1px solid var(--line);border-radius:10px;padding:13px 17px;flex-wrap:wrap}
+.sci-row b{font-size:15px;white-space:nowrap}
+.sci-row span{color:var(--mut);font-size:13.5px;flex:1;min-width:220px}
+.badge{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#0F1512;
+background:var(--gold);border-radius:5px;padding:2px 8px;white-space:nowrap}
+.badge.q{background:transparent;color:var(--goldink);border:1px solid var(--gold)}
+@media print{
+  .top,.cta{display:none}
+  .hero{padding:30px 0 22px}
+  section,.final{padding:22px 0}
+  h2,.eyebrow,.lead{break-after:avoid;page-break-after:avoid}
+  .card,.shot,.msg,.sci-row,.faq details,tr,figure,.chat{break-inside:avoid;
+  page-break-inside:avoid}
+  .grid,.shots{grid-auto-rows:min-content}
+}
 """
 
 
@@ -100,12 +123,14 @@ def build_manual_html() -> str:
   <div style="font-size:40px">♠️</div>
   <h1>Manual do <em>Jogador</em></h1>
   <p class="tag">Tudo que o KKNuths faz por você — com as imagens REAIS do que
-  chega no seu Telegram. Cinco minutos de leitura, anos de leak a menos.</p>
+  chega no seu Telegram. Movido pelo <b>Motor KKN</b>: matemática de solver,
+  estatística bayesiana e dois Prêmios Nobel de Economia na fundação.</p>
   <a class="cta" href="{BOT_URL}">Abrir o bot agora →</a>
 </div>
 
 <section>
   <div class="wrap">
+    <span class="eyebrow">Como começar</span>
     <h2>📥 Envie suas mãos <span class="n">do seu jeito</span></h2>
     <p class="lead">Qualquer formato. De qualquer sala. Sem configurar nada.</p>
     <div class="grid">
@@ -129,6 +154,7 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
+    <span class="eyebrow">Na prática</span>
     <h2>💬 Assim é <span class="n">uma análise</span></h2>
     <p class="lead">Números calculados — nunca estimados — e o gráfico junto, na conversa.</p>
     <div class="chat">
@@ -151,6 +177,7 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
+    <span class="eyebrow">A artilharia</span>
     <h2>📊 Os gráficos que <span class="n">só o KKNuths</span> te manda</h2>
     <p class="lead">Matriz 13×13 clássica — gerada na hora, do equilíbrio calculado,
     para o SEU stack. Peça na conversa ou use <code style="background:#0B100D;
@@ -174,41 +201,77 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
-    <h2>🧠 Motor KKN — o coach que lê <span class="n">números E cabeça</span></h2>
-    <p class="lead">Análise construída sobre estatística bayesiana e sobre a ciência
-    do julgamento humano que ganhou o <b>Prêmio Nobel de Economia</b> (Daniel
-    Kahneman, 2002). Em português: números que não mentem — e um coach que percebe
-    o que o seu jogo revela sobre a sua cabeça.</p>
+    <span class="eyebrow">O diferencial</span>
+    <h2>Motor KKN — engenharia de análise, <span class="n">não achismo</span></h2>
+    <p class="lead">Cada veredito do coach nasce de motores matemáticos — equilíbrio
+    de Nash, inferência bayesiana, simulação Monte Carlo e a teoria da perspectiva
+    de Kahneman. A inteligência artificial entra no final, para traduzir o cálculo
+    em conversa de mesa.</p>
     <div class="grid">
-      <div class="card"><h3>📏 Números honestos</h3><p>Com poucas mãos, qualquer
-      estatística mente. O Motor KKN diz <b>“seu 3-bet está entre 5 e 14%”</b>
-      até a amostra cravar — a única ferramenta que não te engana com amostra
-      pequena.</p></div>
-      <div class="card"><h3>💸 Leaks em dinheiro</h3><p>Não é “você folda demais”:
-      é <b>“esse leak te custa ~4bb a cada 100 mãos”</b>. O plano de estudo sai
-      rankeado pelo que devolve mais dinheiro primeiro — direto no
-      <code>/stats</code>.</p></div>
-      <div class="card"><h3>🧠 Cabeça no jogo</h3><p>Depois de perder um pote
-      grande, seu jogo muda? O Motor KKN percebe: <b>“você abre 42% das mãos
-      após um pote perdido; sua base é 24%”</b> — e mostra quanto custou.
-      Cuidado de coach, não julgamento.</p></div>
+      <div class="card"><h3>📏 Estatística com rigor científico</h3><p>Suas taxas
+      são estimadas por inferência bayesiana, com intervalo de confiança — como
+      num estudo de verdade. Amostra curta? O Motor KKN reporta <b>“3-bet entre
+      5 e 14%”</b> e vai fechando o intervalo a cada torneio, até cravar.</p></div>
+      <div class="card"><h3>💸 Leaks precificados</h3><p>Não é “você folda demais”:
+      é <b>“esse leak custa ~4bb a cada 100 mãos”</b>. Cada vazamento do seu jogo
+      é detectado, medido e rankeado pelo que devolve mais dinheiro primeiro —
+      direto no <code>/stats</code>.</p></div>
+      <div class="card"><h3>🚨 Tilt Detector</h3><p>Exclusividade KKNuths: o motor
+      monitora seu jogo depois dos potes grandes — perdidos <b>e</b> ganhos. Se o
+      padrão muda (<b>“você abre 42% das mãos após uma perda; sua base é
+      24%”</b>), ele mostra o desvio e o custo em BB. Nenhum HUD do mercado mede
+      isso.</p></div>
       <div class="card"><h3>🔮 Leitura de vilão</h3><p>Pergunte <i>“ele tava
       blefando?”</i> e receba a leitura em odds — <b>“o sizing derrubou blefe de
       40% pra 20%: 4 pra 1 que é valor”</b> — comparada com o preço do seu
       call.</p></div>
       <div class="card"><h3>⚖️ Decisão ≠ resultado</h3><p>Cada mão do relatório
-      leva dois selos: <b>decisão</b> (julgada pelo preço na hora) e
-      <b>resultado</b>. Ganhar com decisão ruim continua ruim — perder com
-      decisão boa é variância. É assim que se evolui.</p></div>
-      <div class="card"><h3>🌱 Aprende com a base</h3><p>O coach melhora com cada
-      torneio enviado: as leituras ficam mais afiadas para <b>todos</b> conforme
-      a base cresce. Seu upload deixa o Motor KKN mais esperto.</p></div>
+      leva dois selos independentes: <b>decisão</b> (julgada pelo preço na hora)
+      e <b>resultado</b>. Ganhar com decisão ruim continua ruim — perder com
+      decisão boa é variância. É assim que profissional evolui.</p></div>
+      <div class="card"><h3>🌱 Aprende com a base</h3><p>O Motor KKN é calibrado
+      com o jogo real da base: cada torneio enviado afia as leituras para
+      <b>todos</b> os jogadores. Quanto mais gente estuda, mais forte o coach
+      fica.</p></div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
+    <span class="eyebrow">As referências</span>
+    <h2>A ciência por trás — <span class="n">incluindo dois Prêmios Nobel</span></h2>
+    <p class="lead">Um chatbot genérico responde de memória. O KKNuths calcula —
+    sobre metodologias publicadas, testadas por décadas e premiadas.</p>
+    <div class="sci">
+      <div class="sci-row"><span class="badge">NOBEL · 2002</span>
+        <b>Teoria da Perspectiva — Daniel Kahneman</b>
+        <span>a ciência de como decidimos sob risco (e por que perder dói em
+        dobro). É a base do Tilt Detector.</span></div>
+      <div class="sci-row"><span class="badge">NOBEL · 1994</span>
+        <b>Equilíbrio de Nash — John Nash</b>
+        <span>a teoria dos jogos que resolve o all-in: os ranges de shove/call
+        do <code>/range</code> saem desse equilíbrio.</span></div>
+      <div class="sci-row"><span class="badge q">SÉC. XVIII</span>
+        <b>Inferência Bayesiana — Thomas Bayes</b>
+        <span>o padrão-ouro de decisão sob incerteza, usado por fundos
+        quantitativos e ciência de dados: alimenta a leitura de vilão e as suas
+        estatísticas com intervalo.</span></div>
+      <div class="sci-row"><span class="badge q">SOLVER</span>
+        <b>CFR — Counterfactual Regret Minimization</b>
+        <span>o algoritmo dos solvers modernos de poker, rodando nas decisões
+        de river.</span></div>
+      <div class="sci-row"><span class="badge q">SIMULAÇÃO</span>
+        <b>Método de Monte Carlo</b>
+        <span>toda equity é calculada por simulação massiva de mãos — nunca
+        estimada “de cabeça” pela IA.</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Guia rápido</span>
     <h2>🎮 Comandos</h2>
     <p class="lead"></p>
     <div class="tbl"><table>
@@ -216,7 +279,7 @@ def build_manual_html() -> str:
       <tr><td><code>/stats</code></td><td>Seu perfil de estilo (VPIP, agressividade,
       3-bet) — e com <b>qual grande jogador</b> seu jogo parece (Yuri, Akkari,
       Dwan, Negreanu…). Com o Motor KKN: <b>o que está te custando mais</b>
-      (leaks em bb/100) e a leitura de <b>cabeça no jogo</b>.</td></tr>
+      (leaks em bb/100) e o <b>Tilt Detector</b>.</td></tr>
       <tr><td><code>/evolucao</code></td><td><b>Sua linha do tempo</b>: gráfico da
       evolução do estilo e do resultado + o caderno de observações que o coach
       mantém sobre o seu jogo. Toque nos botões (VPIP · PFR · 3-bet · AF · BB)
@@ -258,6 +321,7 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
+    <span class="eyebrow">Investimento</span>
     <h2>💎 Planos</h2>
     <p class="lead">Durante o beta, tudo liberado no Grátis. Os melhores testadores
     ganham benefícios no lançamento. 🎁</p>
@@ -275,6 +339,7 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap faq">
+    <span class="eyebrow">Dúvidas</span>
     <h2>❓ Perguntas frequentes</h2>
     <p class="lead"></p>
     <details><summary>Isso é permitido pelas salas de poker?</summary>
