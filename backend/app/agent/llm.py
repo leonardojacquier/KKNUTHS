@@ -193,6 +193,39 @@ TOOLS = [
         },
     },
     {
+        "name": "read_villain",
+        "description": "LEITURA DO RANGE DO VILÃO: o range começa no chart da "
+        "posição dele e cada ação (bet/check/call/raise, com sizing) reponderada "
+        "as mãos possíveis — devolve as fatias valor/média/draw/ar por street e "
+        "a leitura em odds ('cerca de 4 pra 1 que é valor'). Use SEMPRE que a "
+        "decisão do aluno for pagar/largar contra apostas: narre como a linha do "
+        "vilão mudou a leitura. preflop: como o vilão entrou (open|call|3bet). "
+        "actions na ordem: board_cards diz a street (3=flop, 4=turn, 5=river).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "position": {"type": "string"},
+                "preflop": {"type": "string", "enum": ["open", "call", "3bet"]},
+                "board": {"type": "array", "items": {"type": "string"}},
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "board_cards": {"type": "integer"},
+                            "action": {"type": "string",
+                                       "enum": ["bet", "check", "call", "raise"]},
+                            "size_pct_pot": {"type": "number"},
+                        },
+                        "required": ["board_cards", "action"],
+                    },
+                },
+                "hero_cards": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["position", "board", "actions"],
+        },
+    },
+    {
         "name": "get_hand",
         "description": "ABRE uma mão específica do histórico do PRÓPRIO aluno "
         "quando ele cita o Nº da mão (ex.: 'TM6146070388' — vem no relatório "
@@ -317,6 +350,12 @@ _SYSTEM = {
         "4d) MÃO ESPECÍFICA: se o aluno citar o Nº de uma mão (ex.: TM614607…, "
         "está no relatório mão a mão) ou as cartas ('abre a mão do A3o'), chame "
         "get_hand e analise AQUELA mão com a história e os números retornados.\n"
+        "4e) LEITURA DE VILÃO: quando a decisão for pagar/largar contra apostas, "
+        "chame read_villain com a linha do vilão e NARRE a mudança na voz de "
+        "coach: 'antes do bet eu dava 40% de blefe; o sizing derrubou pra 20% — "
+        "4 pra 1 que é valor'. Compare com o preço do call. É estimativa de "
+        "field: diga 'por comportamento típico' quando a amostra do vilão for "
+        "desconhecida.\n"
         "5) Termine com um plano curto: 2-3 ações de estudo priorizadas.\n"
         "5a) CADERNO DO ALUNO: quando identificar um leak recorrente, um progresso real ou combinar uma meta, chame record_student_note (1x por análise). É a sua memória de coach entre sessões.\n"
         "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
@@ -401,6 +440,16 @@ def _dispatch(name: str, args: dict):
         return {"total_no_filtro": len(found), "maos": found} if found else {
             "total_no_filtro": 0,
             "info": "nenhuma mão do aluno casa com esse filtro"}
+    if name == "read_villain":
+        from app.analysis.rangetracker import read_villain
+
+        return read_villain(
+            str(args.get("position") or "MP"),
+            str(args.get("preflop") or "open"),
+            list(args.get("board") or []),
+            list(args.get("actions") or []),
+            list(args.get("hero_cards") or []),
+        )
     if name == "get_hand":
         from app.analysis.handsearch import find_hand
         from app.db import get_repository

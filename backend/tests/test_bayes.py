@@ -84,6 +84,61 @@ def test_leak_detector_and_study_plan():
     assert all(lk["escorregadas"] >= 1 for lk in um_so)  # se aparecer, é honesto
 
 
+def test_range_tracker_updates_toward_value_on_big_bets():
+    from app.analysis.rangetracker import RangeTracker
+
+    tr = RangeTracker("CO", "open", dead=["Ah", "Qd"])
+    board = ["Kh", "7d", "2c"]
+    antes = tr.shares(board)
+    tr.update(board, "bet", size_pct_pot=85)
+    depois = tr.shares(board)
+    # bomba de 85% do pote: fatia de mão forte SOBE, ar DESCE
+    assert depois["forte"] > antes["forte"]
+    assert depois["ar"] < antes["ar"]
+
+
+def test_range_tracker_check_shifts_to_weak():
+    from app.analysis.rangetracker import RangeTracker
+
+    tr = RangeTracker("BTN", "open")
+    board = ["As", "Td", "4c"]
+    antes = tr.shares(board)
+    tr.update(board, "check")
+    depois = tr.shares(board)
+    assert depois["forte"] < antes["forte"]  # check esconde pouco valor
+
+
+def test_read_villain_full_line_and_odds():
+    from app.analysis.rangetracker import odds_pt, read_villain
+
+    out = read_villain(
+        "CO", "open", ["Kh", "7d", "2c", "2s"],
+        [{"board_cards": 3, "action": "bet", "size_pct_pot": 33},
+         {"board_cards": 4, "action": "bet", "size_pct_pot": 80}],
+        hero_cards=["Ah", "Qd"],
+    )
+    assert out["p_valor"] > out["p_blefe_ou_draw"]
+    assert "pra 1" in out["leitura"] or "equilibrado" in out["leitura"]
+    assert len(out["passos"]) == 2
+    assert "estimativa" in out["atencao"]      # nunca vende certeza
+    assert odds_pt(0.8, 0.2).startswith("cerca de 4 pra 1")
+    assert "equilibrado" in odds_pt(0.5, 0.5)
+
+
+def test_read_villain_dispatch():
+    from app.agent.llm import _dispatch
+
+    r = _dispatch("read_villain", {
+        "position": "BTN", "preflop": "open",
+        "board": ["9h", "8h", "2d"],
+        "actions": [{"board_cards": 3, "action": "bet", "size_pct_pot": 70}],
+        "hero_cards": ["Ac", "Kc"],
+    })
+    assert "leitura" in r and "fatias" in r
+    # board com draws: a fatia de draw existe e é considerada
+    assert r["fatias"]["draw"] > 0
+
+
 def test_style_report_uses_corrected_numbers():
     import app.bot.processing as proc
 
