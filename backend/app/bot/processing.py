@@ -35,7 +35,7 @@ PENDING_CHARTS: dict[int, list[tuple[bytes, str]]] = {}
 
 def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> None:
     """Processa as specs coletadas do coach: notas de caderno vão para o banco;
-    gráficos (máx. 2) são renderizados para envio pelo handler."""
+    gráficos (máx. 4) são renderizados para envio pelo handler."""
     if not specs:
         return
     from app.analysis.range_chart import render_spec
@@ -49,7 +49,7 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
             repo.save_note(user_id, kind, note)
 
     charts = []
-    for spec in chart_specs[:2]:
+    for spec in chart_specs[:4]:
         rendered = render_spec(spec)
         if rendered:
             charts.append(rendered)
