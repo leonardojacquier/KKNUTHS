@@ -294,6 +294,25 @@ def test_tournament_upload_attaches_hand_by_hand_report():
     proc.LAST_ANALYSIS.pop(tg, None)
 
 
+def test_simplify_button_flow():
+    # 🎈 "explica mais simples": reexplica a última fala do coach
+    import app.bot.processing as proc
+    from app.agent.llm import simplify
+
+    assert simplify("equity 31% contra pot odds de 25%") is None  # offline
+    tg = 555001
+    proc.LAST_ANALYSIS[tg] = {
+        "context": {"coaching_anterior": "call correto: equity 31% > 25%"},
+        "history": [], "hand_row_id": None, "user_id": None,
+    }
+    try:
+        out = proc.simplify_last(tg, "t")
+        assert out and "embananei" in out       # offline: fallback amigável
+        assert proc.simplify_last(999998, "t") is None  # sem contexto: None
+    finally:
+        proc.LAST_ANALYSIS.pop(tg, None)
+
+
 def test_style_report_uses_corrected_numbers():
     import app.bot.processing as proc
 

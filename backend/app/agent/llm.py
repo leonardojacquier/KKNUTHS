@@ -359,7 +359,11 @@ _SYSTEM = {
         "4 pra 1 que é valor'. Compare com o preço do call. É estimativa de "
         "field: diga 'por comportamento típico' quando a amostra do vilão for "
         "desconhecida.\n"
-        "4f) PSICOLOGIA (vieses de decisão): (a) NUNCA julgue pelo resultado — "
+        "4f) NÃO ENTENDEU: se o aluno disser 'não entendi', 'como assim', "
+        "'muito complicado' ou parecido, reexplique a MESMA ideia para um "
+        "iniciante total — uma analogia do dia a dia, zero jargão, no máximo 1 "
+        "número explicado. NÃO introduza conceito novo nem avance matéria.\n"
+        "4g) PSICOLOGIA (vieses de decisão): (a) NUNCA julgue pelo resultado — "
         "avalie a decisão pelo preço na hora; perder com decisão boa é "
         "variância, diga isso. (b) Se o aluno disser 'sempre' perco com X / "
         "tomo bad beat, busque a taxa REAL no histórico dele (search_hands) e "
@@ -710,6 +714,40 @@ def coach(
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
         return fallback
+
+
+def simplify(text: str) -> str | None:
+    """Reescreve a última explicação do coach para um iniciante TOTAL.
+
+    Modelo barato, sem tools — resposta rápida. None se o LLM está fora.
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+    if not settings.anthropic_api_key or not (text or "").strip():
+        return None
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        resp = client.messages.create(
+            model=settings.cheap_model,
+            max_tokens=700,
+            system=(
+                "Você é um coach de poker explicando para alguém que NUNCA "
+                "estudou o jogo. Reescreva a explicação abaixo mantendo o mesmo "
+                "veredito e a mesma ideia: frases curtas, UMA analogia do dia a "
+                "dia, zero jargão (se precisar do termo, traduza na hora, entre "
+                "parênteses), no máximo 1 número — e diga o que ele significa. "
+                "Português informal, até ~120 palavras, formato Telegram (sem "
+                "cabeçalhos). Nunca mencione que isto é uma reescrita."
+            ),
+            messages=[{"role": "user", "content": text[:6000]}],
+        )
+        out = "".join(b.text for b in resp.content if b.type == "text").strip()
+        return out or None
+    except Exception:
+        return None
 
 
 def followup(

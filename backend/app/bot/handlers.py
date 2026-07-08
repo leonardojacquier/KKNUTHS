@@ -439,7 +439,7 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     reply = await asyncio.to_thread(
         process_upload, content, fmt, tg_user.id, tg_user.username
     )
-    await _safe_reply(update.message, reply)
+    await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -453,7 +453,7 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     reply = await asyncio.to_thread(
         process_upload, content, "jpg", tg_user.id, tg_user.username
     )
-    await _safe_reply(update.message, reply)
+    await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -696,7 +696,7 @@ async def _route_text(update: Update, text: str) -> None:
         reply = await asyncio.to_thread(
             process_upload, text.encode(), "txt", tg_user.id, tg_user.username
         )
-        await _safe_reply(update.message, reply)
+        await _safe_reply(update.message, reply, simplify_btn=True)
         await _send_pending_charts(update.message, tg_user.id)
         return
 
@@ -705,7 +705,7 @@ async def _route_text(update: Update, text: str) -> None:
         process_followup, tg_user.id, tg_user.username, text
     )
     if answer:
-        await _safe_reply(update.message, answer)
+        await _safe_reply(update.message, answer, simplify_btn=True)
         await _send_pending_charts(update.message, tg_user.id)
     else:
         await update.message.reply_text(
@@ -747,17 +747,41 @@ async def on_unsupported(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
-async def _safe_reply(message, text: str) -> None:
+_SIMPLIFY_KB = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("🎈 Explica mais simples", callback_data="simp")]]
+)
+
+
+async def _safe_reply(message, text: str, simplify_btn: bool = False) -> None:
     """Envia respeitando o limite de 4096 chars do Telegram; se o Markdown do LLM
-    vier malformado (entidades desbalanceadas), reenvia como texto puro."""
+    vier malformado (entidades desbalanceadas), reenvia como texto puro.
+    `simplify_btn`: anexa o botão 🎈 ao último pedaço (respostas do coach)."""
     from telegram.error import BadRequest
 
-    for start in range(0, len(text), 3900):
-        chunk = text[start:start + 3900]
+    chunks = [text[i:i + 3900] for i in range(0, len(text), 3900)] or [text]
+    for i, chunk in enumerate(chunks):
+        kb = _SIMPLIFY_KB if simplify_btn and i == len(chunks) - 1 else None
         try:
-            await message.reply_markdown(chunk)
+            await message.reply_markdown(chunk, reply_markup=kb)
         except BadRequest:
-            await message.reply_text(chunk)
+            await message.reply_text(chunk, reply_markup=kb)
+
+
+async def on_simplify(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botão 🎈: reexplica a última resposta do coach para iniciante total."""
+    from app.bot.processing import simplify_last
+
+    query = update.callback_query
+    await query.answer("Simplificando… 🎈")
+    tg_user = update.effective_user
+    simple = await asyncio.to_thread(simplify_last, tg_user.id, tg_user.username)
+    if simple:
+        await _safe_reply(query.message, simple, simplify_btn=True)
+    else:
+        await query.message.reply_text(
+            "Não achei uma análise recente pra simplificar — me manda uma mão "
+            "ou pergunta algo que eu explico do zero. 🙂"
+        )
 
 
 async def _send_pending_charts(message, telegram_id: int) -> None:
@@ -808,6 +832,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("range", cmd_range))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
+    app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))

@@ -423,6 +423,36 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     return answer
 
 
+def simplify_last(telegram_id: int, username: str | None) -> str | None:
+    """Botão 🎈: reexplica a última resposta do coach em linguagem de
+    iniciante total. None quando não há nada para simplificar."""
+    ctx = LAST_ANALYSIS.get(telegram_id)
+    if not ctx:
+        return None
+    text = None
+    if ctx.get("history"):
+        text = ctx["history"][-1].get("a")
+    if not text:
+        c = ctx.get("context") or {}
+        text = c.get("coaching_anterior") or c.get("analysis_anterior")
+    if not text:
+        return None
+
+    repo = get_repository()
+    if repo.enabled:
+        repo.log_event(telegram_id, username, "simplify", {})
+    from app.agent.llm import simplify
+
+    simple = simplify(str(text))
+    if not simple:
+        return "Opa, me embananei aqui — toca o botão de novo em um instante? 🙏"
+    # a versão simples vira a última fala: dá para simplificar em cadeia e o
+    # follow-up continua do ponto que o aluno de fato leu
+    ctx["history"] = (ctx.get("history", []) +
+                      [{"q": "(explica mais simples)", "a": simple}])[-_HISTORY_CAP:]
+    return simple
+
+
 def evolution_report(telegram_id: int) -> tuple[bytes | None, str]:
     """Gráfico + leitura da evolução do jogador (para o /evolucao)."""
     repo = get_repository()
