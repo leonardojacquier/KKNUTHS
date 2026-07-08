@@ -97,8 +97,11 @@ def render_style_png(vpip: float, pfr: float, af: float, three_bet: float) -> by
                fill=INK, font=f_leg)
 
     d.text((PAD_L, H - 26),
-           "comparação qualitativa com perfis públicos · KKNuths ♠  t.me/KKNUts_BOT",
+           "comparação qualitativa com perfis públicos",
            fill=GREY_TEXT, font=f_sub)
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, H - 30, right=W - 24)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

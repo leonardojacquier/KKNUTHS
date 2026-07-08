@@ -233,7 +233,9 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
                f"▼ pior mão: {' '.join(worst.get('hero_cards') or ['?'])} "
                f"({worst['net_bb']:+.1f} BB)", fill=RED, font=_font(14))
 
-    d.text((PAD_L, H - 28), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT, font=f_lab)
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, H - 30, left=PAD_L)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
 

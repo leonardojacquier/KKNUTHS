@@ -103,11 +103,11 @@ def render_range_png(
                        fill=text_col, font=f_pct)
 
     pct = 100 * in_range / total_combos
-    d.text(
-        (MARGIN, top + size - MARGIN + 6),
-        f"{pct:.1f}% dos combos no range  ·  KKNuths ♠  t.me/KKNUts_BOT",
-        fill=GREY_TEXT, font=f_sub,
-    )
+    d.text((MARGIN, top + size - MARGIN + 6),
+           f"{pct:.1f}% dos combos no range", fill=GREY_TEXT, font=f_sub)
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -168,12 +168,12 @@ def render_ev_range_png(
             d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
                    fill=text_col, font=f_ev)
 
-    d.text(
-        (MARGIN, top + size - MARGIN + 6),
-        "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; vermelho: "
-        "foldar)  ·  KKNuths ♠",
-        fill=GREY_TEXT, font=f_sub,
-    )
+    d.text((MARGIN, top + size - MARGIN + 6),
+           "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; "
+           "vermelho: foldar)", fill=GREY_TEXT, font=f_sub)
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, link=False)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

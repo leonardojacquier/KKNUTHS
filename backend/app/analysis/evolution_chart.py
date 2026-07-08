@@ -114,7 +114,9 @@ def render_evolution_png(history: list[dict], title: str = "Sua evolução") -> 
         date = str(history[i].get("created_at") or "")[5:10]
         d.text((xs[i] - 14, bot_y1 + 8), date, fill=GREY_TEXT, font=f_lab)
 
-    d.text((PAD_L, H - 24), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT, font=f_lab)
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, H - 26, left=PAD_L)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
@@ -185,8 +187,9 @@ def render_indicator_png(history: list[dict], indicator: str) -> bytes | None:
         d.text((xs[i] - 14, top + height + 10), date, fill=GREY_TEXT,
                font=_font(12, bold=False))
 
-    d.text((PAD_L, Hi - 26), "KKNuths ♠  t.me/KKNUts_BOT", fill=GREY_TEXT,
-           font=_font(12, bold=False))
+    from app.analysis.branding import draw_brand
+
+    draw_brand(d, Hi - 28, left=PAD_L)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
