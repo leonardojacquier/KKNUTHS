@@ -27,6 +27,36 @@ LIKELIHOOD: dict[str, dict[str, float]] = {
 
 _PREMIUM = "QQ+, AKs, AKo"
 
+_CALIB_CACHE: dict | None = None
+
+
+def _likelihood() -> dict:
+    """Tabelas em uso: calibradas por showdown (calibration.json, gerado pelo
+    cron do VPS) quando existem; senão o prior heurístico acima."""
+    global _CALIB_CACHE
+    if _CALIB_CACHE is not None:
+        return _CALIB_CACHE
+    import json
+    import os
+    from pathlib import Path
+
+    path = os.getenv("CALIBRATION_FILE", "calibration.json")
+    try:
+        tables = json.loads(Path(path).read_text()).get("tables") or {}
+        if all(k in tables and set(tables[k]) == set(LIKELIHOOD[k])
+               for k in LIKELIHOOD):
+            _CALIB_CACHE = tables
+            return tables
+    except Exception:
+        pass
+    _CALIB_CACHE = LIKELIHOOD
+    return LIKELIHOOD
+
+
+def reset_calibration_cache() -> None:
+    global _CALIB_CACHE
+    _CALIB_CACHE = None
+
 
 def _suit_count(cards: list[str]) -> dict[str, int]:
     out: dict[str, int] = {}
@@ -118,7 +148,7 @@ class RangeTracker:
         act = action.lower()
         if act == "bet":
             act = "bet_big" if (size_pct_pot or 50) > 66 else "bet_small"
-        lk = LIKELIHOOD.get(act)
+        lk = _likelihood().get(act)
         antes = self.shares(board)
         if lk:
             buckets = self._buckets(board)

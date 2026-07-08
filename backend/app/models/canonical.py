@@ -116,6 +116,9 @@ class CanonicalHand(BaseModel):
     # que não tem ações para reconstruir) — inclusive negativo
     net_won: Optional[float] = None
     final_board: list[str] = Field(default_factory=list)
+    # cartas viradas no showdown (jogador -> 2 cartas): dado rotulado que
+    # calibra as likelihoods do range tracker com o field real da base
+    shown_cards: dict[str, list[str]] = Field(default_factory=dict)
 
     played_at: Optional[str] = None  # ISO string
     confidence: float = 1.0

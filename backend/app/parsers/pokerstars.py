@@ -51,6 +51,10 @@ _ACTION = re.compile(
     r"(?P<allin>\s+and is all-in)?"
 )
 _COLLECT = re.compile(rf"^(?P<name>.+?) collected (?P<amt>{_NUM}) from")
+# showdown: "Fulano: shows [Ah Kd] (...)" e "Seat 3: Fulano (button) showed [Ah Kd]"
+_SHOWS = re.compile(r"^(?P<name>.+?): shows \[(?P<cards>\w{2} \w{2})\]")
+_SHOWED = re.compile(
+    r"^Seat \d+: (?P<name>.+?)(?: \([^)]*\))? showed \[(?P<cards>\w{2} \w{2})\]")
 _UNCALLED = re.compile(rf"^Uncalled bet \((?P<amt>{_NUM})\) returned to (?P<name>.+)")
 # Telegram converte "*** FLOP ***" em "* FLOP *" (asteriscos viram negrito),
 # então os marcadores de street aceitam de 1 a 3 asteriscos
@@ -272,6 +276,9 @@ def parse_body(lines: list[str], hand: CanonicalHand) -> CanonicalHand:
             hand.total_pot = _num(tp.group("pot"))
             if tp.group("rake"):
                 hand.rake = _num(tp.group("rake"))
+        sh = _SHOWS.match(line) or _SHOWED.match(line)
+        if sh:
+            hand.shown_cards[sh.group("name").strip()] = sh.group("cards").split()
 
     hand.streets = [streets[name] for name in order]
     if not hand.final_board and StreetName.RIVER in streets:

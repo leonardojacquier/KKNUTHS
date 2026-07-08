@@ -48,6 +48,7 @@ if command -v rsync >/dev/null 2>&1; then
     rsync -a --delete \
         --exclude='.env' --exclude='venv/' --exclude='.git/' \
         --exclude='.oneshot-done/' --exclude='__pycache__/' \
+        --exclude='calibration.json' \
         "$REPO/backend/" "$APP/"
 else
     cp -r "$REPO/backend/." "$APP/"
