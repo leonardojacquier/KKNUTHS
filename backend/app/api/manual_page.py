@@ -86,6 +86,12 @@ color:var(--mut);font-size:13.5px}
 background:radial-gradient(ellipse at bottom,#1A2620 0%,var(--bg) 70%)}
 .final h2{font-size:clamp(24px,4vw,34px)}
 .top{font-size:13.5px;display:block;padding:14px 20px}
+.strip{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:28px auto 0;max-width:760px}
+.stat{background:rgba(22,29,24,.75);border:1px solid var(--line);border-radius:12px;
+padding:12px 24px;min-width:150px}
+.stat b{display:block;font-family:var(--serif);font-size:27px;color:var(--gold);line-height:1.2}
+.stat span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+.cta2{text-align:center;margin:28px 0 0}
 .sci{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
 .sci-row{display:flex;gap:14px;align-items:baseline;background:var(--card);
 border:1px solid var(--line);border-radius:10px;padding:13px 17px;flex-wrap:wrap}
@@ -126,6 +132,11 @@ def build_manual_html() -> str:
   chega no seu Telegram. Movido pelo <b>Motor KKN</b>: matemática de solver,
   estatística bayesiana e dois Prêmios Nobel de Economia na fundação.</p>
   <a class="cta" href="{BOT_URL}">Abrir o bot agora →</a>
+  <div class="strip">
+    <div class="stat"><b>5</b><span>motores matemáticos</span></div>
+    <div class="stat"><b>2</b><span>Prêmios Nobel na base</span></div>
+    <div class="stat"><b>100</b><span>análises grátis / mês</span></div>
+  </div>
 </div>
 
 <section>
@@ -216,7 +227,7 @@ def build_manual_html() -> str:
       é <b>“esse leak custa ~4bb a cada 100 mãos”</b>. Cada vazamento do seu jogo
       é detectado, medido e rankeado pelo que devolve mais dinheiro primeiro —
       direto no <code>/stats</code>.</p></div>
-      <div class="card"><h3>🚨 Tilt Detector</h3><p>Exclusividade KKNuths: o motor
+      <div class="card"><h3>🚨 KKN Tilt Detector</h3><p>Exclusividade KKNuths: o motor
       monitora seu jogo depois dos potes grandes — perdidos <b>e</b> ganhos. Se o
       padrão muda (<b>“você abre 42% das mãos após uma perda; sua base é
       24%”</b>), ele mostra o desvio e o custo em BB. Nenhum HUD do mercado mede
@@ -247,7 +258,7 @@ def build_manual_html() -> str:
       <div class="sci-row"><span class="badge">NOBEL · 2002</span>
         <b>Teoria da Perspectiva — Daniel Kahneman</b>
         <span>a ciência de como decidimos sob risco (e por que perder dói em
-        dobro). É a base do Tilt Detector.</span></div>
+        dobro). É a base do KKN Tilt Detector.</span></div>
       <div class="sci-row"><span class="badge">NOBEL · 1994</span>
         <b>Equilíbrio de Nash — John Nash</b>
         <span>a teoria dos jogos que resolve o all-in: os ranges de shove/call
@@ -266,6 +277,7 @@ def build_manual_html() -> str:
         <span>toda equity é calculada por simulação massiva de mãos — nunca
         estimada “de cabeça” pela IA.</span></div>
     </div>
+    <p class="cta2"><a class="cta" href="{BOT_URL}">Testar o Motor KKN grátis →</a></p>
   </div>
 </section>
 
@@ -279,7 +291,7 @@ def build_manual_html() -> str:
       <tr><td><code>/stats</code></td><td>Seu perfil de estilo (VPIP, agressividade,
       3-bet) — e com <b>qual grande jogador</b> seu jogo parece (Yuri, Akkari,
       Dwan, Negreanu…). Com o Motor KKN: <b>o que está te custando mais</b>
-      (leaks em bb/100) e o <b>Tilt Detector</b>.</td></tr>
+      (leaks em bb/100) e o <b>KKN Tilt Detector</b>.</td></tr>
       <tr><td><code>/evolucao</code></td><td><b>Sua linha do tempo</b>: gráfico da
       evolução do estilo e do resultado + o caderno de observações que o coach
       mantém sobre o seu jogo. Toque nos botões (VPIP · PFR · 3-bet · AF · BB)
@@ -323,8 +335,9 @@ def build_manual_html() -> str:
   <div class="wrap">
     <span class="eyebrow">Investimento</span>
     <h2>💎 Planos</h2>
-    <p class="lead">Durante o beta, tudo liberado no Grátis. Os melhores testadores
-    ganham benefícios no lançamento. 🎁</p>
+    <p class="lead">Uma hora de coach humano custa R$200+. O KKNuths revisa o
+    torneio inteiro em minutos — e durante o beta está tudo liberado no Grátis.
+    Os melhores testadores ganham benefícios no lançamento. 🎁</p>
     <div class="tbl"><table>
       <tr><th></th><th>Grátis</th><th>Pro <i style="color:var(--mut)">(em breve)</i></th></tr>
       <tr><td>Análises por mês</td><td><b>100</b></td><td>Ilimitadas</td></tr>

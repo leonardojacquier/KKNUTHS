@@ -191,6 +191,14 @@ async def manual() -> str:
     return build_manual_html()
 
 
+@router.get("/folder", response_class=HTMLResponse, include_in_schema=False)
+async def folder() -> str:
+    """Folder de divulgação — uma página A4, pronto para compartilhar/imprimir."""
+    from app.api.folder_page import build_folder_html
+
+    return build_folder_html()
+
+
 @router.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
 async def robots() -> str:
     # landing indexável; portal de gestão fora dos buscadores

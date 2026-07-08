@@ -95,7 +95,7 @@ def detect_mental(hands: list[CanonicalHand]) -> list[dict]:
 def mental_text(found: list[dict]) -> str:
     if not found:
         return ""
-    linhas = ["\n\n🚨 *Tilt Detector*"]
+    linhas = ["\n\n🚨 *KKN Tilt Detector*"]
     for f in found:
         linhas.append(f"• {f['frase']}")
     linhas.append("_Resultado ruim não é licença para mudar de jogo — nem o "
