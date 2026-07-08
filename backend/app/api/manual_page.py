@@ -97,9 +97,14 @@ padding:12px 24px;min-width:150px}
 border:1px solid var(--line);border-radius:10px;padding:13px 17px;flex-wrap:wrap}
 .sci-row b{font-size:15px;white-space:nowrap}
 .sci-row span{color:var(--mut);font-size:13.5px;flex:1;min-width:220px}
-.badge{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#0F1512;
-background:var(--gold);border-radius:5px;padding:2px 8px;white-space:nowrap}
-.badge.q{background:transparent;color:var(--goldink);border:1px solid var(--gold)}
+.badge{font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#2E2210;
+background:linear-gradient(160deg,#F1D9A7,#D2A55C 60%,#B8873F);
+border:1px solid #F1D9A7;border-radius:6px;padding:3px 11px;white-space:nowrap;
+box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.badge.q{background:transparent;color:var(--goldink);border:1px solid #7A6136;
+box-shadow:none;font-weight:700}
+.sci-row.gold{border-color:#7A6136;background:linear-gradient(135deg,#232D22,#161D18);
+box-shadow:inset 0 1px 0 rgba(232,192,131,.14)}
 @media print{
   .top,.cta{display:none}
   .hero{padding:30px 0 22px}
@@ -255,11 +260,11 @@ def build_manual_html() -> str:
     <p class="lead">Um chatbot genérico responde de memória. O KKNuths calcula —
     sobre metodologias publicadas, testadas por décadas e premiadas.</p>
     <div class="sci">
-      <div class="sci-row"><span class="badge">NOBEL · 2002</span>
+      <div class="sci-row gold"><span class="badge">🏅 NOBEL · 2002</span>
         <b>Teoria da Perspectiva — Daniel Kahneman</b>
         <span>a ciência de como decidimos sob risco (e por que perder dói em
         dobro). É a base do KKN Tilt Detector.</span></div>
-      <div class="sci-row"><span class="badge">NOBEL · 1994</span>
+      <div class="sci-row gold"><span class="badge">🏅 NOBEL · 1994</span>
         <b>Equilíbrio de Nash — John Nash</b>
         <span>a teoria dos jogos que resolve o all-in: os ranges de shove/call
         do <code>/range</code> saem desse equilíbrio.</span></div>

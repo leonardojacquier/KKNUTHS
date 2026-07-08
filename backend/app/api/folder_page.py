@@ -40,12 +40,25 @@ text-transform:uppercase;margin-left:6px}
 padding:10px;display:flex;flex-direction:column;gap:6px;justify-content:center}
 .proof img{width:100%;border-radius:8px;display:block}
 .proof figcaption{font-size:11px;color:var(--mut);text-align:center}
-.sci{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.sci{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.nobel{display:flex;align-items:center;gap:12px;text-align:left;
+background:linear-gradient(135deg,#232D22,#161D18);
+border:1px solid #7A6136;border-radius:14px;padding:9px 18px 9px 10px;
+box-shadow:inset 0 1px 0 rgba(232,192,131,.14)}
+.medal{width:44px;height:44px;border-radius:50%;flex:none;
+background:radial-gradient(circle at 32% 28%,#F6E3B4,#D9AC5F 52%,#8C6B33 96%);
+border:1px solid #F1D9A7;box-shadow:0 2px 6px rgba(0,0,0,.45);
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+color:#3A2C12;line-height:1.05}
+.medal i{font-style:normal;font-size:7.5px;font-weight:800;letter-spacing:.08em}
+.medal b{font-family:var(--serif);font-size:15px;font-weight:700}
+.nobel .who{font-size:14.5px;font-weight:700;color:var(--ink)}
+.nobel .what{display:block;font-size:11.5px;color:var(--mut)}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:3mm}
 .chip{display:flex;align-items:center;gap:7px;background:var(--card);
-border:1px solid var(--line);border-radius:99px;padding:5px 13px;font-size:11.5px}
+border:1px solid var(--line);border-radius:99px;padding:6px 15px;font-size:12.5px;
+color:var(--mut)}
 .chip b{color:var(--ink)}
-.chip .n{font-size:9px;font-weight:800;letter-spacing:.1em;color:#0F1512;
-background:var(--gold);border-radius:4px;padding:1px 6px}
 .scitit{color:var(--gold);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
 text-align:center;font-weight:700;margin-bottom:2mm}
 .ctabar{margin-top:auto;background:linear-gradient(120deg,#1B2A22,#16211B);
@@ -106,8 +119,14 @@ def build_folder_html() -> str:
   <div>
     <div class="scitit">A ciência por trás — incluindo dois Prêmios Nobel</div>
     <div class="sci">
-      <span class="chip"><span class="n">NOBEL 2002</span><b>Kahneman</b> · KKN Tilt Detector</span>
-      <span class="chip"><span class="n">NOBEL 1994</span><b>Nash</b> · ranges de all-in</span>
+      <span class="nobel"><span class="medal"><i>NOBEL</i><b>2002</b></span>
+        <span><span class="who">Daniel Kahneman</span>
+        <span class="what">Teoria da Perspectiva → KKN Tilt Detector</span></span></span>
+      <span class="nobel"><span class="medal"><i>NOBEL</i><b>1994</b></span>
+        <span><span class="who">John Nash</span>
+        <span class="what">Teoria dos Jogos → ranges de all-in</span></span></span>
+    </div>
+    <div class="chips">
       <span class="chip"><b>Bayes</b> · leitura de vilão</span>
       <span class="chip"><b>CFR</b> · solver de river</span>
       <span class="chip"><b>Monte Carlo</b> · equity</span>
