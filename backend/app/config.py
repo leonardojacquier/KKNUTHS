@@ -44,6 +44,10 @@ class Settings:
         self.default_lang: str = os.getenv("DEFAULT_LANG", "pt")
         self.admin_token: str = os.getenv("ADMIN_TOKEN", "")
 
+        # flag de rollout do shrinkage bayesiano nas stats (BAYES_STATS=0
+        # desliga em produção sem deploy); morre quando estabilizar
+        self.bayes_stats: bool = os.getenv("BAYES_STATS", "1") != "0"
+
 
 @lru_cache
 def get_settings() -> Settings:

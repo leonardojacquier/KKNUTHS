@@ -13,6 +13,7 @@ from app.agent.analyzer import select_key_hands
 from app.agent.embeddings import embed_text
 from app.agent.llm import coach
 from app.analysis import compute_player_stats
+from app.config import get_settings
 from app.db import get_repository
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
@@ -469,8 +470,15 @@ def style_report(telegram_id: int, username: str | None,
     from app.analysis.pro_styles import match_pro_style
     from app.analysis.style_chart import render_style_png
 
-    m = match_pro_style(stats.vpip, stats.pfr, stats.af, stats.three_bet, desired)
-    png = render_style_png(stats.vpip, stats.pfr, stats.af, stats.three_bet)
+    vpip, pfr, tbet, af = stats.vpip, stats.pfr, stats.three_bet, stats.af
+    if get_settings().bayes_stats:
+        from app.analysis.bayes import bayes_stats
+
+        b = bayes_stats(stats)
+        vpip, pfr, tbet = b["vpip"]["mean"], b["pfr"]["mean"], b["three_bet"]["mean"]
+        af = b["af"]["mean"]
+    m = match_pro_style(vpip, pfr, af, tbet, desired)
+    png = render_style_png(vpip, pfr, af, tbet)
 
     text = (
         f"🏅 *{m['estilo']}*\n{m['descricao']}\n\n"
@@ -486,6 +494,9 @@ def style_report(telegram_id: int, username: str | None,
     if stats.hands < 30:
         text += "\n\n⚠️ _Amostra pequena — mande mais mãos para firmar a leitura._"
     return png if not desired else None, text
+
+
+def stats_report(telegram_id: int, username: str | None) -> str | None:
     """Perfil atual + benchmark contra o field da ferramenta + caderno."""
     repo = get_repository()
     stats = None
@@ -501,18 +512,38 @@ def style_report(telegram_id: int, username: str | None,
     if not stats or not stats.hands:
         return None
 
+    # números corrigidos por amostra (shrinkage): com poucas mãos o valor cru
+    # mente ("3-bet 100%" com 2 oportunidades) — o corrigido fica ancorado no
+    # field e o coach mostra o intervalo enquanto a amostra não crava
+    vpip, pfr, tbet, af = stats.vpip, stats.pfr, stats.three_bet, stats.af
+    intervalo = ""
+    if get_settings().bayes_stats:
+        from app.analysis.bayes import bayes_stats
+
+        b = bayes_stats(stats)
+        vpip, pfr, tbet = b["vpip"]["mean"], b["pfr"]["mean"], b["three_bet"]["mean"]
+        af = b["af"]["mean"]
+        soft = [k for k in ("vpip", "pfr", "three_bet") if not b[k]["firm"]]
+        if soft:
+            k = soft[0]
+            nome = {"vpip": "VPIP", "pfr": "PFR", "three_bet": "3-bet"}[k]
+            intervalo = (
+                f"\n_{nome} ainda entre {b[k]['lo']:.0f} e {b[k]['hi']:.0f}% — "
+                "mande mais torneios que eu cravo._"
+            )
+
     msg = (
         f"*Seu perfil* ({stats.hands} mãos)\n"
-        f"• VPIP {stats.vpip}% | PFR {stats.pfr}% | 3-bet {stats.three_bet}%\n"
-        f"• Agressão (AF) {stats.af}\n"
-        f"• Estilo: *{stats.label}*"
+        f"• VPIP {vpip:.0f}% | PFR {pfr:.0f}% | 3-bet {tbet:.0f}%\n"
+        f"• Agressão (AF) {af:g}\n"
+        f"• Estilo: *{stats.label}*{intervalo}"
     )
 
     # com amostra decente, aproxima dos grandes nomes (perfis públicos)
     if stats.hands >= 30:
         from app.analysis.pro_styles import match_pro_style
 
-        m = match_pro_style(stats.vpip, stats.pfr, stats.af, stats.three_bet)
+        m = match_pro_style(vpip, pfr, af, tbet)
         top = m["jogadores_parecidos"][0]
         msg += (
             f"\n\n🏅 *Seu estilo lembra:* {m['estilo']}\n"
@@ -530,8 +561,8 @@ def style_report(telegram_id: int, username: str | None,
         med_pfr = st.median(float(f.get("pfr") or 0) for f in others)
         msg += (
             f"\n\n*Você vs o field KKNuths* ({len(others)} jogadores)\n"
-            f"• VPIP: você {stats.vpip}% · field {med_vpip:.0f}%\n"
-            f"• PFR: você {stats.pfr}% · field {med_pfr:.0f}%"
+            f"• VPIP: você {vpip:.0f}% · field {med_vpip:.0f}%\n"
+            f"• PFR: você {pfr:.0f}% · field {med_pfr:.0f}%"
         )
 
     if user:
