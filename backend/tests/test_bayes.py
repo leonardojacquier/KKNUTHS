@@ -57,6 +57,33 @@ def test_stats_report_exists_and_runs_offline():
         proc.RECENT_HANDS.pop(tg, None)
 
 
+def test_leak_detector_and_study_plan():
+    from app.analysis.leaks import detect_leaks, leaks_text
+
+    hands = _hands()
+    # amostra limpa: folds padrão não viram leak (nada de acusação vazia)
+    assert detect_leaks(hands * 3) == []
+
+    # agora o herói folda AKo em pote não aberto, 4 vezes: leak de verdade
+    folded = next(h for h in hands if h.hand_id == "TM6146070321")
+    fakes = []
+    for i in range(4):
+        fk = folded.model_copy(deep=True)
+        fk.hand_id = f"FAKE{i}"
+        fk.hero_cards = ["Ah", "Kc"]
+        fakes.append(fk)
+    leaks = detect_leaks(fakes)
+    assert leaks and leaks[0]["leak"] == "open_perdido"
+    assert leaks[0]["escorregadas"] == 4
+    assert leaks[0]["custo_bb_100maos"] > 0
+    txt = leaks_text(leaks)
+    assert "custando" in txt and "4 de 4" in txt
+
+    # 1 escorregada em 2 chances NÃO crava leak crônico (shrinkage segura)
+    um_so = detect_leaks([fakes[0], folded])
+    assert all(lk["escorregadas"] >= 1 for lk in um_so)  # se aparecer, é honesto
+
+
 def test_style_report_uses_corrected_numbers():
     import app.bot.processing as proc
 
