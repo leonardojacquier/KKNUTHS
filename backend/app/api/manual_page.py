@@ -105,7 +105,40 @@ box-shadow:0 1px 4px rgba(0,0,0,.4)}
 box-shadow:none;font-weight:700}
 .sci-row.gold{border-color:#7A6136;background:linear-gradient(135deg,#232D22,#161D18);
 box-shadow:inset 0 1px 0 rgba(232,192,131,.14)}
+.anat{background:#FAFAF7;color:#1B211D;border-radius:14px;max-width:760px;
+margin:0 auto;padding:18px 20px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.anat .rc{border:1px solid #DDE3DE;border-left:4px solid #2E7D5B;border-radius:8px;
+padding:12px 14px}
+.anat .rh{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;font-size:14px}
+.anat .seq{font-weight:800;color:#A67E35}
+.anat .pos{background:#F0F4F1;border-radius:6px;padding:1px 8px;font-size:11px;
+font-weight:700}
+.anat .meta{color:#828A84;font-size:11px}
+.anat .dec{font-size:11px;font-weight:700;background:#F0F4F1;border-radius:6px;
+padding:1px 8px}
+.anat .net{margin-left:auto;font-weight:800;font-size:14px;color:#C0564A}
+.anat .story{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+color:#4A554E;background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0;
+line-height:1.55}
+.anat .an{font-size:12.5px}
+.anat .simp{margin-top:6px;font-size:11.5px;font-weight:700;color:#2E7D5B}
+.anat .simpp{font-size:12.5px;background:#F0F7F2;border-radius:6px;
+padding:8px 10px;margin:6px 0 0}
+.anat .frow{margin-top:12px;border-top:1px solid #E8ECE8;padding-top:10px;
+font-size:12px;color:#4A554E}
+.dot{display:inline-flex;width:19px;height:19px;border-radius:50%;flex:none;
+background:linear-gradient(160deg,#F1D9A7,#D2A55C 60%,#B8873F);color:#2E2210;
+font-size:11.5px;font-weight:800;align-items:center;justify-content:center;
+margin-right:5px;vertical-align:text-bottom;font-family:system-ui,sans-serif;
+font-style:normal}
+.leg{max-width:760px;margin:18px auto 0;display:grid;
+grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:9px}
+.leg div{display:flex;gap:9px;align-items:baseline;background:var(--card);
+border:1px solid var(--line);border-radius:10px;padding:10px 13px;
+font-size:13px;color:var(--mut)}
+.leg b{color:var(--ink)}
 @media print{
+  .anat,.leg div{break-inside:avoid;page-break-inside:avoid}
   .top,.cta{display:none}
   .hero{padding:30px 0 22px}
   section,.final{padding:22px 0}
@@ -205,6 +238,67 @@ def build_manual_html() -> str:
       com o jogo real da base: cada torneio enviado afia as leituras para
       <b>todos</b> os jogadores. Quanto mais gente estuda, mais forte o coach
       fica.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">O relatório por dentro</span>
+    <h2>📋 Anatomia da análise <span class="n">mão a mão</span></h2>
+    <p class="lead">Uma mão de exemplo, como aparece no relatório que chega junto
+    com o seu torneio — cada marcador dourado é um ponto de análise.</p>
+    <div class="anat">
+      <div class="rc">
+        <div class="rh"><span class="dot">1</span><span class="seq">#12</span>
+          <b>K♥ Q♥</b> <span class="pos">HJ</span>
+          <span class="meta"><span class="dot">2</span>mão TM8123456789 · 21:14 ·
+          blinds 500/1.000 (ante 125) · stack 42bb (efetivo 38bb)</span>
+          <span class="dec"><span class="dot">3</span>decisão ✅</span>
+          <span class="net"><span class="dot">4</span>−10,4 BB</span></div>
+        <div class="story"><span class="dot">5</span>*PREFLOP* VOCÊ aumenta para 2,2bb ·
+        BTN paga · demais foldam<br>
+        *FLOP* (Q♠ 8♦ 3♣) VOCÊ aposta 1,9bb (33% do pote) · BTN paga<br>
+        *TURN* (2♥) VOCÊ aposta 6,3bb (65% do pote) · BTN paga<br>
+        *RIVER* (A♠) VOCÊ dá check · BTN dá check<br>
+        BTN mostra A♦ J♦ — par de ases no river</div>
+        <div class="an"><span class="dot">6</span><b>Análise:</b> Bem jogada do início
+        ao fim. Top pair com kicker forte pede exatamente essa linha: c-bet pequena no
+        flop seco e pressão no turn — o BTN pagou duas streets com A-alto e só te
+        alcançou porque 3 dos 44 cartas do river salvavam ele (~7%). O check no river,
+        quando o ás bate, protege seu stack: apostar ali só recebe call de mão melhor.</div>
+        <details class="simp" open><summary><span class="dot">7</span>🎈 Explica mais
+        simples</summary><div class="simpp">Você tinha o melhor par quase o jogo
+        inteiro e cobrou caro por isso — certíssimo. Na última carta veio justamente
+        o ás que dava a vitória a ele: azar, tipo perder na loteria com 93% dos
+        números. A decisão foi boa; só o final que não ajudou.</div></details>
+        <div class="frow"><span class="dot">8</span><b>Mãos que você largou:</b> cada
+        fold do torneio vira uma linha com veredito técnico — ex.:
+        <i>“⚠️ dava para abrir — A9s de CO é mão de ataque; largar aqui é passivo
+        demais”</i>.</div>
+      </div>
+    </div>
+    <div class="leg">
+      <div><span class="dot">1</span><span><b>Sequência e cartas</b> — a ordem da mão
+      no torneio, suas cartas e a posição na mesa.</span></div>
+      <div><span class="dot">2</span><span><b>Identificação completa</b> — Nº da mão
+      NA SALA (confere no PokerCraft/HM), hora, blinds e os stacks — inclusive o
+      <b>efetivo</b>, que é o que manda no all-in.</span></div>
+      <div><span class="dot">3</span><span><b>Selo de decisão</b> — o coach julga o
+      que você DECIDIU, pelo preço da hora: ✅ boa, ❌ erro claro, ⚠️ mista.</span></div>
+      <div><span class="dot">4</span><span><b>Resultado</b> — o que a mão pagou ou
+      custou, em BB. Repare: aqui é <b>decisão ✅ com resultado negativo</b> —
+      variância, não erro. É assim que se aprende de verdade.</span></div>
+      <div><span class="dot">5</span><span><b>História lance a lance</b> — a mão
+      inteira reconstruída, com sizings em BB e % do pote.</span></div>
+      <div><span class="dot">6</span><span><b>Análise do coach</b> — veredito primeiro,
+      depois o porquê com números CALCULADOS (equity, pot odds, sizing) — nunca
+      estimados.</span></div>
+      <div><span class="dot">7</span><span><b>🎈 Versão mais simples</b> — a mesma
+      leitura para quem está começando: analogia, zero jargão. Vem fechada; abre com
+      um toque.</span></div>
+      <div><span class="dot">8</span><span><b>Folds com veredito</b> — até as mãos que
+      você NÃO jogou são auditadas contra os ranges de referência.</span></div>
     </div>
   </div>
 </section>
