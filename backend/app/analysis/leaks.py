@@ -111,6 +111,9 @@ def detect_leaks(hands: list[CanonicalHand]) -> list[dict]:
                             custo = round(
                                 deficit * (n["pote_bb"] + n["pagou_bb"]), 2)
                             hit("call_caro", custo, h.hand_id)
+                            if n["street"] in ("turn", "river"):
+                                counts["call_caro"]["tarde"] = \
+                                    counts["call_caro"].get("tarde", 0) + 1
         except Exception:
             continue
 
@@ -123,7 +126,7 @@ def detect_leaks(hands: list[CanonicalHand]) -> list[dict]:
         # só vira "leak" se a taxa corrigida indica padrão, não acidente
         if c["miss"] == 0 or mean < 25.0 or custo_100 <= 0:
             continue
-        out.append({
+        item = {
             "leak": key,
             "nome": LEAK_NAMES[key],
             "oportunidades": c["opp"],
@@ -134,7 +137,15 @@ def detect_leaks(hands: list[CanonicalHand]) -> list[dict]:
             "confianca": "alta" if (hi - lo) <= 25.0 and c["opp"] >= 8 else "media",
             "custo_bb_100maos": custo_100,
             "exemplos": c["exemplos"],
-        })
+        }
+        # lente de Kahneman: call caro concentrado em turn/river = custo
+        # afundado ("já investi, agora vou") — o conselho muda de técnico
+        # para mental
+        if key == "call_caro" and c["miss"] >= 3 and \
+                c.get("tarde", 0) / c["miss"] >= 0.6:
+            item["vies"] = ("custo afundado: você paga caro depois que já pôs "
+                            "fichas — as fichas no pote não são mais suas")
+        out.append(item)
     out.sort(key=lambda x: -x["custo_bb_100maos"])
     return out
 
@@ -150,5 +161,7 @@ def leaks_text(leaks: list[dict]) -> str:
         linhas.append(
             f"• {lk['nome']}: ~{lk['custo_bb_100maos']:g}bb — aconteceu em "
             f"{lk['escorregadas']} de {lk['oportunidades']} chances{certeza}")
+        if lk.get("vies"):
+            linhas.append(f"  ↳ 🧠 {lk['vies']}")
     linhas.append("_Me pergunta sobre qualquer um que eu abro as mãos._")
     return "\n".join(linhas)

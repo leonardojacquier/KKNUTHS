@@ -130,6 +130,31 @@ def played_facts(h: CanonicalHand) -> dict:
     return {"analysis": a, "story": lines, "numbers": key_numbers}
 
 
+def decision_stamp(h: CanonicalHand, facts: dict) -> str | None:
+    """Selo de DECISÃO, independente do resultado — antídoto ao viés de
+    resultado (Kahneman): ganhar com decisão ruim continua decisão ruim."""
+    a = facts["analysis"]
+    measured = bad = False
+    for n in facts["numbers"]:
+        if "equity_minima" in n and n.get("equity_vs_aleatoria") is not None:
+            measured = True
+            if n["equity_minima"] - n["equity_vs_aleatoria"] > 0.05:
+                bad = True
+    stack = a.get("effective_bb")
+    if stack and stack <= 20 and any(
+            s.get("all_in") and s["street"] == "preflop" for s in a["spots"]):
+        from app.analysis.pushfold import push_fold
+
+        pf = push_fold(h.hero_cards, stack, a.get("position") or "MP")
+        if pf.get("applicable"):
+            measured = True
+            if pf["decision"] == "fold":
+                bad = True
+    if not measured:
+        return None
+    return "decisão ❌" if bad else "decisão ✅"
+
+
 def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
     """Análise determinística de mão jogada (usada quando não há texto do coach)."""
     a = facts["analysis"]
@@ -197,13 +222,15 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
             story = "<br>".join(esc(x) for x in facts["story"])
             net = a["net_bb"]
             color = "#2E7D5B" if net > 0 else ("#C0564A" if net < 0 else "#828A84")
+            stamp = decision_stamp(h, facts)
+            dec_html = f"<span class=dec>{esc(stamp)}</span>" if stamp else ""
             played_cards.append(f"""
 <div class=hand>
   <div class=hh><span class=seq>{n_lab}</span> {_cards_html(h.hero_cards)}
   <span class=pos>{esc(a.get('position') or '?')}</span>
   <span class=meta>mão {esc(hid)} · {esc(meta)} · stack {a.get('hero_stack_bb') or '?'}bb
   (efetivo {a.get('effective_bb') or '?'}bb)</span>
-  <span class=net style='color:{color}'>{net:+.1f} BB</span></div>
+  {dec_html}<span class=net style='color:{color}'>{net:+.1f} BB</span></div>
   <div class=story>{story}</div>
   <div class=an><b>Análise:</b> {esc(analysis)}</div>
 </div>""")
@@ -247,6 +274,8 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
     .pos{background:#F0F4F1;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700}
     .meta{color:#828A84;font-size:11px}
     .net{margin-left:auto;font-weight:800;font-size:14px}
+    .dec{font-size:11px;font-weight:700;background:#F0F4F1;border-radius:6px;
+    padding:1px 8px}
     .story{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#4A554E;
     background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0}
     .an{font-size:12.5px}
@@ -273,6 +302,9 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 {board_img}
 {coach_html}
 <h2>🃏 Mãos jogadas — análise completa ({len(played_cards)})</h2>
+<p style='color:#828A84;font-size:11.5px;margin:2px 0 8px'>O selo de
+<b>decisão</b> julga o preço na hora, não o desfecho — ganhar com decisão
+ruim continua ruim, e perder com decisão boa é só variância.</p>
 {''.join(played_cards) or '<p>nenhuma mão jogada voluntariamente neste lote.</p>'}
 <h2>🚫 Mãos que você largou no pré-flop ({len(fold_rows)})</h2>
 <table><tr><th>#</th><th>Nº da mão</th><th>Hora</th><th>Cartas</th><th>Pos</th>

@@ -577,8 +577,10 @@ def stats_report(telegram_id: int, username: str | None) -> str | None:
     # limita a amostra para não pesar o /stats (equity MC por decisão)
     if get_settings().bayes_stats and stats.hands >= 10:
         from app.analysis.leaks import detect_leaks, leaks_text
+        from app.analysis.mental import detect_mental, mental_text
 
         msg += leaks_text(detect_leaks(src_hands[:150]))
+        msg += mental_text(detect_mental(src_hands[:300]))
 
     msg += "\n\n📈 Veja sua linha do tempo com /evolucao"
     return msg

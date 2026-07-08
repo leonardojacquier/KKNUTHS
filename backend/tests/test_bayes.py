@@ -215,6 +215,63 @@ def test_tracker_loads_calibration_file(tmp_path, monkeypatch):
         rt.reset_calibration_cache()
 
 
+def test_tilt_detector_chase_pattern():
+    from app.analysis.mental import mental_from_series
+
+    # 60 mãos: base VPIP ~25%, mas nas 8 mãos depois de cada pote perdido
+    # grande o jogador abre quase tudo (chase clássico)
+    nets, vpips = [], []
+    for bloco in range(3):
+        for i in range(12):                    # jogo normal
+            nets.append(-1.0 if i % 4 == 0 else 0.0)
+            vpips.append(i % 4 == 0)           # 25%
+        nets.append(-22.0)                     # pote grande perdido
+        vpips.append(True)
+        for i in range(8):                     # janela pós-perda: abre tudo
+            nets.append(-2.0)
+            vpips.append(i % 8 != 7)           # ~87%
+    found = mental_from_series(nets, vpips)
+    tipos = [f["tipo"] for f in found]
+    assert "tilt_chase" in tipos
+    tilt = next(f for f in found if f["tipo"] == "tilt_chase")
+    assert tilt["vpip_janela"] > tilt["vpip_base"] + 8
+    assert tilt["saldo_janela_bb"] < 0
+    assert "perseguindo prejuízo" in tilt["frase"]
+
+
+def test_tilt_detector_quiet_on_steady_play():
+    from app.analysis.mental import mental_from_series
+
+    # mesmo VPIP antes e depois dos potes grandes: nenhum diagnóstico
+    nets = ([-22.0] + [0.0] * 9 + [22.0] + [0.0] * 9) * 3
+    vpips = [i % 4 == 0 for i in range(len(nets))]
+    assert mental_from_series(nets, vpips) == []
+    # amostra pequena nunca diagnostica
+    assert mental_from_series([-22.0, -2.0], [True, True]) == []
+
+
+def test_detect_mental_runs_on_real_hands():
+    from app.analysis.mental import detect_mental, mental_text
+
+    out = detect_mental(_hands())          # 4 mãos: sem diagnóstico, sem crash
+    assert out == []
+    assert mental_text(out) == ""
+    assert "Cabeça no jogo" in mental_text(
+        [{"frase": "depois de perder um pote grande você abre 40%"}])
+
+
+def test_decision_stamp_independent_of_result():
+    from app.analysis.handreport import build_report_html, decision_stamp, played_facts
+
+    hands = _hands()
+    a3o = next(h for h in hands if h.hand_id == "TM6146070388")
+    stamp = decision_stamp(a3o, played_facts(a3o))
+    assert stamp in ("decisão ✅", "decisão ❌", None)
+    html = build_report_html(hands, "leitura")
+    # o relatório explica o antídoto ao viés de resultado
+    assert "não o desfecho" in html and "variância" in html
+
+
 def test_style_report_uses_corrected_numbers():
     import app.bot.processing as proc
 
