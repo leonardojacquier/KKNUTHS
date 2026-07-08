@@ -171,11 +171,15 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
             "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
             "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
             "nada de mencionar sistema/dados/análises anteriores e nada de "
-            "adjetivar o veredito ('brutal', 'honesto', 'papo reto'). Além do texto, "
-            "dê o veredito da DECISÃO (independente do resultado!): 'boa' se as "
-            "decisões foram corretas, 'ruim' se teve erro claro, 'mista' se teve "
-            "acerto e erro. Responda SOMENTE um JSON "
-            '{hand_id: {"analise": str, "veredito": "boa"|"ruim"|"mista"}}.\n\n'
+            "adjetivar o veredito ('brutal', 'honesto', 'papo reto'). Além do "
+            "texto, entregue TAMBÉM: (a) analise_simples — a MESMA ideia para "
+            "quem nunca estudou poker: 1-2 frases, uma analogia do dia a dia, "
+            "zero jargão (traduza o termo se precisar), no máximo 1 número "
+            "explicado; (b) o veredito da DECISÃO (independente do resultado!): "
+            "'boa' se as decisões foram corretas, 'ruim' se teve erro claro, "
+            "'mista' se teve acerto e erro. Responda SOMENTE um JSON "
+            '{hand_id: {"analise": str, "analise_simples": str, '
+            '"veredito": "boa"|"ruim"|"mista"}}.\n\n'
             + json.dumps(payload, ensure_ascii=False)
         )
         try:
@@ -278,9 +282,10 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
         if _played(h):
             facts = played_facts(h)
             entry = per_hand_analysis.get(h.hand_id)
-            verdict_llm = None
+            verdict_llm = simple = None
             if isinstance(entry, dict):
                 verdict_llm = entry.get("veredito")
+                simple = (entry.get("analise_simples") or "").strip()
                 entry = entry.get("analise")
             analysis = entry or played_fallback_verdict(h, facts)
             story = "<br>".join(esc(x) for x in facts["story"])
@@ -301,6 +306,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
   {dec_html}<span class=net style='color:{color}'>{net:+.1f} BB</span></div>
   <div class=story>{story}</div>
   <div class=an><b>Análise:</b> {esc(analysis)}</div>
+  {f'<details class=simple><summary>🎈 Explica mais simples</summary><p>{esc(simple)}</p></details>' if simple else ''}
 </div>""")
         else:
             verdict = fold_verdict(h, a)
@@ -347,6 +353,10 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
     .story{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#4A554E;
     background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0}
     .an{font-size:12.5px}
+    .simple{margin-top:6px}
+    .simple summary{cursor:pointer;font-size:11.5px;font-weight:700;color:#2E7D5B}
+    .simple p{font-size:12.5px;background:#F0F7F2;border-radius:6px;
+    padding:8px 10px;margin:6px 0 0}
     table{border-collapse:collapse;width:100%;font-size:11.5px}
     th{background:#F0F4F1;color:#5A665E;text-align:left;padding:6px 8px;font-size:10px;
     text-transform:uppercase}

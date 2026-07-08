@@ -294,6 +294,25 @@ def test_tournament_upload_attaches_hand_by_hand_report():
     proc.LAST_ANALYSIS.pop(tg, None)
 
 
+def test_report_embeds_simple_version_per_hand():
+    from app.analysis.handreport import build_report_html
+
+    hands = _hands()
+    html = build_report_html(hands, "leitura", per_hand_analysis={
+        "TM6146070388": {"analise": "análise técnica do spot",
+                         "analise_simples": "versão de iniciante com analogia",
+                         "veredito": "mista"},
+    })
+    assert "análise técnica do spot" in html
+    assert "Explica mais simples" in html
+    assert "versão de iniciante com analogia" in html
+    assert "decisão ⚠️" in html                 # veredito 'mista' vira selo
+    # compat: valor string (formato antigo) não quebra nem cria toggle vazio
+    html2 = build_report_html(hands, "leitura",
+                              per_hand_analysis={"TM6146070388": "só texto"})
+    assert "só texto" in html2
+
+
 def test_simplify_button_flow():
     # 🎈 "explica mais simples": reexplica a última fala do coach
     import app.bot.processing as proc
