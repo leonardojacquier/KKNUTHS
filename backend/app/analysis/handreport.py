@@ -170,8 +170,12 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
             "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
             "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
             "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
-            "nada de mencionar sistema/dados/análises anteriores. Responda SOMENTE "
-            "um JSON {hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
+            "nada de mencionar sistema/dados/análises anteriores. Além do texto, "
+            "dê o veredito da DECISÃO (independente do resultado!): 'boa' se as "
+            "decisões foram corretas, 'ruim' se teve erro claro, 'mista' se teve "
+            "acerto e erro. Responda SOMENTE um JSON "
+            '{hand_id: {"analise": str, "veredito": "boa"|"ruim"|"mista"}}.\n\n'
+            + json.dumps(payload, ensure_ascii=False)
         )
         try:
             resp = client.messages.create(
@@ -272,12 +276,20 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
         n_lab, hid, meta = ident(seq, h, a)
         if _played(h):
             facts = played_facts(h)
-            analysis = per_hand_analysis.get(h.hand_id) or \
-                played_fallback_verdict(h, facts)
+            entry = per_hand_analysis.get(h.hand_id)
+            verdict_llm = None
+            if isinstance(entry, dict):
+                verdict_llm = entry.get("veredito")
+                entry = entry.get("analise")
+            analysis = entry or played_fallback_verdict(h, facts)
             story = "<br>".join(esc(x) for x in facts["story"])
             net = a["net_bb"]
             color = "#2E7D5B" if net > 0 else ("#C0564A" if net < 0 else "#828A84")
-            stamp = decision_stamp(h, facts)
+            # selo vem do MESMO veredito que assina a análise — nunca mais
+            # "decisão ✅" em cima e "jogou passivo demais" embaixo
+            stamp = {"boa": "decisão ✅", "ruim": "decisão ❌",
+                     "mista": "decisão ⚠️"}.get(verdict_llm or "") or \
+                decision_stamp(h, facts)
             dec_html = f"<span class=dec>{esc(stamp)}</span>" if stamp else ""
             played_cards.append(f"""
 <div class=hand>

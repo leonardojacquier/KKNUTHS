@@ -141,6 +141,11 @@ class Gen:
                         allin = True
                         continue
                 if pct <= open_t:
+                    if p == "Hero" and rng.random() < 0.12:
+                        # leak deliberado do demo: deixa de abrir mão de ataque
+                        active.remove(p)
+                        L(f"{p}: folds")
+                        continue
                     target = int(2.3 * bb_v)
                     pay(p, target - committed[p])
                     L(f"{p}: raises {fmt(target - cur_bet)} to {fmt(target)}")
@@ -221,24 +226,30 @@ class Gen:
                 po = [p for p in ring if p in active]
                 strengths = {p: postflop_strength(hole[p], board, rng)
                              for p in active}
+                # 1ª volta: até alguém apostar (quem já checou responde depois)
                 bettor = None
                 for p in po:
-                    if bettor is None:
-                        want = strengths[p] > 0.62 or \
-                            (p == agg and si == 0 and rng.random() < 0.55)
-                        if want:
-                            size = int(pot * (0.5 + 0.25 * rng.random()) // 25 * 25)
-                            size = max(size, bb_v)
-                            size = min(size, self.stacks[p] - contrib[p])
-                            pay(p, size)
-                            tag = " and is all-in" if contrib[p] >= self.stacks[p] else ""
-                            L(f"{p}: bets {fmt(size)}{tag}")
-                            bettor = p
-                        else:
-                            L(f"{p}: checks")
-                    else:
+                    want = strengths[p] > 0.62 or \
+                        (p == agg and si == 0 and rng.random() < 0.55)
+                    if want:
+                        size = int(pot * (0.5 + 0.25 * rng.random()) // 25 * 25)
+                        size = max(size, bb_v)
+                        size = min(size, self.stacks[p] - contrib[p])
+                        pay(p, size)
+                        tag = " and is all-in" if contrib[p] >= self.stacks[p] else ""
+                        L(f"{p}: bets {fmt(size)}{tag}")
+                        bettor = p
+                        break
+                    L(f"{p}: checks")
+                # 2ª volta: TODOS os outros respondem à aposta (inclusive quem
+                # checou antes — era o bug do call que sumia)
+                if bettor is not None:
+                    bi = po.index(bettor)
+                    for p in po[bi + 1:] + po[:bi]:
                         to_call = committed[bettor] - committed[p]
-                        if strengths[p] > 0.45:
+                        loose_call = (p == "Hero" and rng.random() < 0.18
+                                      and strengths[p] > 0.22)  # leak: paga caro
+                        if strengths[p] > 0.45 or loose_call:
                             add = pay(p, to_call)
                             tag = " and is all-in" if contrib[p] >= self.stacks[p] else ""
                             L(f"{p}: calls {fmt(add)}{tag}")
