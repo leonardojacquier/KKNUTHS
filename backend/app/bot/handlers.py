@@ -771,6 +771,15 @@ async def _send_pending_charts(message, telegram_id: int) -> None:
             await message.reply_photo(photo=_io.BytesIO(png), caption=caption[:1000])
         except Exception:
             pass
+    from app.bot.processing import pop_docs
+
+    for data, fname, caption in pop_docs(telegram_id):
+        try:
+            await message.reply_document(
+                document=_io.BytesIO(data), filename=fname, caption=caption[:1000]
+            )
+        except Exception:
+            pass
 
 
 def _ext(filename: str | None) -> str:

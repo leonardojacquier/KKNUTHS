@@ -12,9 +12,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.bot.processing import pop_charts, process_upload  # noqa: E402
+from app.bot.processing import pop_charts, pop_docs, process_upload  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from scripts.revalidation_report import _send_photo, _send_text  # noqa: E402
+from scripts.tg_send_doc import send_document  # noqa: E402
 
 
 def main() -> int:
@@ -28,10 +29,11 @@ def main() -> int:
         return 1
 
     _send_text(token, tg,
-               "🧪 Test-drive: processei o torneio demo (10 mãos) pelo fluxo "
-               "completo, como se você tivesse enviado o arquivo. Chegando: "
-               "análise do coach + quadro + gráficos. Depois teste /simular, "
-               "/treino, /torneio e /stats — as mãos já estão na sua conta.")
+               "🧪 Test-drive: processei um torneio demo COMPLETO (150 mãos) "
+               "pelo fluxo real, como se você tivesse enviado o arquivo. "
+               "Chegando: análise do coach + quadro + RELATÓRIO MÃO A MÃO em "
+               "anexo. Depois teste /simular, /treino, /torneio e /stats — "
+               "as mãos já estão na sua conta.")
     reply = process_upload(path.read_bytes(), "txt", tg, "admin-test") or "(sem resposta)"
     for i in range(0, len(reply), 3900):
         _send_text(token, tg, reply[i:i + 3900])
@@ -40,6 +42,13 @@ def main() -> int:
             _send_photo(token, tg, png, caption)
         except Exception as exc:
             print(f"foto falhou: {exc}")
+    import tempfile
+
+    for data, fname, caption in pop_docs(tg):
+        tmp = Path(tempfile.gettempdir()) / fname
+        tmp.write_bytes(data)
+        out = send_document(str(tg), tmp, caption)
+        print("documento:", fname, out.get("ok"))
     print(f"test-drive de {path.name} entregue a {tg}")
     return 0
 

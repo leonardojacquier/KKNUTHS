@@ -272,6 +272,28 @@ def test_decision_stamp_independent_of_result():
     assert "não o desfecho" in html and "variância" in html
 
 
+def test_tournament_upload_attaches_hand_by_hand_report():
+    # feedback duro do admin: "pedi a análise completa das mãos" — upload de
+    # torneio TEM que sair com o relatório mão a mão anexado, sempre
+    import app.bot.processing as proc
+
+    tg = 424299
+    content = (Path(__file__).parent / "sample_hands" /
+               "demo_kknuths_tournament.txt").read_bytes()
+    reply = proc.process_upload(content, "txt", tg, "tester")
+    assert reply
+    docs = proc.pop_docs(tg)
+    assert docs, "upload de torneio sem relatório mão a mão anexado"
+    data, fname, caption = docs[0]
+    assert fname.startswith("KKNuths-MaoAMao")
+    html = data.decode("utf-8")
+    assert "Análise mão a mão" in html
+    assert html.count("class=hand") >= 20      # TODAS as mãos jogadas viram card
+    assert "decisão" in html                    # selos decisão vs resultado
+    proc.RECENT_HANDS.pop(tg, None)
+    proc.LAST_ANALYSIS.pop(tg, None)
+
+
 def test_style_report_uses_corrected_numbers():
     import app.bot.processing as proc
 

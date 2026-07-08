@@ -61,6 +61,14 @@ def pop_charts(telegram_id: int) -> list[tuple[bytes, str]]:
     return PENDING_CHARTS.pop(telegram_id, [])
 
 
+# documentos pendentes (relatório mão a mão etc.): (bytes, filename, caption)
+PENDING_DOCS: dict[int, list[tuple[bytes, str, str]]] = {}
+
+
+def pop_docs(telegram_id: int) -> list[tuple[bytes, str, str]]:
+    return PENDING_DOCS.pop(telegram_id, [])
+
+
 # paste de hand history cortado pelo Telegram (limite 4096): guarda a(s)
 # parte(s) já recebidas até a continuação chegar
 PENDING_PASTE: dict[int, tuple[str, float, int]] = {}
@@ -215,14 +223,39 @@ def _process_upload_inner(
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
     # quadro-resumo do campeonato: chega ANTES dos outros gráficos
+    board_png: bytes | None = None
     if is_tournament and len(hands) >= 3:
         try:
             from app.analysis.tournament_board import render_tournament_board
 
             board = render_tournament_board(hands)
+            board_png = board[0]
             PENDING_CHARTS.setdefault(telegram_id, []).insert(0, board)
         except Exception as exc:
             log.warning("quadro do torneio falhou: %s", exc)
+
+    # relatório mão a mão COMPLETO em anexo — quem sobe um torneio recebe o
+    # detalhe de TODAS as mãos, não só o resumo (feedback duro do beta/admin:
+    # "pedi a análise completa das mãos")
+    if is_tournament and len(hands) >= 8:
+        try:
+            from app.analysis.handreport import (
+                _played, build_report_html, per_hand_analysis_llm,
+            )
+
+            played = [h for h in hands if _played(h)]
+            per_hand = per_hand_analysis_llm(played) if len(played) <= 40 else {}
+            html = build_report_html(hands, coaching, board_png,
+                                     per_hand_analysis=per_hand)
+            fname = f"KKNuths-MaoAMao-{hands[0].tournament_id or 'torneio'}.html"
+            PENDING_DOCS.setdefault(telegram_id, []).append((
+                html.encode("utf-8"), fname,
+                "📋 Relatório mão a mão — o torneio inteiro, mão por mão, com "
+                "o Nº da sala em cada uma. Quer abrir alguma? Me manda o Nº "
+                "ou as cartas aqui no chat.",
+            ))
+        except Exception as exc:
+            log.warning("relatório mão a mão falhou: %s", exc)
 
     # ---- base de conhecimento ----
     if user and hand_row_ids and hand_row_ids[0]:

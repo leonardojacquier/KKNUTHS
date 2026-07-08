@@ -130,6 +130,61 @@ def played_facts(h: CanonicalHand) -> dict:
     return {"analysis": a, "story": lines, "numbers": key_numbers}
 
 
+def per_hand_analysis_llm(hands_played: list[CanonicalHand],
+                          batch: int = 6) -> dict[str, str]:
+    """Análise de coach (2-3 frases) POR MÃO jogada, em lotes — usa APENAS os
+    números calculados. Sem chave de API, devolve {} e o relatório cai no
+    veredito determinístico."""
+    import json
+
+    from app.config import get_settings
+
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return {}
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    out: dict[str, str] = {}
+    for i in range(0, len(hands_played), batch):
+        chunk = hands_played[i:i + batch]
+        payload = []
+        for h in chunk:
+            f = played_facts(h)
+            a = f["analysis"]
+            payload.append({
+                "hand_id": h.hand_id,
+                "mao": hand_class(h.hero_cards),
+                "posicao": a.get("position"),
+                "stack_bb": a.get("hero_stack_bb"),
+                "efetivo_bb": a.get("effective_bb"),
+                "blinds": a.get("blinds"),
+                "historia": f["story"],
+                "numeros_calculados": f["numbers"],
+                "resultado_bb": a.get("net_bb"),
+            })
+        prompt = (
+            "Você é um coach de poker brasileiro, informal e claro, falando com "
+            "seu aluno. Para CADA mão abaixo, escreva 2-3 frases em português: "
+            "comece pelo veredito em uma frase simples ('Bem jogada', 'Aqui você "
+            "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
+            "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
+            "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
+            "nada de mencionar sistema/dados/análises anteriores. Responda SOMENTE "
+            "um JSON {hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
+        )
+        try:
+            resp = client.messages.create(
+                model=settings.analysis_model, max_tokens=1800,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = "".join(b.text for b in resp.content if b.type == "text").strip()
+            out.update(json.loads(raw[raw.index("{"):raw.rindex("}") + 1]))
+        except Exception:
+            continue  # lote falhou -> veredito determinístico cobre
+    return out
+
+
 def decision_stamp(h: CanonicalHand, facts: dict) -> str | None:
     """Selo de DECISÃO, independente do resultado — antídoto ao viés de
     resultado (Kahneman): ganhar com decisão ruim continua decisão ruim."""

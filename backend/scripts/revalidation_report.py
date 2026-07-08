@@ -62,55 +62,11 @@ def _send_photo(token: str, chat_id: int, png: bytes, caption: str) -> None:
 
 
 def per_hand_llm(hands_played) -> dict[str, str]:
-    """Análise 2-3 frases POR MÃO (lotes de 6) — só com os números calculados."""
-    import anthropic
+    """Análise por mão — infra compartilhada em handreport (o fluxo de upload
+    usa a mesma)."""
+    from app.analysis.handreport import per_hand_analysis_llm
 
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return {}
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    out: dict[str, str] = {}
-    batch = 6
-    for i in range(0, len(hands_played), batch):
-        chunk = hands_played[i:i + batch]
-        payload = []
-        for h in chunk:
-            f = played_facts(h)
-            a = f["analysis"]
-            payload.append({
-                "hand_id": h.hand_id,
-                "mao": hand_class(h.hero_cards),
-                "posicao": a.get("position"),
-                "stack_bb": a.get("hero_stack_bb"),
-                "efetivo_bb": a.get("effective_bb"),
-                "blinds": a.get("blinds"),
-                "historia": f["story"],
-                "numeros_calculados": f["numbers"],
-                "resultado_bb": a.get("net_bb"),
-            })
-        prompt = (
-            "Você é um coach de poker brasileiro, informal e claro, falando com "
-            "seu aluno. Para CADA mão abaixo, escreva 2-3 frases em português: "
-            "comece pelo veredito em uma frase simples ('Bem jogada', 'Aqui você "
-            "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
-            "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
-            "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
-            "nada de mencionar sistema/dados/análises anteriores. Responda SOMENTE "
-            "um JSON {hand_id: analise}.\n\n" + json.dumps(payload, ensure_ascii=False)
-        )
-        try:
-            resp = client.messages.create(
-                model=settings.analysis_model, max_tokens=1800,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = "".join(b.text for b in resp.content if b.type == "text").strip()
-            if raw.startswith("```"):
-                raw = raw.strip("`\n")
-                raw = raw[raw.index("{"):]
-            out.update(json.loads(raw[raw.index("{"):raw.rindex("}") + 1]))
-        except Exception as exc:
-            print(f"lote {i//batch}: LLM falhou ({exc}) — fallback determinístico")
-    return out
+    return per_hand_analysis_llm(hands_played)
 
 
 def main() -> int:
