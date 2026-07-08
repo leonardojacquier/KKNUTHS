@@ -174,13 +174,49 @@ def build_manual_html() -> str:
 
 <section>
   <div class="wrap">
+    <h2>🧠 Motor KKN — o coach que lê <span class="n">números E cabeça</span></h2>
+    <p class="lead">Análise construída sobre estatística bayesiana e sobre a ciência
+    do julgamento humano que ganhou o <b>Prêmio Nobel de Economia</b> (Daniel
+    Kahneman, 2002). Em português: números que não mentem — e um coach que percebe
+    o que o seu jogo revela sobre a sua cabeça.</p>
+    <div class="grid">
+      <div class="card"><h3>📏 Números honestos</h3><p>Com poucas mãos, qualquer
+      estatística mente. O Motor KKN diz <b>“seu 3-bet está entre 5 e 14%”</b>
+      até a amostra cravar — a única ferramenta que não te engana com amostra
+      pequena.</p></div>
+      <div class="card"><h3>💸 Leaks em dinheiro</h3><p>Não é “você folda demais”:
+      é <b>“esse leak te custa ~4bb a cada 100 mãos”</b>. O plano de estudo sai
+      rankeado pelo que devolve mais dinheiro primeiro — direto no
+      <code>/stats</code>.</p></div>
+      <div class="card"><h3>🧠 Cabeça no jogo</h3><p>Depois de perder um pote
+      grande, seu jogo muda? O Motor KKN percebe: <b>“você abre 42% das mãos
+      após um pote perdido; sua base é 24%”</b> — e mostra quanto custou.
+      Cuidado de coach, não julgamento.</p></div>
+      <div class="card"><h3>🔮 Leitura de vilão</h3><p>Pergunte <i>“ele tava
+      blefando?”</i> e receba a leitura em odds — <b>“o sizing derrubou blefe de
+      40% pra 20%: 4 pra 1 que é valor”</b> — comparada com o preço do seu
+      call.</p></div>
+      <div class="card"><h3>⚖️ Decisão ≠ resultado</h3><p>Cada mão do relatório
+      leva dois selos: <b>decisão</b> (julgada pelo preço na hora) e
+      <b>resultado</b>. Ganhar com decisão ruim continua ruim — perder com
+      decisão boa é variância. É assim que se evolui.</p></div>
+      <div class="card"><h3>🌱 Aprende com a base</h3><p>O coach melhora com cada
+      torneio enviado: as leituras ficam mais afiadas para <b>todos</b> conforme
+      a base cresce. Seu upload deixa o Motor KKN mais esperto.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2>🎮 Comandos</h2>
     <p class="lead"></p>
     <div class="tbl"><table>
       <tr><th style="width:170px">Comando</th><th>O que faz</th></tr>
       <tr><td><code>/stats</code></td><td>Seu perfil de estilo (VPIP, agressividade,
       3-bet) — e com <b>qual grande jogador</b> seu jogo parece (Yuri, Akkari,
-      Dwan, Negreanu…).</td></tr>
+      Dwan, Negreanu…). Com o Motor KKN: <b>o que está te custando mais</b>
+      (leaks em bb/100) e a leitura de <b>cabeça no jogo</b>.</td></tr>
       <tr><td><code>/evolucao</code></td><td><b>Sua linha do tempo</b>: gráfico da
       evolução do estilo e do resultado + o caderno de observações que o coach
       mantém sobre o seu jogo. Toque nos botões (VPIP · PFR · 3-bet · AF · BB)
@@ -251,8 +287,9 @@ def build_manual_html() -> str:
     técnica de alto nível: use como um coach humano, questionando e discutindo — é
     para isso que a conversa existe.</p></details>
     <details><summary>Meus dados estão seguros?</summary>
-    <p>Suas mãos ficam na sua conta, usadas só para as suas análises e o seu
-    perfil. Não compartilhamos seus dados individuais.</p></details>
+    <p>Suas mãos ficam na sua conta e alimentam as suas análises e o seu perfil.
+    De forma <b>agregada e anônima</b>, elas também deixam o Motor KKN mais
+    esperto para todo mundo. Seus dados individuais nunca são compartilhados.</p></details>
     <details><summary>Colei o histórico e o Telegram cortou no meio.</summary>
     <p>Cole as partes em sequência que o KKNuths remonta tudo sozinho. Se ele ficar
     aguardando, responda “analisar”.</p></details>
