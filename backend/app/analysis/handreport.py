@@ -190,6 +190,7 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
         try:
             resp = client.messages.create(
                 model=settings.analysis_model, max_tokens=1800,
+                temperature=0.2,
                 messages=[{"role": "user", "content": prompt}],
             )
             raw = "".join(b.text for b in resp.content if b.type == "text").strip()

@@ -362,6 +362,15 @@ _SYSTEM = {
         "decisivo) em vez de desistir da conta.\n"
         "2) Pense em RANGES: use preflop_range + equity_vs_range (não equity vs aleatória) "
         "sempre que a ação der contexto do range do vilão.\n"
+        "2b) CONSISTÊNCIA DE VEREDITO: decisão preflop se ancora no range de "
+        "referência — chame preflop_range e compare; NÃO decida de memória. "
+        "Mesma mão + mesma posição + mesma ação = MESMO veredito, sempre; o "
+        "aluno reenvia mãos para conferir e resposta que muda destrói a "
+        "confiança. Frequência mista ('3-bet 25% das vezes') NUNCA é o "
+        "conselho: entregue UMA ação prática clara ('contra abertura de CO, "
+        "99 é call; o 3-bet só entra contra quem abre demais e desiste "
+        "demais') e cite a frequência, se citar, como nuance — nunca como "
+        "correção do que foi dito antes.\n"
         "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
         "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
@@ -717,6 +726,7 @@ def coach(
             resp = client.messages.create(
                 model=settings.analysis_model,
                 max_tokens=1500,
+                temperature=0.2,  # coach não pode mudar de veredito por sorteio
                 system=system_blocks,
                 tools=TOOLS,
                 messages=messages,
@@ -771,6 +781,7 @@ def simplify(text: str) -> str | None:
         resp = client.messages.create(
             model=settings.cheap_model,
             max_tokens=700,
+            temperature=0.2,
             system=(
                 "Você é um coach de poker explicando para alguém que NUNCA "
                 "estudou o jogo. Reescreva a explicação abaixo mantendo o mesmo "
@@ -822,6 +833,11 @@ def followup(
             "perfil_do_jogador para personalizar quando existir. Use as tools para "
             "qualquer número. Se o aluno discordar ou trouxer informação nova (range do "
             "vilão, dinâmica da mesa), refaça o cálculo com ela."
+            "\nCOERÊNCIA: o contexto traz o veredito já dado. Sem informação NOVA, "
+            "o veredito é o MESMO — proibido mudar de conselho entre mensagens por "
+            "conta própria. Se um dado novo mudar a leitura, diga explicitamente: "
+            "'isso muda o que eu disse, porque X'. Nunca apresente uma frequência "
+            "de solver como se contradissesse o conselho anterior."
             + (
                 "\nA IMAGEM ORIGINAL do print está anexada: se o aluno disser que algo "
                 "foi lido errado ou está faltando, RELEIA a imagem com atenção — nomes, "
@@ -859,6 +875,7 @@ def followup(
             resp = client.messages.create(
                 model=settings.analysis_model,
                 max_tokens=1200,
+                temperature=0.2,  # mesma pergunta, mesma resposta
                 system=system_blocks,
                 tools=TOOLS,
                 messages=messages,
@@ -934,6 +951,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
             resp = client.messages.create(
                 model=settings.analysis_model,
                 max_tokens=900,
+                temperature=0.2,
                 system=system_blocks,
                 tools=TOOLS,
                 messages=messages,
@@ -984,6 +1002,7 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
         resp = client.messages.create(
             model=settings.cheap_model,
             max_tokens=500,
+            temperature=0.2,
             system=(
                 "Você é um coach de pôquer. Responda à pergunta do jogador usando APENAS "
                 "as análises de mãos fornecidas. Seja direto, aponte o padrão comum entre "
@@ -1054,6 +1073,7 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         resp = client.messages.create(
             model=settings.analysis_model,
             max_tokens=1500,
+            temperature=0.0,  # extração: determinística
             messages=[{"role": "user", "content": prompt}],
         )
         raw = "".join(b.text for b in resp.content if b.type == "text").strip()
@@ -1092,6 +1112,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
         resp = client.messages.create(
             model=settings.analysis_model,
             max_tokens=1024,
+            temperature=0.0,  # extração: determinística
             messages=[
                 {
                     "role": "user",

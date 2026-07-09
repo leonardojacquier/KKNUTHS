@@ -397,3 +397,28 @@ def test_student_numbers_are_valid_tool_inputs():
     src = inspect.getsource(processing._process_upload_inner)
     assert "INSUMOS válidos" in src
     assert "pergunte esse dado" in src
+
+
+def test_coach_calls_are_low_temperature():
+    # caso real: mesma mão (99) recebeu '3-beta' num dia e '3-bet só 25%'
+    # no outro — temperature default (1.0) sorteava o conselho. Análise e
+    # conversa rodam frias; extração de mão/imagem roda determinística.
+    import inspect
+
+    from app.agent import llm
+    from app.analysis import handreport
+
+    for fn in (llm.coach, llm.followup, llm.evaluate_line, llm.simplify,
+               llm.synthesize_answer):
+        assert "temperature=0.2" in inspect.getsource(fn), fn.__name__
+    for fn in (llm.extract_from_hand_text, llm.extract_from_image):
+        assert "temperature=0.0" in inspect.getsource(fn), fn.__name__
+    assert "temperature=0.2" in inspect.getsource(
+        handreport.per_hand_analysis_llm)
+
+    # e o prompt exige veredito ancorado + coerência entre mensagens
+    pt = llm._SYSTEM["pt"]
+    assert "CONSISTÊNCIA DE VEREDITO" in pt
+    assert "MESMO veredito" in pt
+    src = inspect.getsource(llm.followup)
+    assert "COERÊNCIA" in src
