@@ -14,11 +14,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.db import get_repository  # noqa: E402
 
 
+def _git(args: list[str], cwd: str | None) -> str:
+    r = subprocess.run(["git", *args], capture_output=True, text=True, cwd=cwd)
+    return r.stdout.strip()
+
+
 def main() -> int:
-    rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
-                         capture_output=True, text=True).stdout.strip() or "?"
-    msg = subprocess.run(["git", "log", "-1", "--format=%s"],
-                         capture_output=True, text=True).stdout.strip()[:120]
+    # rev do CLONE do GitHub (/opt/kknuths) — o git de /opt/poker-bot é só um
+    # snapshot local do vps_deploy.sh e o hash de lá não existe no GitHub
+    src = "/opt/kknuths" if Path("/opt/kknuths/.git").exists() else None
+    rev = _git(["rev-parse", "--short", "HEAD"], src) or "?"
+    msg = _git(["log", "-1", "--format=%s"], src)[:120]
     repo = get_repository()
     if repo.enabled:
         repo.log_event(0, "deploy", "deploy", {"rev": rev, "msg": msg})
