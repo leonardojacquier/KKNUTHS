@@ -111,8 +111,11 @@ def _vision_ingest(content: bytes | str, fmt: str, media: str = "image/png") -> 
         content = content.encode()
     hand = extract_from_image(content, media)
     if hand is None:
+        from app.agent import llm as _llm
+
+        why = _llm.LAST_VISION_ERROR or "sem ANTHROPIC_API_KEY ou JSON sem mão"
         return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
-                            note="visão indisponível (sem ANTHROPIC_API_KEY) ou extração falhou")
+                            note=f"visão falhou: {why}")
     return IngestResult([hand], hand.site, fmt, confidence=hand.confidence,
                         needs_review=hand.confidence < 0.9,
                         note="snapshot extraído por visão; confira os valores")

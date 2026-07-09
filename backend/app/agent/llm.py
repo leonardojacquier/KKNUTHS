@@ -1134,7 +1134,13 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     except Exception as exc:
         # a exceção era ENGOLIDA: 'não consegui ler' sem nenhum rastro
         logging.getLogger("llm").warning("extract_from_image falhou: %s", exc)
+        global LAST_VISION_ERROR
+        LAST_VISION_ERROR = f"{type(exc).__name__}: {exc}"[:300]
         return None
+
+
+# última exceção da visão — vai para a nota do upload_failed (legível por SQL)
+LAST_VISION_ERROR: str | None = None
 
 
 def _fingerprint(content: bytes) -> str:
