@@ -116,7 +116,8 @@ def _inflight_lock():
 
 
 def process_upload(
-    content: bytes, fmt: str, telegram_id: int, username: str | None, lang: str = "pt"
+    content: bytes, fmt: str, telegram_id: int, username: str | None,
+    lang: str = "pt", caption: str | None = None
 ) -> str:
     """Processa um arquivo enviado e retorna a resposta (markdown do Telegram)."""
     repo = get_repository()
@@ -139,7 +140,7 @@ def process_upload(
         _INFLIGHT[telegram_id] = inflight + 1
     try:
         return _process_upload_inner(
-            content, fmt, telegram_id, username, lang, repo, user
+            content, fmt, telegram_id, username, lang, repo, user, caption
         )
     finally:
         with _inflight_lock():
@@ -147,7 +148,8 @@ def process_upload(
 
 
 def _process_upload_inner(
-    content, fmt, telegram_id: int, username: str | None, lang: str, repo, user
+    content, fmt, telegram_id: int, username: str | None, lang: str, repo, user,
+    caption: str | None = None,
 ) -> str:
 
     # ---- arquivo bruto no Storage (auditoria/reprocessamento) ----
@@ -201,6 +203,17 @@ def _process_upload_inner(
         structured = analyze_hand(hands[0])
         if result.source_format == "image":
             _augment_snapshot(structured, hands[0])
+    # o que o usuário ESCREVEU junto do envio (legenda da foto/arquivo) é
+    # parte da mão: posições, ações e contexto que o print não mostra —
+    # antes era descartado ("eu narrei a mão. Ele não considerou?")
+    if caption and caption.strip():
+        structured["relato_do_usuario"] = caption.strip()[:1500]
+        structured["instrucao_relato"] = (
+            "O aluno NARROU a mão junto do envio (relato_do_usuario). Use o "
+            "relato como fonte para posições/ações/contexto que faltarem na "
+            "leitura automática; os NÚMEROS continuam vindo das ferramentas. "
+            "Se o relato contradisser o que foi lido da imagem, confie no "
+            "relato e diga o que ajustou.")
 
     # ---- stats cumulativas (histórico completo quando há banco) ----
     all_hands = repo.get_all_hands(user["id"]) if user else []

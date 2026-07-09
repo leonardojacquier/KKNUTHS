@@ -468,7 +468,8 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     tg_user = update.effective_user
 
     reply = await asyncio.to_thread(
-        process_upload, content, fmt, tg_user.id, _uname(tg_user)
+        process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
+        update.message.caption,
     )
     await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
@@ -482,7 +483,8 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     content = bytes(await file.download_as_bytearray())
     tg_user = update.effective_user
     reply = await asyncio.to_thread(
-        process_upload, content, "jpg", tg_user.id, _uname(tg_user)
+        process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
+        update.message.caption,
     )
     await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
