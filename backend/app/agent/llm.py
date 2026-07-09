@@ -458,6 +458,30 @@ def set_tool_user(user_id: str | None) -> None:
     _TOOL_USER.set(user_id)
 
 
+# modelos que REJEITAM o parâmetro temperature (400 'temperature is
+# deprecated for this model') — descoberto em produção: o deploy da
+# consistência derrubou a leitura de prints inteira
+_NO_TEMP: set[str] = set()
+
+
+def _create(client, **kw):
+    """client.messages.create com fallback: se o modelo rejeitar temperature,
+    refaz sem o parâmetro e memoriza (a consistência fica por conta das
+    regras de prompt nesses modelos)."""
+    model = kw.get("model")
+    if model in _NO_TEMP:
+        kw.pop("temperature", None)
+    try:
+        return client.messages.create(**kw)
+    except Exception as exc:
+        if "temperature" in str(exc) and kw.pop("temperature", None) is not None:
+            _NO_TEMP.add(model)
+            logging.getLogger("llm").warning(
+                "modelo %s rejeita temperature; seguindo sem", model)
+            return client.messages.create(**kw)
+        raise
+
+
 def _coerce_args(args: dict) -> dict:
     """Normaliza argumentos vindos do modelo: cartas em string -> lista, '10h' ->
     'Th', naipe unicode -> letra, números em string ('10bb') -> float. O modelo
@@ -724,7 +748,7 @@ def coach(
         ]
         parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
-            resp = client.messages.create(
+            resp = _create(client,
                 model=settings.analysis_model,
                 max_tokens=1500,
                 temperature=0.2,  # coach não pode mudar de veredito por sorteio
@@ -779,7 +803,7 @@ def simplify(text: str) -> str | None:
         import anthropic
 
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        resp = client.messages.create(
+        resp = _create(client,
             model=settings.cheap_model,
             max_tokens=700,
             temperature=0.2,
@@ -873,7 +897,7 @@ def followup(
 
         parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
-            resp = client.messages.create(
+            resp = _create(client,
                 model=settings.analysis_model,
                 max_tokens=1200,
                 temperature=0.2,  # mesma pergunta, mesma resposta
@@ -949,7 +973,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
         ]
         parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
-            resp = client.messages.create(
+            resp = _create(client,
                 model=settings.analysis_model,
                 max_tokens=900,
                 temperature=0.2,
@@ -1000,7 +1024,7 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
 
         client = Anthropic(api_key=settings.anthropic_api_key)
         joined = "\n\n".join(f"- {s}" for s in snippets)
-        resp = client.messages.create(
+        resp = _create(client,
             model=settings.cheap_model,
             max_tokens=500,
             temperature=0.2,
@@ -1071,7 +1095,7 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
             + _VISION_PROMPT.split("{", 1)[1].rsplit("}", 1)[0].join(["{", "}"])
             + "\n\nTEXTO:\n" + text[:6000]
         )
-        resp = client.messages.create(
+        resp = _create(client,
             model=settings.analysis_model,
             max_tokens=1500,
             temperature=0.0,  # extração: determinística
@@ -1111,7 +1135,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     try:
         client = Anthropic(api_key=settings.anthropic_api_key)
         b64 = base64.standard_b64encode(image_bytes).decode()
-        resp = client.messages.create(
+        resp = _create(client,
             model=settings.analysis_model,
             max_tokens=1024,
             temperature=0.0,  # extração: determinística

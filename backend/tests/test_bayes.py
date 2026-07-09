@@ -499,3 +499,47 @@ def test_log_event_survives_nul_bytes(monkeypatch):
     assert "\x00" not in clean["excerpt"]
     assert clean["nested"][0]["a"] == "bc"
     assert clean["n"] == 3
+
+
+def test_create_retries_without_temperature_when_model_rejects():
+    # caso real: 'temperature is deprecated for this model' (400) derrubou a
+    # leitura de prints INTEIRA no deploy da consistência — o wrapper refaz a
+    # chamada sem o parâmetro e memoriza o modelo
+    from app.agent import llm
+
+    calls = []
+
+    class FakeMessages:
+        def create(self, **kw):
+            calls.append(dict(kw))
+            if "temperature" in kw:
+                raise RuntimeError(
+                    "Error code: 400 - `temperature` is deprecated for this model.")
+            return "ok"
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    llm._NO_TEMP.discard("modelo-novo")
+    out = llm._create(FakeClient(), model="modelo-novo", temperature=0.2,
+                      max_tokens=10, messages=[])
+    assert out == "ok"
+    assert len(calls) == 2 and "temperature" not in calls[1]
+    # memorizado: próxima chamada nem tenta com temperature
+    calls.clear()
+    out2 = llm._create(FakeClient(), model="modelo-novo", temperature=0.2,
+                       max_tokens=10, messages=[])
+    assert out2 == "ok" and len(calls) == 1 and "temperature" not in calls[0]
+    llm._NO_TEMP.discard("modelo-novo")
+
+    # erro que NÃO é de temperature propaga
+    class FakeMessages2:
+        def create(self, **kw):
+            raise RuntimeError("overloaded")
+
+    class FakeClient2:
+        messages = FakeMessages2()
+
+    import pytest
+    with pytest.raises(RuntimeError, match="overloaded"):
+        llm._create(FakeClient2(), model="outro", max_tokens=10, messages=[])

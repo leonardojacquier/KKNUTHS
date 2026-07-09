@@ -150,6 +150,8 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
         return {}
     import anthropic
 
+    from app.agent.llm import _create
+
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     out: dict[str, str] = {}
     for i in range(0, len(hands_played), batch):
@@ -188,7 +190,7 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
             + json.dumps(payload, ensure_ascii=False)
         )
         try:
-            resp = client.messages.create(
+            resp = _create(client,
                 model=settings.analysis_model, max_tokens=1800,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}],
