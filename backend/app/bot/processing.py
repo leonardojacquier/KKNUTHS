@@ -211,9 +211,12 @@ def _process_upload_inner(
         structured["instrucao_relato"] = (
             "O aluno NARROU a mão junto do envio (relato_do_usuario). Use o "
             "relato como fonte para posições/ações/contexto que faltarem na "
-            "leitura automática; os NÚMEROS continuam vindo das ferramentas. "
-            "Se o relato contradisser o que foi lido da imagem, confie no "
-            "relato e diga o que ajustou.")
+            "leitura automática. Pote, sizings e stacks que o aluno citou são "
+            "INSUMOS válidos para as ferramentas (pot_odds/ev_call/...) — os "
+            "RESULTADOS é que vêm das ferramentas, nunca de cabeça. Se ainda "
+            "faltar um dado para a conta, pergunte esse dado; não diga que "
+            "não dá para calcular. Se o relato contradisser o que foi lido "
+            "da imagem, confie no relato e diga o que ajustou.")
 
     # ---- stats cumulativas (histórico completo quando há banco) ----
     all_hands = repo.get_all_hands(user["id"]) if user else []

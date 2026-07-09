@@ -374,3 +374,26 @@ def test_snapshot_image_routes_to_spot_analysis():
     st2 = {"net_bb": 0, "spots": []}
     _augment_snapshot(st2, h2)
     assert "instrucao_snapshot" not in st2
+
+
+def test_student_numbers_are_valid_tool_inputs():
+    # caso real: aluno narrou pote e sizings na legenda e o coach respondeu
+    # "não consegui calcular o EV porque faltam os sizings" — número dito
+    # pelo aluno é INSUMO legítimo; se faltar de verdade, pergunta o dado
+    from app.agent.llm import _SYSTEM
+
+    pt = _SYSTEM["pt"]
+    assert "INSUMOS" in pt
+    assert "ALUNO INFORMOU" in pt
+    assert "PERGUNTE o dado exato" in pt
+    en = _SYSTEM["en"]
+    assert "student's own words" in en
+
+    # e a instrução que acompanha o relato do usuário diz o mesmo
+    import inspect
+
+    from app.bot import processing
+
+    src = inspect.getsource(processing._process_upload_inner)
+    assert "INSUMOS válidos" in src
+    assert "pergunte esse dado" in src
