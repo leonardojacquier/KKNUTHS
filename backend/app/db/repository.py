@@ -69,7 +69,17 @@ class Repository:
             self.client.table("users").select("*").eq("telegram_id", telegram_id).execute()
         )
         if existing.data:
-            return existing.data[0]
+            row = existing.data[0]
+            # backfill do nome: usuários antigos foram criados sem username e
+            # o portal ficava sem identificação legível
+            if username and row.get("username") != username:
+                try:
+                    self.client.table("users").update({"username": username}) \
+                        .eq("telegram_id", telegram_id).execute()
+                    row["username"] = username
+                except Exception:
+                    pass
+            return row
         created = (
             self.client.table("users")
             .insert({"telegram_id": telegram_id, "username": username, "lang": lang})

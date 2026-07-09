@@ -90,12 +90,18 @@ async def _set_bot_menu(app: Application) -> None:
         pass  # menu é cosmético; nunca derruba o bot
 
 
+def _uname(u) -> str | None:
+    """Identificação legível do usuário: @username quando existe; senão o NOME
+    do perfil (o Telegram entrega, nós jogávamos fora — portal ficava cego)."""
+    return u.username or (u.full_name or None)
+
+
 async def _log(update: Update, event: str, **detail) -> None:
     """Registra a interação em bot_events (não bloqueia nem falha o handler)."""
     u = update.effective_user
     repo = get_repository()
     if repo.enabled and u:
-        await asyncio.to_thread(repo.log_event, u.id, u.username, event, detail or None)
+        await asyncio.to_thread(repo.log_event, u.id, _uname(u), event, detail or None)
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -121,7 +127,7 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot.processing import stats_report
 
     tg_user = update.effective_user
-    msg = await asyncio.to_thread(stats_report, tg_user.id, tg_user.username)
+    msg = await asyncio.to_thread(stats_report, tg_user.id, _uname(tg_user))
     if not msg:
         await update.message.reply_text(
             "Ainda não tenho mãos suas. Envie um arquivo para começar."
@@ -208,7 +214,7 @@ async def cmd_estilo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot.processing import style_report
 
     tg_user = update.effective_user
-    r = await asyncio.to_thread(style_report, tg_user.id, tg_user.username)
+    r = await asyncio.to_thread(style_report, tg_user.id, _uname(tg_user))
     if not r:
         await update.message.reply_text(
             "Preciso de pelo menos ~10 mãos suas para ler seu estilo. "
@@ -232,7 +238,7 @@ async def on_style_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
 
     target = query.data.split(":", 1)[1]
     tg_user = update.effective_user
-    r = await asyncio.to_thread(style_report, tg_user.id, tg_user.username, target)
+    r = await asyncio.to_thread(style_report, tg_user.id, _uname(tg_user), target)
     if not r:
         await query.message.reply_text("Preciso de mais mãos suas primeiro.")
         return
@@ -242,7 +248,7 @@ async def on_style_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     def _save_goal():
         repo = get_repository()
         if repo.enabled:
-            user = repo.get_or_create_user(tg_user.id, tg_user.username)
+            user = repo.get_or_create_user(tg_user.id, _uname(tg_user))
             if user:
                 repo.save_note(user["id"], "meta",
                                f"Aluno definiu meta de estilo: migrar para {target.upper()}.")
@@ -260,7 +266,7 @@ async def cmd_relatorio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot.processing import report_doc_for_user
 
     tg_user = update.effective_user
-    doc = await asyncio.to_thread(report_doc_for_user, tg_user.id, tg_user.username)
+    doc = await asyncio.to_thread(report_doc_for_user, tg_user.id, _uname(tg_user))
     if not doc:
         await update.message.reply_text(
             "Ainda não tenho um torneio seu com mãos suficientes (mínimo 8). "
@@ -462,7 +468,7 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     tg_user = update.effective_user
 
     reply = await asyncio.to_thread(
-        process_upload, content, fmt, tg_user.id, tg_user.username
+        process_upload, content, fmt, tg_user.id, _uname(tg_user)
     )
     await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
@@ -476,7 +482,7 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     content = bytes(await file.download_as_bytearray())
     tg_user = update.effective_user
     reply = await asyncio.to_thread(
-        process_upload, content, "jpg", tg_user.id, tg_user.username
+        process_upload, content, "jpg", tg_user.id, _uname(tg_user)
     )
     await _safe_reply(update.message, reply, simplify_btn=True)
     await _send_pending_charts(update.message, tg_user.id)
@@ -719,7 +725,7 @@ async def _route_text(update: Update, text: str) -> None:
             return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")
         reply = await asyncio.to_thread(
-            process_upload, text.encode(), "txt", tg_user.id, tg_user.username
+            process_upload, text.encode(), "txt", tg_user.id, _uname(tg_user)
         )
         await _safe_reply(update.message, reply, simplify_btn=True)
         await _send_pending_charts(update.message, tg_user.id)
@@ -727,7 +733,7 @@ async def _route_text(update: Update, text: str) -> None:
 
     await update.message.reply_text("🤔 Analisando sua colocação…")
     answer = await asyncio.to_thread(
-        process_followup, tg_user.id, tg_user.username, text
+        process_followup, tg_user.id, _uname(tg_user), text
     )
     if answer:
         await _safe_reply(update.message, answer, simplify_btn=True)
@@ -799,7 +805,7 @@ async def on_simplify(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer("Simplificando… 🎈")
     tg_user = update.effective_user
-    simple = await asyncio.to_thread(simplify_last, tg_user.id, tg_user.username)
+    simple = await asyncio.to_thread(simplify_last, tg_user.id, _uname(tg_user))
     if simple:
         await _safe_reply(query.message, simple, simplify_btn=True)
     else:
