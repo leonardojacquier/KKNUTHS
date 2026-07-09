@@ -59,6 +59,9 @@ else
 fi
 pm2 save
 
+# 6a2. registra a versão que subiu (bot_events) — auditável do lado de fora
+PYTHONPATH="$APP_DIR" ./venv/bin/python scripts/log_deploy.py || true
+
 # 6b. portal de gestão (uvicorn na 8014, atrás do Caddy)
 if pm2 describe poker-web >/dev/null 2>&1; then
     pm2 restart poker-web --update-env
