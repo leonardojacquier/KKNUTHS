@@ -199,6 +199,8 @@ def _process_upload_inner(
         key_hands = select_key_hands(hands, k=MAX_COACHED_HANDS)
     else:
         structured = analyze_hand(hands[0])
+        if result.source_format == "image":
+            _augment_snapshot(structured, hands[0])
 
     # ---- stats cumulativas (histórico completo quando há banco) ----
     all_hands = repo.get_all_hands(user["id"]) if user else []
@@ -314,6 +316,46 @@ def _process_upload_inner(
     if quota_after.remaining >= 0:
         footer += f"\n_Análises restantes no mês: {quota_after.remaining}_"
     return header + "\n" + coaching + footer
+
+
+def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
+    """PRINT da mesa no meio da mão: não existe história para narrar — existe a
+    DECISÃO atual. Sem isto o coach 'analisava' lances que nunca viu (caso
+    real: análise saiu 'nada a ver' com a foto enviada)."""
+    from app.models.canonical import ActionType
+
+    hero_acted = any(
+        a.actor == h.hero and a.type in
+        (ActionType.CALL, ActionType.BET, ActionType.RAISE, ActionType.FOLD)
+        for st in h.streets for a in st.actions
+    )
+    if hero_acted and h.final_board:
+        return  # mão com linha lida do print: análise normal serve
+
+    n_op = max(1, min((len(h.players) or 2) - 1, 4))
+    eq = None
+    try:
+        from app.analysis.equity import equity_vs_random
+
+        eq = equity_vs_random(h.hero_cards, h.final_board or [], n_op,
+                              iterations=1500, seed=7)
+    except Exception:
+        pass
+    structured["modo"] = "FOTO DA MESA — spot ao vivo, NÃO é hand history"
+    structured["spot_atual"] = {
+        "jogadores_na_mesa": len(h.players),
+        "viloes_considerados": n_op,
+        "equity_vs_maos_aleatorias": round(eq, 2) if eq is not None else None,
+    }
+    structured["instrucao_snapshot"] = (
+        "Isto é um PRINT da mesa no meio da mão — não há histórico de ações. "
+        "PROIBIDO narrar ou supor lances passados e PROIBIDO dar veredito de "
+        "mão inteira. Analise a DECISÃO ATUAL do herói com o que se vê: "
+        "cartas, stack em bb, pote, preço a pagar se visível, posição se "
+        "identificável. Se faltar um dado decisivo (posição, preço, ação dos "
+        "vilões), declare a suposição em uma frase e FECHE perguntando o ÚNICO "
+        "dado que mais refina a leitura."
+    )
 
 
 def process_followup(telegram_id: int, username: str | None, question: str) -> str | None:

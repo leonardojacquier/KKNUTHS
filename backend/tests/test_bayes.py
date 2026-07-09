@@ -342,3 +342,35 @@ def test_style_report_uses_corrected_numbers():
         assert proc.style_report(tg, "tester") is None
     finally:
         proc.RECENT_HANDS.pop(tg, None)
+
+
+def test_snapshot_image_routes_to_spot_analysis():
+    # caso real: print da mesa no meio da mão era tratado como mão completa e
+    # o coach "analisava" lances que nunca viu — análise saía nada a ver
+    from app.bot.processing import _augment_snapshot
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    h = CanonicalHand(
+        site="PokerStars", hand_id="vision-snapshot", hero="Hero",
+        source_format="image", stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=i, name=f"p{i}", stack=50) for i in range(1, 8)]
+        + [PlayerSeat(seat=8, name="Hero", stack=39.2, is_hero=True)],
+        hero_cards=["Qs", "Kh"], total_pot=6.7,
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="p7", type=ActionType.CALL, amount=2, to_amount=2)])],
+    )
+    st = {"net_bb": 0, "spots": []}
+    _augment_snapshot(st, h)
+    assert "FOTO DA MESA" in st["modo"]
+    assert "PROIBIDO narrar" in st["instrucao_snapshot"]
+    assert st["spot_atual"]["equity_vs_maos_aleatorias"] is not None
+
+    # mão de print COM a linha do herói lida e board: análise normal (sem modo)
+    h2 = h.model_copy(deep=True)
+    h2.final_board = ["Kd", "7c", "2s"]
+    h2.streets[0].actions.append(
+        Action(actor="Hero", type=ActionType.RAISE, amount=3, to_amount=3))
+    st2 = {"net_bb": 0, "spots": []}
+    _augment_snapshot(st2, h2)
+    assert "instrucao_snapshot" not in st2
