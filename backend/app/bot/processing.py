@@ -161,6 +161,21 @@ def _process_upload_inner(
 
     # ---- ingestão ----
     result = ingest(content, source_format=fmt)
+    if not result.hands and caption and len(caption.strip()) >= 12:
+        # print ilegível mas o aluno NARROU a mão junto: a narração é fonte
+        # suficiente — "resolva essa bosta": nunca devolver 'não li' quando
+        # o próprio aluno escreveu o cenário
+        from app.agent.llm import extract_from_hand_text
+        from app.ingestion.pipeline import IngestResult
+
+        hand = extract_from_hand_text(caption)
+        if hand is not None:
+            hand.source_format = "image"
+            result = IngestResult(
+                [hand], hand.site if hand.site != "unknown" else None,
+                "image", confidence=hand.confidence, needs_review=True,
+                note="mão montada pela narração do aluno (print ilegível)",
+            )
     if not result.hands:
         # registra a falha COM um trecho do conteúdo — permite diagnóstico e
         # correção do parser sem pedir o arquivo de novo
@@ -174,6 +189,13 @@ def _process_upload_inner(
             {"format": fmt, "note": result.note, "excerpt": excerpt,
              "raw_path": raw_path},
         )
+        if caption and caption.strip():
+            return (
+                "O print veio ilegível pra mim e a legenda ainda não fecha a mão. 😕\n"
+                "Me manda numa mensagem de texto: suas cartas, posição, stack e o "
+                "que cada um fez (ex.: *99 no CO, 50bb, UTG abriu 2x*) — que eu "
+                "analiso na hora, sem precisar do print."
+            )
         return (
             "Ainda não consegui ler esse arquivo. 😕 Já registrei o formato para "
             "melhorar o suporte!\n\nEnquanto isso, tente:\n"

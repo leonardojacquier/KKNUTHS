@@ -438,3 +438,52 @@ def test_each_print_gets_own_hand_id():
     assert a.hand_id.startswith("vision-")
     # MESMO print reenviado -> mesmo id (dedupe continua funcionando)
     assert _fingerprint(b"foto-A") == _fingerprint(b"foto-A")
+
+
+def test_unreadable_image_with_caption_falls_back_to_narration(monkeypatch):
+    # caso real: print ilegível + aluno narrou a mão -> resposta era
+    # 'não consegui ler'; a narração tem que virar a fonte da análise
+    from app.bot import processing as proc
+    from app.ingestion.pipeline import IngestResult
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      Stakes, Street, StreetName)
+
+    monkeypatch.setattr(
+        "app.ingestion.pipeline.ingest",
+        lambda *a, **k: IngestResult([], None, "image", 0.0, True, "ilegível"),
+    )
+    monkeypatch.setattr(proc, "ingest", lambda *a, **k: IngestResult(
+        [], None, "image", 0.0, True, "ilegível"))
+
+    narrated = CanonicalHand(
+        site="GGPoker", hand_id="vision-abc", hero="Hero",
+        source_format="txt", stakes=Stakes(small_blind=1, big_blind=2),
+        hero_cards=["9h", "9s"], confidence=0.8,
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="UTG", type=ActionType.RAISE, amount=4, to_amount=4)])],
+    )
+    monkeypatch.setattr("app.agent.llm.extract_from_hand_text",
+                        lambda text: narrated)
+
+    captured = {}
+
+    def fake_coach(structured, stats, **kw):
+        captured["structured"] = structured
+        return "análise ok"
+
+    monkeypatch.setattr(proc, "coach", fake_coach)
+
+    out = proc._process_upload_inner(
+        b"\x89PNG...", "image", 999001, "t", "pt",
+        proc.get_repository(), None,
+        caption="99 no CO, 50bb, UTG abriu 2x",
+    )
+    assert "não consegui ler" not in out.lower()
+    assert captured["structured"].get("relato_do_usuario")
+
+    # sem legenda, print ilegível ainda retorna a mensagem de falha
+    out2 = proc._process_upload_inner(
+        b"\x89PNG...", "image", 999001, "t", "pt",
+        proc.get_repository(), None, caption=None,
+    )
+    assert "não consegui ler" in out2.lower()
