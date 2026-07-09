@@ -151,6 +151,20 @@ font-size:13px;color:var(--mut)}
 
 
 def build_manual_html() -> str:
+    """Design oficial do manual (feito no Claude Design, aprovado pelo dono):
+    editorial claro, autossuficiente (fontes/QR embutidos). O asset é a fonte
+    da verdade; o gerador antigo abaixo fica como fallback se o asset sumir."""
+    design = _ASSETS / "manual_design.html"
+    try:
+        html = design.read_text()
+        if len(html) > 100_000:
+            return html
+    except Exception:
+        pass
+    return _build_manual_html_legacy()
+
+
+def _build_manual_html_legacy() -> str:
     return f"""<!doctype html>
 <html lang="pt-BR">
 <head>
