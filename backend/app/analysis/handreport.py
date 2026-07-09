@@ -130,6 +130,12 @@ def played_facts(h: CanonicalHand) -> dict:
     return {"analysis": a, "story": lines, "numbers": key_numbers}
 
 
+def _termos() -> str:
+    from app.agent.llm import TERMOS_REGRA
+
+    return TERMOS_REGRA
+
+
 def per_hand_analysis_llm(hands_played: list[CanonicalHand],
                           batch: int = 6) -> dict[str, str]:
     """Análise de coach (2-3 frases) POR MÃO jogada, em lotes — usa APENAS os
@@ -174,9 +180,7 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
             "adjetivar o veredito ('brutal', 'honesto', 'papo reto'). Além do "
             "texto, entregue TAMBÉM: (a) analise_simples — a MESMA ideia para "
             "quem nunca estudou poker: 1-2 frases, uma analogia do dia a dia, "
-            "no máximo 1 número explicado; os TERMOS DE POKER FICAM (top pair, "
-            "c-bet, flush draw…) com a explicação entre parênteses — NUNCA "
-            "invente tradução tipo 'par grande'; (b) o veredito da DECISÃO (independente do resultado!): "
+            "no máximo 1 número explicado; " + _termos() + " (b) o veredito da DECISÃO (independente do resultado!): "
             "'boa' se as decisões foram corretas, 'ruim' se teve erro claro, "
             "'mista' se teve acerto e erro. Responda SOMENTE um JSON "
             '{hand_id: {"analise": str, "analise_simples": str, '

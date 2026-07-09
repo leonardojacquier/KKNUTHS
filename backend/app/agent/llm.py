@@ -313,6 +313,25 @@ TOOLS = [
     },
 ]
 
+
+# Glossário de terminologia — REGRA DURA, usado em todas as camadas de texto
+# (análise, por-mão, simplificação). O modelo inventa calques se deixar.
+TERMOS_REGRA = (
+    "TERMINOLOGIA (regra dura): use os termos consagrados do poker BR. "
+    "FICAM EM INGLÊS: top pair, overpair, kicker, flush draw, gutshot, OESD, "
+    "set, fold equity, equity, cooler, bad beat, blockers, range, c-bet, "
+    "3-bet, 4-bet, all-in, heads-up, multiway, squeeze, limp. "
+    "PORTUGUÊS CONSAGRADO: pagar (call), largar/foldar, aumentar, trinca, "
+    "dominado/dominação, apostar por valor, blefar. "
+    "CALQUES PROIBIDOS (não existem no poker BR): 'par grande', 'mão grande', "
+    "'par alto', 'domínio' (é DOMINADO/dominação), 'como valor' (é POR "
+    "valor), 'sequência de cor', 'igualar' (é pagar). "
+    "REGISTRO: sempre 'você' — nunca 'tu/teu/te contigo' misturado. "
+    "Ao explicar para iniciante, o termo REAL fica e a explicação vem entre "
+    "parênteses na primeira vez: 'top pair (o maior par possível com essa "
+    "mesa)'. NUNCA substitua o termo por tradução inventada."
+)
+
 _SYSTEM = {
     "pt": (
         "Você é um coach de poker brasileiro experiente (NLHE) conversando com seu "
@@ -377,7 +396,7 @@ _SYSTEM = {
         "5b) PRECISÃO DE NOTAÇÃO: cite as mãos com suited/offsuit correto — cartas de "
         "naipes diferentes são 'o' (ex.: Ad 3c = A3o), naipes iguais são 's'. Confira "
         "antes de escrever.\n"
-        "5c) TERMINOLOGIA REAL: use os termos consagrados do poker — top pair, overpair, flush draw, gutshot, c-bet, set. NUNCA invente tradução: 'par grande', 'mão grande', 'par alto' NÃO EXISTEM no poker. Ao simplificar, o termo real FICA e a explicação vem junto: 'top pair (o maior par possível com essa mesa)'.\n"
+        "5c) " + TERMOS_REGRA + "\n"
         "6) LINGUAGEM ACESSÍVEL: na primeira vez que usar um termo técnico na resposta, "
         "explique entre parênteses de forma curtíssima. Ex.: pot odds (o preço que o pote "
         "te oferece), equity (sua chance de ganhar a mão), range (conjunto de mãos que o "
@@ -738,10 +757,8 @@ def simplify(text: str) -> str | None:
                 "Você é um coach de poker explicando para alguém que NUNCA "
                 "estudou o jogo. Reescreva a explicação abaixo mantendo o mesmo "
                 "veredito e a mesma ideia: frases curtas, UMA analogia do dia a "
-                "dia, no máximo 1 número — e diga o que ele significa. Os TERMOS DE "
-                "POKER FICAM como são (top pair, c-bet, flush draw…), com a "
-                "explicação entre parênteses na primeira vez; NUNCA invente "
-                "tradução — 'par grande' e 'mão grande' não existem no poker. "
+                "dia, no máximo 1 número — e diga o que ele significa. "
+                + TERMOS_REGRA + " "
                 "Português informal, até ~120 palavras, formato Telegram (sem "
                 "cabeçalhos). Nunca mencione que isto é uma reescrita."
             ),
