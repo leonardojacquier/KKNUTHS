@@ -487,3 +487,15 @@ def test_unreadable_image_with_caption_falls_back_to_narration(monkeypatch):
         proc.get_repository(), None, caption=None,
     )
     assert "não consegui ler" in out2.lower()
+
+
+def test_log_event_survives_nul_bytes(monkeypatch):
+    # caso real: excerpt binário de um print levava \x00 ao INSERT e o
+    # Postgres derrubava o log_event inteiro (22P05) — a falha sumia do radar
+    from app.db.repository import _scrub_nul
+
+    dirty = {"excerpt": "PNG\x00\x00header", "nested": [{"a": "b\x00c"}], "n": 3}
+    clean = _scrub_nul(dirty)
+    assert "\x00" not in clean["excerpt"]
+    assert clean["nested"][0]["a"] == "bc"
+    assert clean["n"] == 3

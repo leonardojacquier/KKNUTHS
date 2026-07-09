@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 
 from app.analysis.equity import equity_vs_random
 from app.analysis.tools import breakeven_bluff, ev_call, pot_odds, spr
@@ -1088,7 +1089,8 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         hand.source_format = "txt"
         hand.confidence = min(hand.confidence, 0.8)
         return hand
-    except Exception:
+    except Exception as exc:
+        logging.getLogger("llm").warning("extract_from_hand_text falhou: %s", exc)
         return None
 
 
@@ -1129,7 +1131,9 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(text))
         return _snapshot_to_canonical(data, fingerprint=_fingerprint(image_bytes))
-    except Exception:
+    except Exception as exc:
+        # a exceção era ENGOLIDA: 'não consegui ler' sem nenhum rastro
+        logging.getLogger("llm").warning("extract_from_image falhou: %s", exc)
         return None
 
 

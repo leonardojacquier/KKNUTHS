@@ -34,6 +34,18 @@ def _safe(default):
     return deco
 
 
+def _scrub_nul(obj):
+    """Remove \\x00 de qualquer string aninhada — Postgres rejeita NUL em
+    text/jsonb (22P05) e o INSERT inteiro morre por causa de um byte."""
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {k: _scrub_nul(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_scrub_nul(v) for v in obj]
+    return obj
+
+
 class Repository:
     def __init__(self) -> None:
         s = get_settings()
@@ -408,7 +420,9 @@ class Repository:
                 "telegram_id": telegram_id,
                 "username": username,
                 "event": event,
-                "detail": detail or {},
+                # \x00 em string (ex.: excerpt de arquivo binário) derruba o
+                # INSERT inteiro (Postgres 22P05) — e o log da falha sumia
+                "detail": _scrub_nul(detail or {}),
             }
         ).execute()
 

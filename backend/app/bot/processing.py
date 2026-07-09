@@ -180,7 +180,10 @@ def _process_upload_inner(
         # registra a falha COM um trecho do conteúdo — permite diagnóstico e
         # correção do parser sem pedir o arquivo de novo
         excerpt = ""
-        if isinstance(content, (bytes, bytearray)):
+        if fmt in ("image", "png", "jpg", "jpeg", "pdf"):
+            # binário no excerpt derrubava o log_event inteiro (NUL byte)
+            excerpt = f"<{fmt} binário, {len(content)} bytes>"
+        elif isinstance(content, (bytes, bytearray)):
             excerpt = bytes(content[:500]).decode("utf-8", "ignore")
         elif isinstance(content, str):
             excerpt = content[:500]
