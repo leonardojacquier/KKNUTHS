@@ -422,3 +422,19 @@ def test_coach_calls_are_low_temperature():
     assert "MESMO veredito" in pt
     src = inspect.getsource(llm.followup)
     assert "COERÊNCIA" in src
+
+
+def test_each_print_gets_own_hand_id():
+    # caso real: todo print virava hand_id 'vision-snapshot' e o upsert por
+    # (user, site, hand_id) fazia cada foto SOBRESCREVER a anterior no banco —
+    # 4 análises do dia apontavam para a mão de uma semana atrás
+    from app.agent.llm import _fingerprint, _snapshot_to_canonical
+
+    data = {"hero_cards": ["9h", "9s"], "site": "GGPoker",
+            "blinds": {"small_blind": 1, "big_blind": 2}}
+    a = _snapshot_to_canonical(data, fingerprint=_fingerprint(b"foto-A"))
+    b = _snapshot_to_canonical(data, fingerprint=_fingerprint(b"foto-B"))
+    assert a.hand_id != b.hand_id            # prints diferentes, linhas diferentes
+    assert a.hand_id.startswith("vision-")
+    # MESMO print reenviado -> mesmo id (dedupe continua funcionando)
+    assert _fingerprint(b"foto-A") == _fingerprint(b"foto-A")

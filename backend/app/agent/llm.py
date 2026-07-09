@@ -1078,7 +1078,7 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         )
         raw = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(raw))
-        hand = _snapshot_to_canonical(data)
+        hand = _snapshot_to_canonical(data, fingerprint=_fingerprint(text.encode()))
         # guarda anti-alucinação: sem cartas do herói E sem AÇÃO, não é mão
         # (board sozinho não basta — street sem ação pode ser fabricada)
         if hand is None or (
@@ -1128,9 +1128,18 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
         )
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(text))
-        return _snapshot_to_canonical(data)
+        return _snapshot_to_canonical(data, fingerprint=_fingerprint(image_bytes))
     except Exception:
         return None
+
+
+def _fingerprint(content: bytes) -> str:
+    """Id determinístico por conteúdo: reenvio do MESMO print/texto deduplica,
+    print DIFERENTE ganha linha própria (antes tudo era 'vision-snapshot' e o
+    upsert por hand_id fazia cada foto SOBRESCREVER a anterior no banco)."""
+    import hashlib
+
+    return hashlib.sha1(content).hexdigest()[:12]
 
 
 def _strip_code_fence(text: str) -> str:
@@ -1161,7 +1170,7 @@ def _norm_cards(cards) -> list[str]:
     return [n for n in (_norm_card(c) for c in (cards or [])) if n]
 
 
-def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
+def _snapshot_to_canonical(data: dict, fingerprint: str | None = None) -> CanonicalHand | None:
     from app.models.canonical import (
         Action,
         ActionType,
@@ -1255,7 +1264,7 @@ def _snapshot_to_canonical(data: dict) -> CanonicalHand | None:
     has_actions = any(s.actions for s in streets)
     fmt = data.get("format") or "cash"
     hand = CanonicalHand(
-        hand_id="vision-snapshot",
+        hand_id=f"vision-{fingerprint}" if fingerprint else "vision-snapshot",
         site=data.get("site") or "unknown",
         format=HandFormat(fmt) if fmt in ("cash", "tournament", "sng") else HandFormat.CASH,
         stakes=stakes,
