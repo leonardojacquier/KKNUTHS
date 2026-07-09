@@ -699,6 +699,7 @@ def coach(
         system_blocks = [
             {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
         ]
+        parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
             resp = client.messages.create(
                 model=settings.analysis_model,
@@ -707,8 +708,10 @@ def coach(
                 tools=TOOLS,
                 messages=messages,
             )
+            parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                return "".join(b.text for b in resp.content if b.type == "text").strip() or fallback
+                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
@@ -730,7 +733,9 @@ def coach(
                     )
             messages.append({"role": "user", "content": tool_results})
 
-        return fallback
+        # rodadas esgotadas: entrega o que já foi escrito em vez de jogar fora
+        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        return final or fallback
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
         return fallback
@@ -836,6 +841,7 @@ def followup(
             messages.append({"role": "assistant", "content": turn["a"]})
         messages.append({"role": "user", "content": question})
 
+        parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
             resp = client.messages.create(
                 model=settings.analysis_model,
@@ -844,8 +850,10 @@ def followup(
                 tools=TOOLS,
                 messages=messages,
             )
+            parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
             for block in resp.content:
@@ -865,7 +873,8 @@ def followup(
                         {"type": "tool_result", "tool_use_id": block.id, "content": out}
                     )
             messages.append({"role": "user", "content": tool_results})
-        return None
+        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        return final or None
     except Exception:
         return None
 
@@ -907,6 +916,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
                 + json.dumps(sim_data, ensure_ascii=False, indent=2),
             }
         ]
+        parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
             resp = client.messages.create(
                 model=settings.analysis_model,
@@ -915,8 +925,10 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
                 tools=TOOLS,
                 messages=messages,
             )
+            parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
             for block in resp.content:
@@ -936,7 +948,8 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
                         {"type": "tool_result", "tool_use_id": block.id, "content": out}
                     )
             messages.append({"role": "user", "content": tool_results})
-        return None
+        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        return final or None
     except Exception:
         return None
 
