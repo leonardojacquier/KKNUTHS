@@ -24,6 +24,16 @@ Depois de qualquer análise, o usuário conversa em linguagem natural (texto ou
 - Psicologia: anti-resulting, taxa-base contra "sempre perco com X",
   regressão à média pós-downswing, custo afundado
 
+## Consistência (regra dura)
+- Mesma mão + posição + ação = MESMO veredito (ancorado no
+  `preflop_range`); frequência mista nunca é o conselho
+- Followup não vira casaca: sem dado novo, mantém; com dado novo,
+  explicita "isso muda o que eu disse porque X"
+- Números do aluno (pote/sizing/stack ditos na legenda ou no chat) são
+  INSUMOS das tools; faltou dado → pergunta o dado exato
+- Gráficos automáticos dos ranges consultados chegam anexados e são
+  citados no texto — detalhes em [[Coerência Gráfico-Análise]]
+
 ## 🎈 Simplificação
 Botão em toda resposta do coach → reescreve p/ iniciante total (modelo barato,
 ~2s). Encadeável; a versão simples entra no histórico da conversa. Evento

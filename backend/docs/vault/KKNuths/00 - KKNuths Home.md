@@ -1,6 +1,6 @@
 ---
 tags: [kknuths, moc]
-atualizado: 2026-07-08
+atualizado: 2026-07-11
 ---
 # ♠ KKNuths — Mapa do Conhecimento
 
@@ -26,6 +26,7 @@ Lema: **Pare de achar. Calcule.**
 - [[Infraestrutura e Deploy]]
 - [[Banco de Dados]]
 - [[Testes e Qualidade]]
+- [[Coerência Gráfico-Análise]]
 
 ## Negócio
 - [[Estratégia e Moat]]

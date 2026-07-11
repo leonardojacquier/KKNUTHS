@@ -23,7 +23,19 @@ retenta no próximo. Instrumentar: capturar log e reportar no Telegram do admin.
 - `BAYES_STATS=0` — desliga shrinkage (rollback de emergência)
 - `REPORT_AUTO=0` — relatório só via /relatorio
 
+## Diagnóstico via bot_events (SQL, sem SSH)
+- `event='deploy'` (tg 0): hash/mensagem do commit NO AR
+- `event='upload_failed'`: note traz a CAUSA real da visão (exceção)
+- `event='chart_failed'`: gráfico prometido que não renderizou (spec)
+- `event='diag'`: oneshot de diagnóstico despeja tail de log no banco
+  (padrão: 2026-07-09-diagnostico-print-v2.sh)
+
 ## Sintomas conhecidos
 - Deploy sem 🔄/⚠️ → ver ERR trap / STATE file do auto_update
 - MCP Supabase instável na sandbox → retry ou rotear via oneshot
 - Botões novos só aparecem em MENSAGENS NOVAS (Telegram não edita antigas)
+- `temperature is deprecated for this model` (400) → wrapper `_create`
+  já refaz sem o parâmetro e memoriza (`_NO_TEMP`); NÃO passar
+  temperature direto em `client.messages.create` novo
+- Excerpt binário em log_event derrubava o INSERT (NUL byte, 22P05) →
+  `_scrub_nul` no repositório; binário vira '<fmt binário, N bytes>'
