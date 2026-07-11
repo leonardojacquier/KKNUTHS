@@ -378,6 +378,10 @@ _SYSTEM = {
         "99 é call; o 3-bet só entra contra quem abre demais e desiste "
         "demais') e cite a frequência, se citar, como nuance — nunca como "
         "correção do que foi dito antes.\n"
+        "2c) GRÁFICOS AUTOMÁTICOS: cada range que você consultar (preflop_range, "
+        "equity_vs_range, push_fold) é ANEXADO como imagem logo após a sua "
+        "resposta — faça referência a ele no texto ('o range segue no gráfico "
+        "abaixo') para o aluno saber por que a imagem chegou.\n"
         "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
         "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
@@ -600,6 +604,11 @@ def _dispatch(name: str, args: dict):
             return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
         pos = str(args.get("position") or "").upper()
         if pos and isinstance(stack, (int, float)) and stack > 0:
+            if pos == "BB":
+                # BB não faz open-shove (é o caller): 'Shove BB' seria um
+                # gráfico de ação que não existe no jogo
+                return {"error": "BB não abre de shove — para o range de CALL "
+                                 "de all-in do BB use role='BB' + stack_bb"}
             from app.analysis.pushfold import shove_threshold
 
             if shove_threshold(pos, float(stack)) is None:
@@ -706,6 +715,8 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                 from app.analysis.pushfold import shove_threshold
 
                 pos = str(args["position"]).upper()
+                if pos == "BB":
+                    return None  # dispatch já rejeitou; sem gráfico fantasma
                 stk = float(args["stack_bb"])
                 pct = shove_threshold(pos, stk)
                 if pct:

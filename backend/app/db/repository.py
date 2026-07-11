@@ -235,17 +235,35 @@ class Repository:
     @_safe(None)
     def snapshot_player_stats(self, user_id: str, stats: Any,
                               net_bb: float | None = None) -> None:
-        """Grava um ponto na linha do tempo de evolução (além do upsert atual)."""
+        """Grava um ponto na linha do tempo de evolução (além do upsert atual).
+
+        Os valores gravados são os MESMOS que o /stats exibe (bayes-corrigidos
+        quando a flag está ligada) — /evolucao dizendo 'VPIP 100' com /stats
+        dizendo '28%' era o mesmo jogador se contradizendo entre comandos."""
         if not self._guard():
             return None
+        vpip, pfr, three_bet, af = stats.vpip, stats.pfr, stats.three_bet, stats.af
+        try:
+            from app.config import get_settings
+
+            if get_settings().bayes_stats:
+                from app.analysis.bayes import bayes_stats
+
+                b = bayes_stats(stats)
+                vpip = b["vpip"]["mean"]
+                pfr = b["pfr"]["mean"]
+                three_bet = b["three_bet"]["mean"]
+                af = b["af"]["mean"]
+        except Exception:
+            pass  # correção indisponível: grava cru (melhor que não gravar)
         self.client.table("player_stats_history").insert(
             {
                 "user_id": user_id,
                 "hands": stats.hands,
-                "vpip": stats.vpip,
-                "pfr": stats.pfr,
-                "three_bet": stats.three_bet,
-                "af": stats.af,
+                "vpip": vpip,
+                "pfr": pfr,
+                "three_bet": three_bet,
+                "af": af,
                 "net_bb": net_bb,
                 "label": stats.label,
             }

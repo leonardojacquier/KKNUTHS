@@ -625,3 +625,28 @@ def test_3bet_chart_title_names_the_opener():
         "preflop_range", {"position": "CO", "action": "3bet"},
         {"range": "TT+, AJs+, KQs, A5s, A4s, AQo+"})
     assert spec is not None and "contra open de CO" in spec[2]
+
+
+def test_audit_round2_sim_charts_bb_shove_and_snapshot():
+    import inspect
+
+    from app.agent import llm
+    from app.bot import handlers, processing
+    from app.db import repository
+
+    # (2) simulação: gráfico do veredito 'e se' é coletado e enviado
+    assert "collect_charts=chart_specs" in inspect.getsource(processing.sim_whatif)
+    assert "_send_pending_charts" in inspect.getsource(handlers.on_sim_answer)
+
+    # (5) 'Shove BB' não existe: dispatch rejeita e nenhum gráfico sai
+    out = llm._dispatch("send_range_chart", {"position": "BB", "stack_bb": 9})
+    assert "error" in out
+    assert llm.charts_from_tool_call(
+        "send_range_chart", {"position": "BB", "stack_bb": 9}, {"ok": True}) is None
+
+    # (3) /evolucao grava os MESMOS números do /stats (bayes na flag)
+    assert "bayes_stats" in inspect.getsource(
+        repository.Repository.snapshot_player_stats)
+
+    # (1) prompt manda o coach referenciar os gráficos automáticos
+    assert "GRÁFICOS AUTOMÁTICOS" in llm._SYSTEM["pt"]

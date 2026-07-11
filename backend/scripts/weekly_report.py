@@ -72,11 +72,25 @@ def main() -> int:
         net_bb = round(sum(a["net_bb"] for a in analyses), 1)
         worst = min(analyses, key=lambda a: a["net_bb"], default=None)
 
+        # mesmos números do /stats (bayes-corrigidos): o resumo semanal não
+        # pode contradizer o que o comando mostra no mesmo dia
+        vpip, pfr, af = stats.vpip, stats.pfr, stats.af
+        if settings.bayes_stats:
+            try:
+                from app.analysis.bayes import bayes_stats
+
+                b = bayes_stats(stats)
+                vpip = round(b["vpip"]["mean"])
+                pfr = round(b["pfr"]["mean"])
+                af = round(b["af"]["mean"], 2)
+            except Exception:
+                pass
+
         text = (
             "📅 *Seu resumo da semana*\n\n"
             f"• Mãos analisadas: {len(hands)}\n"
             f"• Resultado: {net_bb:+.1f} BB\n"
-            f"• VPIP {stats.vpip}% | PFR {stats.pfr}% | AF {stats.af}\n"
+            f"• VPIP {vpip}% | PFR {pfr}% | AF {af}\n"
         )
         if worst and worst["net_bb"] < 0:
             text += (

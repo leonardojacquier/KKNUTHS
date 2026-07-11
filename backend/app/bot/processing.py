@@ -800,10 +800,13 @@ def stats_report(telegram_id: int, username: str | None) -> str | None:
 
         med_vpip = st.median(float(f.get("vpip") or 0) for f in others)
         med_pfr = st.median(float(f.get("pfr") or 0) for f in others)
+        # o seu número é o corrigido pela amostra; a mediana do field é crua —
+        # o rótulo deixa isso explícito para a comparação não enganar
+        corr = " (corrigido)" if get_settings().bayes_stats else ""
         msg += (
             f"\n\n*Você vs o field KKNuths* ({len(others)} jogadores)\n"
-            f"• VPIP: você {vpip:.0f}% · field {med_vpip:.0f}%\n"
-            f"• PFR: você {pfr:.0f}% · field {med_pfr:.0f}%"
+            f"• VPIP: você {vpip:.0f}%{corr} · field {med_vpip:.0f}%\n"
+            f"• PFR: você {pfr:.0f}%{corr} · field {med_pfr:.0f}%"
         )
 
     if user:
@@ -908,10 +911,12 @@ def sim_choose(sim: dict, choice: str) -> None:
     sim["pos"] += 1
 
 
-def sim_whatif(sim: dict) -> str | None:
+def sim_whatif(sim: dict, telegram_id: int | None = None) -> str | None:
     """Modo "e se": veredito do coach sobre a linha alternativa escolhida.
 
     None quando o LLM está indisponível (o resumo determinístico já foi enviado).
+    Gráficos que o coach pedir no veredito são stashed para o handler enviar —
+    sem isto o texto prometia 'gráfico abaixo' e nada chegava.
     """
     from app.agent.llm import evaluate_line
 
@@ -922,7 +927,11 @@ def sim_whatif(sim: dict) -> str | None:
         "resultado_real_bb": sim["net_bb_real"],
         "decisoes": sim["results"],
     }
-    return evaluate_line(payload)
+    chart_specs: list = []
+    out = evaluate_line(payload, collect_charts=chart_specs)
+    if telegram_id is not None:
+        _stash_charts(telegram_id, chart_specs, None)
+    return out
 
 
 def sim_summary(sim: dict) -> str:

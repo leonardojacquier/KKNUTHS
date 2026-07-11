@@ -602,9 +602,10 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot.processing import sim_whatif
 
     await query.message.reply_text("🧠 Avaliando a SUA linha (modo 'e se')…")
-    verdict = await asyncio.to_thread(sim_whatif, sim)
+    verdict = await asyncio.to_thread(sim_whatif, sim, update.effective_user.id)
     if verdict:
         await _safe_reply(query.message, "🎓 *Veredito da sua linha:*\n\n" + verdict)
+        await _send_pending_charts(query.message, update.effective_user.id)
     else:
         await query.message.reply_text(
             "Não consegui gerar o veredito agora — mas o resumo acima já mostra "
