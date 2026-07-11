@@ -30,43 +30,82 @@ LAST_ANALYSIS: dict[int, dict] = {}
 _HISTORY_CAP = 6
 
 # gráficos de range gerados na última análise (o handler envia e limpa)
-PENDING_CHARTS: dict[int, list[tuple[bytes, str]]] = {}
+# (timestamp, charts): gráfico órfão de uma resposta que falhou NÃO pode
+# grudar na interação seguinte — fora de contexto destrói a confiança
+PENDING_CHARTS: dict[int, tuple[float, list[tuple[bytes, str]]]] = {}
+_CHART_TTL = 900.0
+
+
+def _chart_desc(spec: tuple) -> str:
+    if spec and spec[0] == "range" and len(spec) > 2:
+        return str(spec[2])
+    if spec and spec[0] in ("nash", "nashmode"):
+        return f"jam/fold {spec[1]} {spec[2]:g}bb"
+    return str(spec[0] if spec else "?")
 
 
 def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> None:
     """Processa as specs coletadas do coach: notas de caderno vão para o banco;
-    gráficos (máx. 4) são renderizados para envio pelo handler."""
+    gráficos (máx. 4, sem duplicatas) são renderizados para envio pelo handler.
+    Render que falha vira AVISO explícito — o texto prometeu o gráfico."""
+    import time as _time
+
     if not specs:
         return
     from app.analysis.range_chart import render_spec
 
     notes = [s for s in specs if s and s[0] == "note"]
-    chart_specs = [s for s in specs if s and s[0] != "note"]
+    chart_specs = []
+    for s in specs:  # dedupe preservando ordem: mesmo range 2x = 1 gráfico
+        if s and s[0] != "note" and s not in chart_specs:
+            chart_specs.append(s)
 
     if notes and user_id:
         repo = get_repository()
         for _, kind, note in notes[:3]:
             repo.save_note(user_id, kind, note)
 
+    if len(chart_specs) > 4:
+        log.warning("charts além do teto descartados: %s",
+                    [_chart_desc(s) for s in chart_specs[4:]])
+
     charts = []
     for spec in chart_specs[:4]:
         rendered = render_spec(spec)
         if rendered:
             charts.append(rendered)
+        else:
+            # prometido no texto e não entregue = incoerência; avisa e loga
+            charts.append(
+                (b"", f"⚠️ Não consegui montar o gráfico ({_chart_desc(spec)}) "
+                      "desta vez — me pede de novo que eu tento na hora."))
+            get_repository().log_event(
+                telegram_id, None, "chart_failed", {"spec": repr(spec)[:300]})
     if charts:
-        PENDING_CHARTS[telegram_id] = charts
+        PENDING_CHARTS[telegram_id] = (_time.time(), charts)
 
 
 def pop_charts(telegram_id: int) -> list[tuple[bytes, str]]:
-    return PENDING_CHARTS.pop(telegram_id, [])
+    import time as _time
+
+    ts, charts = PENDING_CHARTS.pop(telegram_id, (0.0, []))
+    if _time.time() - ts > _CHART_TTL:
+        return []
+    return charts
 
 
-# documentos pendentes (relatório mão a mão etc.): (bytes, filename, caption)
-PENDING_DOCS: dict[int, list[tuple[bytes, str, str]]] = {}
+# documentos pendentes (relatório mão a mão etc.): (ts, [(bytes, nome, legenda)])
+# mesmo raciocínio do TTL dos gráficos: doc órfão não gruda em resposta futura
+PENDING_DOCS: dict[int, tuple[float, list[tuple[bytes, str, str]]]] = {}
 
 
 def pop_docs(telegram_id: int) -> list[tuple[bytes, str, str]]:
-    return PENDING_DOCS.pop(telegram_id, [])
+    import time as _time
+
+    ts, docs = PENDING_DOCS.pop(telegram_id, (0.0, []))
+    if _time.time() - ts > _CHART_TTL:
+        return []
+    return docs
 
 
 # paste de hand history cortado pelo Telegram (limite 4096): guarda a(s)
@@ -273,7 +312,11 @@ def _process_upload_inner(
 
             board = render_tournament_board(hands)
             board_png = board[0]
-            PENDING_CHARTS.setdefault(telegram_id, []).insert(0, board)
+            import time as _time
+
+            _ts, _lst = PENDING_CHARTS.get(telegram_id) or (0.0, [])
+            _lst.insert(0, board)
+            PENDING_CHARTS[telegram_id] = (_time.time(), _lst)
         except Exception as exc:
             log.warning("quadro do torneio falhou: %s", exc)
 
@@ -291,12 +334,16 @@ def _process_upload_inner(
             html = build_report_html(hands, coaching, board_png,
                                      per_hand_analysis=per_hand)
             fname = f"KKNuths-MaoAMao-{hands[0].tournament_id or 'torneio'}.html"
-            PENDING_DOCS.setdefault(telegram_id, []).append((
+            import time as _time
+
+            _ts, _docs = PENDING_DOCS.get(telegram_id) or (0.0, [])
+            _docs.append((
                 html.encode("utf-8"), fname,
                 "📋 Relatório mão a mão — o torneio inteiro, mão por mão, com "
                 "o Nº da sala em cada uma. Quer abrir alguma? Me manda o Nº "
                 "ou as cartas aqui no chat.",
             ))
+            PENDING_DOCS[telegram_id] = (_time.time(), _docs)
         except Exception as exc:
             log.warning("relatório mão a mão falhou: %s", exc)
 

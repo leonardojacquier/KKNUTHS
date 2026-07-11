@@ -825,7 +825,13 @@ async def _send_pending_charts(message, telegram_id: int) -> None:
 
     for png, caption in pop_charts(telegram_id):
         try:
-            await message.reply_photo(photo=_io.BytesIO(png), caption=caption[:1000])
+            if png:
+                await message.reply_photo(photo=_io.BytesIO(png),
+                                          caption=caption[:1000])
+            else:
+                # render falhou: o texto prometeu o gráfico — avisar é melhor
+                # que sumir com ele (incoerência silenciosa)
+                await message.reply_text(caption[:1000])
         except Exception:
             pass
     from app.bot.processing import pop_docs

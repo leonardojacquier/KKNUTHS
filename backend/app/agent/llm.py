@@ -105,9 +105,10 @@ TOOLS = [
     },
     {
         "name": "preflop_range",
-        "description": "Range de referência pré-flop: action='open' (posições UTG/UTG+1/MP/HJ/"
-        "CO/BTN/SB) ou action='3bet' (vs EP/MP/CO/BTN). Use como villain_range no "
-        "equity_vs_range.",
+        "description": "Range de referência pré-flop de STACK FUNDO (~25bb+): action='open' "
+        "(posições UTG/UTG+1/MP/HJ/CO/BTN/SB) ou action='3bet' (vs EP/MP/CO/BTN = 3-bet "
+        "CONTRA o open dessa posição). Use como villain_range no equity_vs_range. "
+        "Com stack <=20bb a referência é push_fold, NÃO esta tabela.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -581,6 +582,10 @@ def _dispatch(name: str, args: dict):
             return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
         role = str(args.get("role") or "").upper()
         stack = args.get("stack_bb")
+        if args.get("mode") == "icm" and not args.get("bf"):
+            # bf chutado (default) contradiz o bubble factor citado no texto
+            return {"error": "mode='icm' exige bf: calcule com bubble_factor "
+                             "e passe o valor exato"}
         if role in ("SB", "BB") and isinstance(stack, (int, float)) and stack > 0:
             if args.get("mode") in ("ev", "icm"):
                 from app.analysis.jam_fold_solver import available as _solver_ok
@@ -712,7 +717,11 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
         if name == "preflop_range" and isinstance(result, dict) and result.get("range"):
             pos = args.get("position", "?").upper()
             act = args.get("action", "open")
-            return ("range", result["range"], f"Range de {act} — {pos}")
+            # '3bet vs_CO' é o range de 3-bet CONTRA o open de CO — o título
+            # ambíguo ('Range de 3bet — CO') lia-se como range DO CO
+            title = (f"Range de 3-bet contra open de {pos}" if act == "3bet"
+                     else f"Range de open — {pos} (stack fundo)")
+            return ("range", result["range"], title)
         if name == "push_fold" and isinstance(result, dict) and result.get("role"):
             return ("nash", result["role"], float(result.get("stack_resolvido") or
                                                   result.get("stack_bb") or 10))

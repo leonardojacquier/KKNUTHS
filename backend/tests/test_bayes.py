@@ -571,3 +571,57 @@ def test_shove_chart_matches_push_fold_verdict():
 
     # acima de 20bb não existe shove aproximado
     assert shove_threshold("UTG", 35) is None
+
+
+def test_chart_pipeline_coherence(monkeypatch):
+    # auditoria de incoerências gráfico↔análise:
+    # (a) dedupe: o mesmo range 2x vira 1 gráfico
+    # (b) render que falha vira AVISO explícito (o texto prometeu o gráfico)
+    # (c) gráfico órfão (TTL vencido) não gruda na resposta seguinte
+    import time
+
+    from app.bot import processing as proc
+
+    rendered = []
+    monkeypatch.setattr(
+        "app.analysis.range_chart.render_spec",
+        lambda spec: (b"PNG", f"ok {spec[1]}") if spec[1] != "quebra" else None,
+    )
+
+    specs = [("range", "top 12%", "Shove UTG"),
+             ("range", "top 12%", "Shove UTG"),      # duplicata
+             ("range", "quebra", "Range impossível")]  # render falha
+    proc._stash_charts(111222, specs, None)
+    charts = proc.pop_charts(111222)
+    assert len(charts) == 2                      # dedupe aplicado
+    assert charts[0] == (b"PNG", "ok top 12%")
+    assert charts[1][0] == b"" and "Não consegui montar" in charts[1][1]
+
+    # TTL: chart velho não é entregue
+    proc.PENDING_CHARTS[111222] = (time.time() - 9999, [(b"PNG", "velho")])
+    assert proc.pop_charts(111222) == []
+
+    # docs seguem a mesma regra
+    proc.PENDING_DOCS[111222] = (time.time() - 9999, [(b"X", "f.html", "c")])
+    assert proc.pop_docs(111222) == []
+    proc.PENDING_DOCS[111222] = (time.time(), [(b"X", "f.html", "c")])
+    assert proc.pop_docs(111222) == [(b"X", "f.html", "c")]
+
+
+def test_icm_chart_requires_real_bubble_factor():
+    # bf chutado (default 1.5) no gráfico ICM contradiz o bubble factor do texto
+    from app.agent.llm import _dispatch
+
+    out = _dispatch("send_range_chart", {"role": "SB", "stack_bb": 10,
+                                         "mode": "icm"})
+    assert "error" in out and "bf" in out["error"]
+
+
+def test_3bet_chart_title_names_the_opener():
+    # 'Range de 3bet — CO' lia-se como range DO CO; é o range CONTRA o open de CO
+    from app.agent.llm import charts_from_tool_call
+
+    spec = charts_from_tool_call(
+        "preflop_range", {"position": "CO", "action": "3bet"},
+        {"range": "TT+, AJs+, KQs, A5s, A4s, AQo+"})
+    assert spec is not None and "contra open de CO" in spec[2]
