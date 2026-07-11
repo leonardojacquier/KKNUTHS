@@ -543,3 +543,31 @@ def test_create_retries_without_temperature_when_model_rejects():
     import pytest
     with pytest.raises(RuntimeError, match="overloaded"):
         llm._create(FakeClient2(), model="outro", max_tokens=10, messages=[])
+
+
+def test_shove_chart_matches_push_fold_verdict():
+    # caso real: quiz de JTs UTG 8.9bb -> veredito 'fold' (shove = top 12%),
+    # mas a tabela pedida saiu um range de abertura de stack fundo COM JTs —
+    # o gráfico do spot de shove tem que sair do MESMO push_fold
+    from app.agent.llm import charts_from_tool_call
+    from app.analysis.pushfold import push_fold, shove_threshold
+    from app.analysis.ranges import parse_range
+
+    res = push_fold(["Td", "Jd"], 8.9, "UTG")
+    assert res["decision"] == "fold" and res["shove_range_pct"] == 12.0
+
+    # gancho automático: o resultado aproximado (sem 'role') gera o gráfico
+    spec = charts_from_tool_call("push_fold",
+                                 {"cards": ["Td", "Jd"], "stack_bb": 8.9,
+                                  "position": "UTG"}, res)
+    assert spec is not None and spec[0] == "range"
+    assert spec[1] == "top 12%"
+    assert "JTs" not in parse_range(spec[1])   # coerente: JTs fora do range
+
+    # pedido explícito de tabela: position + stack_bb usa o mesmo limiar
+    spec2 = charts_from_tool_call("send_range_chart",
+                                  {"position": "UTG", "stack_bb": 8.9}, {"ok": True})
+    assert spec2 is not None and spec2[1] == "top 12%"
+
+    # acima de 20bb não existe shove aproximado
+    assert shove_threshold("UTG", 35) is None

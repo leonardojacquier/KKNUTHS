@@ -60,6 +60,15 @@ def hand_percentile(cards: list[str]) -> float:
     return _RANK_INDEX[canonical_hand(cards)] / (_N - 1)
 
 
+def shove_threshold(position: str, stack_bb: float) -> float | None:
+    """% do range que se empurra (0-1) por posição/stack; None acima de 20bb."""
+    group = _POSITION_GROUP.get((position or "").upper(), "MP")
+    for stack_max, pct in _THRESHOLDS[group]:
+        if stack_bb <= stack_max:
+            return pct
+    return None
+
+
 def push_fold(cards: list[str], stack_bb: float, position: str) -> dict:
     """Decisão push/fold aproximada de Nash para open-shove em stack curto.
 

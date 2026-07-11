@@ -284,13 +284,18 @@ TOOLS = [
         "sua resposta. Use SEMPRE que o aluno pedir 'tabela', 'gráfico', 'range' ou 'EV "
         "das mãos'. Modos: (a) range específico — passe range_notation + title; "
         "(b) equilíbrio jam/fold — passe role (SB|BB) + stack_bb + mode "
-        "('freq' | 'ev' chip | 'icm' com bf). Confirme na resposta que o gráfico segue abaixo.",
+        "('freq' | 'ev' chip | 'icm' com bf); (c) OPEN-SHOVE por posição (stack "
+        "<=20bb) — passe position (UTG/MP/CO/BTN) + stack_bb: sai o range de shove "
+        "aproximado de Nash (top X%), o MESMO do push_fold. Para spot de shove use "
+        "SEMPRE (c) — NUNCA mande range de abertura de stack fundo. Confirme na "
+        "resposta que o gráfico segue abaixo.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "range_notation": {"type": "string"},
                 "title": {"type": "string"},
                 "role": {"type": "string", "enum": ["SB", "BB"]},
+                "position": {"type": "string"},
                 "stack_bb": {"type": "number"},
                 "mode": {"type": "string", "enum": ["freq", "ev", "icm"]},
                 "bf": {"type": "number"},
@@ -378,7 +383,10 @@ _SYSTEM = {
         "diga isso ao aluno). Em decisões de river relevantes, use solve_river (equilíbrio "
         "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies. "
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
-        "nunca diga que não consegue enviar imagem.\n"
+        "nunca diga que não consegue enviar imagem. TABELA de spot de SHOVE (stack "
+        "curto): o range do gráfico é o MESMO do push_fold — passe position + "
+        "stack_bb; NUNCA desenhe range de abertura de stack fundo para spot de "
+        "shove (contradiz o veredito).\n"
         "4b) STACKS: use SEMPRE hero_stack_bb/effective_bb/stacks_bb do contexto — "
         "NUNCA estime o stack (o valor do big blind NÃO é o stack!). Em all-in, "
         "o que manda é o stack EFETIVO: min(seu stack, stack do vilão relevante). "
@@ -585,8 +593,16 @@ def _dispatch(name: str, args: dict):
                 if not _nash_ok():
                     return {"error": "tabela Nash indisponível"}
             return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
+        pos = str(args.get("position") or "").upper()
+        if pos and isinstance(stack, (int, float)) and stack > 0:
+            from app.analysis.pushfold import shove_threshold
+
+            if shove_threshold(pos, float(stack)) is None:
+                return {"error": "stack acima de 20bb: não é spot de open-shove — "
+                                 "use range_notation com o range de abertura"}
+            return {"ok": True, "info": "gráfico agendado — será enviado após a resposta"}
         return {"error": "parâmetros insuficientes: passe range_notation OU "
-                         "role ('SB'/'BB') + stack_bb (número > 0)"}
+                         "role ('SB'/'BB') + stack_bb OU position + stack_bb (<=20)"}
     if name == "push_fold":
         from app.analysis.nash_pushfold import nash_jam_fold
         from app.analysis.pushfold import push_fold
@@ -681,6 +697,15 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
             if args.get("role") and args.get("stack_bb"):
                 return ("nashmode", str(args["role"]).upper(), float(args["stack_bb"]),
                         args.get("mode") or "freq", float(args.get("bf") or 1.5))
+            if args.get("position") and args.get("stack_bb"):
+                from app.analysis.pushfold import shove_threshold
+
+                pos = str(args["position"]).upper()
+                stk = float(args["stack_bb"])
+                pct = shove_threshold(pos, stk)
+                if pct:
+                    return ("range", f"top {round(pct * 100)}%",
+                            f"Shove {pos} ~{stk:g}bb (aprox. Nash)")
             return None
         if name == "equity_vs_range" and args.get("villain_range"):
             return ("range", args["villain_range"], "Range assumido do vilão")
@@ -691,6 +716,14 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
         if name == "push_fold" and isinstance(result, dict) and result.get("role"):
             return ("nash", result["role"], float(result.get("stack_resolvido") or
                                                   result.get("stack_bb") or 10))
+        if (name == "push_fold" and isinstance(result, dict)
+                and result.get("applicable") and result.get("shove_range_pct")):
+            # posições fora de SB/BB: o gráfico É o range do veredito (top X%) —
+            # sem isto o modelo desenhava range de abertura de stack fundo num
+            # spot de shove e contradizia o próprio conselho
+            return ("range", f"top {result['shove_range_pct']:g}%",
+                    f"Shove {result.get('position', '?')} "
+                    f"~{float(result.get('stack_bb') or 10):g}bb (aprox. Nash)")
     except Exception:
         return None
     return None
