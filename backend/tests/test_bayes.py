@@ -806,3 +806,17 @@ event = 'Torneio Teste'
     # detecção por conteúdo (colado como txt, sem extensão)
     r2 = ingest(nt, source_format="txt")
     assert r2.source_format == "phh" and len(r2.hands) == 1
+
+
+def test_analise_fala_de_jogador_para_jogador():
+    # feedback do admin: análise vinha "traduzindo" termo com parênteses
+    # didáticos — didática é função EXCLUSIVA do 🎈; análise é poker nativo
+    from app.agent.llm import TERMOS_REGRA, _SYSTEM
+
+    pt = _SYSTEM["pt"]
+    assert "LINGUAGEM ACESSÍVEL" not in pt          # regra antiga extinta
+    assert "JOGADOR PARA JOGADOR" in pt
+    assert "sem parênteses didáticos" in pt.lower() or \
+           "sem \nparênteses" in pt or "parênteses didáticos" in pt
+    assert "NÃO explique termos" in TERMOS_REGRA
+    assert "EXCLUSIVA da simplificação" in TERMOS_REGRA
