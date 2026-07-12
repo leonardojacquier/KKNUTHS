@@ -973,7 +973,7 @@ def sim_advance(sim: dict) -> dict:
         e = sim["events"][sim["pos"]]
         if e["street"] != last_street:
             board = " ".join(e["board"]) if e["board"] else "—"
-            lines.append(f"\n🃏 *{e['street'].upper()}*  (mesa: {board})")
+            lines.append(f"\n🃏 *{e['street'].upper()}*  (board: {board})")
             last_street = e["street"]
         if e["kind"] == "action":
             lines.append(f"  {e['text']}")
@@ -1042,13 +1042,13 @@ def sim_summary(sim: dict) -> str:
         price = ""
         if r["to_call"] > 0:
             req = pot_odds(r["pot"], r["to_call"])
-            price = f" — equity mínima p/ pagar (chance de ganhar necessária): {req*100:.0f}%"
+            price = f" — equity mínima p/ pagar: {req*100:.0f}%"
         lines.append(
             f"{icon} *{r['street']}*: você: {r['choice']} | na mão real: {r['actual']}{price}"
         )
     lines.append(
         f"\nResultado real da mão: {sim['net_bb_real']:+.1f} BB "
-        f"(BB = big blind, a aposta grande da mesa)."
+        f"(em big blinds)."
     )
     lines.append(
         f"Você repetiu a linha real em {matches}/{len(sim['results'])} decisões."
@@ -1221,7 +1221,7 @@ def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real su
         f"Você: *{drill['cards_pretty']}* no *{drill['position'] or '?'}* · stack *{stack}*\n"
     )
     body = ("\n" + drill["story"] + "\n") if drill.get("story") else "\n"
-    mesa = f"\nMesa: *{drill['board_pretty']}*" if drill.get("board_pretty") else ""
+    mesa = f"\nBoard: *{drill['board_pretty']}*" if drill.get("board_pretty") else ""
     price = (f" | pagar: *{drill['to_call_bb']:g}bb* "
              f"(precisa de ≈{drill['required_eq']*100:.0f}% de equity)"
              if drill.get("to_call_bb") else "")

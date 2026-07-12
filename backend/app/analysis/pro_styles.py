@@ -61,7 +61,7 @@ ARCHETYPES: list[dict] = [
     },
     {
         "key": "exploit",
-        "nome": "Explorador/leitor (small-ball exploitativo)",
+        "nome": "Exploit/leitor (small-ball explorativo)",
         "centro": (27, 17, 1.9, 6),
         "pros": [
             ("Daniel Negreanu", "small ball: potes pequenos, leitura de padrões e "

@@ -51,7 +51,7 @@ WELCOME = (
     "• /stats — perfil de estilo, leaks em bb/100 e KKN Tilt Detector\n"
     "• /estilo — cartão visual do seu estilo vs os grandes + plano de transição\n"
     "• /evolucao — sua linha do tempo (VPIP, PFR, resultado…) com gráficos\n"
-    "• /torneio — quadro do último campeonato: curva do stack mão a mão\n"
+    "• /torneio — quadro do último torneio: curva do stack mão a mão\n"
     "• /relatorio — o torneio inteiro analisado, mão por mão (HTML)\n\n"
     "🎮 *Treino*\n"
     "• /preparar — briefing pré-torneio: seus leaks, protocolo mental e metas\n"
@@ -77,7 +77,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("stats", "Seu perfil de estilo"),
             BotCommand("estilo", "Você vs os grandes jogadores"),
             BotCommand("evolucao", "Sua linha do tempo com gráficos"),
-            BotCommand("torneio", "Quadro do último campeonato"),
+            BotCommand("torneio", "Quadro do último torneio"),
             BotCommand("relatorio", "Relatório mão a mão 📋"),
             BotCommand("preparar", "Preparação pré-torneio 🎯"),
             BotCommand("simular", "Rejogue uma mão sua 🎮"),
@@ -206,7 +206,7 @@ _STYLE_BUTTONS = InlineKeyboardMarkup([[
     InlineKeyboardButton("Virar TAG", callback_data="est:tag"),
     InlineKeyboardButton("Virar LAG", callback_data="est:lag"),
     InlineKeyboardButton("GTO", callback_data="est:gto"),
-    InlineKeyboardButton("Explorador", callback_data="est:exploit"),
+    InlineKeyboardButton("Exploit", callback_data="est:exploit"),
 ]])
 
 
@@ -272,7 +272,7 @@ async def cmd_relatorio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not doc:
         await update.message.reply_text(
             "Ainda não tenho um torneio seu com mãos suficientes (mínimo 8). "
-            "Manda o arquivo do campeonato que eu preparo o relatório."
+            "Manda o arquivo do torneio que eu preparo o relatório."
         )
         return
     data, fname, caption = doc
@@ -330,7 +330,7 @@ async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not board:
         await update.message.reply_text(
             "Ainda não tenho um torneio seu com mãos suficientes. Envie o hand "
-            "history do campeonato (arquivo ou colado) que eu monto o quadro."
+            "history do torneio (arquivo ou colado) que eu monto o quadro."
         )
         return
     png, cap = board

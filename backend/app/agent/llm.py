@@ -1151,7 +1151,7 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
             max_tokens=500,
             temperature=0.2,
             system=(
-                "Você é um coach de pôquer. Responda à pergunta do jogador usando APENAS "
+                "Você é um coach de poker. Responda à pergunta do jogador usando APENAS "
                 "as análises de mãos fornecidas. Seja direto, aponte o padrão comum entre "
                 "as mãos e uma recomendação. Responda em português."
                 if lang == "pt"
@@ -1171,7 +1171,7 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
 
 
 _VISION_PROMPT = (
-    "Você recebe um print/foto de pôquer (mesa ao vivo OU replay/histórico de mão — "
+    "Você recebe um print/foto de poker (mesa ao vivo OU replay/histórico de mão — "
     "replays do GGPoker/PokerStars mostram a ação completa: LEIA TUDO). Extraia "
     "ABSOLUTAMENTE TODO detalhe visível e retorne APENAS um JSON:\n"
     "{\n"
@@ -1211,7 +1211,7 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
 
         client = Anthropic(api_key=settings.anthropic_api_key)
         prompt = (
-            "O texto abaixo descreve uma mão de pôquer num formato não padronizado "
+            "O texto abaixo descreve uma mão de poker num formato não padronizado "
             "(pode ser de qualquer sala, idioma ou até descrição livre). Extraia a "
             "PRIMEIRA mão completa no MESMO formato JSON a seguir — apenas o JSON:\n"
             + _VISION_PROMPT.split("{", 1)[1].rsplit("}", 1)[0].join(["{", "}"])
