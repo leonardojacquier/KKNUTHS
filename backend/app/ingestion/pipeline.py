@@ -30,6 +30,24 @@ class IngestResult:
 def ingest(content: bytes | str, source_format: str = "txt", filename: str = "") -> IngestResult:
     fmt = (source_format or "").lower()
 
+    # PHH (padrão aberto TOML, .phh/.phhs — datasets do WSOP etc.): pela
+    # extensão OU pelo cheiro do conteúdo ('variant = ...')
+    if fmt in ("phh", "phhs") or (
+        fmt in ("txt", "text") and isinstance(content, (str, bytes))
+    ):
+        text_probe = (content.decode("utf-8", "ignore")
+                      if isinstance(content, bytes) else content)
+        from app.parsers.phh import looks_like_phh, parse_phh
+
+        if fmt in ("phh", "phhs") or looks_like_phh(text_probe):
+            hands, note = parse_phh(text_probe)
+            if hands:
+                return IngestResult(hands, hands[0].site, "phh",
+                                    confidence=0.95, note=note)
+            return IngestResult([], None, "phh", confidence=0.0,
+                                needs_review=True,
+                                note=note or "PHH sem mão de hold'em")
+
     if fmt in ("txt", "text", "csv") or (isinstance(content, str) and fmt != "pdf"):
         text = content.decode("utf-8", "ignore") if isinstance(content, bytes) else content
         site = detect_site(text)

@@ -235,6 +235,13 @@ def _process_upload_inner(
             {"format": fmt, "note": result.note, "excerpt": excerpt,
              "raw_path": raw_path},
         )
+        if "por enquanto analiso" in (result.note or ""):
+            # variante reconhecida mas fora do motor (stud/razz/omaha do PHH):
+            # nomear o jogo é honesto; "não li" seria mentira
+            return (
+                f"Li o arquivo — é uma {result.note}. 🃏\n"
+                "Manda uma mão de Hold'em (NLHE) que eu analiso na hora!"
+            )
         if caption and caption.strip():
             return (
                 "O print veio ilegível pra mim e a legenda ainda não fecha a mão. 😕\n"

@@ -758,3 +758,51 @@ def test_preparacao_por_formato_de_torneio(monkeypatch):
     out = proc.prepare_report(777003, "t", "turbo de $11")
     assert out is not None                     # dicas chegaram ao LLM
     assert stashed and stashed[0][0][0] == "nashmode"
+
+
+def test_phh_format_support():
+    # caso real: admin subiu .phh (dataset do WSOP) e recebeu "formato não
+    # suportado"; a mão era Seven Card Stud — a resposta deve NOMEAR o jogo
+    from app.ingestion.pipeline import ingest
+    from app.parsers.phh import parse_phh
+
+    stud = """variant = 'F7S/8'
+antes = [50000, 50000]
+starting_stacks = [4575000, 1700000]
+actions = ['d dh p1 ??????', 'd dh p2 7d2dTs', 'p1 f']
+players = ['James Obst', 'Talal Shakerchi']
+event = 'WSOP 2023'
+"""
+    hands, note = parse_phh(stud)
+    assert hands == [] and "Seven Card Stud" in note
+
+    r = ingest(stud.encode(), source_format="phh")
+    assert not r.hands and "Seven Card Stud" in r.note
+
+    # hold'em NT parseia de verdade: streets, blinds, showdown, herói
+    nt = """variant = 'NT'
+antes = [0, 0, 0]
+blinds_or_straddles = [400, 800, 0]
+min_bet = 800
+starting_stacks = [20000, 30000, 25000]
+actions = ['d dh p1 ????', 'd dh p2 ????', 'd dh p3 AhKd', 'p3 cbr 1600', 'p1 f', 'p2 cc', 'd db 7c2d9s', 'p2 cc', 'p3 cbr 2000', 'p2 f', 'p3 sm AhKd']
+players = ['Alice', 'Bob', 'Hero']
+event = 'Torneio Teste'
+"""
+    hands, note = parse_phh(nt)
+    assert len(hands) == 1 and not note
+    h = hands[0]
+    assert h.hero == "Hero" and h.hero_cards == ["Ah", "Kd"]
+    assert h.final_board == ["7c", "2d", "9s"]
+    pre = h.streets[0]
+    tipos = [(a.actor, a.type.value) for a in pre.actions if a.type.value != "post"]
+    assert ("Hero", "raise") in tipos and ("Bob", "call") in tipos
+    flop = h.streets[1]
+    ftipos = [(a.actor, a.type.value) for a in flop.actions]
+    assert ("Bob", "check") in ftipos and ("Hero", "bet") in ftipos
+    assert h.shown_cards.get("Hero") == ["Ah", "Kd"]
+    assert h.stakes.big_blind == 800 and h.format.value == "tournament"
+
+    # detecção por conteúdo (colado como txt, sem extensão)
+    r2 = ingest(nt, source_format="txt")
+    assert r2.source_format == "phh" and len(r2.hands) == 1
