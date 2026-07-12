@@ -842,6 +842,65 @@ def coach(
         return fallback
 
 
+def prepare_briefing(ctx: dict, lang: str = "pt") -> str | None:
+    """Briefing pré-torneio personalizado (fase 1 do /preparar).
+
+    Uma chamada sem tools: todos os números já vêm calculados no contexto
+    (leaks em bb/100, stats corrigidas, padrão de tilt, caderno). O texto
+    fecha com METAS parseáveis ('META 1:' / 'META 2:') que viram notas no
+    caderno do coach — o relatório pós-torneio vai cobrá-las (fase 3).
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    system = (
+        "Você é um coach de poker brasileiro preparando seu aluno para um "
+        "torneio HOJE. Papo de mesa, direto, veredito primeiro — nada de "
+        "soar robótico, nada de mencionar sistema/dados, PROIBIDO adjetivar "
+        "('brutal', 'honesto'). Registro sempre 'você'. "
+        "NUNCA invente números: use APENAS os números do contexto (leaks em "
+        "bb/100, stats, tilt); sem número, fale qualitativo. " + TERMOS_REGRA +
+        "\nEstrutura da resposta (máx ~2500 caracteres, Telegram, *negrito*, "
+        "sem cabeçalhos '#'):\n"
+        "1) Abertura curta de coach (1 frase, considerando o que o aluno "
+        "disse do torneio de hoje, se disse).\n"
+        "2) *O que vigiar hoje*: os leaks do contexto, cada um em 1-2 frases "
+        "com o custo em bb/100 e a correção prática.\n"
+        "3) *Protocolo mental*: se o contexto traz padrão de tilt, "
+        "personalize (gatilho dele + contramedida concreta); senão, 2 frases "
+        "de protocolo padrão (pote grande perdido → pausa; decisão ≠ "
+        "resultado).\n"
+        "4) *Plano por fase*: UMA linha para cada — início (stack fundo), "
+        "meio (20-40bb), bolha (pressão de ICM), mesa final (push/fold).\n"
+        "5) Feche com EXATAMENTE duas linhas no formato:\n"
+        "META 1: <meta comportamental concreta e verificável nas mãos>\n"
+        "META 2: <idem>\n"
+        "As metas saem dos leaks/tilt do contexto — específicas, não "
+        "genéricas ('não pagar 3-bet fora de posição com par médio', não "
+        "'jogar bem')."
+    )
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        resp = _create(client,
+            model=settings.analysis_model,
+            max_tokens=1100,
+            temperature=0.2,
+            system=system,
+            messages=[{"role": "user", "content": json.dumps(
+                ctx, ensure_ascii=False, indent=2)}],
+        )
+        out = "".join(b.text for b in resp.content if b.type == "text").strip()
+        return out or None
+    except Exception as exc:
+        logging.getLogger("llm").warning("prepare_briefing falhou: %s", exc)
+        return None
+
+
 def simplify(text: str) -> str | None:
     """Reescreve a última explicação do coach para um iniciante TOTAL.
 

@@ -54,6 +54,7 @@ WELCOME = (
     "• /torneio — quadro do último campeonato: curva do stack mão a mão\n"
     "• /relatorio — o torneio inteiro analisado, mão por mão (HTML)\n\n"
     "🎮 *Treino*\n"
+    "• /preparar — briefing pré-torneio: seus leaks, protocolo mental e metas\n"
     "• /simular — jogue uma mão sua de novo, decisão a decisão\n"
     "• /treino — drill rápido: o que você faria neste spot?\n\n"
     "📐 *Ferramentas*\n"
@@ -78,6 +79,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("evolucao", "Sua linha do tempo com gráficos"),
             BotCommand("torneio", "Quadro do último campeonato"),
             BotCommand("relatorio", "Relatório mão a mão 📋"),
+            BotCommand("preparar", "Preparação pré-torneio 🎯"),
             BotCommand("simular", "Rejogue uma mão sua 🎮"),
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("range", "Gráficos de range 13×13"),
@@ -277,6 +279,26 @@ async def cmd_relatorio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_document(
         document=_io.BytesIO(data), filename=fname, caption=caption[:1000]
     )
+
+
+async def cmd_preparar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Briefing pré-torneio: leaks a vigiar, protocolo mental, plano por fase
+    e 2 metas da sessão (que o relatório pós-torneio vai cobrar)."""
+    tg_user = update.effective_user
+    await update.message.reply_text(
+        "🎯 Montando sua preparação com base nas suas mãos… (~20s)")
+    from app.bot.processing import prepare_report
+
+    args_text = " ".join(ctx.args) if ctx.args else ""
+    briefing = await asyncio.to_thread(
+        prepare_report, tg_user.id, _uname(tg_user), args_text)
+    if not briefing:
+        await update.message.reply_text(
+            "Preciso conhecer seu jogo primeiro — me manda um torneio ou "
+            "algumas mãos e depois pede /preparar de novo."
+        )
+        return
+    await _safe_reply(update.message, briefing, simplify_btn=True)
 
 
 async def cmd_manual(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -978,6 +1000,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("estilo", cmd_estilo))
     app.add_handler(CommandHandler("manual", cmd_manual))
     app.add_handler(CommandHandler("relatorio", cmd_relatorio))
+    app.add_handler(CommandHandler("preparar", cmd_preparar))
     app.add_handler(CallbackQueryHandler(on_evo_indicator, pattern=r"^evo:"))
     app.add_handler(CallbackQueryHandler(on_style_target, pattern=r"^est:"))
     app.add_handler(CommandHandler("ask", cmd_ask))

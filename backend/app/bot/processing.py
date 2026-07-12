@@ -741,6 +741,73 @@ def style_report(telegram_id: int, username: str | None,
     return png if not desired else None, text
 
 
+def _extract_metas(text: str) -> list[str]:
+    """Extrai as linhas 'META 1: …' / 'META 2: …' do briefing (viram notas
+    no caderno; o relatório pós-torneio vai cobrá-las na fase 3)."""
+    import re as _re
+
+    return [m.strip() for m in _re.findall(
+        r"^META\s*\d\s*:\s*(.+)$", text or "", _re.MULTILINE) if m.strip()][:2]
+
+
+def prepare_report(telegram_id: int, username: str | None,
+                   args_text: str = "") -> str | None:
+    """/preparar — briefing pré-torneio a partir dos dados do PRÓPRIO aluno.
+
+    None quando não há mãos (o handler explica) ou o LLM está fora.
+    """
+    repo = get_repository()
+    user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
+    src_hands = (repo.get_all_hands(user["id"]) if user else []) or \
+        RECENT_HANDS.get(telegram_id, [])
+    if not src_hands:
+        return None
+    stats = compute_player_stats(src_hands, player=None)
+    if not stats or not stats.hands:
+        return None
+
+    vpip, pfr, tbet, af = stats.vpip, stats.pfr, stats.three_bet, stats.af
+    if get_settings().bayes_stats:
+        from app.analysis.bayes import bayes_stats
+
+        b = bayes_stats(stats)
+        vpip, pfr, tbet = b["vpip"]["mean"], b["pfr"]["mean"], b["three_bet"]["mean"]
+        af = b["af"]["mean"]
+
+    from app.analysis.leaks import detect_leaks
+    from app.analysis.mental import detect_mental
+
+    ctx: dict = {
+        "torneio_de_hoje": args_text.strip() or None,
+        "perfil": {"maos": stats.hands, "vpip": round(vpip), "pfr": round(pfr),
+                   "three_bet": round(tbet), "af": round(af, 2),
+                   "estilo": stats.label},
+        "leaks": detect_leaks(src_hands[:150]),
+        "tilt": detect_mental(src_hands[:300]),
+    }
+    if user:
+        notes = repo.get_notes(user["id"], limit=6)
+        if notes:
+            ctx["caderno_do_coach"] = [f"[{n['kind']}] {n['note']}" for n in notes]
+
+    from app.agent.llm import prepare_briefing
+
+    briefing = prepare_briefing(ctx)
+    if not briefing:
+        return None
+
+    # metas viram notas do caderno — memória entre a preparação e o jogo
+    if user:
+        from datetime import date
+
+        for meta in _extract_metas(briefing):
+            repo.save_note(user["id"], "meta", f"[prep {date.today()}] {meta}")
+    if repo.enabled:
+        repo.log_event(telegram_id, username, "preparar",
+                       {"args": args_text[:120] or None})
+    return briefing
+
+
 def stats_report(telegram_id: int, username: str | None) -> str | None:
     """Perfil atual + benchmark contra o field da ferramenta + caderno."""
     repo = get_repository()

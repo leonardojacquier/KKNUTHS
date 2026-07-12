@@ -675,3 +675,49 @@ def test_post_analysis_buttons_by_context():
     from app.bot import processing
     assert "LAST_UPLOAD_KIND[telegram_id]" in inspect.getsource(
         processing._process_upload_inner)
+
+
+def test_preparar_briefing_flow(monkeypatch):
+    # /preparar fase 1: briefing das mãos do próprio aluno + metas parseadas
+    from app.bot import processing as proc
+
+    # extração de metas: só linhas META N:, no máximo 2
+    metas = proc._extract_metas(
+        "bla\nMETA 1: não pagar 3-bet fora de posição com par médio\n"
+        "META 2: pausa de 2 min após pote grande perdido\nMETA 3: extra")
+    assert len(metas) == 2 and metas[0].startswith("não pagar")
+    assert proc._extract_metas("sem metas aqui") == []
+
+    # prompt do briefing (ANTES do monkeypatch, que troca a função):
+    # glossário + temperatura baixa + metas parseáveis
+    import inspect
+
+    from app.agent import llm
+    src = inspect.getsource(llm.prepare_briefing)
+    assert "TERMOS_REGRA" in src and "temperature=0.2" in src
+    assert "META 1:" in src
+
+    # fluxo: com mãos + LLM stubado, devolve o briefing e loga o evento
+    from pathlib import Path
+
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[777001] = hands
+    captured = {}
+
+    def fake_briefing(ctx, lang="pt"):
+        captured["ctx"] = ctx
+        return "*Preparação*\nMETA 1: abrir os pares médios do CO\nMETA 2: pausa pós pote grande"
+
+    monkeypatch.setattr("app.agent.llm.prepare_briefing", fake_briefing)
+    out = proc.prepare_report(777001, "t", "turbo 25bb")
+    assert out and "META 1" in out
+    assert captured["ctx"]["torneio_de_hoje"] == "turbo 25bb"
+    assert captured["ctx"]["perfil"]["maos"] > 0
+    assert "leaks" in captured["ctx"] and "tilt" in captured["ctx"]
+
+    # sem mãos -> None (handler explica)
+    proc.RECENT_HANDS.pop(777002, None)
+    assert proc.prepare_report(777002, "t") is None
