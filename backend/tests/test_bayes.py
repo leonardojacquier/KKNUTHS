@@ -650,3 +650,28 @@ def test_audit_round2_sim_charts_bb_shove_and_snapshot():
 
     # (1) prompt manda o coach referenciar os gráficos automáticos
     assert "GRÁFICOS AUTOMÁTICOS" in llm._SYSTEM["pt"]
+
+
+def test_post_analysis_buttons_by_context():
+    # botões de pós-análise: vitrine contextual (torneio vs mão avulsa) —
+    # features atrás de comando ninguém descobre (caso real: beta só usou
+    # /relatorio depois de anúncio por mensagem)
+    from app.bot.handlers import _post_kb
+
+    def labels(kb):
+        return [b.text for row in kb.inline_keyboard for b in row]
+
+    t = labels(_post_kb("tournament"))
+    assert any("Relatório" in x for x in t) and any("evolução" in x for x in t)
+    h = labels(_post_kb("hand"))
+    assert any("Simular" in x for x in h) and any("perfil" in x for x in h)
+    # 🎈 sempre presente; nunca mais de 3 botões além dele
+    assert any("simples" in x for x in t) and any("simples" in x for x in h)
+    assert len(t) <= 4 and len(h) <= 4
+
+    # o contexto vem do processing (torneio vs mão)
+    import inspect
+
+    from app.bot import processing
+    assert "LAST_UPLOAD_KIND[telegram_id]" in inspect.getsource(
+        processing._process_upload_inner)

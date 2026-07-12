@@ -471,7 +471,9 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
         update.message.caption,
     )
-    await _safe_reply(update.message, reply, simplify_btn=True)
+    from app.bot.processing import LAST_UPLOAD_KIND
+    await _safe_reply(update.message, reply,
+                      kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -486,7 +488,9 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
         update.message.caption,
     )
-    await _safe_reply(update.message, reply, simplify_btn=True)
+    from app.bot.processing import LAST_UPLOAD_KIND
+    await _safe_reply(update.message, reply,
+                      kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -730,7 +734,9 @@ async def _route_text(update: Update, text: str) -> None:
         reply = await asyncio.to_thread(
             process_upload, text.encode(), "txt", tg_user.id, _uname(tg_user)
         )
-        await _safe_reply(update.message, reply, simplify_btn=True)
+        from app.bot.processing import LAST_UPLOAD_KIND
+        await _safe_reply(update.message, reply,
+                          kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
         await _send_pending_charts(update.message, tg_user.id)
         return
 
@@ -786,19 +792,125 @@ _SIMPLIFY_KB = InlineKeyboardMarkup(
 )
 
 
-async def _safe_reply(message, text: str, simplify_btn: bool = False) -> None:
+def _post_kb(kind: str | None) -> InlineKeyboardMarkup:
+    """Botões de pós-análise: o momento de maior atenção vira vitrine do
+    resto do produto (features escondidas atrás de comando ninguém acha)."""
+    rows = [[InlineKeyboardButton("🎈 Explica mais simples", callback_data="simp")]]
+    if kind == "tournament":
+        rows.append([
+            InlineKeyboardButton("📋 Relatório mão a mão", callback_data="pa:rel"),
+            InlineKeyboardButton("📈 Minha evolução", callback_data="pa:evo"),
+        ])
+    elif kind == "hand":
+        rows.append([
+            InlineKeyboardButton("🔁 Simular esta mão", callback_data="pa:sim"),
+            InlineKeyboardButton("📊 Meu perfil", callback_data="pa:stats"),
+        ])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _safe_reply(message, text: str, simplify_btn: bool = False,
+                      kind: str | None = None) -> None:
     """Envia respeitando o limite de 4096 chars do Telegram; se o Markdown do LLM
     vier malformado (entidades desbalanceadas), reenvia como texto puro.
-    `simplify_btn`: anexa o botão 🎈 ao último pedaço (respostas do coach)."""
+    `simplify_btn`: anexa o botão 🎈 ao último pedaço (respostas do coach).
+    `kind`: adiciona os botões contextuais de pós-análise ('tournament'|'hand')."""
     from telegram.error import BadRequest
 
     chunks = [text[i:i + 3900] for i in range(0, len(text), 3900)] or [text]
     for i, chunk in enumerate(chunks):
-        kb = _SIMPLIFY_KB if simplify_btn and i == len(chunks) - 1 else None
+        last = i == len(chunks) - 1
+        kb = None
+        if last and kind:
+            kb = _post_kb(kind)
+        elif last and simplify_btn:
+            kb = _SIMPLIFY_KB
         try:
             await message.reply_markdown(chunk, reply_markup=kb)
         except BadRequest:
             await message.reply_text(chunk, reply_markup=kb)
+
+
+async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botões contextuais de pós-análise (pa:rel / pa:evo / pa:sim / pa:stats).
+
+    Cada clique vira evento no banco — o funil pós-análise deixa de ser
+    invisível e passa a dizer onde investir."""
+    import io as _io
+
+    query = update.callback_query
+    action = query.data.split(":", 1)[1]
+    tg_user = update.effective_user
+    await _log(update, f"btn_{action}")
+
+    if action == "rel":
+        await query.answer("Montando o relatório… 📋")
+        from app.bot.processing import report_doc_for_user
+
+        doc = await asyncio.to_thread(report_doc_for_user, tg_user.id,
+                                      _uname(tg_user))
+        if not doc:
+            await query.message.reply_text(
+                "Ainda não tenho um torneio seu com mãos suficientes (mínimo 8).")
+            return
+        data, fname, caption = doc
+        await query.message.reply_document(
+            document=_io.BytesIO(data), filename=fname, caption=caption[:1000])
+        return
+
+    if action == "evo":
+        await query.answer("Buscando sua evolução… 📈")
+        from app.bot.processing import evolution_report
+
+        png, text = await asyncio.to_thread(evolution_report, tg_user.id)
+        if png:
+            try:
+                await query.message.reply_photo(png, caption=text[:1000],
+                                                reply_markup=_EVO_BUTTONS)
+            except Exception:
+                await query.message.reply_text(text)
+        else:
+            await query.message.reply_text(
+                text or "Preciso de mais uploads para desenhar sua evolução.")
+        return
+
+    if action == "sim":
+        await query.answer("Preparando a simulação… 🎮")
+        sim = await asyncio.to_thread(build_simulation, tg_user.id)
+        if not sim:
+            await query.message.reply_text(
+                "Preciso de uma mão sua com a ação completa para simular.")
+            return
+        ctx.user_data["sim"] = sim
+        step = sim_advance(sim)
+        intro = (
+            "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
+            f"Suas cartas: *{' '.join(sim['cards'])}* | Posição: "
+            f"*{sim['position'] or '?'}*"
+        )
+        kb = (_sim_buttons(step["decision"], sim["pos"])
+              if step["decision"] else None)
+        try:
+            await query.message.reply_markdown(intro + "\n" + step["narration"],
+                                               reply_markup=kb)
+        except Exception:
+            await query.message.reply_text(intro + "\n" + step["narration"],
+                                           reply_markup=kb)
+        return
+
+    if action == "stats":
+        await query.answer("Calculando seu perfil… 📊")
+        from app.bot.processing import stats_report
+
+        msg = await asyncio.to_thread(stats_report, tg_user.id, _uname(tg_user))
+        if msg:
+            await _safe_reply(query.message, msg)
+        else:
+            await query.message.reply_text(
+                "Ainda não tenho mãos suas o bastante — manda mais uploads.")
+        return
+
+    await query.answer()
 
 
 async def on_simplify(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -874,6 +986,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
+    app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))

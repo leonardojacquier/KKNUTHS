@@ -30,6 +30,10 @@ LAST_ANALYSIS: dict[int, dict] = {}
 _HISTORY_CAP = 6
 
 # gráficos de range gerados na última análise (o handler envia e limpa)
+# contexto do último upload por usuário: o handler escolhe os botões de
+# pós-análise por ele (torneio -> relatório/evolução; mão avulsa -> simular)
+LAST_UPLOAD_KIND: dict[int, str] = {}
+
 # (timestamp, charts): gráfico órfão de uma resposta que falhou NÃO pode
 # grudar na interação seguinte — fora de contexto destrói a confiança
 PENDING_CHARTS: dict[int, tuple[float, list[tuple[bytes, str]]]] = {}
@@ -259,6 +263,7 @@ def _process_upload_inner(
 
     # ---- análise determinística ----
     is_tournament = hands[0].format.value in ("tournament", "sng") and len(hands) > 1
+    LAST_UPLOAD_KIND[telegram_id] = "tournament" if is_tournament else "hand"
     key_hands = None
     if is_tournament:
         structured = analyze_tournament(hands)
