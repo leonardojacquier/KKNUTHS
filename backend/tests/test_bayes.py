@@ -664,7 +664,7 @@ def test_post_analysis_buttons_by_context():
     t = labels(_post_kb("tournament"))
     assert any("Relatório" in x for x in t) and any("evolução" in x for x in t)
     h = labels(_post_kb("hand"))
-    assert any("Simular" in x for x in h) and any("perfil" in x for x in h)
+    assert any("Simular" in x for x in h) and any("Range do spot" in x for x in h)
     # 🎈 sempre presente; nunca mais de 3 botões além dele
     assert any("simples" in x for x in t) and any("simples" in x for x in h)
     assert len(t) <= 4 and len(h) <= 4
@@ -857,3 +857,35 @@ def test_conversa_herda_teclado_contextual():
     # followup passa kind E simplify (fallback 🎈 quando não houve upload)
     ot = inspect.getsource(handlers._route_text)
     assert "simplify_btn=True" in ot and "kind=LAST_UPLOAD_KIND.get" in ot
+
+
+def test_botoes_agem_sobre_a_mao_analisada(monkeypatch):
+    # "os botões deveriam ser funcionalidades referentes à análise que está
+    # sendo feita": Simular mira a mão da análise; Range do spot usa o
+    # stack/posição DELA (curto -> shove Nash; deep -> open da posição)
+    from pathlib import Path
+
+    from app.bot import processing as proc
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[888001] = hands
+
+    # build_simulation com hand_id acha AQUELA mão (se ela tem decisão)
+    from app.agent.analyzer import hand_timeline
+    alvo = next(h for h in hands if h.hero and h.hero_cards and
+                any(e["kind"] == "decision" for e in hand_timeline(h)))
+    sim = proc.build_simulation(888001, alvo.hand_id)
+    assert sim and sim["hand_id"] == alvo.hand_id
+
+    # range do spot: curto -> top X%; deep -> open da posição
+    proc.LAST_HAND_META[888002] = {"hand_id": "x", "position": "CO",
+                                   "stack_bb": 9.0}
+    png, cap = proc.spot_range_chart(888002)
+    assert png and "Shove CO" in cap
+    proc.LAST_HAND_META[888002] = {"hand_id": "x", "position": "CO",
+                                   "stack_bb": 60.0}
+    png2, cap2 = proc.spot_range_chart(888002)
+    assert png2 and "open — CO" in cap2
+    assert proc.spot_range_chart(888003) is None  # sem contexto -> aviso

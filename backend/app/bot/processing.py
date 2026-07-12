@@ -34,6 +34,10 @@ _HISTORY_CAP = 6
 # pós-análise por ele (torneio -> relatório/evolução; mão avulsa -> simular)
 LAST_UPLOAD_KIND: dict[int, str] = {}
 
+# metadados da última MÃO analisada — os botões agem sobre ELA ("Simular esta
+# mão" tem que simular esta mão; "Range do spot" é o range DESTE spot)
+LAST_HAND_META: dict[int, dict] = {}
+
 # (timestamp, charts): gráfico órfão de uma resposta que falhou NÃO pode
 # grudar na interação seguinte — fora de contexto destrói a confiança
 PENDING_CHARTS: dict[int, tuple[float, list[tuple[bytes, str]]]] = {}
@@ -279,6 +283,12 @@ def _process_upload_inner(
         structured = analyze_hand(hands[0])
         if result.source_format == "image":
             _augment_snapshot(structured, hands[0])
+        LAST_HAND_META[telegram_id] = {
+            "hand_id": hands[0].hand_id,
+            "position": structured.get("position"),
+            "stack_bb": structured.get("effective_bb")
+            or structured.get("hero_stack_bb"),
+        }
     # o que o usuário ESCREVEU junto do envio (legenda da foto/arquivo) é
     # parte da mão: posições, ações e contexto que o print não mostra —
     # antes era descartado ("eu narrei a mão. Ele não considerou?")
@@ -748,6 +758,31 @@ def style_report(telegram_id: int, username: str | None,
     return png if not desired else None, text
 
 
+def spot_range_chart(telegram_id: int) -> tuple[bytes, str] | None:
+    """Range do SPOT da última mão analisada (botão 📖): stack curto vira o
+    range de shove aproximado de Nash; deep vira o range de open da posição.
+    Determinístico — o mesmo número que ancora o veredito do coach."""
+    meta = LAST_HAND_META.get(telegram_id)
+    if not meta:
+        return None
+    from app.analysis.pushfold import shove_threshold
+    from app.analysis.range_chart import render_spec
+    from app.analysis.ranges import OPEN_RANGES
+
+    pos = (meta.get("position") or "").upper()
+    stack = meta.get("stack_bb")
+    if stack and stack <= 20 and pos not in ("", "BB"):
+        pct = shove_threshold(pos, float(stack))
+        if pct:
+            return render_spec(("range", f"top {round(pct * 100)}%",
+                                f"Shove {pos} ~{stack:g}bb (aprox. Nash)"))
+    rng = OPEN_RANGES.get(pos)
+    if rng:
+        return render_spec(("range", rng, f"Range de open — {pos} (deep)"))
+    return render_spec(("range", OPEN_RANGES["BTN"],
+                        "Range de open — BTN (deep)"))
+
+
 def _extract_metas(text: str) -> list[str]:
     """Extrai as linhas 'META 1: …' / 'META 2: …' do briefing (viram notas
     no caderno; o relatório pós-torneio vai cobrá-las na fase 3)."""
@@ -922,10 +957,12 @@ def stats_report(telegram_id: int, username: str | None) -> str | None:
     return msg
 
 
-def build_simulation(telegram_id: int) -> dict | None:
+def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | None:
     """Monta uma simulação jogável a partir de uma mão real do usuário.
 
-    Escolhe a mão com mais pontos de decisão do herói. Retorna None sem material.
+    `hand_id`: simula AQUELA mão (botão 'Simular esta mão' age sobre a mão
+    da análise, não sobre outra). Sem hand_id (ou mão sem decisão), escolhe
+    a mão com mais pontos de decisão do herói. None sem material.
     """
     from app.agent.analyzer import analyze_hand as _ah
     from app.agent.analyzer import hand_timeline
@@ -938,14 +975,22 @@ def build_simulation(telegram_id: int) -> dict | None:
             hands = repo.get_all_hands(user["id"], limit=200)
 
     best, best_events = None, []
-    for h in hands:
-        if not (h.hero and h.hero_cards):
-            continue
-        ev = hand_timeline(h)
-        if sum(1 for e in ev if e["kind"] == "decision") > sum(
-            1 for e in best_events if e["kind"] == "decision"
-        ):
-            best, best_events = h, ev
+    if hand_id:
+        for h in hands:
+            if h.hand_id == hand_id and h.hero and h.hero_cards:
+                ev = hand_timeline(h)
+                if any(e["kind"] == "decision" for e in ev):
+                    best, best_events = h, ev
+                break
+    if best is None:
+        for h in hands:
+            if not (h.hero and h.hero_cards):
+                continue
+            ev = hand_timeline(h)
+            if sum(1 for e in ev if e["kind"] == "decision") > sum(
+                1 for e in best_events if e["kind"] == "decision"
+            ):
+                best, best_events = h, ev
     if not best or not any(e["kind"] == "decision" for e in best_events):
         return None
 

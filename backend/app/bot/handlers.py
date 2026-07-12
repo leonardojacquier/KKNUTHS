@@ -826,7 +826,7 @@ def _post_kb(kind: str | None) -> InlineKeyboardMarkup:
     elif kind == "hand":
         rows.append([
             InlineKeyboardButton("🔁 Simular esta mão", callback_data="pa:sim"),
-            InlineKeyboardButton("📊 Meu perfil", callback_data="pa:stats"),
+            InlineKeyboardButton("📖 Range do spot", callback_data="pa:range"),
         ])
     return InlineKeyboardMarkup(rows)
 
@@ -898,7 +898,10 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
 
     if action == "sim":
         await query.answer("Preparando a simulação… 🎮")
-        sim = await asyncio.to_thread(build_simulation, tg_user.id)
+        from app.bot.processing import LAST_HAND_META
+
+        hand_id = (LAST_HAND_META.get(tg_user.id) or {}).get("hand_id")
+        sim = await asyncio.to_thread(build_simulation, tg_user.id, hand_id)
         if not sim:
             await query.message.reply_text(
                 "Preciso de uma mão sua com a ação completa para simular.")
@@ -918,6 +921,22 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
         except Exception:
             await query.message.reply_text(intro + "\n" + step["narration"],
                                            reply_markup=kb)
+        return
+
+    if action == "range":
+        await query.answer("Montando o range do spot… 📖")
+        from app.bot.processing import spot_range_chart
+
+        import io as _io2
+        chart = await asyncio.to_thread(spot_range_chart, tg_user.id)
+        if chart:
+            png, caption = chart
+            await query.message.reply_photo(photo=_io2.BytesIO(png),
+                                            caption=caption[:1000])
+        else:
+            await query.message.reply_text(
+                "Perdi o contexto da última mão — me manda ela de novo que "
+                "eu trago o range do spot.")
         return
 
     if action == "stats":
