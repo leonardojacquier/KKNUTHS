@@ -24,6 +24,7 @@ from app.agent.llm import synthesize_answer
 from app.analysis import compute_player_stats
 from app.bot.processing import (
     LAST_ANALYSIS,
+    LAST_UPLOAD_KIND,
     RECENT_HANDS,
     build_drill,
     build_simulation,
@@ -494,9 +495,8 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
         update.message.caption,
     )
-    from app.bot.processing import LAST_UPLOAD_KIND
     await _safe_reply(update.message, reply,
-                      kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
+                      kind=LAST_UPLOAD_KIND.get(tg_user.id))
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -511,9 +511,8 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
         update.message.caption,
     )
-    from app.bot.processing import LAST_UPLOAD_KIND
     await _safe_reply(update.message, reply,
-                      kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
+                      kind=LAST_UPLOAD_KIND.get(tg_user.id))
     await _send_pending_charts(update.message, tg_user.id)
 
 
@@ -757,9 +756,8 @@ async def _route_text(update: Update, text: str) -> None:
         reply = await asyncio.to_thread(
             process_upload, text.encode(), "txt", tg_user.id, _uname(tg_user)
         )
-        from app.bot.processing import LAST_UPLOAD_KIND
         await _safe_reply(update.message, reply,
-                          kind=LAST_UPLOAD_KIND.pop(tg_user.id, None))
+                          kind=LAST_UPLOAD_KIND.get(tg_user.id))
         await _send_pending_charts(update.message, tg_user.id)
         return
 
@@ -768,7 +766,8 @@ async def _route_text(update: Update, text: str) -> None:
         process_followup, tg_user.id, _uname(tg_user), text
     )
     if answer:
-        await _safe_reply(update.message, answer, simplify_btn=True)
+        await _safe_reply(update.message, answer, simplify_btn=True,
+                          kind=LAST_UPLOAD_KIND.get(tg_user.id))
         await _send_pending_charts(update.message, tg_user.id)
     else:
         await update.message.reply_text(

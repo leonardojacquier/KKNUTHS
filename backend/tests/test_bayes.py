@@ -842,3 +842,19 @@ def test_deep_nunca_stack_fundo():
         "preflop_range", {"position": "BTN", "action": "open"},
         {"range": "22+, A2s+"})
     assert "deep" in spec[2] and "fundo" not in spec[2]
+
+
+def test_conversa_herda_teclado_contextual():
+    # "nas minhas últimas conversas não tá aparecendo os botões": followup
+    # agora herda o teclado do último upload (kind persiste, não é popped)
+    import inspect
+
+    from app.bot import handlers
+
+    src = inspect.getsource(handlers)
+    assert "LAST_UPLOAD_KIND.get(tg_user.id)" in src
+    assert "LAST_UPLOAD_KIND.pop" not in src        # persistência, não consumo
+    # followup passa kind E simplify (fallback 🎈 quando não houve upload)
+    ot = inspect.getsource(handlers.on_text)
+    assert "simplify_btn=True,\n                          kind=" in ot or \
+           "simplify_btn=True, kind=" in ot
