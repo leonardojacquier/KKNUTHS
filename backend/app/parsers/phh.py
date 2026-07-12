@@ -64,7 +64,10 @@ def _variant_name(variant: str) -> str | None:
 
 def parse_phh(text: str) -> tuple[list[CanonicalHand], str]:
     """Retorna (mãos hold'em parseadas, nota). Nota explica variantes puladas."""
-    import tomllib
+    try:
+        import tomllib  # py3.11+
+    except ModuleNotFoundError:
+        import tomli as tomllib  # VPS em py3.10
 
     try:
         data = tomllib.loads(text)
