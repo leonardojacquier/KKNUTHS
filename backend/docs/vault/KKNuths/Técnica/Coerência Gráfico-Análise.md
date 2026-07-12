@@ -25,7 +25,7 @@ COM JTs dentro. 11 incoerências corrigidas; invariantes abaixo.
    consultados (preflop_range/equity_vs_range/push_fold) chegam anexados e
    o coach referencia ("range no gráfico abaixo").
 8. **Títulos sem ambiguidade**: "3-bet contra open de CO" (não "3bet — CO");
-   open ganha "(stack fundo)".
+   open ganha "(deep)".
 9. **/simular modo "e se" fecha o circuito**: `sim_whatif` coleta charts e
    `on_sim_answer` envia (antes o veredito prometia e nada chegava).
 10. **Números iguais entre comandos**: /evolucao grava os valores

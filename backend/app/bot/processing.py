@@ -815,7 +815,7 @@ def prepare_report(telegram_id: int, username: str | None,
         from app.analysis.ranges import OPEN_RANGES
 
         _stash_charts(telegram_id, [
-            ("range", OPEN_RANGES["BTN"], "Range de open — BTN (stack fundo)")])
+            ("range", OPEN_RANGES["BTN"], "Range de open — BTN (deep)")])
 
     # metas viram notas do caderno — memória entre a preparação e o jogo
     if user:

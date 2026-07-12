@@ -105,7 +105,7 @@ TOOLS = [
     },
     {
         "name": "preflop_range",
-        "description": "Range de referência pré-flop de STACK FUNDO (~25bb+): action='open' "
+        "description": "Range de referência pré-flop DEEP (~25bb+): action='open' "
         "(posições UTG/UTG+1/MP/HJ/CO/BTN/SB) ou action='3bet' (vs EP/MP/CO/BTN = 3-bet "
         "CONTRA o open dessa posição). Use como villain_range no equity_vs_range. "
         "Com stack <=20bb a referência é push_fold, NÃO esta tabela.",
@@ -288,7 +288,7 @@ TOOLS = [
         "('freq' | 'ev' chip | 'icm' com bf); (c) OPEN-SHOVE por posição (stack "
         "<=20bb) — passe position (UTG/MP/CO/BTN) + stack_bb: sai o range de shove "
         "aproximado de Nash (top X%), o MESMO do push_fold. Para spot de shove use "
-        "SEMPRE (c) — NUNCA mande range de abertura de stack fundo. Confirme na "
+        "SEMPRE (c) — NUNCA mande range de abertura deep. Confirme na "
         "resposta que o gráfico segue abaixo.",
         "input_schema": {
             "type": "object",
@@ -333,7 +333,8 @@ TERMOS_REGRA = (
     "CALQUES PROIBIDOS (não existem no poker BR): 'par grande', 'mão grande', "
     "'par alto', 'domínio' (é DOMINADO/dominação), 'como valor' (é POR "
     "valor), 'sequência de cor', 'igualar' (é pagar), 'rua'/'etapa'/'rodada' "
-    "para street (diga STREET, ou nomeie: no flop, no turn, no river). "
+    "para street (diga STREET, ou nomeie: no flop, no turn, no river), "
+    "'stack fundo'/'pilha' (diga DEEP: 'jogando deep', '100bb deep'). "
     "REGISTRO: sempre 'você' — nunca 'tu/teu/te contigo' misturado. "
     "Na ANÁLISE normal, NÃO explique termos: fale de jogador para jogador, "
     "jargão nativo, sem parênteses didáticos — quem quiser simples tem o "
@@ -393,7 +394,7 @@ _SYSTEM = {
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
         "nunca diga que não consegue enviar imagem. TABELA de spot de SHOVE (stack "
         "curto): o range do gráfico é o MESMO do push_fold — passe position + "
-        "stack_bb; NUNCA desenhe range de abertura de stack fundo para spot de "
+        "stack_bb; NUNCA desenhe range de abertura deep para spot de "
         "shove (contradiz o veredito).\n"
         "4b) STACKS: use SEMPRE hero_stack_bb/effective_bb/stacks_bb do contexto — "
         "NUNCA estime o stack (o valor do big blind NÃO é o stack!). Em all-in, "
@@ -732,7 +733,7 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
             # '3bet vs_CO' é o range de 3-bet CONTRA o open de CO — o título
             # ambíguo ('Range de 3bet — CO') lia-se como range DO CO
             title = (f"Range de 3-bet contra open de {pos}" if act == "3bet"
-                     else f"Range de open — {pos} (stack fundo)")
+                     else f"Range de open — {pos} (deep)")
             return ("range", result["range"], title)
         if name == "push_fold" and isinstance(result, dict) and result.get("role"):
             return ("nash", result["role"], float(result.get("stack_resolvido") or
@@ -740,7 +741,7 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
         if (name == "push_fold" and isinstance(result, dict)
                 and result.get("applicable") and result.get("shove_range_pct")):
             # posições fora de SB/BB: o gráfico É o range do veredito (top X%) —
-            # sem isto o modelo desenhava range de abertura de stack fundo num
+            # sem isto o modelo desenhava range de abertura deep num
             # spot de shove e contradizia o próprio conselho
             return ("range", f"top {result['shove_range_pct']:g}%",
                     f"Shove {result.get('position', '?')} "
@@ -876,7 +877,7 @@ def prepare_briefing(ctx: dict, lang: str = "pt") -> str | None:
         "personalize (gatilho dele + contramedida concreta); senão, 2 frases "
         "de protocolo padrão (pote grande perdido → pausa; decisão ≠ "
         "resultado).\n"
-        "4) *Plano por fase*: UMA linha para cada — início (stack fundo), "
+        "4) *Plano por fase*: UMA linha para cada — início (deep), "
         "meio (20-40bb), bolha (pressão de ICM), mesa final (push/fold). "
         "Se o contexto trouxer dicas_do_formato, INCORPORE-AS aqui e no "
         "briefing (são regras verificadas do formato/field do torneio de "

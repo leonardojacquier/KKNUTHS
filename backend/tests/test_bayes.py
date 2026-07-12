@@ -547,7 +547,7 @@ def test_create_retries_without_temperature_when_model_rejects():
 
 def test_shove_chart_matches_push_fold_verdict():
     # caso real: quiz de JTs UTG 8.9bb -> veredito 'fold' (shove = top 12%),
-    # mas a tabela pedida saiu um range de abertura de stack fundo COM JTs —
+    # mas a tabela pedida saiu um range de abertura deep COM JTs —
     # o gráfico do spot de shove tem que sair do MESMO push_fold
     from app.agent.llm import charts_from_tool_call
     from app.analysis.pushfold import push_fold, shove_threshold
@@ -820,3 +820,25 @@ def test_analise_fala_de_jogador_para_jogador():
            "sem \nparênteses" in pt or "parênteses didáticos" in pt
     assert "NÃO explique termos" in TERMOS_REGRA
     assert "EXCLUSIVA da simplificação" in TERMOS_REGRA
+
+
+def test_deep_nunca_stack_fundo():
+    # 'stack fundo' não existe no poker BR — é DEEP. O calque estava até
+    # HARDCODED em títulos de gráfico e dicas (autoria nossa, não do LLM)
+    import inspect
+
+    from app.agent import llm
+    from app.analysis import prep
+    from app.bot import processing
+
+    assert "'stack fundo'" in llm.TERMOS_REGRA          # banido no glossário
+    for mod in (llm, prep, processing):
+        src = inspect.getsource(mod)
+        # fora da linha do glossário (que cita o calque para bani-lo),
+        # nenhuma outra ocorrência
+        assert src.count("stack fundo") <= (1 if mod is llm else 0), mod.__name__
+
+    spec = llm.charts_from_tool_call(
+        "preflop_range", {"position": "BTN", "action": "open"},
+        {"range": "22+, A2s+"})
+    assert "deep" in spec[2] and "fundo" not in spec[2]

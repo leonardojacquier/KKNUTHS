@@ -16,7 +16,7 @@ DICAS_FORMATO: dict[str, list[str]] = {
         "Roubo de blinds vale mais desde o meio do torneio; brigar por potes "
         "pequenos sem showdown é onde o stack se sustenta.",
         "Menos pós-flop: evite call especulativo que só floppa bem às vezes — "
-        "não haverá stack fundo por muito tempo para pagar o implied.",
+        "não haverá jogo deep por muito tempo para pagar o implied.",
     ],
     "hyper": [
         "Estrutura extrema: quase tudo é push/fold — os ranges de shove/call "
@@ -28,7 +28,7 @@ DICAS_FORMATO: dict[str, list[str]] = {
         "Estrutura lenta favorece paciência: early é para observar o field e "
         "jogar pós-flop com posição, não para acumular a qualquer custo.",
         "Mãos especulativas (pares baixos, suited connectors) ganham valor "
-        "com stack fundo — o implied existe de verdade aqui.",
+        "quando você está deep — o implied existe de verdade aqui.",
     ],
     "pko": [
         "Bounty muda a conta do call: contra shove de um stack que você "
