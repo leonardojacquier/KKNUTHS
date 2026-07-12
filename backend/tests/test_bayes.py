@@ -855,6 +855,5 @@ def test_conversa_herda_teclado_contextual():
     assert "LAST_UPLOAD_KIND.get(tg_user.id)" in src
     assert "LAST_UPLOAD_KIND.pop" not in src        # persistência, não consumo
     # followup passa kind E simplify (fallback 🎈 quando não houve upload)
-    ot = inspect.getsource(handlers.on_text)
-    assert "simplify_btn=True,\n                          kind=" in ot or \
-           "simplify_btn=True, kind=" in ot
+    ot = inspect.getsource(handlers._route_text)
+    assert "simplify_btn=True" in ot and "kind=LAST_UPLOAD_KIND.get" in ot
