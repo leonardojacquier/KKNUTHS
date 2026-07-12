@@ -714,10 +714,47 @@ def test_preparar_briefing_flow(monkeypatch):
     monkeypatch.setattr("app.agent.llm.prepare_briefing", fake_briefing)
     out = proc.prepare_report(777001, "t", "turbo 25bb")
     assert out and "META 1" in out
-    assert captured["ctx"]["torneio_de_hoje"] == "turbo 25bb"
+    assert captured["ctx"]["torneio_de_hoje"]["descricao"] == "turbo 25bb"
+    assert captured["ctx"]["torneio_de_hoje"]["formato"] == "turbo"
     assert captured["ctx"]["perfil"]["maos"] > 0
     assert "leaks" in captured["ctx"] and "tilt" in captured["ctx"]
 
     # sem mãos -> None (handler explica)
     proc.RECENT_HANDS.pop(777002, None)
     assert proc.prepare_report(777002, "t") is None
+
+
+def test_preparacao_por_formato_de_torneio(monkeypatch):
+    # a preparação se adapta ao TIPO de torneio: dicas verificadas em código
+    # (não inventadas pelo LLM) + range do formato como imagem
+    from app.analysis.prep import dicas_para, parse_tournament_profile
+
+    p = parse_tournament_profile("turbo pko de $22 no GG, field mole")
+    assert p["formato"] == "turbo" and p["pko"] is True
+    assert p["buyin"] == 22.0 and p["field"] == "recreativo"
+    d = dicas_para(p)
+    assert any("push/fold" in x for x in d)        # dica de turbo
+    assert any("ounty" in x for x in d)            # dica de PKO
+    assert any("recreativo" in x for x in d)       # dica de field mole
+
+    assert parse_tournament_profile("").get("formato") is None
+    assert dicas_para({}) == []
+
+    # turbo anexa o equilíbrio de shove como gráfico
+    from pathlib import Path
+
+    from app.bot import processing as proc
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[777003] = hands
+    monkeypatch.setattr("app.agent.llm.prepare_briefing",
+                        lambda ctx, lang="pt": "ok\nMETA 1: x\nMETA 2: y"
+                        if ctx.get("dicas_do_formato") else None)
+    stashed = []
+    monkeypatch.setattr(proc, "_stash_charts",
+                        lambda tg, specs, uid=None: stashed.append(specs))
+    out = proc.prepare_report(777003, "t", "turbo de $11")
+    assert out is not None                     # dicas chegaram ao LLM
+    assert stashed and stashed[0][0][0] == "nashmode"

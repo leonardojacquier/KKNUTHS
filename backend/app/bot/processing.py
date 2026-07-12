@@ -776,9 +776,13 @@ def prepare_report(telegram_id: int, username: str | None,
 
     from app.analysis.leaks import detect_leaks
     from app.analysis.mental import detect_mental
+    from app.analysis.prep import dicas_para, parse_tournament_profile
 
+    torneio = parse_tournament_profile(args_text)
+    dicas = dicas_para(torneio)
     ctx: dict = {
-        "torneio_de_hoje": args_text.strip() or None,
+        "torneio_de_hoje": torneio if torneio.get("descricao") else None,
+        "dicas_do_formato": dicas or None,
         "perfil": {"maos": stats.hands, "vpip": round(vpip), "pfr": round(pfr),
                    "three_bet": round(tbet), "af": round(af, 2),
                    "estilo": stats.label},
@@ -795,6 +799,16 @@ def prepare_report(telegram_id: int, username: str | None,
     briefing = prepare_briefing(ctx)
     if not briefing:
         return None
+
+    # ranges do formato como imagem: turbo/hyper vivem de push/fold (anexa o
+    # equilíbrio de shove do SB); estrutura lenta ganha a referência de open
+    if torneio.get("formato") in ("turbo", "hyper"):
+        _stash_charts(telegram_id, [("nashmode", "SB", 12.0, "freq", 1.5)])
+    elif torneio.get("formato") == "regular":
+        from app.analysis.ranges import OPEN_RANGES
+
+        _stash_charts(telegram_id, [
+            ("range", OPEN_RANGES["BTN"], "Range de open — BTN (stack fundo)")])
 
     # metas viram notas do caderno — memória entre a preparação e o jogo
     if user:

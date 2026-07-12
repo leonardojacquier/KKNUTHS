@@ -299,6 +299,7 @@ async def cmd_preparar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
     await _safe_reply(update.message, briefing, simplify_btn=True)
+    await _send_pending_charts(update.message, tg_user.id)
 
 
 async def cmd_manual(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
