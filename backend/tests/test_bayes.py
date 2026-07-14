@@ -889,3 +889,28 @@ def test_botoes_agem_sobre_a_mao_analisada(monkeypatch):
     png2, cap2 = proc.spot_range_chart(888002)
     assert png2 and "open — CO" in cap2
     assert proc.spot_range_chart(888003) is None  # sem contexto -> aviso
+
+
+def test_link_de_replay_responde_util():
+    # caso real: usuário novo mandou link de replay PPPoker/Suprema e o coach
+    # tratou a URL como pergunta. Agora responde com instrução clara.
+    from app.bot.processing import replay_link_reply
+
+    for url in (
+        "https://replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
+        "index.html?shareKey=abc&lan=pt",
+        "https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5",
+    ):
+        r = replay_link_reply(url)
+        assert r and "link de replay" in r.lower()
+        assert "print" in r.lower() and "descreve" in r.lower()
+
+    # link comum (não replay) NÃO dispara
+    assert replay_link_reply("https://google.com") is None
+    # texto que só cita uma url no meio de uma pergunta longa não dispara
+    assert replay_link_reply(
+        "achei essa análise em https://replay.pppoker.net/x mas discordo "
+        "totalmente do que ele falou sobre o meu 3-bet, o que você acha?"
+    ) is None
+    # texto normal passa reto
+    assert replay_link_reply("qual o range de UTG?") is None

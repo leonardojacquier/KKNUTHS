@@ -713,8 +713,18 @@ async def _route_text(update: Update, text: str) -> None:
     Pastes longos chegam cortados pelo Telegram (limite 4096): as partes são
     remontadas via stash/take_paste antes de analisar."""
     tg_user = update.effective_user
-    from app.bot.processing import stash_paste, take_paste
+    from app.bot.processing import replay_link_reply, stash_paste, take_paste
     from app.parsers import detect_site
+
+    # link de replay de clube (PPPoker/Suprema/etc.): o público BR compartilha
+    # LINK, não arquivo — responder com instrução clara em vez de tratar como
+    # pergunta (caso real: usuário novo mandou 2 links e o coach "respondeu"
+    # o texto da URL)
+    link_reply = replay_link_reply(text)
+    if link_reply:
+        await _log(update, "replay_link")
+        await update.message.reply_markdown(link_reply)
+        return
 
     raw_len = len(text)
     pending, parts = take_paste(tg_user.id)

@@ -783,6 +783,42 @@ def spot_range_chart(telegram_id: int) -> tuple[bytes, str] | None:
                         "Range de open — BTN (deep)"))
 
 
+# domínios de replay de clube conhecidos (link, não arquivo)
+_REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "supremapoker.net",
+                 "clubgg.com", "wepoker", "pokerbros", "upoker")
+
+
+def replay_link_reply(text: str) -> str | None:
+    """Se a mensagem é (ou contém) um link de replay de clube, devolve uma
+    resposta útil na hora. None caso contrário. Enquanto o extractor de link
+    não existe, transformar link em print/texto é o caminho que FUNCIONA."""
+    import re as _re
+
+    t = (text or "").strip()
+    m = _re.search(r'https?://[^\s]+', t)
+    if not m:
+        return None
+    url = m.group(0)
+    host = _re.sub(r'^https?://([^/]+).*', r'\1', url).lower()
+    # só trata quando a mensagem é essencialmente o link (não um texto que
+    # por acaso cita uma url) — link de replay vem sozinho
+    if not any(h in host for h in _REPLAY_HOSTS):
+        return None
+    if len(t) > len(url) + 40:
+        return None
+    return (
+        "🔗 Esse é um *link de replay* — ainda não abro o link direto (tô "
+        "trabalhando nisso!). Mas dá pra analisar essa mão *agora*, de dois "
+        "jeitos:\n\n"
+        "📸 *Print do replay* — tira uma foto/print da tela da mão (com as "
+        "cartas e o board) e me manda aqui.\n"
+        "✍️ *Ou descreve a mão* — tipo: _\"77 no CO, 30bb, limpei, flop "
+        "A♦7♣9♣, apostei 1bb...\"_ — que eu rodo os números na hora.\n\n"
+        "Assim que eu terminar a leitura de link, esse tipo de replay vai "
+        "entrar sozinho. 🃏"
+    )
+
+
 def _extract_metas(text: str) -> list[str]:
     """Extrai as linhas 'META 1: …' / 'META 2: …' do briefing (viram notas
     no caderno; o relatório pós-torneio vai cobrá-las na fase 3)."""
