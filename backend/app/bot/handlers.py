@@ -713,17 +713,29 @@ async def _route_text(update: Update, text: str) -> None:
     Pastes longos chegam cortados pelo Telegram (limite 4096): as partes são
     remontadas via stash/take_paste antes de analisar."""
     tg_user = update.effective_user
-    from app.bot.processing import replay_link_reply, stash_paste, take_paste
+    from app.bot.processing import (
+        LAST_UPLOAD_KIND, replay_fallback_text, replay_link_info, stash_paste,
+        take_paste,
+    )
     from app.parsers import detect_site
 
-    # link de replay de clube (PPPoker/Suprema/etc.): o público BR compartilha
-    # LINK, não arquivo — responder com instrução clara em vez de tratar como
-    # pergunta (caso real: usuário novo mandou 2 links e o coach "respondeu"
-    # o texto da URL)
-    link_reply = replay_link_reply(text)
-    if link_reply:
-        await _log(update, "replay_link")
-        await update.message.reply_markdown(link_reply)
+    # link de replay de clube: o público BR compartilha LINK, não arquivo.
+    # PPPoker: puxa a mão sozinho (JSON no CDN) e analisa. Outros: instrução.
+    rl = replay_link_info(text)
+    if rl:
+        if rl["site"] == "pppoker" and rl["share_key"]:
+            await update.message.reply_text(
+                "🔗 Achei o link do replay! Puxando a mão e analisando… 🃏")
+            reply = await asyncio.to_thread(
+                process_upload, rl["share_key"], "pppoker_replay",
+                tg_user.id, _uname(tg_user), "pt", None)
+            await _log(update, "replay_pppoker")
+            await _safe_reply(update.message, reply,
+                              kind=LAST_UPLOAD_KIND.get(tg_user.id))
+            await _send_pending_charts(update.message, tg_user.id)
+            return
+        await _log(update, "replay_link", site=rl["site"])
+        await update.message.reply_markdown(replay_fallback_text())
         return
 
     raw_len = len(text)

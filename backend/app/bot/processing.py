@@ -239,6 +239,14 @@ def _process_upload_inner(
             {"format": fmt, "note": result.note, "excerpt": excerpt,
              "raw_path": raw_path},
         )
+        if fmt == "pppoker_replay":
+            # o link foi reconhecido mas a mão não veio (CDN fora, chave
+            # inválida): cai no caminho que já funciona
+            return (
+                "🔗 Achei o link, mas não consegui puxar essa mão do replay "
+                "agora 😕. Me manda o *print* da tela da mão, ou *descreve* "
+                "ela (cartas, posição, o que rolou), que eu analiso na hora. 🃏"
+            )
         if "por enquanto analiso" in (result.note or ""):
             # variante reconhecida mas fora do motor (stud/razz/omaha do PHH):
             # nomear o jogo é honesto; "não li" seria mentira
@@ -788,10 +796,10 @@ _REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "supremapoker.net",
                  "clubgg.com", "wepoker", "pokerbros", "upoker")
 
 
-def replay_link_reply(text: str) -> str | None:
-    """Se a mensagem é (ou contém) um link de replay de clube, devolve uma
-    resposta útil na hora. None caso contrário. Enquanto o extractor de link
-    não existe, transformar link em print/texto é o caminho que FUNCIONA."""
+def replay_link_info(text: str) -> dict | None:
+    """Detecta link de replay de clube na mensagem. Retorna
+    {'site', 'share_key'} ou None. Só dispara quando a mensagem É o link
+    (não quando cita uma url no meio de uma pergunta longa)."""
     import re as _re
 
     t = (text or "").strip()
@@ -800,22 +808,26 @@ def replay_link_reply(text: str) -> str | None:
         return None
     url = m.group(0)
     host = _re.sub(r'^https?://([^/]+).*', r'\1', url).lower()
-    # só trata quando a mensagem é essencialmente o link (não um texto que
-    # por acaso cita uma url) — link de replay vem sozinho
     if not any(h in host for h in _REPLAY_HOSTS):
         return None
     if len(t) > len(url) + 40:
         return None
+    from app.parsers.pppoker_replay import share_key_from_url
+
+    site = "pppoker" if "pppoker" in host else (
+        "suprema" if "suprema" in host else "outro")
+    return {"site": site, "url": url,
+            "share_key": share_key_from_url(url) if site == "pppoker" else None}
+
+
+def replay_fallback_text() -> str:
+    """Mensagem para replay que não dá para puxar automático (Suprema etc.)."""
     return (
-        "🔗 Esse é um *link de replay* — ainda não abro o link direto (tô "
-        "trabalhando nisso!). Mas dá pra analisar essa mão *agora*, de dois "
-        "jeitos:\n\n"
-        "📸 *Print do replay* — tira uma foto/print da tela da mão (com as "
-        "cartas e o board) e me manda aqui.\n"
-        "✍️ *Ou descreve a mão* — tipo: _\"77 no CO, 30bb, limpei, flop "
-        "A♦7♣9♣, apostei 1bb...\"_ — que eu rodo os números na hora.\n\n"
-        "Assim que eu terminar a leitura de link, esse tipo de replay vai "
-        "entrar sozinho. 🃏"
+        "🔗 Esse é um *link de replay*. Esse tipo eu ainda não abro sozinho — "
+        "mas analiso a mão *agora* de dois jeitos:\n\n"
+        "📸 *Print do replay* — foto da tela da mão (cartas + board).\n"
+        "✍️ *Ou descreve* — _\"77 no CO, 30bb, limpei, flop A♦7♣9♣...\"_ — "
+        "que eu rodo os números na hora. 🃏"
     )
 
 

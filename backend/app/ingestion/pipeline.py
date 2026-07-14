@@ -30,6 +30,19 @@ class IngestResult:
 def ingest(content: bytes | str, source_format: str = "txt", filename: str = "") -> IngestResult:
     fmt = (source_format or "").lower()
 
+    # replay de clube PPPoker: `content` é o share_key; a mão vem do CDN
+    if fmt == "pppoker_replay":
+        from app.parsers.pppoker_replay import fetch_and_parse
+
+        key = content.decode() if isinstance(content, (bytes, bytearray)) else content
+        hand = fetch_and_parse(str(key))
+        if hand:
+            return IngestResult([hand], hand.site, "pppoker_replay",
+                                confidence=0.95, needs_review=True,
+                                note="mão do replay PPPoker (confira os valores)")
+        return IngestResult([], None, "pppoker_replay", confidence=0.0,
+                            needs_review=True, note="replay PPPoker não acessível")
+
     # PHH (padrão aberto TOML, .phh/.phhs — datasets do WSOP etc.): pela
     # extensão OU pelo cheiro do conteúdo ('variant = ...')
     if fmt in ("phh", "phhs") or (

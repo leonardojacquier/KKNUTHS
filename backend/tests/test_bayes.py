@@ -891,26 +891,117 @@ def test_botoes_agem_sobre_a_mao_analisada(monkeypatch):
     assert proc.spot_range_chart(888003) is None  # sem contexto -> aviso
 
 
-def test_link_de_replay_responde_util():
-    # caso real: usuário novo mandou link de replay PPPoker/Suprema e o coach
-    # tratou a URL como pergunta. Agora responde com instrução clara.
-    from app.bot.processing import replay_link_reply
+def test_link_de_replay_deteccao():
+    # caso real: usuário novo mandou link de replay e o coach tratou a URL
+    # como pergunta. Agora é detectado (PPPoker puxa sozinho; outros pedem print)
+    from app.bot.processing import replay_link_info
 
-    for url in (
-        "https://replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
-        "index.html?shareKey=abc&lan=pt",
-        "https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5",
-    ):
-        r = replay_link_reply(url)
-        assert r and "link de replay" in r.lower()
-        assert "print" in r.lower() and "descreve" in r.lower()
-
+    assert replay_link_info("https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5")
     # link comum (não replay) NÃO dispara
-    assert replay_link_reply("https://google.com") is None
-    # texto que só cita uma url no meio de uma pergunta longa não dispara
-    assert replay_link_reply(
+    assert replay_link_info("https://google.com") is None
+    # url no meio de uma pergunta longa não dispara
+    assert replay_link_info(
         "achei essa análise em https://replay.pppoker.net/x mas discordo "
         "totalmente do que ele falou sobre o meu 3-bet, o que você acha?"
     ) is None
-    # texto normal passa reto
-    assert replay_link_reply("qual o range de UTG?") is None
+    assert replay_link_info("qual o range de UTG?") is None
+
+
+def _pppoker_fixture():
+    # estrutura real de uma mão PPPoker (engenharia reversa da mão do Ricardo):
+    # AKo, raise pré, call do CO, resto folda; flop Q34, check-fold do herói
+    antes = [{"seatid": s, "chips": 50000, "hand_chips": 1_000_000, "type": 10}
+             for s in (5, 7, 8, 0, 1, 2, 3, 4)]
+    return {
+        "share_key": "test-key", "create_time": 1,
+        "info": {
+            "room": {"small_blind": 200000, "ante": 50000, "dealer_seatid": 4,
+                     "room_name": "Monster Stack", "gameid": "g1",
+                     "mtt": {"is_ft": True}},
+            "players": [
+                {"user_name": "RicoFarah", "seatid": 0, "hand_chips": 21305500,
+                 "uid": 1, "isSelf": True},
+                {"user_name": "vilmots", "seatid": 1, "hand_chips": 6870800, "uid": 2},
+                {"user_name": "KKNUThS", "seatid": 2, "hand_chips": 6394900, "uid": 3},
+                {"user_name": "ImperadorJuju", "seatid": 3, "hand_chips": 44596700, "uid": 4},
+                {"user_name": "btn", "seatid": 4, "hand_chips": 4477000, "uid": 5},
+                {"user_name": "sbp", "seatid": 5, "hand_chips": 16827800, "uid": 6},
+                {"user_name": "bbp", "seatid": 7, "hand_chips": 13106900, "uid": 7},
+                {"user_name": "arisn", "seatid": 8, "hand_chips": 26020400, "uid": 8},
+            ],
+            "cards": [269, 782],  # Ks, Ad = AKo
+        },
+        "flow": {
+            "pre_flop": {"cards": [], "actions": antes + [
+                {"seatid": 5, "chips": 200000, "type": 8},   # SB
+                {"seatid": 7, "chips": 400000, "type": 9},   # BB
+                {"seatid": 8, "chips": 0, "type": 1},        # fold
+                {"seatid": 0, "chips": 1120000, "type": 4, "hand_chips": 20185500},  # raise
+                {"seatid": 1, "chips": 0, "type": 1},
+                {"seatid": 2, "chips": 0, "type": 1},
+                {"seatid": 3, "chips": 1120000, "type": 3, "hand_chips": 43476700},  # call
+                {"seatid": 4, "chips": 0, "type": 12},       # fold
+                {"seatid": 5, "chips": 0, "type": 1},
+                {"seatid": 7, "chips": 0, "type": 1},
+            ], "pools": [{"poolid": 0, "pool": 3240000}]},
+            "flop": {"cards": [268, 1027, 1028], "actions": [  # Qs 3c 4c
+                {"seatid": 0, "chips": 0, "type": 2},        # check
+                {"seatid": 3, "chips": 1820000, "type": 7},  # bet
+                {"seatid": 0, "chips": 0, "type": 1},        # fold
+            ], "chips_back": [{"seatid": 3, "chips": 1820000}]},
+            "turn": {"cards": [], "actions": []},
+            "river": {"cards": [], "actions": []},
+            "winning_info": [{"seatid": 3, "chips": 3240000, "profit": 2070000}],
+        },
+    }
+
+
+def test_pppoker_replay_parser():
+    from app.parsers.pppoker_replay import parse, share_key_from_url
+
+    # extração do share_key do link colado
+    url = ("https://replay.pppoker.net/new_game_record_publish/Frame/"
+           "rls_20260624/index.html?shareKey=f48bcbb5-ef29-46d2-3a6c-5d8642064240&lan=pt")
+    assert share_key_from_url(url) == "f48bcbb5-ef29-46d2-3a6c-5d8642064240"
+    assert share_key_from_url("https://google.com") is None
+
+    h = parse(_pppoker_fixture(), "f48bcbb5")
+    assert h is not None
+    assert h.hero == "RicoFarah"
+    assert set(h.hero_cards) == {"Ks", "Ad"}                 # AKo decodificado
+    assert h.final_board == ["Qs", "3c", "4c"]               # flop decodificado
+    assert h.stakes.big_blind == 400000 and h.stakes.small_blind == 200000
+    assert h.stakes.ante == 50000
+    assert h.format.value == "tournament"
+
+    # posições: SB=seat5, BB=seat7, ordem horária → herói (seat0) é UTG+1
+    pos = {p.name: p.position for p in h.players}
+    assert pos["sbp"] == "SB" and pos["bbp"] == "BB"
+    assert pos["btn"] == "BTN" and pos["RicoFarah"] == "UTG+1"
+
+    # ações: pré = raise do herói + call do CO; flop = check/bet/fold
+    pre = h.streets[0]
+    tipos = [(a.actor, a.type.value) for a in pre.actions
+             if a.type.value != "post"]
+    assert ("RicoFarah", "raise") in tipos
+    assert ("ImperadorJuju", "call") in tipos
+    assert tipos.count(("arisn", "fold")) == 1
+    flop = h.streets[1]
+    ftipos = [(a.actor, a.type.value) for a in flop.actions]
+    assert ftipos == [("RicoFarah", "check"), ("ImperadorJuju", "bet"),
+                      ("RicoFarah", "fold")]
+    assert h.total_pot == 3240000 and h.collected.get("ImperadorJuju") == 3240000
+
+
+def test_replay_link_detection_routes_pppoker():
+    from app.bot.processing import replay_link_info
+
+    r = replay_link_info(
+        "https://replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
+        "index.html?shareKey=abc123def456aa99&lan=pt")
+    assert r and r["site"] == "pppoker" and r["share_key"] == "abc123def456aa99"
+
+    s = replay_link_info("https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5")
+    assert s and s["site"] == "suprema" and s["share_key"] is None
+
+    assert replay_link_info("qual o range de UTG?") is None
