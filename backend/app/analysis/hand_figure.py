@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import math
+import os
 
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -227,6 +228,244 @@ def render_hand_figure(spot: dict) -> bytes:
     return buf.getvalue()
 
 
+_LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "api", "assets",
+                          "logo_avatar.png")
+SW = 1000  # largura do storyboard
+BAND = (24, 52, 40)       # faixa de street
+BAND_ALT = (20, 46, 36)   # zebra
+MATH_BG = (14, 34, 27)
+FOOT_BG = (16, 30, 24)
+OK = (78, 176, 108)
+BAD = (206, 74, 74)
+MIX = (214, 168, 74)
+
+
+def _logo(size: int):
+    try:
+        im = Image.open(_LOGO_PATH).convert("RGBA")
+        return im.resize((size, size), Image.LANCZOS)
+    except Exception:
+        return None
+
+
+def _wrap(d, text, font, max_w):
+    """Quebra `text` em linhas que cabem em max_w px."""
+    out, line = [], ""
+    for word in (text or "").split():
+        trial = (line + " " + word).strip()
+        if d.textlength(trial, font=font) <= max_w:
+            line = trial
+        else:
+            if line:
+                out.append(line)
+            line = word
+    if line:
+        out.append(line)
+    return out or [""]
+
+
+def _mini_card(d, x0, y0, code, w, h):
+    """Carta pequena com canto superior-esquerdo (rank+naipe)."""
+    if not code or len(code) < 2:
+        return
+    rank = code[0].upper().replace("T", "10")
+    sym, col = _SUIT.get(code[1].lower(), ("?", BLACK))
+    d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=int(w * 0.14),
+                        fill=CARD_BG, outline=CARD_EDGE, width=2)
+    fr = _font(int(h * 0.42))
+    d.text((x0 + int(w * 0.12), y0 + int(h * 0.06)), rank, font=fr, fill=col)
+    fs = _font(int(h * 0.40))
+    _center(d, x0 + w * 0.5, y0 + h * 0.5, sym, fs, col)
+
+
+def render_hand_strip(spot: dict) -> bytes:
+    """Storyboard da mão inteira numa imagem só — o filme do spot em quadros.
+
+    `spot`:
+      title, hero_cards:[c,c], position, stack_bb, blinds
+      streets: [{name, board:[..], lines:[str,...], pot_bb, note}]
+        (`note` = o que rolou com os vilões, opcional)
+      math: {equity:0..1, need:0..1, ev_bb:float, note:str}
+      verdict: 'boa'|'ruim'|'mista' ; verdict_text ; correct
+    Render determinístico (PIL) — custo zero de LLM.
+    """
+    S = 2
+    pad = 26
+    line_h = 32
+    streets = list(spot.get("streets") or [])
+    math_d = spot.get("math") or {}
+    has_math = math_d.get("equity") is not None
+    verdict_text = spot.get("verdict_text") or ""
+    correct = spot.get("correct") or ""
+
+    # probe 1x para medir quebras de linha (razão idêntica em qualquer escala)
+    probe = ImageDraw.Draw(Image.new("RGB", (4, 4)))
+    f_line = _font(22, bold=False)      # ações — fonte GRANDE
+    f_foot = _font(21, bold=False)      # análise do coach
+    line_x = pad + 12
+    lines_w = SW - line_x - pad - 4
+
+    # --- medir altura de cada street ---
+    st_lines = []   # linhas já quebradas por street
+    st_tops = []    # onde começam as ações (abaixo do board, se houver)
+    st_heights = []
+    for st in streets:
+        wrapped = []
+        for ln in (st.get("lines") or []):
+            wrapped += _wrap(probe, ln, f_line, lines_w)
+        st_lines.append(wrapped)
+        top = 72 if (st.get("board")) else 50
+        st_tops.append(top)
+        h = top + len(wrapped) * line_h + 14
+        if st.get("note"):
+            h += line_h
+        st_heights.append(max(h, 104))
+
+    math_h = 160 if has_math else 0
+    foot_lines = _wrap(probe, verdict_text, f_foot, SW - 2 * pad - 20)
+    corr_lines = _wrap(probe, correct, _font(21), SW - 2 * pad - 176) if correct else []
+    foot_h = 78 + len(foot_lines) * 30
+    if corr_lines:
+        foot_h += len(corr_lines) * 32 + 30
+    foot_h += 40
+
+    head_h = 176
+    total_h = head_h + sum(st_heights) + math_h + foot_h
+
+    # --- canvas 2x ---
+    img = Image.new("RGB", (SW * S, total_h * S), BG)
+    d = ImageDraw.Draw(img)
+
+    def sc(v):
+        return int(round(v * S))
+
+    def DF(sz, bold=True):
+        return _font(int(sz * S), bold)
+
+    def box(x0, y0, x1, y1, *, radius=0, fill=None, outline=None, width=1):
+        d.rounded_rectangle([sc(x0), sc(y0), sc(x1), sc(y1)], radius=sc(radius),
+                            fill=fill, outline=outline, width=max(1, sc(width)))
+
+    def left(x, ytop, text, sz, fill, bold=True):
+        d.text((sc(x), sc(ytop)), text, font=DF(sz, bold), fill=fill)
+
+    def ctr(cx, ytop, text, sz, fill, bold=True):
+        f = DF(sz, bold)
+        d.text((sc(cx) - d.textlength(text, font=f) / 2, sc(ytop)), text,
+               font=f, fill=fill)
+
+    def right(xr, ytop, text, sz, fill, bold=True):
+        f = DF(sz, bold)
+        d.text((sc(xr) - d.textlength(text, font=f), sc(ytop)), text,
+               font=f, fill=fill)
+
+    # ---------- HEADER ----------
+    box(0, 0, SW, head_h, fill=(20, 46, 36))
+    d.rectangle([0, sc(head_h - 3), sc(SW), sc(head_h)], fill=GOLD_DK)
+    logo = _logo(sc(100))
+    if logo:
+        img.paste(logo, (sc(pad), sc(26)), logo)
+    tx = pad + 122
+    left(tx, 28, spot.get("title") or "Análise da mão", 30, CREAM)
+    sub = f"VOCÊ · {spot.get('position') or '?'}"
+    if spot.get("stack_bb") is not None:
+        sub += f" · {spot['stack_bb']:g}bb"
+    if spot.get("blinds"):
+        sub += f" · blinds {spot['blinds']}"
+    left(tx, 74, sub, 19, GOLD)
+    left(tx, 106, "o filme da mão — quadro a quadro", 16, MUTED, bold=False)
+    hc = spot.get("hero_cards") or []
+    cw, ch = 76, 106
+    hx = SW - pad - len(hc[:2]) * (cw + 10) + 10
+    for i, c in enumerate(hc[:2]):
+        _card(d, sc(hx + i * (cw + 10) + cw / 2), sc(head_h / 2), c,
+              w=sc(cw), h=sc(ch))
+
+    # ---------- STREETS ----------
+    y = head_h
+    for idx, st in enumerate(streets):
+        h = st_heights[idx]
+        box(0, y, SW, y + h, fill=BAND if idx % 2 == 0 else BAND_ALT)
+        d.rectangle([0, sc(y), sc(6), sc(y + h)], fill=GOLD_DK)
+        left(pad, y + 13, (st.get("name") or "").upper(), 22, GOLD)
+        # board mini-cartas
+        bx = pad + 150
+        mw, mh = 40, 54
+        for c in (st.get("board") or []):
+            _mini_card(d, sc(bx), sc(y + 9), c, sc(mw), sc(mh))
+            bx += mw + 7
+        if st.get("pot_bb") is not None:
+            right(SW - pad, y + 15, f"pote {st['pot_bb']:g}bb", 18, CREAM)
+        ly = y + st_tops[idx]
+        for wl in st_lines[idx]:
+            bold = any(k in wl.lower() for k in ("você", "voce", "herói", "heroi"))
+            left(line_x, ly, "▸ " + wl, 22, CREAM if bold else (206, 220, 212),
+                 bold=bold)
+            ly += line_h
+        if st.get("note"):
+            left(line_x, ly, "↳ " + st["note"], 17, MUTED, bold=False)
+            ly += line_h
+        y += h
+
+    # ---------- MATEMÁTICA ----------
+    if has_math:
+        box(0, y, SW, y + math_h, fill=MATH_BG)
+        left(pad, y + 14, "MATEMÁTICA DO SPOT", 20, GOLD)
+        tiles = [
+            ("SUA EQUITY", f"{math_d['equity'] * 100:.0f}%", OK),
+            ("PRECISA DE", f"{(math_d.get('need') or 0) * 100:.0f}%", CREAM),
+        ]
+        ev = math_d.get("ev_bb")
+        if ev is not None:
+            tiles.append(("EV DO CALL", f"{ev:+.1f}bb", OK if ev >= 0 else BAD))
+        tw = (SW - 2 * pad - (len(tiles) - 1) * 16) / len(tiles)
+        ty = y + 54
+        for i, (lbl, val, col) in enumerate(tiles):
+            tx0 = pad + i * (tw + 16)
+            box(tx0, ty, tx0 + tw, ty + 78, radius=14, fill=(22, 48, 38),
+                outline=GOLD_DK, width=2)
+            ctr(tx0 + tw / 2, ty + 13, lbl, 15, MUTED, bold=False)
+            ctr(tx0 + tw / 2, ty + 34, val, 31, col)
+        if math_d.get("note"):
+            ctr(SW / 2, y + math_h - 24, math_d["note"], 15, MUTED, bold=False)
+        y += math_h
+
+    # ---------- RODAPÉ: veredito do coach ----------
+    box(0, y, SW, total_h, fill=FOOT_BG)
+    d.rectangle([0, sc(y), sc(SW), sc(y + 3)], fill=GOLD_DK)
+    verd = (spot.get("verdict") or "mista").lower()
+    badge_col, badge_txt = {
+        "boa": (OK, "✔ DECISÃO BOA"),
+        "ruim": (BAD, "✘ DECISÃO RUIM"),
+    }.get(verd, (MIX, "≈ DECISÃO MISTA"))
+    box(pad, y + 18, pad + 250, y + 56, radius=12, fill=badge_col)
+    ctr(pad + 125, y + 25, badge_txt, 20, (16, 24, 18))
+    left(pad + 270, y + 27, "análise do coach", 17, MUTED, bold=False)
+    fy = y + 70
+    for wl in foot_lines:
+        left(pad, fy, wl, 21, CREAM, bold=False)
+        fy += 30
+    if corr_lines:
+        fy += 10
+        bh = len(corr_lines) * 32 + 18
+        box(pad, fy, SW - pad, fy + bh, radius=12, fill=(22, 50, 40),
+            outline=OK, width=2)
+        left(pad + 16, fy + 12, "DECISÃO CERTA", 17, OK)
+        cy2, cx0 = fy + 12, pad + 176
+        for wl in corr_lines:
+            left(cx0, cy2, wl, 21, CREAM)
+            cy2 += 32
+            cx0 = pad + 16
+
+    # downsample (antialias) + marca
+    img = img.resize((SW, total_h), Image.LANCZOS)
+    d2 = ImageDraw.Draw(img)
+    draw_brand(d2, total_h - 26, right=SW - 20, size=14)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
 def spot_from_drill(drill: dict) -> dict:
     """Converte o dict do /treino (build_drill) na spec da figura."""
     return {
@@ -242,82 +481,3 @@ def spot_from_drill(drill: dict) -> dict:
         "blinds": drill.get("blinds"),
         "villains": drill.get("villains") or [],
     }
-
-
-def render_hand_strip(spec: dict) -> bytes:
-    """Sequência da mão em UMA imagem (storyboard vertical): cabeçalho com as
-    cartas do herói + uma faixa por street (board + ações + pote). Custo zero
-    de LLM. spec: {title, hero_cards, position, stack_bb, blinds, result,
-    streets:[{name, board, lines:[str], pot_bb}]}."""
-    streets = spec.get("streets") or []
-    SW = 820
-    head_h = 174
-    band_h = 132
-    foot_h = 64
-    SH = head_h + band_h * len(streets) + foot_h
-    S = 2
-    img = Image.new("RGB", (SW * S, SH * S), BG)
-    d = ImageDraw.Draw(img)
-
-    def sc(v):
-        return v * S
-
-    # cabeçalho
-    d.rectangle([0, 0, sc(SW), sc(head_h)], fill=FELT_RIM)
-    _center(d, sc(SW / 2), sc(16), spec.get("title") or "Sequência da mão",
-            _font(int(24)), CREAM)
-    hc = spec.get("hero_cards") or []
-    cwid = 60
-    x0 = SW / 2 - (len(hc) * cwid + (len(hc) - 1) * 10) / 2 + cwid / 2
-    for c in hc:
-        _card(d, sc(x0), sc(78), c, w=sc(cwid), h=sc(82))
-        x0 += cwid + 10
-    _center(d, sc(SW / 2), sc(head_h - 30),
-            f"VOCÊ · {spec.get('position') or '?'} · "
-            f"{spec.get('stack_bb', '?')}bb · blinds {spec.get('blinds') or ''}",
-            _font(int(15), bold=False), GOLD)
-
-    y = head_h
-    for i, st in enumerate(streets):
-        bg = FELT if i % 2 == 0 else FELT_HI
-        d.rectangle([0, sc(y), sc(SW), sc(y + band_h)], fill=bg)
-        d.line([0, sc(y), sc(SW), sc(y)], fill=FELT_RIM, width=sc(1))
-        # coluna esquerda: nome + board
-        _center(d, sc(120), sc(y + 12), (st.get("name") or "").upper(),
-                _font(int(18)), CREAM)
-        board = st.get("board") or []
-        bw = 44
-        bx = 120 - (len(board) * bw + (len(board) - 1) * 6) / 2 + bw / 2
-        for c in board:
-            _card(d, sc(bx), sc(y + band_h / 2 + 14), c, w=sc(bw), h=sc(bw * 1.4))
-            bx += bw + 6
-        if not board:
-            _center(d, sc(120), sc(y + band_h / 2), "— sem board —",
-                    _font(int(13), bold=False), (210, 226, 218))
-        # divisória
-        d.line([sc(238), sc(y + 14), sc(238), sc(y + band_h - 14)],
-               fill=FELT_RIM, width=sc(1))
-        # coluna direita: ações
-        ly = y + 18
-        for ln in (st.get("lines") or [])[:4]:
-            d.text((sc(262), sc(ly)), "• " + ln, font=_font(int(16), bold=False),
-                   fill=CREAM)
-            ly += 24
-        # pote da street
-        pot = st.get("pot_bb")
-        if pot is not None:
-            _center(d, sc(SW - 78), sc(y + band_h - 30),
-                    f"pote {pot:g}bb", _font(int(15)), GOLD)
-        y += band_h
-
-    # rodapé: resultado + marca
-    d.rectangle([0, sc(y), sc(SW), sc(SH)], fill=FELT_RIM)
-    if spec.get("result"):
-        _center(d, sc(SW / 2), sc(y + 12), spec["result"], _font(int(16)), CREAM)
-
-    img = img.resize((SW, SH), Image.LANCZOS)
-    d2 = ImageDraw.Draw(img)
-    draw_brand(d2, SH - 26, right=SW - 20, size=14)
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    return buf.getvalue()

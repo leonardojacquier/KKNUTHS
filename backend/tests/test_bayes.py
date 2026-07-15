@@ -1082,3 +1082,34 @@ def test_figura_da_mesa_render():
          "villains": [{"pos": "MP", "stack_bb": 50}]}
     s = spot_from_drill(d)
     assert s["hero_cards"] == ["As", "Ks"] and s["villains"][0]["pos"] == "MP"
+
+
+def test_storyboard_da_mao_render():
+    # storyboard: mão inteira numa imagem (custo zero de LLM). Garante PNG
+    # válido, altura dinâmica, e que não quebra sem math/veredito.
+    from app.analysis.hand_figure import render_hand_strip
+
+    spot = {
+        "title": "Mão teste — SB", "hero_cards": ["6c", "4c"], "position": "SB",
+        "stack_bb": 39, "blinds": "35/70",
+        "streets": [
+            {"name": "Pré-flop", "board": [], "pot_bb": 3.6,
+             "lines": ["UTG abre 2.3bb", "VOCÊ paga"], "note": "multiway"},
+            {"name": "River", "board": ["7c", "9d", "Qs", "Ad", "2s"],
+             "pot_bb": 7.2, "lines": ["BB aposta 2.3bb", "VOCÊ tem 6-high"]},
+        ],
+        "math": {"equity": 0.06, "need": 0.24, "ev_bb": -1.7,
+                 "note": "call precisaria de 24%"},
+        "verdict": "boa", "verdict_text": "Fold é a jogada certa e você acertou.",
+        "correct": "FOLD — 6-high não paga aposta de valor.",
+    }
+    png = render_hand_strip(spot)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 5000
+
+    # sem math, sem decisão certa, veredito ruim — não quebra
+    png2 = render_hand_strip({
+        "title": "T", "hero_cards": ["As", "Ks"], "position": "BTN",
+        "streets": [{"name": "Flop", "board": ["2c", "7d", "9h"],
+                     "lines": ["check"]}],
+        "verdict": "ruim", "verdict_text": "Passou a mão."})
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n"
