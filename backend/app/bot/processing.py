@@ -1219,6 +1219,50 @@ def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
     return lines, decisions
 
 
+_POS_ORDER = ["UTG", "UTG+1", "UTG+2", "MP", "MP+1", "LJ", "HJ", "CO",
+              "BTN", "SB", "BB"]
+
+
+def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | None:
+    """Resumo do pré-flop em ORDEM DE POSIÇÃO (UTG primeiro), compacto e
+    legível — como um jogador conta a mão. Ignora posts de blind/ante.
+    `stop_actor`: para antes da decisão do herói (quando a decisão é no pré)."""
+    from app.models.canonical import ActionType, StreetName
+
+    pre = h.street(StreetName.PREFLOP)
+    if not pre:
+        return None
+    bb = h.stakes.big_blind or 1
+    pos = {p.name: (p.position or "") for p in h.players}
+    verbs = {"fold": "folda", "check": "check", "call": "paga",
+             "bet": "abre", "raise": "aumenta p/"}
+    entries: list[tuple[int, int, str]] = []
+    seq = 0
+    hero_seen = False
+    for a in pre.actions:
+        if a.type == ActionType.POST:
+            continue
+        if stop_actor and a.actor == h.hero and not hero_seen:
+            hero_seen = True
+            break
+        seq += 1
+        p = pos.get(a.actor, "")
+        idx = _POS_ORDER.index(p) if p in _POS_ORDER else 99
+        who = "você" if a.actor == h.hero else (p or a.actor[:6])
+        amt = round((a.to_amount or a.amount) / bb, 1)
+        txt = f"{who} {verbs.get(a.type.value, a.type.value)}"
+        if amt and a.type.value in ("call", "bet", "raise"):
+            txt += f" {amt:g}bb"
+        if a.all_in:
+            txt += " (all-in)"
+        entries.append((idx, seq, txt))
+    if not entries:
+        return None
+    # ordem de posição; empate mantém a ordem cronológica (seq)
+    entries.sort(key=lambda e: (e[0], e[1]))
+    return "Pré-flop: " + " · ".join(t for _, _, t in entries)
+
+
 def build_drill(telegram_id: int) -> dict | None:
     """Monta um spot de treino PROFISSIONAL: escolhe a decisão mais interessante
     das mãos do usuário (preço a pagar, pós-flop, all-in, stack curto — nada de
@@ -1275,9 +1319,24 @@ def build_drill(telegram_id: int) -> dict | None:
     seat = h.hero_seat()
     bb = h.stakes.big_blind
     stack_bb = round(seat.stack / bb, 1) if seat else None
-    story = lines[:d["line_idx"]]
-    if len(story) > 14:
-        story = ["  (…início resumido…)"] + story[-12:]
+
+    # história limpa e EM ORDEM: pré-flop resumido por posição (UTG primeiro) +
+    # cada street pós-flop lance a lance. O corte antigo (story[-12:]) fatiava
+    # o pré no meio e embaralhava a leitura.
+    def _street_start(tag: str) -> int:
+        for i, ln in enumerate(lines):
+            if ln.lstrip().startswith(f"*{tag}*"):
+                return i
+        return len(lines)
+
+    is_pre = d["street"] == "preflop"
+    pre_sum = _preflop_summary(h, stop_actor=h.hero if is_pre else None)
+    if is_pre:
+        story = [pre_sum] if pre_sum else []
+    else:
+        flop_i = _street_start("FLOP")
+        post = lines[flop_i:d["line_idx"]]
+        story = ([pre_sum] if pre_sum else []) + post
 
     required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {

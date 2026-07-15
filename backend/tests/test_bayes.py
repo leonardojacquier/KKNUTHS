@@ -1005,3 +1005,43 @@ def test_replay_link_detection_routes_pppoker():
     assert s and s["site"] == "suprema" and s["share_key"] is None
 
     assert replay_link_info("qual o range de UTG?") is None
+
+
+def test_drill_narracao_em_ordem_de_posicao():
+    # feedback do admin: "a sequência das ações está confusa, precisa ser
+    # contada a partir do UTG". Pré-flop resumido em ordem de posição.
+    from app.bot.processing import _preflop_summary
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # pote limpado 8-handed, ações GRAVADAS fora de ordem (SB antes de UTG)
+    pl = [
+        PlayerSeat(seat=1, name="Hero", stack=3900, position="BB", is_hero=True),
+        PlayerSeat(seat=2, name="sb", stack=5000, position="SB"),
+        PlayerSeat(seat=3, name="utg", stack=6000, position="UTG"),
+        PlayerSeat(seat=4, name="mp", stack=6000, position="MP"),
+        PlayerSeat(seat=5, name="co", stack=6000, position="CO"),
+    ]
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Hero", type=ActionType.POST, amount=200, post_type="bb"),
+        Action(actor="sb", type=ActionType.POST, amount=100, post_type="sb"),
+        # ordem de gravação embaralhada de propósito:
+        Action(actor="sb", type=ActionType.FOLD),
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="co", type=ActionType.CALL, amount=200, to_amount=200),
+        Action(actor="utg", type=ActionType.RAISE, amount=400, to_amount=400),
+        Action(actor="mp", type=ActionType.CALL, amount=400, to_amount=400),
+    ])
+    h = CanonicalHand(site="x", hand_id="d1", hero="Hero",
+                      stakes=Stakes(small_blind=100, big_blind=200),
+                      players=pl, hero_cards=["5h", "4h"], streets=[pre])
+
+    s = _preflop_summary(h)
+    # UTG aparece ANTES de MP, CO, você — ordem de posição, não a gravada
+    assert s.startswith("Pré-flop:")
+    assert s.index("UTG") < s.index("MP") < s.index("CO")
+    assert s.index("UTG") < s.index("você")     # UTG antes do herói (BB)
+
+    # com stop_actor, para antes da ação do herói (decisão no pré)
+    s2 = _preflop_summary(h, stop_actor="Hero")
+    assert "você" not in s2
