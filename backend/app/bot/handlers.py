@@ -443,10 +443,18 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         fig = None
     try:
         if fig:
+            # MESMA lógica do quiz: história + "sua vez" com pote e preço. A
+            # figura ilustra; o texto traz a pergunta completa.
             cap = "🎯 *Treino* — mão real sua"
             if drill.get("story"):
                 cap += "\n\n" + drill["story"]
-            cap += "\n\n👉 *O que você faz?*"
+            cap += f"\n\n👉 *Sua vez no {(drill.get('street') or '').upper()}* — " \
+                   f"pote *{drill.get('pot_bb', 0):g}bb*"
+            if drill.get("to_call_bb"):
+                cap += f" | pagar *{drill['to_call_bb']:g}bb*"
+                if drill.get("required_eq"):
+                    cap += f" (precisa ~{drill['required_eq'] * 100:.0f}%)"
+            cap += "\n\n*O que você faz?*"
             await update.message.reply_photo(
                 photo=_io2.BytesIO(fig), caption=cap[:1000],
                 parse_mode="Markdown", reply_markup=markup)
@@ -599,27 +607,10 @@ def _sim_buttons(decision: dict, pos: int) -> InlineKeyboardMarkup:
 
 
 async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
-    """Envia um passo da simulação: figura da mesa (na decisão) + narração +
-    botões. Cai pra texto se a figura falhar."""
+    """Envia um passo da simulação em TEXTO (narração + botões). Uma foto por
+    decisão embaralhava a leitura da mão — o fluxo em texto é mais limpo."""
     text = prefix + step["narration"]
     kb = _sim_buttons(step["decision"], sim["pos"]) if step["decision"] else None
-    fig = None
-    if step["decision"]:
-        spot = (sim.get("figures") or {}).get(str(sim["pos"]))
-        if spot:
-            try:
-                from app.analysis.hand_figure import render_hand_figure
-                fig = await asyncio.to_thread(render_hand_figure, spot)
-            except Exception:
-                fig = None
-    if fig:
-        import io as _io
-        try:
-            await msg.reply_photo(photo=_io.BytesIO(fig), caption=text[:1000],
-                                  parse_mode="Markdown", reply_markup=kb)
-            return
-        except Exception:
-            pass
     try:
         await msg.reply_markdown(text, reply_markup=kb)
     except Exception:

@@ -1645,15 +1645,46 @@ def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real su
     return head + body + ask
 
 
+# choice do botão -> (ação base p/ a lógica, rótulo legível p/ o gabarito)
+_DRILL_ACTIONS = {
+    "fold": ("fold", "FOLD"),
+    "call": ("call", "CALL"),
+    "check": ("check", "CHECK"),
+    "raise": ("raise", "RAISE"),          # legado
+    "raise3x": ("raise", "RAISE 3x"),
+    "raisepot": ("raise", "RAISE do tamanho do pote"),
+    "allin": ("raise", "ALL-IN"),
+    "bet": ("bet", "BET"),                # legado
+    "bet33": ("bet", "BET ⅓ do pote"),
+    "bet50": ("bet", "BET ½ do pote"),
+    "betpot": ("bet", "BET do tamanho do pote"),
+}
+
+
+def drill_action(choice: str) -> tuple[str, str]:
+    """(ação base, rótulo) de um choice de botão — normaliza os tamanhos."""
+    return _DRILL_ACTIONS.get(choice, (choice, choice.upper()))
+
+
 def drill_buttons(drill: dict) -> list[list[dict]]:
-    """Botões contextuais (formato Bot API): com preço = Fold/Call/Raise;
-    sem = Check/Bet."""
+    """Botões do quiz COM tamanho de aposta (não só 'Raise/All-in'):
+    - enfrentando aposta: Fold/Call + Raise 3x / Raise pote / All-in
+    - sem aposta: Check + Bet ⅓ / ½ / pote / All-in"""
     if drill.get("to_call_bb"):
-        return [[{"text": "Fold", "callback_data": "drill:fold"},
-                 {"text": "Call", "callback_data": "drill:call"},
-                 {"text": "Raise/All-in", "callback_data": "drill:raise"}]]
-    return [[{"text": "Check", "callback_data": "drill:check"},
-             {"text": "Bet", "callback_data": "drill:bet"}]]
+        return [
+            [{"text": "🚫 Fold", "callback_data": "drill:fold"},
+             {"text": "✅ Call", "callback_data": "drill:call"}],
+            [{"text": "Raise 3x", "callback_data": "drill:raise3x"},
+             {"text": "Raise pote", "callback_data": "drill:raisepot"},
+             {"text": "💥 All-in", "callback_data": "drill:allin"}],
+        ]
+    return [
+        [{"text": "Check", "callback_data": "drill:check"}],
+        [{"text": "Bet ⅓", "callback_data": "drill:bet33"},
+         {"text": "Bet ½", "callback_data": "drill:bet50"},
+         {"text": "Bet pote", "callback_data": "drill:betpot"},
+         {"text": "💥 All-in", "callback_data": "drill:allin"}],
+    ]
 
 
 def reveal_drill(drill: dict, choice: str) -> str:
@@ -1662,7 +1693,7 @@ def reveal_drill(drill: dict, choice: str) -> str:
     discutir com o coach."""
     from app.analysis.equity import equity_vs_random
 
-    verb = choice.upper()
+    _, verb = drill_action(choice)   # rótulo legível (com o tamanho escolhido)
     real = drill["actual"].upper()
     if drill.get("actual_amount_bb"):
         real += f" {drill['actual_amount_bb']:g}bb"
@@ -1755,7 +1786,7 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     # recomendação determinística (só quando há preço a pagar e margem clara)
     verdict, verdict_text, correct = "mista", "", ""
     actual = (drill.get("actual") or "").lower()
-    ch = (choice or "").lower()
+    ch, _ = drill_action((choice or "").lower())   # normaliza tamanho -> ação base
     if eq is not None and need and to_call:
         margin = eq - need
         if margin >= 0.03:
