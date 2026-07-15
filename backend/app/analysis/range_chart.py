@@ -105,9 +105,10 @@ def render_range_png(
     pct = 100 * in_range / total_combos
     d.text((MARGIN, top + size - MARGIN + 6),
            f"{pct:.1f}% dos combos no range", fill=GREY_TEXT, font=f_sub)
-    from app.analysis.branding import draw_brand
+    from app.analysis.branding import draw_brand, paste_logo
 
     draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN)
+    paste_logo(img, size - MARGIN, 6, 48)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -171,9 +172,10 @@ def render_ev_range_png(
     d.text((MARGIN, top + size - MARGIN + 6),
            "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; "
            "vermelho: foldar)", fill=GREY_TEXT, font=f_sub)
-    from app.analysis.branding import draw_brand
+    from app.analysis.branding import draw_brand, paste_logo
 
     draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, link=False)
+    paste_logo(img, size - MARGIN, 6, 48)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

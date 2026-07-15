@@ -6,6 +6,8 @@ evolução, estilo) assinam igual.
 """
 from __future__ import annotations
 
+import os
+
 from PIL import ImageFont
 
 GOLD = (166, 126, 53)
@@ -13,6 +15,21 @@ INK = (27, 33, 29)
 GREY = (130, 138, 132)
 
 _DEJAVU = "/usr/share/fonts/truetype/dejavu/"
+_LOGO = os.path.join(os.path.dirname(__file__), "..", "api", "assets",
+                     "logo_avatar.png")
+
+
+def paste_logo(img, right: float, top: float, size: int = 46) -> None:
+    """Cola o emblema KKNuths (avatar) ancorado pela borda DIREITA em (right,
+    top). Silencioso se o asset sumir. Todo gráfico leva a marca."""
+    try:
+        from PIL import Image
+
+        logo = Image.open(_LOGO).convert("RGBA").resize(
+            (int(size), int(size)), Image.LANCZOS)
+        img.paste(logo, (int(right - size), int(top)), logo)
+    except Exception:
+        pass
 
 
 def _font(name: str, size: int):

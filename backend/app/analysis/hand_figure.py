@@ -242,10 +242,12 @@ def render_hand_figure(spot: dict) -> bytes:
                             radius=sc(16), fill=FELT_RIM, outline=GOLD, width=sc(2))
         _center(d, sc(W / 2), sc(by + 12), txt, ft, GOLD)
 
-    # downsample (antialias) e marca
+    # downsample (antialias) e marca (emblema + assinatura)
     img = img.resize((W, H), Image.LANCZOS)
     d2 = ImageDraw.Draw(img)
     draw_brand(d2, H - 32, right=W - 22, size=16)
+    from app.analysis.branding import paste_logo
+    paste_logo(img, 84, 22, 56)
 
     buf = io.BytesIO()
     img.save(buf, "PNG")
