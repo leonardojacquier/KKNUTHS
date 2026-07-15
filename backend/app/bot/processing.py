@@ -1024,13 +1024,18 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
 
     best, best_events = None, []
     if hand_id:
+        # "Simular ESTA mão": só aquela mão. Se ela não existe ou não tem
+        # sequência de ações jogável, NÃO troca por outra — devolve o sentinelas
+        # 'wrong_hand' pra o handler avisar (antes trazia uma mão diferente).
         for h in hands:
             if h.hand_id == hand_id and h.hero and h.hero_cards:
                 ev = hand_timeline(h)
                 if any(e["kind"] == "decision" for e in ev):
                     best, best_events = h, ev
                 break
-    if best is None:
+        if best is None:
+            return {"unsimulable": True, "hand_id": hand_id}
+    else:
         for h in hands:
             if not (h.hero and h.hero_cards):
                 continue
@@ -1442,6 +1447,14 @@ def build_drill(telegram_id: int) -> dict | None:
     seat = h.hero_seat()
     bb = h.stakes.big_blind
     stack_bb = round(seat.stack / bb, 1) if seat else None
+
+    # esta é a mão que o aluno está vendo agora: /simular e "Simular esta mão"
+    # devem cair NELA, não numa mão qualquer com mais decisões
+    LAST_HAND_META[telegram_id] = {
+        "hand_id": h.hand_id,
+        "position": seat.position if seat else None,
+        "stack_bb": stack_bb,
+    }
 
     # história limpa e EM ORDEM: pré-flop resumido por posição (UTG primeiro) +
     # cada street pós-flop lance a lance. O corte antigo (story[-12:]) fatiava

@@ -1148,6 +1148,29 @@ def _odilon_hand():
         final_board=["7c", "9d", "Qs", "Ad", "2s"])
 
 
+def test_simular_esta_mao_nunca_troca_de_mao():
+    # bug: "Simular esta mão" / "/simular" traziam OUTRA mão quando a pedida não
+    # dava pra simular. Agora: ou simula a pedida, ou devolve sentinela — nunca
+    # substitui em silêncio.
+    from app.bot import processing
+    from app.bot.processing import build_simulation
+
+    h = _odilon_hand()  # tem decisões, hand_id "h1"
+    processing.RECENT_HANDS[4242] = [h]
+
+    # mão pedida inexistente -> sentinela, NÃO a h1
+    out = build_simulation(4242, "NAO_EXISTE")
+    assert out and out.get("unsimulable") and out.get("hand_id") == "NAO_EXISTE"
+
+    # mão certa -> simula ELA
+    assert build_simulation(4242, "h1")["hand_id"] == "h1"
+
+    # sem hand_id (comando puro) -> pega a melhor disponível
+    assert build_simulation(4242, None)["hand_id"] == "h1"
+
+    del processing.RECENT_HANDS[4242]
+
+
 def test_llm_create_retry_transitorio(monkeypatch):
     # o 'me embananei' vinha de erro transitório (overloaded/5xx) não tratado.
     # _create deve reenviar e o _is_transient classificar certo.

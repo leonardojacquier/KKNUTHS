@@ -630,7 +630,17 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
     tg_id = update.effective_user.id
     await _log(update, "simular")
-    sim = await asyncio.to_thread(build_simulation, tg_id)
+    # /simular cai na MÃO QUE VOCÊ ESTÁ VENDO (último quiz/treino/análise), não
+    # numa mão qualquer. Só usa a "melhor" quando não há mão recente.
+    from app.bot.processing import LAST_HAND_META
+
+    preferred = (LAST_HAND_META.get(tg_id) or {}).get("hand_id")
+    swapped = False
+    sim = await asyncio.to_thread(build_simulation, tg_id, preferred)
+    if sim and sim.get("unsimulable"):
+        # a mão recente não tem a ação completa: cai na melhor, mas AVISA
+        swapped = True
+        sim = await asyncio.to_thread(build_simulation, tg_id, None)
     if not sim:
         await update.message.reply_text(
             "Preciso de uma mão sua com a ação completa para simular. "
@@ -641,7 +651,9 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     step = sim_advance(sim)
     intro = (
         "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
-        "No final eu comparo a sua linha (sequência de decisões) com a que "
+        + ("_Essa mão específica não tinha a ação completa; peguei sua mão "
+           "mais recente com a jogada inteira._\n" if swapped else "")
+        + "No final eu comparo a sua linha (sequência de decisões) com a que "
         "aconteceu de verdade."
     )
     await _send_sim_step(update.message, sim, step, prefix=intro + "\n")
@@ -994,6 +1006,14 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
 
         hand_id = (LAST_HAND_META.get(tg_user.id) or {}).get("hand_id")
         sim = await asyncio.to_thread(build_simulation, tg_user.id, hand_id)
+        if sim and sim.get("unsimulable"):
+            # ESTA mão não tem a sequência de ações jogável — NÃO simula outra
+            await query.message.reply_text(
+                "Essa mão eu não consigo simular — não tenho a sequência "
+                "completa de ações dela (o print/histórico só pegou parte). "
+                "Manda /simular que eu pego a sua mão mais recente com a mão "
+                "inteira, ou envie o hand history dessa mão.")
+            return
         if not sim:
             await query.message.reply_text(
                 "Preciso de uma mão sua com a ação completa para simular.")
