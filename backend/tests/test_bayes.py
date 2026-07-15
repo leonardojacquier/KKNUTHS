@@ -1148,6 +1148,35 @@ def _odilon_hand():
         final_board=["7c", "9d", "Qs", "Ad", "2s"])
 
 
+def test_treino_tem_variedade_nao_repete():
+    # /treino não pode cair sempre nas mesmas 5 mãos parecidas: memória
+    # anti-repetição + pool amplo + rotação de street.
+    from app.parsers import parse_text
+    from app.bot import processing
+    from app.bot.processing import build_drill
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" /
+         "demo_kknuths_tournament.txt").read_text())
+    uid = 90909
+    processing.RECENT_HANDS[uid] = hands
+    for g in (processing.RECENT_DRILLS, processing._RECENT_DRILL_STREETS):
+        g.pop(uid, None)
+
+    seen, streets = [], set()
+    for _ in range(12):
+        d = build_drill(uid)
+        seen.append(d["hand_id"])
+        streets.add(d["street"])
+
+    assert len(set(seen)) >= 9            # variedade de mãos (era ~5 fixas)
+    assert all(seen[i] != seen[i + 1] for i in range(11))  # sem repetir seguido
+    assert len(streets) >= 2              # não é só um tipo de spot
+    del processing.RECENT_HANDS[uid]
+    processing.RECENT_DRILLS.pop(uid, None)
+    processing._RECENT_DRILL_STREETS.pop(uid, None)
+
+
 def test_simular_esta_mao_nunca_troca_de_mao():
     # bug: "Simular esta mão" / "/simular" traziam OUTRA mão quando a pedida não
     # dava pra simular. Agora: ou simula a pedida, ou devolve sentinela — nunca

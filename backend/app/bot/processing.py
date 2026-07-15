@@ -38,6 +38,14 @@ LAST_UPLOAD_KIND: dict[int, str] = {}
 # mão" tem que simular esta mão; "Range do spot" é o range DESTE spot)
 LAST_HAND_META: dict[int, dict] = {}
 
+# anti-repetição do /treino: as últimas mãos mostradas por usuário (não cair
+# sempre na mesma) + as streets recentes (rotaciona o TIPO de spot: não só
+# shove pré-flop)
+RECENT_DRILLS: dict[int, list[str]] = {}
+_RECENT_DRILL_STREETS: dict[int, list[str]] = {}
+_DRILL_MEMORY = 15
+_STREET_MEMORY = 8
+
 # (timestamp, charts): gráfico órfão de uma resposta que falhou NÃO pode
 # grudar na interação seguinte — fora de contexto destrói a confiança
 PENDING_CHARTS: dict[int, tuple[float, list[tuple[bytes, str]]]] = {}
@@ -1435,12 +1443,37 @@ def build_drill(telegram_id: int) -> dict | None:
                 score -= 3          # "o que fazer com AA sem ação"? trivial
             if d["street"] == "preflop" and d["to_call_bb"] <= 1 and d["actual"] == "fold":
                 score -= 2          # fold de lixo no pré sem raise = sem lição
-            scored.append((score + random.random() * 0.8, h, di))
+            scored.append((score, h, di, d["street"], h.hand_id))
 
     if not scored:
         return None
     scored.sort(key=lambda t: t[0], reverse=True)
-    _, h, di = random.choice(scored[:5])
+
+    # VARIEDADE (senão cai sempre nas mesmas 5 mãos parecidas):
+    # 1) tira as mãos já mostradas recentemente a este usuário
+    recent = set(RECENT_DRILLS.get(telegram_id, []))
+    fresh = [t for t in scored if t[4] not in recent] or scored
+    # 2) sorteia de um pool AMPLO (top 22), + garante os melhores spots pós-flop
+    #    no pool mesmo quando o topo é todo shove pré-flop (senão nunca aparecem)
+    pool = fresh[:22]
+    for t in [x for x in fresh if x[3] != "preflop"][:6]:
+        if t not in pool:
+            pool.append(t)
+    # 3) peso = qualidade do spot ÷ o quanto aquela street já apareceu — puxa
+    #    pra cima flop/turn/river quando os últimos foram todos pré-flop
+    from collections import Counter
+
+    st_counts = Counter(_RECENT_DRILL_STREETS.get(telegram_id, []))
+    weights = [max(t[0], 0.1) / (1 + 1.5 * st_counts.get(t[3], 0)) for t in pool]
+    _, h, di, chosen_street, chosen_hid = random.choices(pool, weights=weights, k=1)[0]
+
+    # atualiza as memórias anti-repetição (mãos e streets)
+    mem = RECENT_DRILLS.setdefault(telegram_id, [])
+    mem.append(chosen_hid)
+    del mem[:-_DRILL_MEMORY]
+    stm = _RECENT_DRILL_STREETS.setdefault(telegram_id, [])
+    stm.append(chosen_street)
+    del stm[:-_STREET_MEMORY]
 
     lines, decisions = _walk_hand(h)
     d = decisions[di]
