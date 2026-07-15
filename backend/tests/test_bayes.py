@@ -1148,6 +1148,36 @@ def _odilon_hand():
         final_board=["7c", "9d", "Qs", "Ad", "2s"])
 
 
+def test_llm_create_retry_transitorio(monkeypatch):
+    # o 'me embananei' vinha de erro transitório (overloaded/5xx) não tratado.
+    # _create deve reenviar e o _is_transient classificar certo.
+    from app.agent import llm
+
+    assert llm._is_transient(type("E", (Exception,), {"status_code": 529})())
+    assert llm._is_transient(Exception("Overloaded"))
+    assert not llm._is_transient(type("E", (Exception,), {"status_code": 400})())
+
+    calls = {"n": 0}
+
+    class Boom(Exception):
+        status_code = 503
+
+    class FakeMessages:
+        def create(self, **kw):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise Boom("temporarily overloaded")
+            return "ok"
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    import time as _t
+    monkeypatch.setattr(_t, "sleep", lambda *_: None)
+    out = llm._create(FakeClient(), model="m", temperature=0.2, messages=[])
+    assert out == "ok" and calls["n"] == 3   # 2 falhas transitórias + sucesso
+
+
 def test_decision_aggressor_marca_aposta_do_vilao():
     # a figura precisa mostrar o vilão da vez + tamanho da aposta
     from app.bot.processing import _decision_aggressor

@@ -479,22 +479,63 @@ def set_tool_user(user_id: str | None) -> None:
 _NO_TEMP: set[str] = set()
 
 
+def _is_transient(exc) -> bool:
+    """Erro provavelmente passageiro — vale reenviar (overloaded, rate-limit,
+    5xx, timeout, queda de conexão). É a causa nº1 do 'me embananei'."""
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    if status in (408, 409, 429, 500, 502, 503, 529):
+        return True
+    if type(exc).__name__ in ("RateLimitError", "APIConnectionError",
+                              "APITimeoutError", "InternalServerError",
+                              "OverloadedError"):
+        return True
+    s = str(exc).lower()
+    return any(k in s for k in ("overloaded", "rate limit", "timeout",
+                                "temporarily", "connection error", "529", "503"))
+
+
 def _create(client, **kw):
-    """client.messages.create com fallback: se o modelo rejeitar temperature,
-    refaz sem o parâmetro e memoriza (a consistência fica por conta das
-    regras de prompt nesses modelos)."""
+    """client.messages.create resiliente: retry com backoff em erro transitório
+    (overloaded/rate-limit/5xx) e fallback se o modelo rejeitar temperature.
+    Toda falha é logada — o 'me embananei' deixa de ser silencioso."""
+    import time
+
     model = kw.get("model")
     if model in _NO_TEMP:
         kw.pop("temperature", None)
-    try:
-        return client.messages.create(**kw)
-    except Exception as exc:
-        if "temperature" in str(exc) and kw.pop("temperature", None) is not None:
-            _NO_TEMP.add(model)
-            logging.getLogger("llm").warning(
-                "modelo %s rejeita temperature; seguindo sem", model)
+    log = logging.getLogger("llm")
+    delay = 1.0
+    for attempt in range(4):
+        try:
             return client.messages.create(**kw)
-        raise
+        except Exception as exc:
+            msg = str(exc)
+            if "temperature" in msg and kw.pop("temperature", None) is not None:
+                _NO_TEMP.add(model)
+                log.warning("modelo %s rejeita temperature; seguindo sem", model)
+                continue
+            if _is_transient(exc) and attempt < 3:
+                log.warning("LLM transitório (%s) tentativa %d/4: %s",
+                            type(exc).__name__, attempt + 1, msg[:160])
+                time.sleep(delay)
+                delay *= 2
+                continue
+            log.warning("LLM create falhou (%s): %s",
+                        type(exc).__name__, msg[:200])
+            raise
+
+
+def _force_text(client, model, system_blocks, messages):
+    """Última tentativa SEM tools: se o modelo gastou todos os rounds só
+    chamando ferramentas e nunca escreveu, obriga-o a redigir a conclusão —
+    senão o aluno leva um 'me embananei' no lugar da análise."""
+    try:
+        resp = _create(client, model=model, max_tokens=1200, temperature=0.2,
+                       system=system_blocks, messages=messages)
+        return "".join(b.text for b in resp.content if b.type == "text").strip() or None
+    except Exception as exc:
+        logging.getLogger("llm").warning("força-conclusão falhou: %s", exc)
+        return None
 
 
 def _coerce_args(args: dict) -> dict:
@@ -1051,8 +1092,11 @@ def followup(
                     )
             messages.append({"role": "user", "content": tool_results})
         final = "\n\n".join(x.strip() for x in parts if x.strip())
-        return final or None
-    except Exception:
+        return final or _force_text(
+            client, settings.analysis_model, system_blocks, messages)
+    except Exception as exc:
+        logging.getLogger("llm").warning(
+            "resposta do coach falhou (%s): %s", type(exc).__name__, exc)
         return None
 
 
@@ -1127,8 +1171,11 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
                     )
             messages.append({"role": "user", "content": tool_results})
         final = "\n\n".join(x.strip() for x in parts if x.strip())
-        return final or None
-    except Exception:
+        return final or _force_text(
+            client, settings.analysis_model, system_blocks, messages)
+    except Exception as exc:
+        logging.getLogger("llm").warning(
+            "resposta do coach falhou (%s): %s", type(exc).__name__, exc)
         return None
 
 
