@@ -456,6 +456,30 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(text, reply_markup=markup)
 
 
+async def _show_reveal(query, text: str) -> None:
+    """Mostra o gabarito. Se a mensagem do quiz tem texto (quiz diário), edita.
+    Se foi enviada como FOTO (a figura da mesa do /treino), não dá pra editar
+    texto — então tira os botões e manda o gabarito como mensagem nova."""
+    msg = query.message
+    if getattr(msg, "text", None):
+        for kw in ({"parse_mode": "Markdown"}, {}):
+            try:
+                await msg.edit_text(text, **kw)
+                return
+            except Exception:
+                continue
+    try:
+        await msg.edit_reply_markup(reply_markup=None)  # trava re-resposta
+    except Exception:
+        pass
+    for kw in ({"parse_mode": "Markdown"}, {}):
+        try:
+            await msg.reply_text(text, **kw)
+            return
+        except Exception:
+            continue
+
+
 async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -466,7 +490,7 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             get_repository().pop_pending_drill, update.effective_user.id
         )
     if not drill:
-        await query.edit_message_text("Treino expirado. Use /treino para outro.")
+        await _show_reveal(query, "Treino expirado. Use /treino para outro.")
         return
     choice = query.data.split(":", 1)[1]
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
@@ -485,11 +509,7 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         "hand_row_id": None,
         "user_id": None,
     }
-    try:
-        await query.edit_message_text(text, parse_mode="Markdown")
-    except Exception:
-        # nick com _/* desbalanceia o Markdown legado — reenvia sem formatação
-        await query.edit_message_text(text)
+    await _show_reveal(query, text)
 
     # storyboard da revelação: o filme da mão até a decisão, com a matemática e
     # o veredito. Determinístico (custo zero de LLM); só some se algo falhar.

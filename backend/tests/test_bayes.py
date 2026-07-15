@@ -1181,3 +1181,39 @@ def test_hand_storyboard_streets_e_spec():
     assert spec["math"]["equity"] < 0.2 and spec["math"]["ev_bb"] < 0
     # escolha errada (call num spot -EV) → veredito ruim
     assert storyboard_spot_from_drill(drill, choice="call")["verdict"] == "ruim"
+
+
+def test_show_reveal_foto_vs_texto():
+    # regressão: quiz enviado como FOTO não tem texto pra editar — o gabarito
+    # não pode usar edit_text (Telegram: "no text in the message to edit").
+    import asyncio
+
+    from app.bot.handlers import _show_reveal
+
+    class Msg:
+        def __init__(self, text=None):
+            self.text = text
+            self.calls = []
+
+        async def edit_text(self, t, **kw):
+            self.calls.append(("edit_text", t))
+
+        async def edit_reply_markup(self, reply_markup=None):
+            self.calls.append(("clear_markup", reply_markup))
+
+        async def reply_text(self, t, **kw):
+            self.calls.append(("reply_text", t))
+
+    class Q:
+        def __init__(self, msg):
+            self.message = msg
+
+    # mensagem de TEXTO (quiz diário): edita no lugar
+    tm = Msg(text="pergunta")
+    asyncio.run(_show_reveal(Q(tm), "gabarito"))
+    assert [c[0] for c in tm.calls] == ["edit_text"]
+
+    # mensagem de FOTO (/treino, sem .text): tira botões e manda msg nova
+    pm = Msg(text=None)
+    asyncio.run(_show_reveal(Q(pm), "gabarito"))
+    assert [c[0] for c in pm.calls] == ["clear_markup", "reply_text"]
