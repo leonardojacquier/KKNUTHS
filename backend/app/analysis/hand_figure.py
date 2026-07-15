@@ -242,3 +242,82 @@ def spot_from_drill(drill: dict) -> dict:
         "blinds": drill.get("blinds"),
         "villains": drill.get("villains") or [],
     }
+
+
+def render_hand_strip(spec: dict) -> bytes:
+    """Sequência da mão em UMA imagem (storyboard vertical): cabeçalho com as
+    cartas do herói + uma faixa por street (board + ações + pote). Custo zero
+    de LLM. spec: {title, hero_cards, position, stack_bb, blinds, result,
+    streets:[{name, board, lines:[str], pot_bb}]}."""
+    streets = spec.get("streets") or []
+    SW = 820
+    head_h = 174
+    band_h = 132
+    foot_h = 64
+    SH = head_h + band_h * len(streets) + foot_h
+    S = 2
+    img = Image.new("RGB", (SW * S, SH * S), BG)
+    d = ImageDraw.Draw(img)
+
+    def sc(v):
+        return v * S
+
+    # cabeçalho
+    d.rectangle([0, 0, sc(SW), sc(head_h)], fill=FELT_RIM)
+    _center(d, sc(SW / 2), sc(16), spec.get("title") or "Sequência da mão",
+            _font(int(24)), CREAM)
+    hc = spec.get("hero_cards") or []
+    cwid = 60
+    x0 = SW / 2 - (len(hc) * cwid + (len(hc) - 1) * 10) / 2 + cwid / 2
+    for c in hc:
+        _card(d, sc(x0), sc(78), c, w=sc(cwid), h=sc(82))
+        x0 += cwid + 10
+    _center(d, sc(SW / 2), sc(head_h - 30),
+            f"VOCÊ · {spec.get('position') or '?'} · "
+            f"{spec.get('stack_bb', '?')}bb · blinds {spec.get('blinds') or ''}",
+            _font(int(15), bold=False), GOLD)
+
+    y = head_h
+    for i, st in enumerate(streets):
+        bg = FELT if i % 2 == 0 else FELT_HI
+        d.rectangle([0, sc(y), sc(SW), sc(y + band_h)], fill=bg)
+        d.line([0, sc(y), sc(SW), sc(y)], fill=FELT_RIM, width=sc(1))
+        # coluna esquerda: nome + board
+        _center(d, sc(120), sc(y + 12), (st.get("name") or "").upper(),
+                _font(int(18)), CREAM)
+        board = st.get("board") or []
+        bw = 44
+        bx = 120 - (len(board) * bw + (len(board) - 1) * 6) / 2 + bw / 2
+        for c in board:
+            _card(d, sc(bx), sc(y + band_h / 2 + 14), c, w=sc(bw), h=sc(bw * 1.4))
+            bx += bw + 6
+        if not board:
+            _center(d, sc(120), sc(y + band_h / 2), "— sem board —",
+                    _font(int(13), bold=False), (210, 226, 218))
+        # divisória
+        d.line([sc(238), sc(y + 14), sc(238), sc(y + band_h - 14)],
+               fill=FELT_RIM, width=sc(1))
+        # coluna direita: ações
+        ly = y + 18
+        for ln in (st.get("lines") or [])[:4]:
+            d.text((sc(262), sc(ly)), "• " + ln, font=_font(int(16), bold=False),
+                   fill=CREAM)
+            ly += 24
+        # pote da street
+        pot = st.get("pot_bb")
+        if pot is not None:
+            _center(d, sc(SW - 78), sc(y + band_h - 30),
+                    f"pote {pot:g}bb", _font(int(15)), GOLD)
+        y += band_h
+
+    # rodapé: resultado + marca
+    d.rectangle([0, sc(y), sc(SW), sc(SH)], fill=FELT_RIM)
+    if spec.get("result"):
+        _center(d, sc(SW / 2), sc(y + 12), spec["result"], _font(int(16)), CREAM)
+
+    img = img.resize((SW, SH), Image.LANCZOS)
+    d2 = ImageDraw.Draw(img)
+    draw_brand(d2, SH - 26, right=SW - 20, size=14)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
