@@ -1113,3 +1113,71 @@ def test_storyboard_da_mao_render():
                      "lines": ["check"]}],
         "verdict": "ruim", "verdict_text": "Passou a mão."})
     assert png2[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def _odilon_hand():
+    from app.models.canonical import (CanonicalHand, Stakes, PlayerSeat,
+        Street, Action, ActionType, StreetName, HandFormat)
+
+    def A(a, t, amt=0, to=0, post=None):
+        return Action(actor=a, type=t, amount=amt, to_amount=to, post_type=post)
+
+    players = [PlayerSeat(seat=8, name="Hero", stack=2730, position="SB",
+                          is_hero=True),
+               PlayerSeat(seat=1, name="BB", stack=2731, position="BB"),
+               PlayerSeat(seat=3, name="UTG2", stack=5729, position="UTG+1")]
+    return CanonicalHand(
+        site="PS", hand_id="h1", format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=35, big_blind=70, ante=8), hero="Hero",
+        players=players, hero_cards=["6c", "4c"], streets=[
+            Street(name=StreetName.PREFLOP, actions=[
+                A("Hero", ActionType.POST, 35, post="sb"),
+                A("BB", ActionType.POST, 70, post="bb"),
+                A("UTG2", ActionType.RAISE, 161, to=161),
+                A("Hero", ActionType.CALL, 126, to=161),
+                A("BB", ActionType.CALL, 91, to=161)]),
+            Street(name=StreetName.FLOP, board=["7c", "9d", "Qs"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.CHECK),
+                A("UTG2", ActionType.CHECK)]),
+            Street(name=StreetName.TURN, board=["Ad"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.CHECK),
+                A("UTG2", ActionType.CHECK)]),
+            Street(name=StreetName.RIVER, board=["2s"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.BET, 160, to=160),
+                A("UTG2", ActionType.FOLD), A("Hero", ActionType.FOLD)])],
+        final_board=["7c", "9d", "Qs", "Ad", "2s"])
+
+
+def test_hand_storyboard_streets_e_spec():
+    from app.bot.processing import (hand_storyboard_streets, _walk_hand,
+                                    storyboard_spot_from_drill)
+    from app.analysis.tools import pot_odds
+
+    h = _odilon_hand()
+    _, decs = _walk_hand(h)
+    river_di = len(decs) - 1  # a decisão de fold no river
+
+    # reveal: mostra a mão até o river COM a ação real; não spoila futuro
+    reveal = hand_storyboard_streets(h, upto_di=river_di, reveal=True)
+    assert [b["name"] for b in reveal] == ["Pré-flop", "Flop", "Turn", "River"]
+    assert reveal[-1]["board"] == ["7c", "9d", "Qs", "Ad", "2s"]
+    assert any("folda" in ln for ln in reveal[-1]["lines"])
+    # pré-flop: pote 6.9bb (35+70+161+126+91 = 483 / 70)
+    assert reveal[0]["pot_bb"] == 6.9
+
+    # pergunta (flop, sem reveal): corta na street da decisão, sem ação do herói
+    q = hand_storyboard_streets(h, upto_di=1, reveal=False)
+    assert q[-1]["name"] == "Flop" and q[-1]["lines"] == []
+
+    # spec do reveal: math determinística + veredito alinhado à escolha
+    drill = {"cards": ["6c", "4c"], "position": "SB", "stack_bb": 39,
+             "blinds": "35/70", "board": ["7c", "9d", "Qs", "Ad", "2s"],
+             "pot_bb": 6.9, "to_call_bb": 2.3,
+             "required_eq": round(pot_odds(6.9, 2.3), 3), "actual": "fold",
+             "storyboard": reveal}
+    spec = storyboard_spot_from_drill(drill, choice="fold")
+    assert spec["verdict"] == "boa"          # fold bate a matemática → acertou
+    assert "FOLD" in spec["correct"]
+    assert spec["math"]["equity"] < 0.2 and spec["math"]["ev_bb"] < 0
+    # escolha errada (call num spot -EV) → veredito ruim
+    assert storyboard_spot_from_drill(drill, choice="call")["verdict"] == "ruim"

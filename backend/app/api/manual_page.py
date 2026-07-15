@@ -261,7 +261,9 @@ def _build_manual_html_legacy() -> str:
     <span class="eyebrow">O relatório por dentro</span>
     <h2>📋 Anatomia da análise <span class="n">mão a mão</span></h2>
     <p class="lead">Uma mão de exemplo, como aparece no relatório que chega junto
-    com o seu torneio — cada marcador dourado é um ponto de análise.</p>
+    com o seu torneio — cada marcador dourado é um ponto de análise. No relatório,
+    cada mão jogada ainda vem com <b>o filme da mão</b>: um storyboard que mostra a
+    jogada inteira quadro a quadro, com o que os vilões fizeram e o veredito.</p>
     <div class="anat">
       <div class="rc">
         <div class="rh"><span class="dot">1</span><span class="seq">#12</span>
@@ -432,7 +434,10 @@ def _build_manual_html_legacy() -> str:
       <tr><td><code>/simular</code></td><td><b>Simulador</b>: jogue uma mão SUA de novo,
       decisão a decisão, com botões — no final o coach compara sua linha com a real
       e dá o veredito do “e se”.</td></tr>
-      <tr><td><code>/treino</code></td><td>Drill rápido: um spot seu — o que você faria?</td></tr>
+      <tr><td><code>/treino</code></td><td>Drill rápido: <b>uma decisão</b> de uma
+      mão sua — a mais instrutiva, com a história até ali. O que você faria? Ao
+      responder, chega <b>o filme da mão</b>: um storyboard do pré até sua decisão,
+      com a matemática (equity/EV) e o veredito.</td></tr>
       <tr><td><code>/range btn</code><br><code>/range sb 10</code><br>
       <code>/range sb 10 ev</code><br><code>/range sb 10 icm 1.5</code></td>
       <td>Os gráficos da galeria acima: open por posição, Nash de all-in/call por
@@ -447,9 +452,11 @@ def _build_manual_html_legacy() -> str:
 <section>
   <div class="wrap">
     <div class="duo">
-      <div class="card"><h3>🃏 Quiz do dia — 19h</h3><p>Um spot REAL das suas mãos:
-      “o que você faz?”. Responda no botão e veja na hora se acertou. Estudo diário
-      sem esforço.</p></div>
+      <div class="card"><h3>🃏 Quiz do dia — 19h</h3><p>Uma <b>decisão</b> REAL das
+      suas mãos: “o que você faz?”. Cada quiz é <b>um único ponto</b> — o mais
+      instrutivo da mão. Responda no botão e veja na hora se acertou: chega <b>o
+      filme da mão</b> (storyboard) com a jogada inteira, a matemática e o veredito.
+      Estudo diário sem esforço.</p></div>
       <div class="card"><h3>📅 Resumo da semana — domingo</h3><p>Suas mãos, resultado,
       evolução das estatísticas e o <b>leak da semana</b> — o erro que mais custou,
       para focar o estudo.</p></div>

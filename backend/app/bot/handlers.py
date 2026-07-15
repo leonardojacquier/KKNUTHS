@@ -491,6 +491,23 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         # nick com _/* desbalanceia o Markdown legado — reenvia sem formatação
         await query.edit_message_text(text)
 
+    # storyboard da revelação: o filme da mão até a decisão, com a matemática e
+    # o veredito. Determinístico (custo zero de LLM); só some se algo falhar.
+    try:
+        from app.analysis.hand_figure import render_hand_strip
+        from app.bot.processing import storyboard_spot_from_drill
+
+        spec = await asyncio.to_thread(storyboard_spot_from_drill, drill, choice)
+        if spec:
+            png = await asyncio.to_thread(render_hand_strip, spec)
+            import io as _io3
+            await query.message.reply_photo(
+                photo=_io3.BytesIO(png),
+                caption="🎬 *O filme da mão* — do pré à sua decisão.",
+                parse_mode="Markdown")
+    except Exception:
+        pass
+
 
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     doc = update.message.document

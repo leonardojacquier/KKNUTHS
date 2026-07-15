@@ -1266,6 +1266,88 @@ def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | N
     return "Pré-flop: " + " · ".join(parts)
 
 
+def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
+                            reveal: bool = False) -> list[dict]:
+    """Bandas do storyboard (uma por street): {name, board, lines, pot_bb, note}.
+
+    - `upto_di`: índice da decisão do herói. Corta na street daquela decisão —
+      não spoila streets futuras (quiz). None = mão inteira (relatório).
+    - `reveal`: quando True, na street da decisão mostra a ação real do herói
+      (o gabarito); quando False, para ANTES dela (a pergunta).
+    Pré-flop usa o resumo compacto; pós-flop, lance a lance em BB.
+    """
+    from app.models.canonical import ActionType, StreetName
+
+    bb = h.stakes.big_blind or 1
+    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
+    verbs = {"fold": "folda", "check": "dá check", "call": "paga",
+             "bet": "aposta", "raise": "aumenta p/"}
+    order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
+             StreetName.RIVER]
+    label = {StreetName.PREFLOP: "Pré-flop", StreetName.FLOP: "Flop",
+             StreetName.TURN: "Turn", StreetName.RIVER: "River"}
+
+    stop_street = None
+    if upto_di is not None:
+        _, decisions = _walk_hand(h)
+        if 0 <= upto_di < len(decisions):
+            stop_street = decisions[upto_di]["street"]
+
+    bands: list[dict] = []
+    pot = 0.0
+    full_board: list[str] = []
+    for sname in order:
+        st = h.street(sname)
+        if not st:
+            continue
+        full_board = full_board + list(st.board)
+        is_stop = (stop_street == sname.value)
+        display_lines: list[str] = []
+        hero_seen = False
+
+        if sname == StreetName.PREFLOP:
+            summ = _preflop_summary(
+                h, stop_actor=(h.hero if (is_stop and not reveal) else None))
+            if summ:
+                display_lines.append(summ.replace("Pré-flop: ", ""))
+
+        contrib: dict[str, float] = {}
+        for a in st.actions:
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - contrib.get(a.actor, 0.0)
+            is_hero = (a.actor == h.hero and a.type != ActionType.POST)
+            # decisão-alvo: para aqui (a pergunta termina antes da ação real)
+            if is_stop and is_hero and not hero_seen:
+                hero_seen = True
+                if not reveal:
+                    if pot:
+                        bands.append({"name": label[sname], "board": full_board,
+                                      "lines": display_lines,
+                                      "pot_bb": round(pot / bb, 1)})
+                    return bands
+            # narra pós-flop lance a lance (o pré já veio do resumo)
+            if sname != StreetName.PREFLOP and a.type != ActionType.POST:
+                amt = round((a.to_amount or a.amount) / bb, 1)
+                who = "VOCÊ" if is_hero else pos.get(a.actor, a.actor[:8])
+                show_amt = amt and a.type.value in ("bet", "raise", "call")
+                display_lines.append(
+                    f"{who} {verbs.get(a.type.value, a.type.value)}"
+                    + (f" {amt:g}bb" if show_amt else "")
+                    + (" (all-in)" if a.all_in else ""))
+            if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET,
+                          ActionType.RAISE):
+                pot += add
+                if a.type != ActionType.POST or a.post_type in ("sb", "bb"):
+                    contrib[a.actor] = contrib.get(a.actor, 0.0) + add
+
+        bands.append({"name": label[sname], "board": full_board,
+                      "lines": display_lines, "pot_bb": round(pot / bb, 1)})
+        if is_stop:
+            break
+    return bands
+
+
 def build_drill(telegram_id: int) -> dict | None:
     """Monta um spot de treino PROFISSIONAL: escolhe a decisão mais interessante
     das mãos do usuário (preço a pagar, pós-flop, all-in, stack curto — nada de
@@ -1344,6 +1426,13 @@ def build_drill(telegram_id: int) -> dict | None:
     # vilões ATIVOS (para a figura da mesa): quem entrou no pote sem foldar
     villains = _active_villains(h)
 
+    # storyboard da revelação: mão até a street da decisão, COM a ação real do
+    # herói (o gabarito). Não spoila streets futuras. Custo zero de LLM.
+    try:
+        storyboard = hand_storyboard_streets(h, upto_di=di, reveal=True)
+    except Exception:
+        storyboard = []
+
     required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {
         "hand_id": h.hand_id,
@@ -1363,6 +1452,7 @@ def build_drill(telegram_id: int) -> dict | None:
         "required_eq": round(required, 3) if required is not None else None,
         "story": "\n".join(story).strip(),
         "villains": villains,
+        "storyboard": storyboard,
         "actual": d["actual"],
         "actual_amount_bb": d["amount_bb"],
         "all_in": d["all_in"],
@@ -1491,4 +1581,90 @@ def reveal_drill(drill: dict, choice: str) -> str:
     lines.append("\n💬 _Discorda ou quer aprofundar? Responda aqui que o coach "
                  "abre o spot com você._")
     return "\n".join(lines)
+
+
+def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict | None:
+    """Monta a spec do storyboard (render_hand_strip) a partir de um drill.
+
+    Usa as bandas já cortadas em `drill['storyboard']` (montadas no build_drill,
+    com a street da decisão como último quadro). Matemática e veredito são
+    DETERMINÍSTICOS (equity/pot-odds/EV) — custo zero de LLM, coerente com o
+    reveal_drill. None se não houver bandas."""
+    from app.analysis.equity import equity_vs_random
+    from app.analysis.tools import ev_call
+
+    bands = drill.get("storyboard") or []
+    if not bands:
+        return None
+
+    eq = None
+    try:
+        eq = equity_vs_random(drill["cards"], drill.get("board") or [],
+                              1, iterations=3000, seed=11)
+    except Exception:
+        pass
+    need = drill.get("required_eq")
+    to_call = drill.get("to_call_bb") or 0
+    math_d: dict = {}
+    if eq is not None:
+        math_d = {"equity": eq, "need": need}
+        if need and to_call:
+            pot_now = (drill.get("pot_bb") or 0) + to_call
+            math_d["ev_bb"] = ev_call(eq, pot_now, to_call)
+            math_d["note"] = (f"o call precisaria de {need*100:.0f}% e você "
+                              f"tem ~{eq*100:.0f}%")
+
+    # recomendação determinística (só quando há preço a pagar e margem clara)
+    verdict, verdict_text, correct = "mista", "", ""
+    actual = (drill.get("actual") or "").lower()
+    ch = (choice or "").lower()
+    if eq is not None and need and to_call:
+        margin = eq - need
+        if margin >= 0.03:
+            rec, rec_txt = "call", "CALL — a matemática do pote paga."
+        elif margin <= -0.03:
+            rec, rec_txt = "fold", "FOLD — pagar queima fichas."
+        else:
+            rec, rec_txt = "mista", "Spot no fio da navalha — a leitura decide."
+        correct = rec_txt
+        if rec == "mista":
+            verdict = "mista"
+            verdict_text = (
+                f"Spot marginal: sua equity (~{eq*100:.0f}%) bate quase exato "
+                f"os {need*100:.0f}% que o pote exige. Aqui não é conta, é "
+                "leitura — contra um vilão que blefa, paga; contra um pedra, "
+                "descarta.")
+        else:
+            aligned = (ch in ("call", "raise") and rec == "call") or \
+                      (ch == "fold" and rec == "fold")
+            verdict = "boa" if aligned else "ruim"
+            verdict_text = (
+                f"Pela matemática pura, sua equity é ~{eq*100:.0f}% e o pote "
+                f"exige {need*100:.0f}%. " +
+                ("Você escolheu certo. " if aligned else
+                 "Sua escolha foge da conta aqui. ") +
+                "Contra o range real do vilão muda — pergunte ao coach pra "
+                "abrir a leitura.")
+    else:
+        verdict = "mista"
+        verdict_text = (
+            "Sem aposta a pagar, o jogo aqui é valor vs controle do pote — "
+            "não tem gabarito de conta única. Responda que o coach abre a "
+            "linha com você.")
+        if eq is not None:
+            verdict_text = (f"Sua equity bruta é ~{eq*100:.0f}%. " + verdict_text)
+
+    stack = drill.get("stack_bb")
+    return {
+        "title": "Sua mão — o filme",
+        "hero_cards": drill.get("cards") or [],
+        "position": drill.get("position"),
+        "stack_bb": stack,
+        "blinds": drill.get("blinds"),
+        "streets": bands,
+        "math": math_d,
+        "verdict": verdict,
+        "verdict_text": verdict_text,
+        "correct": correct,
+    }
 

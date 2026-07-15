@@ -263,6 +263,40 @@ def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
     return ". ".join(bits + [res]) if bits else f"{hc} — {res.lower()}"
 
 
+def _hand_strip_img(h: CanonicalHand, seq: int, a: dict,
+                    verdict_llm: str | None, analysis: str) -> str:
+    """<img> data-URI do storyboard da mão completa. '' se falhar (nunca quebra
+    o relatório). Footer = veredito da análise já computada (sem custo novo)."""
+    try:
+        from app.analysis.hand_figure import render_hand_strip
+        from app.bot.processing import hand_storyboard_streets
+
+        bands = hand_storyboard_streets(h)
+        if not bands:
+            return ""
+        note = (analysis or "").strip()
+        if len(note) > 260:              # limita a altura da imagem no PDF
+            note = note[:257].rstrip() + "…"
+        spec = {
+            "title": f"Mão #{seq} — {a.get('position') or '?'}",
+            "hero_cards": h.hero_cards,
+            "position": a.get("position"),
+            "stack_bb": a.get("hero_stack_bb"),
+            "blinds": a.get("blinds"),
+            "streets": bands,
+            "math": {},                  # sem decisão única no relatório
+            "verdict": verdict_llm or "mista",
+            "verdict_text": note,
+            "correct": "",
+        }
+        png = render_hand_strip(spec)
+        b64 = base64.standard_b64encode(png).decode()
+        return (f"<img class=strip style='width:100%;border-radius:8px;"
+                f"margin:10px 0' src='data:image/png;base64,{b64}'>")
+    except Exception:
+        return ""
+
+
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                       board_png: bytes | None = None,
                       per_hand_analysis: dict[str, str] | None = None) -> str:
@@ -305,6 +339,11 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                      "mista": "decisão ⚠️"}.get(verdict_llm or "") or \
                 decision_stamp(h, facts)
             dec_html = f"<span class=dec>{esc(stamp)}</span>" if stamp else ""
+            # storyboard da mão completa (o filme) — determinístico, custo zero
+            # de LLM. Reaproveita o veredito da análise já computada no rodapé.
+            # Só para mãos JOGADAS (as foldadas ficam na tabela): PDF não incha.
+            strip_img = _hand_strip_img(h, seq, a, verdict_llm, analysis)
+            story_html = "" if strip_img else f"<div class=story>{story}</div>"
             played_cards.append(f"""
 <div class=hand>
   <div class=hh><span class=seq>{n_lab}</span> {_cards_html(h.hero_cards)}
@@ -312,7 +351,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
   <span class=meta>mão {esc(hid)} · {esc(meta)} · stack {a.get('hero_stack_bb') or '?'}bb
   (efetivo {a.get('effective_bb') or '?'}bb)</span>
   {dec_html}<span class=net style='color:{color}'>{net:+.1f} BB</span></div>
-  <div class=story>{story}</div>
+  {strip_img}{story_html}
   <div class=an><b>Análise:</b> {esc(analysis)}</div>
   {f'<details class=simple><summary>🎈 Explica mais simples</summary><p>{esc(simple)}</p></details>' if simple else ''}
 </div>""")

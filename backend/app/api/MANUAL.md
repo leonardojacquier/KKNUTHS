@@ -61,6 +61,10 @@ mais rápido.*
   cita um equilíbrio, a **matriz 13×13 chega como imagem** na sequência — você vê
   exatamente as mãos de que ele está falando. E pode **pedir na conversa**:
   *"me passa a tabela"*, *"e o EV de cada mão?"* — o gráfico vem em seguida
+- **🎬 O filme da mão**: cada mão jogada no relatório vira um **storyboard** — a
+  mão inteira quadro a quadro (pré-flop → river), com o board, os stacks, **o que
+  os vilões fizeram em cada street**, a matemática (equity/EV) e o veredito do
+  coach, tudo numa imagem só. Bate o olho e entende o spot inteiro
 - **Em torneios**: pressão de ICM (quanto suas fichas valem em dinheiro real),
   decisões de bubble e mesa final, all-ins de stack curto comparados com o
   **equilíbrio Nash calculado**
@@ -87,14 +91,17 @@ o coach responde levando em conta o **seu** perfil de jogo.
 | `/start` | Menu inicial |
 | `/stats` | Seu perfil de estilo (VPIP, agressividade, tendência) calculado sobre todas as suas mãos |
 | `/simular` | **Simulador**: jogue uma mão SUA de novo, decisão a decisão, com botões — no final, compare sua linha com a real e receba o veredito do coach |
-| `/treino` | Drill rápido: um spot seu, o que você faria? |
+| `/treino` | Drill rápido: **uma decisão** de uma mão sua — a mais instrutiva da mão, com a história até ali. O que você faria? Ao responder, chega **o filme da mão** (storyboard): a jogada do pré até a sua decisão, com a matemática (equity/EV) e o veredito |
 | `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) · `/range sb 10 ev` (**EV em BB de cada mão**, verde = empurrar rende mais que foldar) · `/range sb 10 icm 1.5` (o mesmo **sob pressão de ICM** — veja o range mudar perto da bolha) |
 | `/ask` + pergunta | Pesquise no seu histórico: *"/ask minhas maiores perdas no river"* |
 | `/plano` | Seu plano e limites |
 
 ### 🃏 Quiz do dia
-Todo dia às 19h o KKNuths te manda **um spot real das suas mãos**: "o que você
-faz?". Responda no botão e veja na hora se acertou. Estudo diário sem esforço.
+Todo dia às 19h o KKNuths te manda **uma decisão real das suas mãos**: "o que você
+faz?". Cada quiz é **um único ponto de decisão** — o mais instrutivo da mão, com a
+história até ali. Responda no botão e veja na hora se acertou: chega **o filme da
+mão** (storyboard) mostrando a jogada inteira até sua decisão, a matemática e o
+veredito. Estudo diário sem esforço.
 
 ### 📅 Resumo da semana
 Todo domingo: suas mãos da semana, resultado, evolução das estatísticas e o
