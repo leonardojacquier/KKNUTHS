@@ -1148,6 +1148,26 @@ def _odilon_hand():
         final_board=["7c", "9d", "Qs", "Ad", "2s"])
 
 
+def test_decision_aggressor_marca_aposta_do_vilao():
+    # a figura precisa mostrar o vilão da vez + tamanho da aposta
+    from app.bot.processing import _decision_aggressor
+
+    h = _odilon_hand()
+    # decisão no river: a BB apostou 160 (=2.3bb) antes do herói
+    pos, bet = _decision_aggressor(
+        h, {"street": "river", "board": ["7c", "9d", "Qs", "Ad", "2s"]})
+    assert pos == "BB" and bet == 2.3
+
+    # a figura desenha sem quebrar com bet_bb no vilão
+    from app.analysis.hand_figure import render_hand_figure
+    png = render_hand_figure({
+        "hero_cards": ["6c", "4c"], "board": ["7c", "9d", "Qs", "Ad", "2s"],
+        "position": "SB", "stack_bb": 39, "pot_bb": 6.9, "to_call_bb": 2.3,
+        "required_eq": 0.25, "street": "river", "blinds": "35/70",
+        "villains": [{"pos": "BB", "stack_bb": 39, "bet_bb": 2.3, "to_act": True}]})
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 def test_hand_storyboard_streets_e_spec():
     from app.bot.processing import (hand_storyboard_streets, _walk_hand,
                                     storyboard_spot_from_drill)

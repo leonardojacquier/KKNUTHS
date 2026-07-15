@@ -1426,6 +1426,14 @@ def build_drill(telegram_id: int) -> dict | None:
     # vilões ATIVOS (para a figura da mesa): quem entrou no pote sem foldar
     villains = _active_villains(h)
 
+    # o "vilão da vez": quem apostou/aumentou por último antes da decisão do
+    # herói — a figura mostra as fichas dele na frente (situação completa).
+    agg_pos, agg_bet = _decision_aggressor(h, d)
+    for v in villains:
+        if agg_pos and v.get("pos") == agg_pos:
+            v["bet_bb"] = agg_bet
+            v["to_act"] = True
+
     # storyboard da revelação: mão até a street da decisão, COM a ação real do
     # herói (o gabarito). Não spoila streets futuras. Custo zero de LLM.
     try:
@@ -1458,6 +1466,35 @@ def build_drill(telegram_id: int) -> dict | None:
         "all_in": d["all_in"],
         "net_bb": analyze_hand(h)["net_bb"],
     }
+
+
+def _decision_aggressor(h: CanonicalHand, d: dict) -> tuple[str | None, float | None]:
+    """Na street da decisão, quem foi o último a apostar/aumentar ANTES do herói
+    — o vilão que o herói tem de responder — e o tamanho (em bb)."""
+    from app.models.canonical import ActionType, StreetName
+
+    bb = h.stakes.big_blind or 1
+    try:
+        st = h.street(StreetName(d["street"]))
+    except Exception:
+        st = None
+    if not st:
+        return None, None
+    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
+    # o herói pode agir mais de uma vez na street (check, depois fold à aposta).
+    # Guardamos a última aposta/aumento de VILÃO e, quando o herói responde a
+    # ela, essa é a aposta que ele enfrenta.
+    pending = (None, None)
+    facing = (None, None)
+    for a in st.actions:
+        if a.actor == h.hero and a.type != ActionType.POST:
+            if pending[0] is not None:
+                facing = pending      # herói responde a uma aposta pendente
+            continue
+        if a.type in (ActionType.BET, ActionType.RAISE):
+            pending = (a.actor, round((a.to_amount or a.amount) / bb, 1))
+    name, amt = facing
+    return (pos.get(name) if name else None), amt
 
 
 def _active_villains(h: CanonicalHand) -> list[dict]:

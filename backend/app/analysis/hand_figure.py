@@ -36,7 +36,7 @@ PLAQUE = (22, 52, 40)
 PLAQUE_FOLD = (26, 34, 30)
 BTN_BG = (244, 242, 232)
 
-W, H = 980, 700
+W, H = 980, 780
 _DEJAVU = "/usr/share/fonts/truetype/dejavu/"
 _SUIT = {"s": ("♠", BLACK), "c": ("♣", BLACK), "h": ("♥", RED), "d": ("♦", RED)}
 
@@ -92,38 +92,62 @@ def _chips(d, cx, cy):
               outline=(20, 24, 22), width=1)
 
 
+def _bet_marker(d, x, y, bet_bb, s):
+    """Fichas + '⬆ X bb' de uma aposta, centradas em (x, y) — coords do canvas."""
+    for i, col in enumerate((CHIP_BLU, CHIP_RED, GOLD)):
+        yy = y - i * 4 * s
+        d.ellipse([x - 15 * s, yy - 8 * s, x + 15 * s, yy + 8 * s], fill=col,
+                  outline=(18, 22, 20), width=max(1, s))
+    f = _font(int(18 * s))
+    txt = f"aposta {bet_bb:g}bb"
+    tw = d.textlength(txt, font=f)
+    d.rounded_rectangle([x - tw / 2 - 10 * s, y + 12 * s,
+                         x + tw / 2 + 10 * s, y + 12 * s + 30 * s],
+                        radius=9 * s, fill=(158, 44, 44), outline=CREAM,
+                        width=max(1, s))
+    _center(d, x, y + 15 * s, txt, f, CREAM)
+
+
 def _seat(d, x, y, pos, stack_bb, *, hero=False, folded=False, cards=None,
-          to_act=False):
-    """Plaque de um assento em (x, y) = centro do plaque."""
-    pw, ph = (150, 52) if hero else (118, 46)
+          to_act=False, bet_bb=None, s=2, bet_below=True):
+    """Plaque de um assento centrado em (x, y), já em coords do canvas s×.
+    Todas as dimensões escalam por `s` — sem isso o assento sai na metade."""
+    pw, ph = ((156, 58) if hero else (128, 52))
+    pw, ph = pw * s, ph * s
     fill = GOLD if hero else (PLAQUE_FOLD if folded else PLAQUE)
     edge = GOLD_DK if hero else (RAIL_HI if to_act else (60, 84, 70))
     d.rounded_rectangle([x - pw / 2, y - ph / 2, x + pw / 2, y + ph / 2],
-                        radius=11, fill=fill, outline=edge,
-                        width=3 if (hero or to_act) else 1)
-    ftop = _font(19 if hero else 16)
-    fbot = _font(15 if hero else 13, bold=False)
+                        radius=12 * s, fill=fill, outline=edge,
+                        width=(4 if (hero or to_act) else 1) * s)
+    ftop = _font(int((22 if hero else 19) * s))
+    fbot = _font(int((18 if hero else 16) * s), bold=False)
     tcol = (26, 30, 24) if hero else (MUTED if folded else CREAM)
     scol = (60, 50, 24) if hero else (110, 124, 116) if folded else GOLD
     label = ("VOCÊ · " + (pos or "?")) if hero else (pos or "?")
-    _center(d, x, y - ph / 2 + (7 if hero else 6), label, ftop, tcol)
+    _center(d, x, y - ph / 2 + 8 * s, label, ftop, tcol)
     sub = "fold" if folded else f"{stack_bb:g}bb" if stack_bb is not None else ""
-    _center(d, x, y + (2 if hero else 1), sub, fbot, scol)
+    _center(d, x, y + 3 * s, sub, fbot, scol)
 
     # cartas acima do plaque
     if hero and cards:
-        cw = 62
+        cw = 70 * s
         for i, c in enumerate(cards[:2]):
-            _card(d, x - (len(cards[:2]) - 1) * (cw + 8) / 2 + i * (cw + 8),
-                  y - ph / 2 - 52, c, w=cw, h=86)
+            _card(d, x - (len(cards[:2]) - 1) * (cw + 10 * s) / 2 + i * (cw + 10 * s),
+                  y - ph / 2 - 58 * s, c, w=cw, h=cw * 1.4)
     elif not folded:
         for i in range(2):
-            _card_back(d, x - 18 + i * 20, y - ph / 2 - 26)
+            _card_back(d, x - 20 * s + i * 22 * s, y - ph / 2 - 30 * s,
+                       w=34 * s, h=48 * s)
+
+    # aposta do vilão: fichas na frente (em direção ao centro = abaixo do plaque)
+    if bet_bb and not hero:
+        _bet_marker(d, x, y + ph / 2 + 20 * s, bet_bb, s)
 
 
 def render_hand_figure(spot: dict) -> bytes:
     """`spot`: hero_cards, board, position, stack_bb, pot_bb, to_call_bb,
-    required_eq, street, blinds, villains:[{pos, stack_bb, folded, to_act}]."""
+    required_eq, street, blinds, villains:[{pos, stack_bb, folded, to_act,
+    bet_bb}]."""
     # supersample 2x para bordas suaves
     S = 2
     img = Image.new("RGB", (W * S, H * S), BG)
@@ -132,96 +156,96 @@ def render_hand_figure(spot: dict) -> bytes:
     def sc(v):
         return v * S
 
+    def F(sz, bold=True):        # fonte no tamanho REAL (escala com o supersample)
+        return _font(int(sz * S), bold)
+
     # rail + feltro
-    m = 70
-    rx0, ry0, rx1, ry1 = m - 16, 96, W - m + 16, H - 168
+    m = 66
+    rx0, ry0, rx1, ry1 = m - 16, 104, W - m + 16, H - 196
     d.rounded_rectangle([sc(rx0), sc(ry0), sc(rx1), sc(ry1)], radius=sc(230),
                         fill=RAIL, outline=RAIL_HI, width=sc(5))
-    fx0, fy0, fx1, fy1 = m, 112, W - m, H - 184
+    fx0, fy0, fx1, fy1 = m, 120, W - m, H - 212
     d.rounded_rectangle([sc(fx0), sc(fy0), sc(fx1), sc(fy1)], radius=sc(210),
                         fill=FELT, outline=FELT_RIM, width=sc(6))
-    # brilho interno do feltro
     d.rounded_rectangle([sc(fx0 + 26), sc(fy0 + 22), sc(fx1 - 26), sc(fy1 - 22)],
                         radius=sc(185), outline=FELT_HI, width=sc(2))
     cx, cy = (fx0 + fx1) / 2, (fy0 + fy1) / 2
 
-    f_title = _font(int(26))
-    f_small = _font(int(15), bold=False)
-    f_pot = _font(int(20))
-    f_ask = _font(int(24))
-
-    _center(d, sc(W / 2), sc(20), spot.get("title") or "Quiz — sua vez",
-            _font(int(26)), CREAM)
+    _center(d, sc(W / 2), sc(22), spot.get("title") or "Quiz — sua vez",
+            F(30), CREAM)
 
     # board
     board = spot.get("board") or []
     if board:
-        bw, gap = 60, 12
+        bw, gap = 74, 14
         total = len(board) * bw + (len(board) - 1) * gap
         bx = cx - total / 2 + bw / 2
         for c in board:
-            _card(d, sc(bx), sc(cy - 34), c, w=sc(bw), h=sc(bw * 1.4))
+            _card(d, sc(bx), sc(cy - 40), c, w=sc(bw), h=sc(bw * 1.4))
             bx += bw + gap
     else:
-        _center(d, sc(cx), sc(cy - 30), "PRÉ-FLOP", _font(int(20)), (200, 220, 210))
+        _center(d, sc(cx), sc(cy - 42), "PRÉ-FLOP", F(26), (200, 220, 210))
 
-    # pote (fichas + label) abaixo do board
-    _chips_xy = (cx - 96, cy + 52)
-    for i, col in enumerate((CHIP_BLU, CHIP_RED, GOLD_DK, CREAM)):
-        yy = _chips_xy[1] - i * 6
-        d.ellipse([sc(_chips_xy[0] - 17), sc(yy - 7),
-                   sc(_chips_xy[0] + 17), sc(yy + 7)], fill=col,
-                  outline=(18, 22, 20), width=sc(1))
-    d.rounded_rectangle([sc(cx - 66), sc(cy + 36), sc(cx + 112), sc(cy + 72)],
-                        radius=sc(16), fill=FELT_RIM, outline=GOLD_DK, width=sc(2))
-    _center(d, sc(cx + 23), sc(cy + 44),
-            f"POTE  {spot.get('pot_bb', 0):g} bb", _font(int(19)), GOLD)
+    # pote — chapa central grande e legível
+    pot_txt = f"POTE  {spot.get('pot_bb', 0):g} bb"
+    fp = F(24)
+    pw = d.textlength(pot_txt, font=fp)
+    d.rounded_rectangle([sc(cx) - pw / 2 - sc(26), sc(cy + 44),
+                         sc(cx) + pw / 2 + sc(26), sc(cy + 44) + sc(44)],
+                        radius=sc(18), fill=FELT_RIM, outline=GOLD_DK, width=sc(2))
+    _center(d, sc(cx), sc(cy + 54), pot_txt, fp, GOLD)
 
-    # assentos ao redor: herói embaixo, vilões distribuídos no arco de cima
+    # assentos: herói embaixo, vilões no arco superior
     villains = list(spot.get("villains") or [])[:7]
-    a, b = (fx1 - fx0) / 2 * 0.98, (fy1 - fy0) / 2 * 1.06
-    # herói no fundo
-    _seat(d, sc(cx), sc(fy1 - 6), spot.get("position"), spot.get("stack_bb"),
-          hero=True, cards=spot.get("hero_cards"))
-    # vilões no ARCO SUPERIOR (270° = topo; espalha de 205° a 335°)
+    a, b = (fx1 - fx0) / 2 * 0.98, (fy1 - fy0) / 2 * 1.04
+    _seat(d, sc(cx), sc(fy1 - 2), spot.get("position"), spot.get("stack_bb"),
+          hero=True, cards=spot.get("hero_cards"), s=S)
     n = len(villains)
     if n:
         lo, hi = 205, 335
         for i, v in enumerate(villains):
             t = (lo + (hi - lo) * (i / (n - 1))) if n > 1 else 270
             rad = math.radians(t)
-            vx = cx + a * 0.92 * math.cos(rad)
-            vy = cy + b * 0.98 * math.sin(rad)
+            vx = cx + a * 0.90 * math.cos(rad)
+            # empurra o arco pra dentro do feltro: cartas do topo não invadem o título
+            vy = cy + b * 0.80 * math.sin(rad) + 24
             _seat(d, sc(vx), sc(vy), v.get("pos"), v.get("stack_bb"),
-                  folded=bool(v.get("folded")), to_act=bool(v.get("to_act")))
+                  folded=bool(v.get("folded")), to_act=bool(v.get("to_act")),
+                  bet_bb=v.get("bet_bb"), s=S)
 
-    # rodapé: street/blinds + preço
-    fy = H - 150
+    # rodapé: street/blinds + o preço da decisão (grande)
+    fy = H - 172
     street = (spot.get("street") or "").upper()
     blinds = spot.get("blinds") or ""
     _center(d, sc(W / 2), sc(fy), f"{street}   ·   blinds {blinds}",
-            _font(int(15), bold=False), MUTED)
+            F(18, bold=False), MUTED)
     to_call = spot.get("to_call_bb")
-    by = fy + 30
+    by = fy + 34
     if to_call:
         req = spot.get("required_eq")
-        txt = f"pagar {to_call:g} bb"
+        txt = f"PAGAR {to_call:g} bb"
         if req:
             txt += f"   ·   precisa de ~{req * 100:.0f}%"
-        d.rounded_rectangle([sc(W / 2 - 230), sc(by), sc(W / 2 + 230), sc(by + 46)],
-                            radius=sc(14), fill=(158, 44, 44),
-                            outline=CREAM, width=sc(2))
-        _center(d, sc(W / 2), sc(by + 10), txt, _font(int(23)), CREAM)
+        ft = F(27)
+        tw = d.textlength(txt, font=ft)
+        half = max(tw / 2 + sc(30), sc(240))
+        d.rounded_rectangle([sc(W / 2) - half, sc(by), sc(W / 2) + half, sc(by + 56)],
+                            radius=sc(16), fill=(158, 44, 44), outline=CREAM,
+                            width=sc(2))
+        _center(d, sc(W / 2), sc(by + 12), txt, ft, CREAM)
     else:
-        d.rounded_rectangle([sc(W / 2 - 210), sc(by), sc(W / 2 + 210), sc(by + 46)],
-                            radius=sc(14), fill=FELT_RIM, outline=GOLD, width=sc(2))
-        _center(d, sc(W / 2), sc(by + 10), "sua vez — check ou bet?",
-                _font(int(23)), GOLD)
+        ft = F(27)
+        txt = "SUA VEZ — check ou bet?"
+        tw = d.textlength(txt, font=ft)
+        half = max(tw / 2 + sc(30), sc(220))
+        d.rounded_rectangle([sc(W / 2) - half, sc(by), sc(W / 2) + half, sc(by + 56)],
+                            radius=sc(16), fill=FELT_RIM, outline=GOLD, width=sc(2))
+        _center(d, sc(W / 2), sc(by + 12), txt, ft, GOLD)
 
     # downsample (antialias) e marca
     img = img.resize((W, H), Image.LANCZOS)
     d2 = ImageDraw.Draw(img)
-    draw_brand(d2, H - 30, right=W - 22, size=15)
+    draw_brand(d2, H - 32, right=W - 22, size=16)
 
     buf = io.BytesIO()
     img.save(buf, "PNG")
