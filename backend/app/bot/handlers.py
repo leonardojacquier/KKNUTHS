@@ -432,8 +432,26 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         for row in drill_buttons(drill)
     ])
     text = drill_message(drill, title="🎯 *Treino* — mão real sua")
+    # figura da mesa: o spot lê melhor como imagem (custo zero de LLM). A
+    # imagem mostra cartas/board/pote/preço; o caption fica só com a história.
+    import io as _io2
+    fig = None
     try:
-        await update.message.reply_markdown(text, reply_markup=markup)
+        from app.analysis.hand_figure import render_hand_figure, spot_from_drill
+        fig = await asyncio.to_thread(render_hand_figure, spot_from_drill(drill))
+    except Exception:
+        fig = None
+    try:
+        if fig:
+            cap = "🎯 *Treino* — mão real sua"
+            if drill.get("story"):
+                cap += "\n\n" + drill["story"]
+            cap += "\n\n👉 *O que você faz?*"
+            await update.message.reply_photo(
+                photo=_io2.BytesIO(fig), caption=cap[:1000],
+                parse_mode="Markdown", reply_markup=markup)
+        else:
+            await update.message.reply_markdown(text, reply_markup=markup)
     except Exception:
         await update.message.reply_text(text, reply_markup=markup)
 

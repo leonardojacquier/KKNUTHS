@@ -1341,6 +1341,9 @@ def build_drill(telegram_id: int) -> dict | None:
         post = lines[flop_i:d["line_idx"]]
         story = ([pre_sum] if pre_sum else []) + post
 
+    # vilões ATIVOS (para a figura da mesa): quem entrou no pote sem foldar
+    villains = _active_villains(h)
+
     required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {
         "hand_id": h.hand_id,
@@ -1359,11 +1362,40 @@ def build_drill(telegram_id: int) -> dict | None:
         "to_call_bb": d["to_call_bb"],
         "required_eq": round(required, 3) if required is not None else None,
         "story": "\n".join(story).strip(),
+        "villains": villains,
         "actual": d["actual"],
         "actual_amount_bb": d["amount_bb"],
         "all_in": d["all_in"],
         "net_bb": analyze_hand(h)["net_bb"],
     }
+
+
+def _active_villains(h: CanonicalHand) -> list[dict]:
+    """Vilões que entraram no pote sem foldar (para a figura): posição+stack."""
+    from app.models.canonical import ActionType
+
+    bb = h.stakes.big_blind or 1
+    folded, entered = set(), []
+    for st in h.streets:
+        for a in st.actions:
+            if a.actor == h.hero or a.type == ActionType.POST:
+                continue
+            if a.type == ActionType.FOLD:
+                folded.add(a.actor)
+            elif a.type in (ActionType.CALL, ActionType.BET, ActionType.RAISE):
+                if a.actor not in entered:
+                    entered.append(a.actor)
+    seat = {p.name: p for p in h.players}
+    out = []
+    for name in entered:
+        if name in folded:
+            continue
+        p = seat.get(name)
+        if not p:
+            continue
+        out.append({"pos": p.position or name[:6],
+                    "stack_bb": round(p.stack / bb, 1)})
+    return out[:6]
 
 
 def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real sua") -> str:

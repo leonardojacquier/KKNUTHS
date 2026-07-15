@@ -1056,3 +1056,29 @@ def test_drill_narracao_pre_flop_limpa():
     ])
     h2 = h.model_copy(update={"streets": [pre2]})
     assert _preflop_summary(h2, stop_actor="Hero") == "Pré-flop: folda até você"
+
+
+def test_figura_da_mesa_render():
+    # figura da mesa: render deterministico (custo zero de LLM). Só garante
+    # que sai um PNG válido e não quebra sem board/vilões.
+    from app.analysis.hand_figure import render_hand_figure, spot_from_drill
+
+    spot = {"hero_cards": ["Ah", "Kd"], "board": ["Qs", "3c", "4c"],
+            "position": "BB", "stack_bb": 52, "pot_bb": 6.5, "to_call_bb": 4.5,
+            "required_eq": 0.41, "street": "flop", "blinds": "100/200",
+            "villains": [{"pos": "CO", "stack_bb": 48}]}
+    png = render_hand_figure(spot)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 5000
+
+    # pré-flop sem board, sem preço (check/bet) — não quebra
+    png2 = render_hand_figure({"hero_cards": ["7h", "7c"], "board": [],
+                               "position": "BTN", "stack_bb": 30, "pot_bb": 1.5,
+                               "street": "preflop", "villains": []})
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n"
+
+    # conversão do drill preserva os campos
+    d = {"cards": ["As", "Ks"], "board": [], "position": "CO", "stack_bb": 40,
+         "pot_bb": 2.5, "to_call_bb": 2, "street": "preflop",
+         "villains": [{"pos": "MP", "stack_bb": 50}]}
+    s = spot_from_drill(d)
+    assert s["hero_cards"] == ["As", "Ks"] and s["villains"][0]["pos"] == "MP"
