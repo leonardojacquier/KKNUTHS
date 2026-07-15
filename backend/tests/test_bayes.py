@@ -1007,41 +1007,52 @@ def test_replay_link_detection_routes_pppoker():
     assert replay_link_info("qual o range de UTG?") is None
 
 
-def test_drill_narracao_em_ordem_de_posicao():
+def test_drill_narracao_pre_flop_limpa():
     # feedback do admin: "a sequência das ações está confusa, precisa ser
-    # contada a partir do UTG". Pré-flop resumido em ordem de posição.
+    # contada a partir do UTG". Pré-flop cronológico (UTG-first nas mãos
+    # reais), posts e folds escondidos, como um jogador conta.
     from app.bot.processing import _preflop_summary
     from app.models.canonical import (Action, ActionType, CanonicalHand,
                                       PlayerSeat, Stakes, Street, StreetName)
 
-    # pote limpado 8-handed, ações GRAVADAS fora de ordem (SB antes de UTG)
+    # pote 3-bet: MP abre, herói folda, SB 3-beta, MP paga (ordem cronológica)
     pl = [
-        PlayerSeat(seat=1, name="Hero", stack=3900, position="BB", is_hero=True),
-        PlayerSeat(seat=2, name="sb", stack=5000, position="SB"),
-        PlayerSeat(seat=3, name="utg", stack=6000, position="UTG"),
-        PlayerSeat(seat=4, name="mp", stack=6000, position="MP"),
-        PlayerSeat(seat=5, name="co", stack=6000, position="CO"),
+        PlayerSeat(seat=1, name="mp", stack=6000, position="MP"),
+        PlayerSeat(seat=2, name="Hero", stack=3900, position="CO", is_hero=True),
+        PlayerSeat(seat=3, name="sb", stack=5000, position="SB"),
+        PlayerSeat(seat=4, name="bb", stack=6000, position="BB"),
+        PlayerSeat(seat=5, name="utg", stack=6000, position="UTG"),
     ]
     pre = Street(name=StreetName.PREFLOP, actions=[
-        Action(actor="Hero", type=ActionType.POST, amount=200, post_type="bb"),
         Action(actor="sb", type=ActionType.POST, amount=100, post_type="sb"),
-        # ordem de gravação embaralhada de propósito:
-        Action(actor="sb", type=ActionType.FOLD),
-        Action(actor="Hero", type=ActionType.CHECK),
-        Action(actor="co", type=ActionType.CALL, amount=200, to_amount=200),
-        Action(actor="utg", type=ActionType.RAISE, amount=400, to_amount=400),
-        Action(actor="mp", type=ActionType.CALL, amount=400, to_amount=400),
+        Action(actor="bb", type=ActionType.POST, amount=200, post_type="bb"),
+        Action(actor="utg", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.RAISE, amount=400, to_amount=400),
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="sb", type=ActionType.RAISE, amount=1100, to_amount=1200),
+        Action(actor="bb", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.CALL, amount=800, to_amount=1200),
     ])
     h = CanonicalHand(site="x", hand_id="d1", hero="Hero",
                       stakes=Stakes(small_blind=100, big_blind=200),
                       players=pl, hero_cards=["5h", "4h"], streets=[pre])
 
     s = _preflop_summary(h)
-    # UTG aparece ANTES de MP, CO, você — ordem de posição, não a gravada
     assert s.startswith("Pré-flop:")
-    assert s.index("UTG") < s.index("MP") < s.index("CO")
-    assert s.index("UTG") < s.index("você")     # UTG antes do herói (BB)
+    # cronológico: MP abre ANTES do SB 3-betar ANTES do MP pagar
+    assert s.index("MP abre") < s.index("SB 3-beta") < s.index("MP paga")
+    assert "MP paga 6bb" not in s and "MP paga" in s  # call sem valor
+    assert "folda" not in s and "post" not in s.lower()  # posts/folds escondidos
 
-    # com stop_actor, para antes da ação do herói (decisão no pré)
+    # stop_actor: para antes da ação do herói (decisão no pré) — só o open do MP
     s2 = _preflop_summary(h, stop_actor="Hero")
-    assert "você" not in s2
+    assert "MP abre" in s2 and "3-beta" not in s2
+
+    # foldou geral até o herói -> aviso curto
+    pre2 = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=100, post_type="sb"),
+        Action(actor="utg", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.FOLD),
+    ])
+    h2 = h.model_copy(update={"streets": [pre2]})
+    assert _preflop_summary(h2, stop_actor="Hero") == "Pré-flop: folda até você"

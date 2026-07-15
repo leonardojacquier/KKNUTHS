@@ -1201,13 +1201,13 @@ def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
                     "amount_bb": round(((a.to_amount or a.amount) / bb), 1),
                     "all_in": a.all_in,
                 })
-                amt = (a.to_amount or a.amount) / bb
+                amt = round((a.to_amount or a.amount) / bb, 1)
                 lines.append(f"  VOCÊ {verbs.get(a.type.value, a.type.value)}"
                              + (f" {amt:g}bb" if amt else "")
                              + (" (all-in)" if a.all_in else ""))
             elif a.type != ActionType.POST:
                 who = pos.get(a.actor, a.actor[:8])
-                amt = (a.to_amount or a.amount) / bb
+                amt = round((a.to_amount or a.amount) / bb, 1)
                 lines.append(f"  {who} {verbs.get(a.type.value, a.type.value)}"
                              + (f" {amt:g}bb" if amt else "")
                              + (" (all-in)" if a.all_in else ""))
@@ -1217,10 +1217,6 @@ def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
                 if counts:
                     contrib[a.actor] = contrib.get(a.actor, 0.0) + add
     return lines, decisions
-
-
-_POS_ORDER = ["UTG", "UTG+1", "UTG+2", "MP", "MP+1", "LJ", "HJ", "CO",
-              "BTN", "SB", "BB"]
 
 
 def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | None:
@@ -1234,33 +1230,40 @@ def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | N
         return None
     bb = h.stakes.big_blind or 1
     pos = {p.name: (p.position or "") for p in h.players}
-    verbs = {"fold": "folda", "check": "check", "call": "paga",
-             "bet": "abre", "raise": "aumenta p/"}
-    entries: list[tuple[int, int, str]] = []
-    seq = 0
-    hero_seen = False
+    # ORDEM CRONOLÓGICA (que já é a ordem de ação correta: UTG primeiro).
+    # Escondemos posts (ruído de blind/ante) e folds — como um jogador conta:
+    # "MP abre 2bb · SB 3-beta 6bb · MP paga". Se folda até o herói, avisa.
+    parts: list[str] = []
+    folds_antes = 0
+    n_raises = 0
     for a in pre.actions:
         if a.type == ActionType.POST:
             continue
-        if stop_actor and a.actor == h.hero and not hero_seen:
-            hero_seen = True
+        if stop_actor and a.actor == h.hero:
             break
-        seq += 1
-        p = pos.get(a.actor, "")
-        idx = _POS_ORDER.index(p) if p in _POS_ORDER else 99
-        who = "você" if a.actor == h.hero else (p or a.actor[:6])
+        if a.type == ActionType.FOLD:
+            folds_antes += 1
+            continue
+        who = "você" if a.actor == h.hero else (pos.get(a.actor) or a.actor[:6])
         amt = round((a.to_amount or a.amount) / bb, 1)
-        txt = f"{who} {verbs.get(a.type.value, a.type.value)}"
-        if amt and a.type.value in ("call", "bet", "raise"):
+        if a.type == ActionType.RAISE:
+            n_raises += 1
+            verb = "abre" if n_raises == 1 else (
+                "3-beta" if n_raises == 2 else "4-beta")
+        else:
+            verb = {"call": "paga", "bet": "abre", "check": "dá check"}.get(
+                a.type.value, a.type.value)
+        txt = f"{who} {verb}"
+        # valor só em bet/raise (definem o preço); call = 'paga' (igualou)
+        if amt and a.type.value in ("bet", "raise"):
             txt += f" {amt:g}bb"
         if a.all_in:
             txt += " (all-in)"
-        entries.append((idx, seq, txt))
-    if not entries:
-        return None
-    # ordem de posição; empate mantém a ordem cronológica (seq)
-    entries.sort(key=lambda e: (e[0], e[1]))
-    return "Pré-flop: " + " · ".join(t for _, _, t in entries)
+        parts.append(txt)
+    if not parts:
+        # ninguém aumentou/pagou antes do herói — foldou geral até você
+        return "Pré-flop: folda até você" if folds_antes else None
+    return "Pré-flop: " + " · ".join(parts)
 
 
 def build_drill(telegram_id: int) -> dict | None:
