@@ -1043,13 +1043,51 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
         return None
 
     a = _ah(best)
+
+    # figura da mesa por decisão (situação completa, custo zero de LLM). Chave
+    # por índice do evento em string (sobrevive a serialização do user_data).
+    from app.analysis.tools import pot_odds as _po
+
+    bbv = best.stakes.big_blind or 1
+    seat = best.hero_seat()
+    stack_bb = round(seat.stack / bbv, 1) if seat else None
+    blinds = f"{best.stakes.small_blind:g}/{best.stakes.big_blind:g}" + (
+        f" (ante {best.stakes.ante:g})" if best.stakes.ante else "")
+    villains_base = _active_villains(best)
+    pos_stack = {p.position: round(p.stack / bbv, 1)
+                 for p in best.players if p.position}
+    figures: dict[str, dict] = {}
+    for idx, e in enumerate(best_events):
+        if e["kind"] != "decision":
+            continue
+        pot_bb = round(e["pot"] / bbv, 1)
+        to_call_bb = round(e["to_call"] / bbv, 1)
+        vills = [dict(v) for v in villains_base]
+        if to_call_bb > 0:
+            agg_pos, agg_bet = _decision_aggressor(best, e)
+            _mark_aggressor(vills, agg_pos, agg_bet, pos_stack)
+        figures[str(idx)] = {
+            "title": "Simulação — sua vez",
+            "hero_cards": best.hero_cards,
+            "board": e["board"],
+            "position": a["position"],
+            "stack_bb": stack_bb,
+            "pot_bb": pot_bb,
+            "to_call_bb": to_call_bb,
+            "required_eq": round(_po(pot_bb, to_call_bb), 3) if to_call_bb > 0 else None,
+            "street": e["street"],
+            "blinds": blinds,
+            "villains": vills,
+        }
+
     return {
         "hand_id": best.hand_id,
         "cards": best.hero_cards,
         "position": a["position"],
-        "bb": best.stakes.big_blind or 1,
+        "bb": bbv,
         "net_bb_real": a["net_bb"],
         "events": best_events,
+        "figures": figures,
         "pos": 0,
         "results": [],
     }
@@ -1428,11 +1466,11 @@ def build_drill(telegram_id: int) -> dict | None:
 
     # o "vilão da vez": quem apostou/aumentou por último antes da decisão do
     # herói — a figura mostra as fichas dele na frente (situação completa).
-    agg_pos, agg_bet = _decision_aggressor(h, d)
-    for v in villains:
-        if agg_pos and v.get("pos") == agg_pos:
-            v["bet_bb"] = agg_bet
-            v["to_act"] = True
+    if d["to_call_bb"] > 0:
+        agg_pos, agg_bet = _decision_aggressor(h, d)
+        pos_stack = {p.position: round(p.stack / bb, 1)
+                     for p in h.players if p.position}
+        _mark_aggressor(villains, agg_pos, agg_bet, pos_stack)
 
     # storyboard da revelação: mão até a street da decisão, COM a ação real do
     # herói (o gabarito). Não spoila streets futuras. Custo zero de LLM.
@@ -1495,6 +1533,23 @@ def _decision_aggressor(h: CanonicalHand, d: dict) -> tuple[str | None, float | 
             pending = (a.actor, round((a.to_amount or a.amount) / bb, 1))
     name, amt = facing
     return (pos.get(name) if name else None), amt
+
+
+def _mark_aggressor(villains: list[dict], agg_pos, agg_bet,
+                    pos_stack: dict) -> list[dict]:
+    """Marca o vilão que fez a aposta (fichas na figura). Se ele não está na
+    lista de ativos — porque foldou MAIS TARDE na mão —, inclui mesmo assim,
+    senão a aposta que o herói enfrenta some do desenho."""
+    if not agg_pos:
+        return villains
+    for v in villains:
+        if v.get("pos") == agg_pos:
+            v["bet_bb"] = agg_bet
+            v["to_act"] = True
+            return villains
+    villains.append({"pos": agg_pos, "stack_bb": pos_stack.get(agg_pos),
+                     "bet_bb": agg_bet, "to_act": True})
+    return villains
 
 
 def _active_villains(h: CanonicalHand) -> list[dict]:

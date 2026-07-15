@@ -528,6 +528,14 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception:
         pass
 
+    # empurrãozinho: quem quer ir além de uma decisão joga a mão inteira
+    try:
+        await query.message.reply_markdown(
+            "🎮 Quer rejogar *essa mão inteira*, decisão por decisão? "
+            "Manda /simular.")
+    except Exception:
+        pass
+
 
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     doc = update.message.document
@@ -590,6 +598,34 @@ def _sim_buttons(decision: dict, pos: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([row])
 
 
+async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
+    """Envia um passo da simulação: figura da mesa (na decisão) + narração +
+    botões. Cai pra texto se a figura falhar."""
+    text = prefix + step["narration"]
+    kb = _sim_buttons(step["decision"], sim["pos"]) if step["decision"] else None
+    fig = None
+    if step["decision"]:
+        spot = (sim.get("figures") or {}).get(str(sim["pos"]))
+        if spot:
+            try:
+                from app.analysis.hand_figure import render_hand_figure
+                fig = await asyncio.to_thread(render_hand_figure, spot)
+            except Exception:
+                fig = None
+    if fig:
+        import io as _io
+        try:
+            await msg.reply_photo(photo=_io.BytesIO(fig), caption=text[:1000],
+                                  parse_mode="Markdown", reply_markup=kb)
+            return
+        except Exception:
+            pass
+    try:
+        await msg.reply_markdown(text, reply_markup=kb)
+    except Exception:
+        await msg.reply_text(text, reply_markup=kb)
+
+
 async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
     tg_id = update.effective_user.id
@@ -605,23 +641,10 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     step = sim_advance(sim)
     intro = (
         "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
-        f"Suas cartas: *{' '.join(sim['cards'])}* | Posição: *{sim['position'] or '?'}*\n"
         "No final eu comparo a sua linha (sequência de decisões) com a que "
         "aconteceu de verdade."
     )
-    try:
-        await update.message.reply_markdown(
-            intro + "\n" + step["narration"],
-            reply_markup=_sim_buttons(step["decision"], sim["pos"])
-            if step["decision"] else None,
-        )
-    except Exception:
-        # nick com _/* quebra o Markdown legado do Telegram — manda sem formatação
-        await update.message.reply_text(
-            intro + "\n" + step["narration"],
-            reply_markup=_sim_buttons(step["decision"], sim["pos"])
-            if step["decision"] else None,
-        )
+    await _send_sim_step(update.message, sim, step, prefix=intro + "\n")
 
 
 async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -648,16 +671,8 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     step = sim_advance(sim)
     if step["decision"]:
-        try:
-            await query.message.reply_markdown(
-                f"Você escolheu: *{choice}*\n" + step["narration"],
-                reply_markup=_sim_buttons(step["decision"], sim["pos"]),
-            )
-        except Exception:
-            await query.message.reply_text(
-                f"Você escolheu: {choice}\n" + step["narration"],
-                reply_markup=_sim_buttons(step["decision"], sim["pos"]),
-            )
+        await _send_sim_step(query.message, sim, step,
+                             prefix=f"Você escolheu: *{choice}*\n")
         return
 
     # fim: resumo + contexto para discutir em texto livre
