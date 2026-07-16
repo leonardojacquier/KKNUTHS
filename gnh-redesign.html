@@ -8,29 +8,30 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="GNH — Generando Nuevos Horizontes">
 <meta property="og:description" content="Tu aliado estratégico para el crecimiento">
-<link href="https://fonts.googleapis.com" rel="preconnect">
-<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com" rel="preconnect" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    GNH Redesign — identidad original (navy + naranja + globo)
    con motion moderno: parallax, reveals con stagger, glass nav.
    ============================================================ */
 :root{
-  --navy:#1B2A5E;
-  --navy-2:#24357a;
-  --navy-deep:#0E1730;
-  --navy-ink:#0a1024;
+  /* Paleta "banking trust": slate profundo + azul royal, naranja GNH para acción */
+  --navy:#0F172A;
+  --navy-2:#1E3A8A;
+  --blue:#3B82F6;
+  --navy-deep:#0B1228;
+  --navy-ink:#060A18;
   --orange:#F26D21;
   --orange-soft:#ff8a45;
   --orange-tint:rgba(242,109,33,.12);
-  --paper:#f7f8fb;
-  --ink:#141821;
-  --muted:#5d6472;
-  --line:#e6e9f0;
+  --paper:#F6F8FC;
+  --ink:#0F172A;
+  --muted:#5B6478;
+  --line:#E4E8F1;
   --ease:cubic-bezier(.16,1,.3,1);
-  --font-head:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-head:'Satoshi',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'General Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -75,8 +76,8 @@ svg{display:block}
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px -8px rgba(242,109,33,.65);background:var(--orange-soft)}
 .btn:active{transform:translateY(0) scale(.98)}
-.btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.3);box-shadow:none;color:#fff}
-.btn-ghost:hover{background:rgba(255,255,255,.09);box-shadow:none;border-color:rgba(255,255,255,.5)}
+.btn-ghost{background:rgba(6,10,24,.35);backdrop-filter:blur(6px);border:1.5px solid rgba(255,255,255,.45);box-shadow:none;color:#fff}
+.btn-ghost:hover{background:rgba(255,255,255,.12);box-shadow:none;border-color:rgba(255,255,255,.7)}
 .nav .btn{min-height:44px;padding:10px 22px;font-size:15px}
 .menu-toggle{display:none;background:none;border:0;cursor:pointer;padding:10px;min-width:44px;min-height:44px}
 .menu-toggle svg{stroke:#fff}
@@ -100,9 +101,10 @@ svg{display:block}
 .layer{position:absolute;inset:-12% 0;will-change:transform;pointer-events:none}
 .l-sky{
   background:
-    radial-gradient(1100px 560px at 70% -10%,rgba(242,109,33,.26),transparent 62%),
-    radial-gradient(900px 500px at 15% 10%,rgba(36,53,122,.55),transparent 60%),
-    linear-gradient(180deg,#15224e 0%,var(--navy-deep) 58%,var(--navy-ink) 100%);
+    radial-gradient(1100px 560px at 70% -10%,rgba(242,109,33,.22),transparent 62%),
+    radial-gradient(900px 520px at 15% 8%,rgba(30,58,138,.6),transparent 60%),
+    radial-gradient(700px 400px at 85% 70%,rgba(59,130,246,.14),transparent 60%),
+    linear-gradient(180deg,#12234f 0%,var(--navy-deep) 58%,var(--navy-ink) 100%);
 }
 .l-grid{
   background-image:
@@ -112,9 +114,8 @@ svg{display:block}
   -webkit-mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000,transparent 76%);
   mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000,transparent 76%);
 }
-.l-globe{display:grid;place-items:center;opacity:.16}
-.l-globe svg{width:min(78vmin,720px);height:auto;animation:slow-spin 90s linear infinite;transform-origin:center}
 @keyframes slow-spin{to{transform:rotate(360deg)}}
+@keyframes slow-spin-rev{to{transform:rotate(-360deg)}}
 .l-horizon{
   top:auto;bottom:-2px;height:38%;
   background:linear-gradient(180deg,rgba(27,42,94,.0),rgba(10,16,36,.9) 55%,var(--navy-ink));
@@ -150,12 +151,12 @@ svg{display:block}
   border:1px solid rgba(242,109,33,.35);border-radius:100px;padding:9px 18px;margin-bottom:26px;
 }
 .eyebrow svg{width:14px;height:14px}
-.hero h1{font-size:clamp(38px,6.4vw,76px);font-weight:800;max-width:900px;margin:0 auto}
+.hero h1{font-size:clamp(38px,6.4vw,76px);font-weight:900;max-width:900px;margin:0 auto;text-shadow:0 2px 30px rgba(6,10,24,.5)}
 .hero h1 .grad{
   background:linear-gradient(115deg,var(--orange-soft) 10%,#ffc79b 90%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.hero .sub{max-width:640px;margin:22px auto 36px;font-size:clamp(17px,2vw,21px);color:rgba(255,255,255,.75)}
+.hero .sub{max-width:640px;margin:22px auto 36px;font-size:clamp(17px,2vw,21px);color:rgba(255,255,255,.88);text-shadow:0 1px 18px rgba(6,10,24,.6)}
 .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
 /* pilares */
 .pillars{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;max-width:1020px;margin:70px auto 0}
@@ -215,12 +216,18 @@ svg{display:block}
 .about-visual .frame{
   border-radius:24px;overflow:hidden;aspect-ratio:5/4;position:relative;
   background:
-    radial-gradient(600px 300px at 80% 0%,rgba(242,109,33,.3),transparent 60%),
-    linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 55%,var(--navy-deep) 100%);
-  box-shadow:0 40px 80px -30px rgba(27,42,94,.45);
+    radial-gradient(600px 300px at 80% 0%,rgba(242,109,33,.26),transparent 60%),
+    radial-gradient(500px 300px at 20% 90%,rgba(59,130,246,.2),transparent 60%),
+    linear-gradient(160deg,#101B3D 0%,var(--navy-2) 55%,var(--navy-deep) 100%);
+  box-shadow:0 40px 80px -30px rgba(15,23,42,.5);
   display:grid;place-items:center;
 }
-.about-visual .frame svg{width:62%;height:auto;opacity:.95}
+.about-visual .frame > *{grid-area:1/1}
+/* logo real girando lentamente + anillos orbitales en contra-rotación */
+.logo-spin{width:46%;height:auto;animation:slow-spin 60s linear infinite;filter:drop-shadow(0 10px 40px rgba(6,10,24,.5))}
+.orbit{width:78%;height:auto;opacity:.5;animation:slow-spin-rev 45s linear infinite}
+.orbit2{width:92%;height:auto;opacity:.25;animation:slow-spin 70s linear infinite}
+.frame .fallback{width:46%;height:auto;display:none;animation:slow-spin 60s linear infinite}
 .about-visual .chip{
   position:absolute;background:#fff;border-radius:16px;padding:14px 20px;
   box-shadow:0 20px 44px -16px rgba(20,24,33,.3);
@@ -441,7 +448,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
       <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
       <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
-      <text x="78" y="57" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+      <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
     </svg>
   </a>
   <ul class="nav-links" id="navLinks">
@@ -468,16 +475,6 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <video muted loop playsinline autoplay preload="none">
       <source src="assets/video/hero.mp4" type="video/mp4">
     </video>
-  </div>
-  <div class="layer l-globe" data-speed="0.3" aria-hidden="true">
-    <svg viewBox="0 0 200 200" fill="none">
-      <circle cx="100" cy="100" r="88" stroke="#fff" stroke-width="1"/>
-      <ellipse cx="100" cy="100" rx="50" ry="88" stroke="#fff" stroke-width=".8"/>
-      <ellipse cx="100" cy="100" rx="88" ry="50" stroke="#fff" stroke-width=".8"/>
-      <line x1="12" y1="100" x2="188" y2="100" stroke="#fff" stroke-width=".8"/>
-      <line x1="100" y1="12" x2="100" y2="188" stroke="#fff" stroke-width=".8"/>
-      <path d="M 30 55 Q 100 10 170 55" stroke="#F26D21" stroke-width="5" stroke-linecap="round"/>
-    </svg>
   </div>
   <div class="layer l-grid" data-speed="0.42"></div>
   <div class="layer l-horizon" data-speed="0.55"></div>
@@ -532,12 +529,22 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       </div>
       <div class="about-visual reveal d2">
         <div class="frame">
-          <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+          <!-- anillos orbitales -->
+          <svg class="orbit2" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <circle cx="100" cy="100" r="96" stroke="rgba(255,255,255,.5)" stroke-width=".8" stroke-dasharray="2 7"/>
+          </svg>
+          <svg class="orbit" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,.55)" stroke-width="1" stroke-dasharray="1 10"/>
+            <circle cx="100" cy="10" r="4" fill="#F26D21"/>
+            <circle cx="100" cy="190" r="2.6" fill="#3B82F6"/>
+          </svg>
+          <!-- logo real girando (hotlink; respaldo SVG si la ruta cambia) -->
+          <img class="logo-spin" src="https://gnhorizons.com/assets/images/logo300.png" alt="Logo GNH"
+               onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo300.png'}else{this.style.display='none';this.parentElement.querySelector('.fallback').style.display='block'}">
+          <svg class="fallback" viewBox="0 0 200 200" fill="none" aria-hidden="true">
             <circle cx="100" cy="100" r="82" stroke="rgba(255,255,255,.85)" stroke-width="3"/>
             <ellipse cx="100" cy="100" rx="45" ry="82" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
             <line x1="18" y1="100" x2="182" y2="100" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
-            <line x1="25" y1="62" x2="175" y2="62" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>
-            <line x1="25" y1="138" x2="175" y2="138" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>
             <path d="M 32 40 Q 100 -4 168 40" stroke="#F26D21" stroke-width="9" stroke-linecap="round"/>
           </svg>
         </div>
@@ -692,7 +699,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
             <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
             <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
             <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
-            <text x="78" y="57" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+            <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
           </svg>
         </a>
         <p style="margin-top:14px;max-width:300px">Generando Nuevos Horizontes — importación, distribución y alianzas estratégicas.</p>
