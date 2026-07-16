@@ -701,11 +701,17 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception:
         pass
 
-    step = sim_advance(sim)
-    if step["decision"]:
-        await _send_sim_step(query.message, sim, step,
-                             prefix=f"Você escolheu: *{choice}*\n")
-        return
+    # FOLD encerra a mão: você saiu, não há mais decisão sua. Sem isto o
+    # simulador seguia pedindo as próximas jogadas (bug que irritou o Leo).
+    if choice == "fold":
+        await query.message.reply_text(
+            "🚪 Você *foldou* — encerrou a mão aqui.", parse_mode="Markdown")
+    else:
+        step = sim_advance(sim)
+        if step["decision"]:
+            await _send_sim_step(query.message, sim, step,
+                                 prefix=f"Você escolheu: *{choice}*\n")
+            return
 
     # fim: resumo + contexto para discutir em texto livre
     summary = sim_summary(sim)
