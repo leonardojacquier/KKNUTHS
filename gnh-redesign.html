@@ -472,7 +472,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="layer l-photo" id="heroMedia" data-speed="0.2" aria-hidden="true">
     <img src="https://gnhorizons.com/assets/images/hero-bg.jpg" alt=""
          onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/hero-bg.jpg'}else{this.remove()}">
-    <video muted loop playsinline autoplay preload="none">
+    <video muted loop playsinline autoplay preload="auto">
       <source src="assets/video/hero.mp4" type="video/mp4">
     </video>
   </div>
@@ -824,11 +824,16 @@ window.__io = io;
   const video = media?.querySelector('video');
   const soundBtn = document.getElementById('soundBtn');
   if (!video || reduceMotion) return;
-  video.addEventListener('canplay', () => {
+  const activate = () => {
+    if (media.classList.contains('video-on')) return;
     media.classList.add('video-on');
     soundBtn.classList.add('show');
-  }, {once:true});
+  };
+  ['canplay','loadeddata','playing'].forEach(ev => video.addEventListener(ev, activate, {once:true}));
+  if (video.readyState >= 2) activate();          // ya cargado antes de enganchar eventos
+  video.play().catch(() => {});                    // fuerza autoplay silencioso
   video.addEventListener('error', () => video.remove(), {once:true});
+  video.querySelector('source')?.addEventListener('error', () => video.remove(), {once:true});
   soundBtn.addEventListener('click', () => {
     video.muted = !video.muted;
     if (!video.muted) video.play();
