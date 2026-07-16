@@ -233,8 +233,15 @@ def render_hand_figure(spot: dict) -> bytes:
                         radius=sc(18), fill=FELT_RIM, outline=GOLD_DK, width=sc(2))
     _center(d, sc(cx), sc(POT_Y + 10), pot_txt, fp, GOLD)
 
-    # herói embaixo (cartas acima do plaque)
-    _seat(d, sc(cx), sc(fy1 - 6), spot.get("position"), spot.get("stack_bb"),
+    # herói embaixo (cartas acima do plaque) — com HALO dourado: bate o olho
+    # e sabe quem é você (pedido do conselho)
+    hero_y = fy1 - 6
+    for i, glow in enumerate(((96, 84, 48), (140, 118, 62), (184, 152, 80))):
+        r = 3 - i
+        d.ellipse([sc(cx - 150 - r * 8), sc(hero_y - 96 - r * 6),
+                   sc(cx + 150 + r * 8), sc(hero_y + 40 + r * 4)],
+                  outline=glow, width=sc(2))
+    _seat(d, sc(cx), sc(hero_y), spot.get("position"), spot.get("stack_bb"),
           hero=True, cards=spot.get("hero_cards"), s=S)
 
     # rodapé: street/blinds + o preço da decisão (grande)
@@ -511,6 +518,77 @@ def render_hand_strip(spot: dict) -> bytes:
     img = img.resize((SW, total_h), Image.LANCZOS)
     d2 = ImageDraw.Draw(img)
     draw_brand(d2, total_h - 26, right=SW - 20, size=14, light=True)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def render_share_card(spot: dict) -> bytes:
+    """Card QUADRADO (1080×1080) pra compartilhar no grupo: o SPOT sem a
+    resposta — "o que você faria?" — com o link do bot. CTA viral do conselho."""
+    S = 2
+    CW = 1080
+    img = Image.new("RGB", (CW * S, CW * S), BG)
+    d = ImageDraw.Draw(img)
+
+    def sc(v):
+        return int(v * S)
+
+    def F(sz, bold=True):
+        return _font(int(sz * S), bold)
+
+    def ctr(cx, y, txt, f, fill):
+        d.text((sc(cx) - d.textlength(txt, font=f) / 2, sc(y)), txt,
+               font=f, fill=fill)
+
+    # feltro de fundo
+    d.rounded_rectangle([sc(50), sc(150), sc(CW - 50), sc(CW - 210)],
+                        radius=sc(120), fill=FELT, outline=RAIL_HI, width=sc(8))
+    ctr(CW / 2, 46, "VOCÊ AGUENTA ESSE SPOT?", F(52), GOLD)
+
+    # cartas do herói GRANDES
+    cards = spot.get("hero_cards") or []
+    cw = 190
+    x0 = CW / 2 - (len(cards[:2]) * (cw + 24) - 24) / 2 + cw / 2
+    for i, c in enumerate(cards[:2]):
+        _card(d, sc(x0 + i * (cw + 24)), sc(340), c, w=sc(cw), h=sc(cw * 1.4))
+
+    # board (ou pré-flop)
+    board = spot.get("board") or []
+    if board:
+        bw = 108
+        bx = CW / 2 - (len(board) * (bw + 14) - 14) / 2 + bw / 2
+        for c in board:
+            _card(d, sc(bx), sc(620), c, w=sc(bw), h=sc(bw * 1.4))
+            bx += bw + 14
+    else:
+        ctr(CW / 2, 590, "PRÉ-FLOP", F(44), (200, 220, 210))
+
+    # contexto: posição/stack/pote
+    info = (f"{spot.get('position') or '?'} · {spot.get('stack_bb') or '?'}bb · "
+            f"pote {spot.get('pot_bb', 0):g}bb")
+    ctr(CW / 2, 742, info, F(30, bold=False), CREAM)
+    to_call = spot.get("to_call_bb")
+    if to_call:
+        txt = f"PAGAR {to_call:g}bb — precisa de ~{(spot.get('required_eq') or 0)*100:.0f}%"
+        f = F(40)
+        w = d.textlength(txt, font=f)
+        d.rounded_rectangle([sc(CW / 2) - w / 2 - sc(34), sc(792),
+                             sc(CW / 2) + w / 2 + sc(34), sc(792 + 76)],
+                            radius=sc(20), fill=(158, 44, 44), outline=CREAM,
+                            width=sc(3))
+        ctr(CW / 2, 808, txt, f, CREAM)
+    else:
+        ctr(CW / 2, 806, "SUA VEZ — check ou bet?", F(40), GOLD)
+
+    ctr(CW / 2, 926, "Responde e vê se acertou:", F(30, bold=False), MUTED)
+    ctr(CW / 2, 972, "t.me/KKNUts_BOT", F(44), GOLD)
+
+    img = img.resize((CW, CW), Image.LANCZOS)
+    d2 = ImageDraw.Draw(img)
+    draw_brand(d2, CW - 40, right=CW - 30, size=18, light=True)
+    from app.analysis.branding import paste_logo
+    paste_logo(img, 116, 24, 72)
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return buf.getvalue()

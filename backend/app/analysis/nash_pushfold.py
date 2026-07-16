@@ -38,14 +38,32 @@ def nash_jam_fold(cards: list[str], stack_bb: float, role: str) -> dict | None:
 
     Retorna None se a tabela não estiver disponível ou o papel não for HU.
     """
-    table = _table()
-    if table is None or role not in ("SB", "BB"):
+    if role not in ("SB", "BB"):
         return None
-    stacks = list(table["stacks"].keys())
-    key = _nearest_stack(stacks, min(max(stack_bb, 2.0), 25.0))
-    entry = table["stacks"][key]
     hand = canonical_hand(cards)
-    freq = (entry["sb_jam"] if role == "SB" else entry["bb_call"]).get(hand, 0.0)
+    # preferência: equilíbrio em RUNTIME com ANTE (torneio real tem ante; a
+    # tabela estática sem ante sai tight — achado do conselho). Cai na tabela
+    # estática se o solver não estiver disponível.
+    freq = None
+    key = f"{min(max(stack_bb, 2.0), 25.0):g}"
+    nota_ante = "com ante 12.5% do bb"
+    try:
+        from app.analysis.jam_fold_solver import solve_jam_fold
+
+        sol = solve_jam_fold(round(min(max(stack_bb, 2.0), 25.0), 1), 1.0, 0.125)
+        if sol:
+            freq = (sol["sb_jam"] if role == "SB" else sol["bb_call"]).get(hand, 0.0)
+    except Exception:
+        freq = None
+    if freq is None:
+        table = _table()
+        if table is None:
+            return None
+        stacks = list(table["stacks"].keys())
+        key = _nearest_stack(stacks, min(max(stack_bb, 2.0), 25.0))
+        entry = table["stacks"][key]
+        freq = (entry["sb_jam"] if role == "SB" else entry["bb_call"]).get(hand, 0.0)
+        nota_ante = "sem ante (tabela estática)"
 
     action = ("push" if role == "SB" else "call") if freq >= 0.5 else "fold"
     return {
@@ -57,5 +75,6 @@ def nash_jam_fold(cards: list[str], stack_bb: float, role: str) -> dict | None:
         "stack_resolvido": float(key),
         "role": role,
         "source": "equilíbrio Nash calculado (fictitious play, matriz de equity exata)",
-        "nota": "jogo jam/fold heads-up SB vs BB, chip-EV; sob ICM exigir margem extra",
+        "nota": f"jogo jam/fold heads-up SB vs BB, chip-EV, {nota_ante}; "
+                "sob ICM exigir margem extra",
     }

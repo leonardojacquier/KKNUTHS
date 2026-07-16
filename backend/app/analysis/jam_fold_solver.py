@@ -38,28 +38,36 @@ def available() -> bool:
 
 
 @lru_cache(maxsize=64)
-def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
+def solve_jam_fold(stack_bb: float, bf: float = 1.0,
+                   ante_bb: float = 0.0) -> dict | None:
     """Equilíbrio SB-shove vs BB-call com EVs por mão (em BB, do início da mão).
 
     Perdas multiplicadas por `bf` (ICM); bf=1.0 = chip-EV puro.
-    Retorna {hands, sb_jam, bb_call, sb_ev, bb_ev, bf, stack}.
+    `ante_bb`: ante POR JOGADOR em bb (ex.: 100/200(25) -> 0.125). O ante é
+    dinheiro morto: aumenta o custo do fold e o prêmio do pote não disputado —
+    sem ele o equilíbrio sai sistematicamente mais tight que o dos torneios
+    reais (achado do conselho de revisão).
+    Retorna {hands, sb_jam, bb_call, sb_ev, bb_ev, bf, stack, ante}.
     """
     data = _matrix()
     if data is None:
         return None
     hands, E, W = data
     s = float(stack_bb)
+    a = max(0.0, float(ante_bb))
     n = len(hands)
 
-    # utilidades (referência: início da mão; SB postou 0.5, BB postou 1)
-    # showdown: ganha s (peso 1) ou perde s (peso bf).
+    # utilidades (referência: início da mão; SB postou 0.5+a, BB postou 1+a)
+    # showdown: ganha s (peso 1) ou perde s (peso bf) — antes fazem parte dos
+    # stacks e se transferem inteiros no all-in, então o showdown não muda.
     # E[i,j] = equity da mão da LINHA vs a da coluna. A mesma matriz serve aos
     # dois papéis: ev[x] = soma sobre a coluna com a PRÓPRIA mão na linha x.
     # (NUNCA transpor aqui — transposta calcula o EV do BB com a equity do SB
     # e inverte a estratégia inteira: bug real que mandava pagar com 72o.)
     show = E * s - (1 - E) * s * bf
-    sb_fold = -0.5 * bf
-    bb_fold = -1.0 * bf
+    sb_fold = -(0.5 + a) * bf     # fold entrega blind + ante
+    bb_fold = -(1.0 + a) * bf
+    uncontested = 1.0 + a         # jam ganha o blind do BB + o ante dele
 
     sb = np.ones(n)
     bb = np.zeros(n)
@@ -73,7 +81,7 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
         br_bb = (ev_call_bb > bb_fold).astype(float)
 
         denom_sb = np.maximum(W.sum(axis=1), 1e-12)
-        ev_jam_sb = (W * ((1 - avg_bb[None, :]) * 1.0
+        ev_jam_sb = (W * ((1 - avg_bb[None, :]) * uncontested
                           + avg_bb[None, :] * show)).sum(axis=1) / denom_sb
         br_sb = (ev_jam_sb > sb_fold).astype(float)
 
@@ -85,13 +93,14 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0) -> dict | None:
     denom = np.maximum(reach.sum(axis=1), 1e-12)
     ev_call_bb = (reach * show).sum(axis=1) / denom
     denom_sb = np.maximum(W.sum(axis=1), 1e-12)
-    ev_jam_sb = (W * ((1 - avg_bb[None, :]) * 1.0
+    ev_jam_sb = (W * ((1 - avg_bb[None, :]) * uncontested
                       + avg_bb[None, :] * show)).sum(axis=1) / denom_sb
 
     return {
         "hands": hands,
         "stack": s,
         "bf": bf,
+        "ante": a,
         "sb_jam": {h: round(float(f), 3) for h, f in zip(hands, avg_sb)},
         "bb_call": {h: round(float(f), 3) for h, f in zip(hands, avg_bb)},
         # EV da ação (jam/call) por mão; fold vale sb_fold/bb_fold — a diferença

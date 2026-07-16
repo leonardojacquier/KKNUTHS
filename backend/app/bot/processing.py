@@ -1117,7 +1117,7 @@ def sim_advance(sim: dict) -> dict:
     while sim["pos"] < len(sim["events"]):
         e = sim["events"][sim["pos"]]
         if e["street"] != last_street:
-            board = " ".join(e["board"]) if e["board"] else "—"
+            board = _pretty_cards(e["board"]) if e["board"] else "—"
             lines.append(f"\n🃏 *{e['street'].upper()}*  (board: {board})")
             last_street = e["street"]
         if e["kind"] == "action":
@@ -1177,7 +1177,7 @@ def sim_summary(sim: dict) -> str:
     from app.analysis.tools import pot_odds
 
     lines = [
-        f"🏁 *Fim da simulação!*  ({' '.join(sim['cards'])} em {sim['position'] or '?'})\n"
+        f"🏁 *Fim da simulação!*  ({_pretty_cards(sim['cards'])} em {sim['position'] or '?'})\n"
     ]
     matches = 0
     for r in sim["results"]:
@@ -1808,16 +1808,39 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     if not bands:
         return None
 
-    # equity contra o Nº REAL de oponentes ativos (multiway muda tudo) — e a
-    # premissa vai ROTULADA na imagem ("vs mãos aleatórias")
+    # equity com a MELHOR premissa disponível, sempre ROTULADA na imagem:
+    # - decisão PRÉ-FLOP com agressor identificado -> vs o range de abertura
+    #   da posição dele (range real, não mão aleatória)
+    # - senão -> vs o nº real de oponentes ativos, mãos aleatórias
     n_opp = max(1, len([v for v in (drill.get("villains") or [])
                         if not v.get("folded")]))
     eq = None
-    try:
-        eq = equity_vs_random(drill["cards"], drill.get("board") or [],
-                              n_opp, iterations=3000, seed=11)
-    except Exception:
-        pass
+    eq_label = None
+    if (drill.get("street") == "preflop" and drill.get("to_call_bb")):
+        agg = next((v for v in (drill.get("villains") or [])
+                    if v.get("bet_bb")), None)
+        agg_pos = (agg or {}).get("pos", "")
+        base_pos = agg_pos.split("+")[0] if agg_pos else ""
+        try:
+            from app.analysis.ranges import OPEN_RANGES, equity_vs_range
+            key = agg_pos if agg_pos in OPEN_RANGES else (
+                base_pos if base_pos in OPEN_RANGES else None)
+            if key:
+                r = equity_vs_range(drill["cards"], OPEN_RANGES[key],
+                                    drill.get("board") or [],
+                                    iterations=4000, seed=11)
+                eq = float(r["equity"]) if isinstance(r, dict) else float(r)
+                eq_label = f"vs range de abertura do {agg_pos}"
+        except Exception:
+            eq = None
+    if eq is None:
+        try:
+            eq = equity_vs_random(drill["cards"], drill.get("board") or [],
+                                  n_opp, iterations=3000, seed=11)
+            eq_label = (f"vs {n_opp} mão{'s' if n_opp > 1 else ''} aleatória"
+                        f"{'s' if n_opp > 1 else ''}")
+        except Exception:
+            pass
     need = drill.get("required_eq")
     to_call = drill.get("to_call_bb") or 0
     math_d: dict = {}
@@ -1829,8 +1852,7 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
             math_d["ev_bb"] = ev_call(eq, drill.get("pot_bb") or 0, to_call)
             math_d["note"] = (
                 f"call precisa de {need*100:.0f}%; você tem ~{eq*100:.0f}% "
-                f"(vs {n_opp} mão{'s' if n_opp > 1 else ''} aleatória"
-                f"{'s' if n_opp > 1 else ''})")
+                f"({eq_label})")
 
     # veredito CLARO: reconcilia o que VOCÊ respondeu, o que é CERTO e o que
     # rolou na mão REAL (senão o filme mostra 'fold' e o rodapé diz 'call' —

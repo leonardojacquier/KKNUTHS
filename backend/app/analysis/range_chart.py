@@ -17,6 +17,10 @@ MARGIN = 16
 TITLE_H = 54
 LEGEND_H = 40
 
+# ante por jogador em bb no equilíbrio jam/fold (100/200(25) -> 0.125).
+# Torneio real TEM ante; sem ele o range sai sistematicamente tight.
+ANTE_PADRAO = 0.125
+
 # paleta do produto — TEMA ESCURO unificado (mesma identidade da mesa e do
 # storyboard; no dark mode do Telegram as peças claras davam "flashbang").
 # As CÉLULAS continuam claras — cartas sobre o feltro — o que preserva o
@@ -98,7 +102,9 @@ def render_range_png(
             y = top + row * CELL
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=_blend(freq))
             text_col = PAPER if freq > 0.45 else (INK if freq > 0.005 else GREY_TEXT)
-            has_pct = 0.005 < freq < 0.995
+            # frequência em TODAS as células jogadas (pedido dos regs) — 100%
+            # incluso; célula de fold fica só com a mão
+            has_pct = freq > 0.005
             hy = y + (10 if has_pct else (CELL - 16) // 2)
             w = d.textlength(hand, font=f_cell)
             d.text((x + (CELL - 2 - w) / 2, hy), hand, fill=text_col, font=f_cell)
@@ -252,7 +258,7 @@ def chart_for_query(
         except ValueError:
             return None
         use_bf = bf if mode == "icm" else 1.0
-        sol = solve_jam_fold(round(stack, 1), round(use_bf, 2))
+        sol = solve_jam_fold(round(stack, 1), round(use_bf, 2), ANTE_PADRAO)
         if sol is None:
             return None
         evs = sol["sb_ev"] if kind == "SB" else sol["bb_ev"]
@@ -265,33 +271,50 @@ def chart_for_query(
             f"EV do {action} — {kind} · {stack:g}bb · {badge}",
             "EV em BB vs fold · equilíbrio re-resolvido nesta utilidade",
             premises=(f"premissas: heads-up SB vs BB · stack efetivo "
-                      f"{stack:g}bb · sem ante · bubble factor {use_bf:g}"),
+                      f"{stack:g}bb · ante {ANTE_PADRAO*100:g}% do bb (padrão "
+                      f"de torneio) · bubble factor {use_bf:g}"),
         )
         cap = (
             f"♠ EV de cada mão no {action} do {kind} com {stack:g}bb — {badge}. "
             "Verde = a ação rende mais que foldar; vermelho = fold é melhor. "
         )
         if mode == "icm":
-            cap += (f"Sob ICM (perder fichas custa {use_bf:g}x mais), o range aperta — "
-                    "compare com a versão chip-EV.")
+            cap += (f"Sob ICM (perder fichas custa {use_bf:g}x mais), pagar fica "
+                    "mais caro pro vilão — ele desiste mais, e empurrar mãos "
+                    "marginais passa a valer; por isso algumas células ficam "
+                    "MAIS verdes que no chip-EV.")
         return png, cap
 
-    # Nash jam/fold calculado (SB empurra / BB paga) por stack
+    # Nash jam/fold calculado (SB empurra / BB paga) por stack — resolvido em
+    # runtime COM ante (a tabela estática era sem ante: range saía tight)
     if kind in ("SB", "BB") and arg:
-        if not available():
-            return None
         try:
             stack = float(arg.replace("bb", ""))
         except ValueError:
             return None
-        table = _table()["stacks"]
-        key = min(table.keys(), key=lambda s: abs(float(s) - stack))
-        entry = table[key]["sb_jam" if kind == "SB" else "bb_call"]
+        from app.analysis.jam_fold_solver import available as solver_ok
+        from app.analysis.jam_fold_solver import solve_jam_fold
+
+        entry = None
+        if solver_ok():
+            sol = solve_jam_fold(round(stack, 1), 1.0, ANTE_PADRAO)
+            if sol:
+                entry = sol["sb_jam" if kind == "SB" else "bb_call"]
+                key = f"{stack:g}"
+                sub = (f"Equilíbrio calculado · heads-up SB vs BB · ante "
+                       f"{ANTE_PADRAO*100:g}% do bb · % = frequência mista")
+        if entry is None:
+            if not available():
+                return None
+            table = _table()["stacks"]
+            key = min(table.keys(), key=lambda s: abs(float(s) - stack))
+            entry = table[key]["sb_jam" if kind == "SB" else "bb_call"]
+            sub = "Equilíbrio calculado · heads-up SB vs BB · % = frequência mista"
         action = "all-in (shove)" if kind == "SB" else "call de all-in"
         png = render_range_png(
             entry,
             f"Nash {kind} — {action} · {key}bb",
-            "Equilíbrio calculado · heads-up SB vs BB · % = frequência mista",
+            sub,
         )
         return png, (
             f"♠ Range Nash de {action} do {kind} com {key}bb — equilíbrio "

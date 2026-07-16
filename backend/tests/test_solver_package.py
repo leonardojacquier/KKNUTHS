@@ -74,10 +74,19 @@ class TestNashReal:
         assert nash.nash_jam_fold(["Ts", "2d"], 15, "SB")["decision"] == "fold"
 
     def test_true_trash_folds_even_short(self):
-        # achado do solver real: com 2bb o BB paga 100% (sem fold equity),
-        # então 72o FOLDA mesmo ultra-curto — contra a intuição popular
-        assert nash.nash_jam_fold(["7s", "2d"], 2, "SB")["decision"] == "fold"
+        # SEM ante: com 2bb o BB paga 100% (sem fold equity), então 72o FOLDA
+        # mesmo ultra-curto — contra a intuição popular. COM ante (produto usa
+        # 12.5% do bb, padrão de torneio) o fold custa 0.625bb e o jam de 72o
+        # ultra-curto vira push no fio — física diferente, de propósito.
+        from app.analysis.jam_fold_solver import solve_jam_fold
+
+        sem_ante = solve_jam_fold(2.0, 1.0, 0.0)
+        assert sem_ante["sb_jam"].get("72o", 0) < 0.5      # sem ante: fold
+        # com 12bb, 72o folda com ou sem ante (lixo de verdade não empurra deep)
         assert nash.nash_jam_fold(["7s", "2d"], 12, "SB")["decision"] == "fold"
+        # e a nota do tool declara a premissa de ante
+        nota = nash.nash_jam_fold(["7s", "2d"], 12, "SB")["nota"]
+        assert "ante" in nota
 
     def test_jam_range_monotonic_in_stack(self):
         from app.analysis.nash_pushfold import _table

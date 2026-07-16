@@ -49,6 +49,12 @@ def _font(size: int, bold: bool = True):
     return ImageFont.load_default()
 
 
+def _suits(cards) -> str:
+    """Cartas com símbolo de naipe (A♠ K♥) — pedido do dono: naipe visível."""
+    sym = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
+    return " ".join(c[0] + sym.get(c[1], c[1]) for c in (cards or []) if len(c) == 2) or "?"
+
+
 def _hero_stack_bb(hand: CanonicalHand) -> float | None:
     seat = hand.hero_seat()
     bb = hand.stakes.big_blind or 0
@@ -252,10 +258,10 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
     if s["best"] and s["worst"]:
         best, worst = s["best"], s["worst"]
         d.text((PAD_L, y),
-               f"▲ melhor mão: {' '.join(best.get('hero_cards') or ['?'])} "
+               f"▲ melhor mão: {_suits(best.get('hero_cards'))} "
                f"({best['net_bb']:+.1f} BB)", fill=GREEN, font=_font(14))
         d.text((W // 2 + 10, y),
-               f"▼ pior mão: {' '.join(worst.get('hero_cards') or ['?'])} "
+               f"▼ pior mão: {_suits(worst.get('hero_cards'))} "
                f"({worst['net_bb']:+.1f} BB)", fill=RED, font=_font(14))
 
     from app.analysis.branding import draw_brand

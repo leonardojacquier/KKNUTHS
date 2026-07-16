@@ -420,14 +420,21 @@ async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     args = [a.lower() for a in (ctx.args or [])]
     await _log(update, "range", query=" ".join(args))
     if not args:
+        # sem argumento: BOTÕES (sintaxe de CLI assusta iniciante). O texto
+        # com a sintaxe completa continua embaixo pra quem quer o avançado.
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Open UTG", callback_data="rng:utg"),
+             InlineKeyboardButton("Open CO", callback_data="rng:co"),
+             InlineKeyboardButton("Open BTN", callback_data="rng:btn")],
+            [InlineKeyboardButton("Shove SB 10bb", callback_data="rng:sb 10"),
+             InlineKeyboardButton("Call BB 10bb", callback_data="rng:bb 10")],
+            [InlineKeyboardButton("EV do shove (10bb)", callback_data="rng:sb 10 ev"),
+             InlineKeyboardButton("EV sob ICM", callback_data="rng:sb 10 icm")],
+        ])
         await update.message.reply_markdown(
-            "*Gráficos de range* 📊\n\n"
-            "• `/range utg` `mp` `hj` `co` `btn` `sb` — open-raise por posição\n"
-            "• `/range sb 10` — Nash de *all-in* do SB com 10bb (frequências)\n"
-            "• `/range bb 8` — Nash de *call* do BB contra shove\n"
-            "• `/range sb 10 ev` — 💰 *EV de cada mão* (chip-EV)\n"
-            "• `/range sb 10 icm 1.5` — 🏆 EV sob *ICM* (bubble factor 1.5)"
-        )
+            "*Gráficos de range* 📊 — toca num botão, ou digite:\n"
+            "`/range hj` `mp` `sb` · `/range sb 8` · `/range bb 12 icm 2`",
+            reply_markup=kb)
         return
 
     from app.analysis.range_chart import chart_for_query
@@ -451,6 +458,24 @@ async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     import io as _io
 
     await update.message.reply_photo(photo=_io.BytesIO(png), caption=caption)
+
+
+async def on_range_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botões do /range: mesma consulta do comando, em 1 toque."""
+    query = update.callback_query
+    await query.answer("Montando o gráfico… 📊")
+    from app.analysis.range_chart import chart_for_query
+
+    args = query.data.split(":", 1)[1].split()
+    mode = args[2] if len(args) > 2 and args[2] in ("ev", "icm") else None
+    result = await asyncio.to_thread(
+        chart_for_query, args[0], args[1] if len(args) > 1 else None, mode, 1.5)
+    if result is None:
+        await query.message.reply_text("Não consegui montar esse gráfico agora.")
+        return
+    import io as _io
+    await query.message.reply_photo(photo=_io.BytesIO(result[0]),
+                                    caption=result[1])
 
 
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -592,6 +617,10 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
 
         spec = await asyncio.to_thread(storyboard_spot_from_drill, drill, choice)
         if spec:
+            # placar semanal: registra o veredito da resposta (boa/ruim/mista)
+            await _log(update, "drill_verdict",
+                       verdict=spec.get("verdict"),
+                       hand_id=drill.get("hand_id"))
             png = await asyncio.to_thread(render_hand_strip, spec)
             import io as _io3
             await query.message.reply_photo(
@@ -603,11 +632,17 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
 
     # próximos passos em UM TOQUE (pedir pra digitar comando é fricção)
     try:
+        from app.analysis.hand_figure import spot_from_drill
+        ctx.user_data["share_spot"] = spot_from_drill(drill)
+    except Exception:
+        pass
+    try:
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("🔁 Simular esta mão", callback_data="pa:sim"),
             InlineKeyboardButton("🎯 Outro treino", callback_data="go:treino"),
         ], [
             InlineKeyboardButton("📖 Range do spot", callback_data="pa:range"),
+            InlineKeyboardButton("📣 Desafiar os amigos", callback_data="pa:share"),
         ]])
         await query.message.reply_text("E agora?", reply_markup=kb)
     except Exception:
@@ -1115,6 +1150,26 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
         await _send_sim_step(query.message, sim, step, prefix=intro + "\n")
         return
 
+    if action == "share":
+        await query.answer("Montando o card… 📣")
+        spot = ctx.user_data.get("share_spot")
+        if not spot:
+            await query.message.reply_text(
+                "Responde um /treino primeiro que eu monto o card do spot.")
+            return
+        try:
+            from app.analysis.hand_figure import render_share_card
+            png = await asyncio.to_thread(render_share_card, spot)
+            import io as _ioS
+            await _log(update, "share_card")
+            await query.message.reply_photo(
+                photo=_ioS.BytesIO(png),
+                caption="📣 Encaminha pro grupo e vê quem acerta o spot. "
+                        "Cada um responde no t.me/KKNUts_BOT 😉")
+        except Exception:
+            await query.message.reply_text("Não consegui montar o card agora.")
+        return
+
     if action == "range":
         await query.answer("Montando o range do spot… 📖")
         from app.bot.processing import spot_range_chart
@@ -1220,6 +1275,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))
+    app.add_handler(CallbackQueryHandler(on_range_button, pattern=r"^rng:"))
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))

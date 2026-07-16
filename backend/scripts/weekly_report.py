@@ -46,6 +46,27 @@ def main() -> int:
     sent = 0
 
     for user in users:
+        # placar do QUIZ da semana (retenção): respondidos, acertos, streak
+        quiz_block = ""
+        try:
+            ev = (repo.client.table("bot_events").select("event,detail")
+                  .eq("telegram_id", user["telegram_id"])
+                  .gte("created_at", week_ago)
+                  .in_("event", ["drill_answer", "drill_verdict"])
+                  .execute()).data or []
+            respondidos = sum(1 for e in ev if e["event"] == "drill_answer")
+            boas = sum(1 for e in ev if e["event"] == "drill_verdict"
+                       and (e.get("detail") or {}).get("verdict") == "boa")
+            if respondidos:
+                streak = repo.quiz_streak_days(user["telegram_id"])
+                quiz_block = (f"\n🎯 *Placar do quiz*: {respondidos} respondidos, "
+                              f"{boas} decisões boas")
+                if streak >= 2:
+                    quiz_block += f" · 🔥 {streak} dias seguidos"
+                quiz_block += "\n"
+        except Exception:
+            quiz_block = ""
+
         rows = (
             repo.client.table("hands")
             .select("canonical")
@@ -53,7 +74,15 @@ def main() -> int:
             .gte("played_at", week_ago)
             .execute()
         ).data or []
+        if not rows and not quiz_block:
+            continue
         if not rows:
+            # semana só de quiz: manda o placar mesmo assim (retenção)
+            text = ("📅 *Seu resumo da semana*\n" + quiz_block +
+                    "\nEnvie novas mãos para o resumo completo. ♠️")
+            if send_message(settings.telegram_bot_token,
+                            user["telegram_id"], text):
+                sent += 1
             continue
 
         from app.models.canonical import CanonicalHand
@@ -91,6 +120,7 @@ def main() -> int:
             f"• Mãos analisadas: {len(hands)}\n"
             f"• Resultado: {net_bb:+.1f} BB\n"
             f"• VPIP {vpip}% | PFR {pfr}% | AF {af}\n"
+            + quiz_block
         )
         if worst and worst["net_bb"] < 0:
             text += (
