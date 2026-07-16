@@ -238,6 +238,14 @@ svg{display:block}
 .chip.c1{top:8%;left:-6%}
 .chip.c2{bottom:10%;right:-5%;animation-delay:-3s}
 @media(max-width:900px){.chip.c1{left:2%}.chip.c2{right:2%}}
+/* móvil: el panel de la logo queda compacto y centrado (desktop intacto) */
+@media(max-width:640px){
+  .about-visual{display:flex;justify-content:center}
+  .about-visual .frame{max-width:280px;width:100%;aspect-ratio:1/1;border-radius:20px}
+  .logo-spin,.frame .fallback{width:52%}
+  .chip{font-size:13px;padding:10px 14px}
+  .chip.c1{top:4%}.chip.c2{bottom:4%}
+}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
 
 /* Marquee alianzas */
