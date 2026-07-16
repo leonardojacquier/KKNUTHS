@@ -1351,7 +1351,14 @@ def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
         st = h.street(sname)
         if not st:
             continue
-        full_board = full_board + list(st.board)
+        # board da street: uns parsers dão o board COMPLETO por street (flop=3,
+        # turn=4, river=5), outros só o incremento (1 carta). Detecta e evita
+        # duplicar (senão o turn saía com 7 cartas: flop repetido + turn).
+        sb = list(st.board)
+        if len(sb) >= len(full_board):
+            full_board = sb                       # já é o board completo da street
+        else:
+            full_board = full_board + [c for c in sb if c not in full_board]
         is_stop = (stop_street == sname.value)
         display_lines: list[str] = []
         hero_seen = False

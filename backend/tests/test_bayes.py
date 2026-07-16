@@ -1250,6 +1250,41 @@ def test_decision_aggressor_marca_aposta_do_vilao():
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_storyboard_board_nao_duplica():
+    # bug real: parser que dá o board COMPLETO por street (flop=3, turn=4,
+    # river=5) fazia o storyboard acumular -> turn com 7 cartas.
+    from app.models.canonical import (CanonicalHand, Stakes, PlayerSeat, Street,
+        Action, ActionType, StreetName, HandFormat)
+    from app.bot.processing import hand_storyboard_streets
+
+    def A(a, t, amt=0, to=0, post=None):
+        return Action(actor=a, type=t, amount=amt, to_amount=to, post_type=post)
+
+    players = [PlayerSeat(seat=1, name="Hero", stack=2000, position="BB",
+                          is_hero=True),
+               PlayerSeat(seat=2, name="SB", stack=2000, position="SB")]
+    # boards CUMULATIVOS (como PokerStars): flop 3, turn 4, river 5
+    h = CanonicalHand(
+        site="PS", hand_id="cum", format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=50, big_blind=100), hero="Hero",
+        players=players, hero_cards=["7d", "7s"], streets=[
+            Street(name=StreetName.PREFLOP, actions=[
+                A("SB", ActionType.RAISE, 230, to=230),
+                A("Hero", ActionType.CALL, 130, to=230)]),
+            Street(name=StreetName.FLOP, board=["6s", "Ac", "3c"], actions=[
+                A("SB", ActionType.BET, 200), A("Hero", ActionType.CALL, 200)]),
+            Street(name=StreetName.TURN, board=["6s", "Ac", "3c", "2h"], actions=[
+                A("SB", ActionType.BET, 400), A("Hero", ActionType.CALL, 400)]),
+            Street(name=StreetName.RIVER, board=["6s", "Ac", "3c", "2h", "9d"],
+                   actions=[A("SB", ActionType.CHECK),
+                            A("Hero", ActionType.CHECK)])])
+    bands = hand_storyboard_streets(h)
+    by = {b["name"]: b["board"] for b in bands}
+    assert by["Flop"] == ["6s", "Ac", "3c"]
+    assert by["Turn"] == ["6s", "Ac", "3c", "2h"]           # 4, não 7
+    assert by["River"] == ["6s", "Ac", "3c", "2h", "9d"]    # 5, não 12
+
+
 def test_hand_storyboard_streets_e_spec():
     from app.bot.processing import (hand_storyboard_streets, _walk_hand,
                                     storyboard_spot_from_drill)
