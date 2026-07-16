@@ -128,13 +128,17 @@ def _seat(d, x, y, pos, stack_bb, *, hero=False, folded=False, cards=None,
     sub = "fold" if folded else f"{stack_bb:g}bb" if stack_bb is not None else ""
     _center(d, x, y + 3 * s, sub, fbot, scol)
 
-    # cartas do herói acima do plaque (vilões só o plaque — sem card-back, que
-    # invadia o título e poluía)
+    # cartas acima do plaque: herói mostra as cartas; vilão ATIVO mostra o
+    # verso (2 cartas fechadas); vilão que foldou não mostra nada (só "fold")
     if hero and cards:
         cw = 70 * s
         for i, c in enumerate(cards[:2]):
             _card(d, x - (len(cards[:2]) - 1) * (cw + 10 * s) / 2 + i * (cw + 10 * s),
                   y - ph / 2 - 58 * s, c, w=cw, h=cw * 1.4)
+    elif not hero and not folded:
+        for i in range(2):
+            _card_back(d, x - 19 * s + i * 22 * s, y - ph / 2 - 27 * s,
+                       w=34 * s, h=46 * s)
 
     # aposta do vilão: fichas na frente (em direção ao centro = abaixo do plaque)
     if bet_bb and not hero:
@@ -173,9 +177,9 @@ def render_hand_figure(spot: dict) -> bytes:
 
     # BANDAS VERTICAIS FIXAS (sem sobreposição): vilões no topo, board no meio,
     # pote abaixo, herói embaixo. y explícito — nada de colisão aposta×board.
-    VILL_Y = fy0 + 60      # linha dos vilões (faixa rasa no topo do feltro)
-    BOARD_Y = fy0 + 238    # centro das cartas do board
-    POT_Y = fy0 + 308      # topo da chapa do pote
+    VILL_Y = fy0 + 82      # linha dos vilões (deixa espaço p/ o verso das cartas)
+    BOARD_Y = fy0 + 250    # centro das cartas do board
+    POT_Y = fy0 + 320      # topo da chapa do pote
 
     # vilões: faixa rasa da esquerda p/ direita; a aposta desce SEM tocar o
     # board, que fica bem abaixo
