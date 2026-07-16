@@ -548,6 +548,15 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         return
     choice = query.data.split(":", 1)[1]
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
+    # os botões pós-reveal agem sobre ESTA mão. Quando o quiz veio do banco
+    # (quiz diário do cron), o LAST_HAND_META deste processo está vazio — e o
+    # "Simular esta mão" caía noutra mão. Grava a referência aqui, SEMPRE.
+    from app.bot.processing import LAST_HAND_META as _LHM
+    _LHM[update.effective_user.id] = {
+        "hand_id": drill.get("hand_id"),
+        "position": drill.get("position"),
+        "stack_bb": drill.get("stack_bb"),
+    }
     text = await asyncio.to_thread(reveal_drill, drill, choice)
     # streak: razão de voltar amanhã (o push das 19h traz; o 🔥 segura)
     try:
@@ -1099,17 +1108,11 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
         step = sim_advance(sim)
         intro = (
             "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
-            f"Suas cartas: *{' '.join(sim['cards'])}* | Posição: "
-            f"*{sim['position'] or '?'}*"
+            "No final eu comparo a sua linha com a que aconteceu de verdade."
         )
-        kb = (_sim_buttons(step["decision"], sim["pos"])
-              if step["decision"] else None)
-        try:
-            await query.message.reply_markdown(intro + "\n" + step["narration"],
-                                               reply_markup=kb)
-        except Exception:
-            await query.message.reply_text(intro + "\n" + step["narration"],
-                                           reply_markup=kb)
+        # MESMO caminho do /simular: figura da mesa em cada decisão (o botão
+        # usava um envio próprio só-texto — as imagens "sumiam" por aqui)
+        await _send_sim_step(query.message, sim, step, prefix=intro + "\n")
         return
 
     if action == "range":
