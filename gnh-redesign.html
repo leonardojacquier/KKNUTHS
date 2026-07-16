@@ -57,6 +57,7 @@ svg{display:block}
 }
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;min-height:44px}
 .logo svg{height:42px;width:auto}
+.logo img{height:44px;width:auto}
 .nav-links{display:flex;gap:6px;list-style:none}
 .nav-links a{
   display:inline-block;padding:10px 14px;min-height:44px;
@@ -118,6 +119,12 @@ svg{display:block}
   top:auto;bottom:-2px;height:38%;
   background:linear-gradient(180deg,rgba(27,42,94,.0),rgba(10,16,36,.9) 55%,var(--navy-ink));
 }
+/* foto/vídeo real del sitio, mezclada con el gradiente */
+.l-photo{opacity:.26;mix-blend-mode:luminosity}
+.l-photo img,.l-photo video{width:100%;height:100%;object-fit:cover}
+.l-photo video{position:absolute;inset:0;opacity:0;transition:opacity 1.2s}
+.l-photo.video-on video{opacity:1}
+.l-photo.video-on img{display:none}
 .hero-inner{position:relative;z-index:5;width:100%;padding:120px 24px 90px;will-change:transform}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
@@ -225,6 +232,19 @@ svg{display:block}
 }
 .m-item:hover{background:rgba(242,109,33,.18);border-color:var(--orange);transform:translateY(-3px)}
 .m-item svg{width:18px;height:18px;stroke:var(--orange-soft)}
+.marquee.rev{animation-direction:reverse;margin-top:18px}
+.m-logo{
+  height:46px;width:auto;align-self:center;padding:0 14px;
+  filter:brightness(0) invert(1);opacity:.75;transition:opacity .3s,filter .3s;
+}
+.m-logo:hover{opacity:1;filter:none}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:860px;margin:52px auto 0;padding:0 24px}
+@media(max-width:620px){.stats{grid-template-columns:1fr}}
+.stat{text-align:center;padding:18px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.045)}
+.stat .num{font-family:var(--font-head);font-weight:800;font-size:clamp(36px,4.5vw,52px);color:#fff;line-height:1.1}
+.stat .num .u{color:var(--orange)}
+.stat .lbl{color:rgba(255,255,255,.6);font-size:15px;margin-top:6px}
 
 /* Servicios */
 .svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px}
@@ -394,8 +414,10 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- ============ NAV ============ -->
 <nav class="nav" id="nav" aria-label="Principal">
   <a href="#hero" class="logo" aria-label="GNH — inicio">
-    <!-- Logo GNH: globo + arco naranja (versión clara para fondo oscuro) -->
-    <svg viewBox="0 0 230 80" role="img" aria-label="GNH">
+    <!-- Logo real del sitio (hotlink); si la ruta falla, entra el SVG de respaldo -->
+    <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH"
+         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.style.display='none';this.parentElement.querySelector('svg').style.display='block'}">
+    <svg viewBox="0 0 230 80" role="img" aria-label="GNH" style="display:none">
       <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
       <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
       <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
@@ -422,6 +444,14 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- ============ HERO ============ -->
 <header class="hero" id="hero">
   <div class="layer l-sky" data-speed="0.14"></div>
+  <!-- Foto real del sitio + vídeo opcional (assets/video/hero.mp4 en el servidor) -->
+  <div class="layer l-photo" id="heroMedia" data-speed="0.2" aria-hidden="true">
+    <img src="https://gnhorizons.com/assets/images/hero-bg.jpg" alt=""
+         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/hero-bg.jpg'}else{this.remove()}">
+    <video muted loop playsinline autoplay preload="none">
+      <source src="assets/video/hero.mp4" type="video/mp4">
+    </video>
+  </div>
   <div class="layer l-globe" data-speed="0.3" aria-hidden="true">
     <svg viewBox="0 0 200 200" fill="none">
       <circle cx="100" cy="100" r="88" stroke="#fff" stroke-width="1"/>
@@ -514,6 +544,15 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <a class="m-item" href="https://gnhorizons.com/alianza/cecon" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>CECON</a>
     <a class="m-item" href="https://gnhorizons.com/alianza/hormigomix" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Hormigomix</a>
     <a class="m-item" href="https://gnhorizons.com/alianza/rodosafra" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Rodosafra</a>
+  </div>
+
+  <!-- Logos reales de clientes (hotlink del sitio actual; desaparecen con gracia si la ruta cambia) -->
+  <div class="marquee rev" id="clientMarquee" aria-label="Clientes de GNH"></div>
+
+  <div class="stats">
+    <div class="stat reveal d1"><div class="num"><span data-count="14">0</span><span class="u">+</span></div><div class="lbl">Marcas atendidas</div></div>
+    <div class="stat reveal d2"><div class="num"><span data-count="5">0</span></div><div class="lbl">Servicios integrados</div></div>
+    <div class="stat reveal d3"><div class="num"><span data-count="4">0</span></div><div class="lbl">Alianzas estratégicas</div></div>
   </div>
 </section>
 
@@ -623,7 +662,9 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <div class="foot-grid">
       <div>
         <a href="#hero" class="logo" aria-label="GNH — inicio">
-          <svg viewBox="0 0 230 80" style="height:48px;width:auto" role="img" aria-label="GNH">
+          <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH" style="height:48px;width:auto"
+               onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.style.display='none';this.parentElement.querySelector('svg').style.display='block'}">
+          <svg viewBox="0 0 230 80" style="height:48px;width:auto;display:none" role="img" aria-label="GNH">
             <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
             <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
             <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
@@ -725,6 +766,53 @@ const io = new IntersectionObserver(entries => {
   });
 }, {threshold:.14});
 document.querySelectorAll('.reveal:not(.in)').forEach(el => io.observe(el));
+window.__io = io;
+
+/* ---------- Logos reales de clientes (hotlink al sitio actual) ---------- */
+(() => {
+  const track = document.getElementById('clientMarquee');
+  const BASES = ['https://gnhorizons.com/assets/images/clients/','https://gnhorizons.com/assets/img/clients/'];
+  const makeImg = n => {
+    const img = new Image();
+    img.className = 'm-logo'; img.alt = 'Cliente GNH'; img.loading = 'lazy';
+    img.dataset.b = 0;
+    img.src = BASES[0] + 'client-' + n + '.png';
+    img.onerror = () => {
+      const b = +img.dataset.b + 1;
+      if (b < BASES.length){ img.dataset.b = b; img.src = BASES[b] + 'client-' + n + '.png'; }
+      else img.remove();
+    };
+    return img;
+  };
+  for (let pass = 0; pass < 2; pass++)            // dos pistas para el loop continuo
+    for (let n = 1; n <= 14; n++) track.appendChild(makeImg(n));
+  // si ninguna carga (p. ej. sin conexión al sitio), se oculta la pista
+  setTimeout(() => { if (!track.querySelector('img')) track.style.display = 'none'; }, 6000);
+})();
+
+/* ---------- Vídeo del hero (si existe assets/video/hero.mp4) ---------- */
+(() => {
+  const media = document.getElementById('heroMedia');
+  const video = media?.querySelector('video');
+  if (!video || reduceMotion) return;
+  video.addEventListener('canplay', () => media.classList.add('video-on'), {once:true});
+  video.addEventListener('error', () => video.remove(), {once:true});
+})();
+
+/* ---------- Contadores ---------- */
+const countIO = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    countIO.unobserve(e.target);
+    const el = e.target, target = +el.dataset.count, t0 = performance.now(), dur = 1400;
+    (function step(t){
+      const p = Math.min((t - t0) / dur, 1), eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(eased * target);
+      if (p < 1) requestAnimationFrame(step);
+    })(t0);
+  });
+}, {threshold:.6});
+document.querySelectorAll('[data-count]').forEach(el => countIO.observe(el));
 
 /* ---------- Modal Carta CEO ---------- */
 const ceoModal = document.getElementById('ceoModal');
@@ -771,6 +859,76 @@ form.addEventListener('submit', async e => {
 });
 
 document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+<!-- ============ Motor premium: GSAP + ScrollTrigger + Lenis (CDN) ============
+     Mejora progresiva: si el CDN no carga, la página sigue funcionando
+     con las animaciones vanilla de arriba. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js" defer></script>
+<script>
+addEventListener('load', () => {
+  if (reduceMotion || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* Lenis: scroll suave tipo "mantequilla" */
+  if (window.Lenis){
+    document.documentElement.style.scrollBehavior = 'auto';
+    const lenis = new Lenis({ lerp: .09 });
+    lenis.on('scroll', ScrollTrigger.update);
+    (function raf(t){ lenis.raf(t); requestAnimationFrame(raf); })(0);
+  }
+
+  /* GSAP toma el control de los reveals: apaga el sistema vanilla */
+  window.__io && window.__io.disconnect();
+  document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+
+  /* Entrada del hero, coreografiada */
+  gsap.from('.hero .eyebrow, .hero h1, .hero .sub, .hero-cta', {
+    y: 46, opacity: 0, duration: 1, ease: 'power3.out', stagger: .12,
+  });
+  gsap.from('.pillar', {
+    y: 30, opacity: 0, scale: .94, duration: .6, ease: 'back.out(1.5)',
+    stagger: .07, delay: .5,
+  });
+
+  /* Reveals por scroll, en lotes con stagger */
+  ScrollTrigger.batch('section .reveal, footer .reveal', {
+    start: 'top 88%', once: true,
+    onEnter: batch => gsap.from(batch, {
+      y: 44, opacity: 0, duration: .75, ease: 'power3.out', stagger: .09, overwrite: true,
+    }),
+  });
+
+  /* Parallax scrub del visual "Acerca" */
+  gsap.to('.about-visual .frame', {
+    yPercent: -8, rotate: -1.2, ease: 'none',
+    scrollTrigger: { trigger: '.about-visual', start: 'top bottom', end: 'bottom top', scrub: .6 },
+  });
+
+  /* CTA con zoom sutil al entrar */
+  gsap.from('.cta .wrap', {
+    scale: .93, opacity: .4, ease: 'none',
+    scrollTrigger: { trigger: '.cta', start: 'top 85%', end: 'top 35%', scrub: .5 },
+  });
+
+  /* Botones magnéticos (solo dispositivos con puntero fino) */
+  if (matchMedia('(hover:hover) and (pointer:fine)').matches){
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('mousemove', e => {
+        const r = btn.getBoundingClientRect();
+        gsap.to(btn, {
+          x: (e.clientX - r.left - r.width / 2) * .18,
+          y: (e.clientY - r.top - r.height / 2) * .3,
+          duration: .4, ease: 'power2.out',
+        });
+      });
+      btn.addEventListener('mouseleave', () =>
+        gsap.to(btn, { x: 0, y: 0, duration: .5, ease: 'elastic.out(1,.45)' }));
+    });
+  }
+});
 </script>
 </body>
 </html>
