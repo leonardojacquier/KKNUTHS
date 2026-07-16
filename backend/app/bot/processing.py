@@ -1525,10 +1525,11 @@ def build_drill(telegram_id: int) -> dict | None:
                      for p in h.players if p.position}
         _mark_aggressor(villains, agg_pos, agg_bet, pos_stack)
 
-    # storyboard da revelação: mão até a street da decisão, COM a ação real do
-    # herói (o gabarito). Não spoila streets futuras. Custo zero de LLM.
+    # storyboard da revelação: a mão INTEIRA, todas as streets até o fim — é o
+    # "filme completo". Só aparece DEPOIS que o aluno responde, então mostrar
+    # tudo é o certo. Custo zero de LLM.
     try:
-        storyboard = hand_storyboard_streets(h, upto_di=di, reveal=True)
+        storyboard = hand_storyboard_streets(h)
     except Exception:
         storyboard = []
 
@@ -1790,45 +1791,57 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
             math_d["note"] = (f"o call precisaria de {need*100:.0f}% e você "
                               f"tem ~{eq*100:.0f}%")
 
-    # recomendação determinística (só quando há preço a pagar e margem clara)
+    # veredito CLARO: reconcilia o que VOCÊ respondeu, o que é CERTO e o que
+    # rolou na mão REAL (senão o filme mostra 'fold' e o rodapé diz 'call' —
+    # confuso). Sem jargão, sem "pergunte ao coach" (o coach é ele).
     verdict, verdict_text, correct = "mista", "", ""
     actual = (drill.get("actual") or "").lower()
-    ch, _ = drill_action((choice or "").lower())   # normaliza tamanho -> ação base
+    ch, ch_lbl = drill_action((choice or "").lower())
+    ch_lbl = ch_lbl.split()[0] if ch_lbl else (ch or "").upper()
+    real_lbl = {"fold": "foldou", "call": "pagou", "check": "deu check",
+                "bet": "apostou", "raise": "aumentou"}.get(actual, actual)
     if eq is not None and need and to_call:
+        eqp, needp = eq * 100, need * 100
+        ev = math_d.get("ev_bb", 0)
         margin = eq - need
         if margin >= 0.03:
-            rec, rec_txt = "call", "CALL — a matemática do pote paga."
+            rec = "call"
+            correct = "PAGAR (call)"
+            math_line = (f"Você tinha ~{eqp:.0f}% de equity e o pote pedia só "
+                         f"{needp:.0f}% — pagar rende {ev:+.0f}bb.")
         elif margin <= -0.03:
-            rec, rec_txt = "fold", "FOLD — pagar queima fichas."
+            rec = "fold"
+            correct = "FOLDAR"
+            math_line = (f"Você tinha ~{eqp:.0f}% de equity mas o pote pedia "
+                         f"{needp:.0f}% — pagar perde {ev:+.0f}bb.")
         else:
-            rec, rec_txt = "mista", "Spot no fio da navalha — a leitura decide."
-        correct = rec_txt
+            rec = "mista"
+            correct = "Depende da leitura"
+            math_line = (f"Sua equity (~{eqp:.0f}%) bate quase exato os "
+                         f"{needp:.0f}% que o pote pede — spot no fio.")
         if rec == "mista":
             verdict = "mista"
-            verdict_text = (
-                f"Spot marginal: sua equity (~{eq*100:.0f}%) bate quase exato "
-                f"os {need*100:.0f}% que o pote exige. Aqui não é conta, é "
-                "leitura — contra um vilão que blefa, paga; contra um pedra, "
-                "descarta.")
+            verdict_text = (f"Você respondeu {ch_lbl}. {math_line} Aqui não é "
+                            "conta, é leitura: contra quem blefa, paga; contra "
+                            "um pedra, descarta.")
         else:
             aligned = (ch in ("call", "raise") and rec == "call") or \
                       (ch == "fold" and rec == "fold")
             verdict = "boa" if aligned else "ruim"
             verdict_text = (
-                f"Pela matemática pura, sua equity é ~{eq*100:.0f}% e o pote "
-                f"exige {need*100:.0f}%. " +
-                ("Você escolheu certo. " if aligned else
-                 "Sua escolha foge da conta aqui. ") +
-                "Contra o range real do vilão muda — pergunte ao coach pra "
-                "abrir a leitura.")
+                f"Você respondeu {ch_lbl} — "
+                + ("certo. " if aligned else f"o certo era {correct}. ")
+                + math_line)
+        # reconcilia com o filme: se a mão real terminou diferente, avisa
+        if actual and actual != rec and actual != ch:
+            verdict_text += f" (Na mão real o herói {real_lbl}.)"
     else:
         verdict = "mista"
-        verdict_text = (
-            "Sem aposta a pagar, o jogo aqui é valor vs controle do pote — "
-            "não tem gabarito de conta única. Responda que o coach abre a "
-            "linha com você.")
-        if eq is not None:
-            verdict_text = (f"Sua equity bruta é ~{eq*100:.0f}%. " + verdict_text)
+        correct = "Valor vs controle do pote"
+        base = ("Sem aposta pra pagar, a questão é apostar por valor ou "
+                "controlar o tamanho do pote — não tem gabarito de conta única.")
+        verdict_text = (f"Sua equity bruta é ~{eq*100:.0f}%. " + base) if eq \
+            is not None else base
 
     stack = drill.get("stack_bb")
     return {
