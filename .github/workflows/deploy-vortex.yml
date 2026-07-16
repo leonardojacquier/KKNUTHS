@@ -1,0 +1,38 @@
+name: Deploy para vortex369
+
+# Disparo manual (botão "Run workflow" na aba Actions do GitHub).
+# Quando quiser deploy automático a cada push, descomente o bloco "push".
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [claude/professional-website-design-qqgnfg]
+  #   paths: ['gnh-redesign.html', 'assets/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.VORTEX_PORT || '22' }}" -H "${{ secrets.VORTEX_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Enviar site (rsync)
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VORTEX_PORT || '22' }}" \
+            gnh-redesign.html assets \
+            "${{ secrets.VORTEX_USER }}@${{ secrets.VORTEX_HOST }}:${{ secrets.VORTEX_PATH }}/"
+
+      # Opcional: publicar como página inicial (index.html).
+      # Descomente se quiser que gnh-redesign.html vire a home do site.
+      # - name: Definir como index.html
+      #   run: |
+      #     ssh -i ~/.ssh/deploy_key -p "${{ secrets.VORTEX_PORT || '22' }}" \
+      #       "${{ secrets.VORTEX_USER }}@${{ secrets.VORTEX_HOST }}" \
+      #       "cp '${{ secrets.VORTEX_PATH }}/gnh-redesign.html' '${{ secrets.VORTEX_PATH }}/index.html'"
