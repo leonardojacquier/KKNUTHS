@@ -779,7 +779,9 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await query.answer()
     sim = ctx.user_data.get("sim")
     if not sim:
-        await query.edit_message_text("Simulação expirada. Use /simular para outra.")
+        # a pergunta da simulação agora é FOTO: não dá pra editar texto. Tira
+        # os botões e responde — senão o clique morre em silêncio (bug real).
+        await _show_reveal(query, "Simulação expirada. Use /simular para outra.")
         return
     parts = query.data.split(":")
     choice = parts[1]
