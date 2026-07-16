@@ -644,23 +644,15 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     # numa mão qualquer. Só usa a "melhor" quando não há mão recente.
     from app.bot.processing import LAST_HAND_META
 
-    def _ndec(s):
-        return sum(1 for e in (s or {}).get("events", []) if e.get("kind") == "decision")
-
     preferred = (LAST_HAND_META.get(tg_id) or {}).get("hand_id")
     swapped = False
     sim = await asyncio.to_thread(build_simulation, tg_id, preferred)
-    # "jogar a mão inteira" só faz sentido com mão de MÚLTIPLAS decisões. Se a
-    # mão atual não dá pra simular OU tem só 1 decisão (a maioria dos spots de
-    # shove), pega a mão mais COMPLETA do histórico — e avisa.
+    # /simular = A MESMA mão do treino/quiz. NUNCA troca por outra só porque é
+    # curta — o aluno quer jogar A MÃO QUE ele viu. Só cai na melhor se a mão
+    # atual não dá mesmo pra simular (print/histórico sem ação).
     if sim and sim.get("unsimulable"):
         swapped = True
         sim = await asyncio.to_thread(build_simulation, tg_id, None)
-    elif sim and preferred and _ndec(sim) < 2:
-        best = await asyncio.to_thread(build_simulation, tg_id, None)
-        if best and not best.get("unsimulable") and _ndec(best) > _ndec(sim):
-            swapped = True
-            sim = best
     if not sim or sim.get("unsimulable"):
         await update.message.reply_text(
             "Preciso de uma mão sua com a ação completa para simular. "
@@ -671,10 +663,9 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     step = sim_advance(sim)
     intro = (
         "🎮 *Simulação* — jogue a mão como se fosse ao vivo!\n"
-        + ("_Peguei uma mão sua mais completa pra você jogar a mão inteira, "
-           "decisão por decisão._\n" if swapped else "")
-        + "No final eu comparo a sua linha (sequência de decisões) com a que "
-        "aconteceu de verdade."
+        + ("_Essa mão específica não tinha a ação completa; peguei uma sua "
+           "jogável._\n" if swapped else "")
+        + "No final eu comparo a sua linha com a que aconteceu de verdade."
     )
     await _send_sim_step(update.message, sim, step, prefix=intro + "\n")
 
