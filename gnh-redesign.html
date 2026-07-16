@@ -123,8 +123,25 @@ svg{display:block}
 .l-photo{opacity:.26;mix-blend-mode:luminosity}
 .l-photo img,.l-photo video{width:100%;height:100%;object-fit:cover}
 .l-photo video{position:absolute;inset:0;opacity:0;transition:opacity 1.2s}
+.l-photo.video-on{opacity:.6;mix-blend-mode:normal}
 .l-photo.video-on video{opacity:1}
 .l-photo.video-on img{display:none}
+.l-photo.video-on::after{ /* velo para mantener el texto legible sobre el vídeo */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 70% at 50% 45%,rgba(10,16,36,.45),rgba(10,16,36,.78));
+}
+.sound-btn{
+  position:absolute;bottom:28px;right:26px;z-index:7;
+  width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+  background:rgba(14,23,48,.6);backdrop-filter:blur(10px);cursor:pointer;
+  display:none;place-items:center;transition:background .3s,border-color .3s,transform .3s var(--ease);
+}
+.sound-btn.show{display:grid}
+.sound-btn:hover{background:var(--orange);border-color:var(--orange);transform:scale(1.08)}
+.sound-btn svg{width:22px;height:22px;stroke:#fff}
+.sound-btn .on{display:none}
+.sound-btn.unmuted .on{display:block}
+.sound-btn.unmuted .off{display:none}
 .hero-inner{position:relative;z-index:5;width:100%;padding:120px 24px 90px;will-change:transform}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
@@ -488,6 +505,10 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     </div>
   </div>
   <div class="scroll-cue" aria-hidden="true">Desliza<span class="dot"></span></div>
+  <button class="sound-btn" id="soundBtn" aria-label="Activar sonido del vídeo" aria-pressed="false">
+    <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6"/></svg>
+    <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+  </button>
 </header>
 
 <!-- ============ ACERCA ============ -->
@@ -790,13 +811,24 @@ window.__io = io;
   setTimeout(() => { if (!track.querySelector('img')) track.style.display = 'none'; }, 6000);
 })();
 
-/* ---------- Vídeo del hero (si existe assets/video/hero.mp4) ---------- */
+/* ---------- Vídeo del hero + control de sonido ---------- */
 (() => {
   const media = document.getElementById('heroMedia');
   const video = media?.querySelector('video');
+  const soundBtn = document.getElementById('soundBtn');
   if (!video || reduceMotion) return;
-  video.addEventListener('canplay', () => media.classList.add('video-on'), {once:true});
+  video.addEventListener('canplay', () => {
+    media.classList.add('video-on');
+    soundBtn.classList.add('show');
+  }, {once:true});
   video.addEventListener('error', () => video.remove(), {once:true});
+  soundBtn.addEventListener('click', () => {
+    video.muted = !video.muted;
+    if (!video.muted) video.play();
+    soundBtn.classList.toggle('unmuted', !video.muted);
+    soundBtn.setAttribute('aria-pressed', String(!video.muted));
+    soundBtn.setAttribute('aria-label', video.muted ? 'Activar sonido del vídeo' : 'Silenciar vídeo');
+  });
 })();
 
 /* ---------- Contadores ---------- */
