@@ -21,6 +21,8 @@ def send_quiz(token: str, chat_id: int, drill: dict) -> bool:
     from app.bot.processing import drill_buttons, drill_message
 
     text = drill_message(drill)
+    if drill.get("streak_line"):
+        text += "\n\n" + drill["streak_line"]
     keyboard = {"inline_keyboard": drill_buttons(drill)}
     body = json.dumps({
         "chat_id": chat_id, "text": text, "parse_mode": "Markdown",
@@ -51,6 +53,14 @@ def main() -> int:
         drill = build_drill(tg)   # usa o histórico do banco
         if not drill:
             continue
+        # streak no convite: quem tem corrente não quer perder
+        try:
+            streak = repo.quiz_streak_days(tg)
+            if streak >= 2:
+                drill["streak_line"] = (f"🔥 Você está em {streak} dias seguidos "
+                                        "— responde pra manter a corrente!")
+        except Exception:
+            pass
         repo.set_pending_drill(tg, drill)
         if send_quiz(settings.telegram_bot_token, tg, drill):
             repo.log_event(tg, None, "daily_quiz_sent", {"hand_id": drill.get("hand_id")})

@@ -444,6 +444,35 @@ class Repository:
             }
         ).execute()
 
+    @_safe(0)
+    def quiz_streak_days(self, telegram_id: int) -> int:
+        """Sequência de DIAS consecutivos (contando hoje ou ontem) em que o
+        usuário respondeu quiz/treino — o combustível do 🔥 de retenção."""
+        from datetime import date, timedelta
+
+        if not self._guard():
+            return 0
+        rows = (self.client.table("bot_events").select("created_at")
+                .eq("telegram_id", telegram_id).eq("event", "drill_answer")
+                .order("created_at", desc=True).limit(400).execute().data) or []
+        days = sorted({r["created_at"][:10] for r in rows}, reverse=True)
+        if not days:
+            return 0
+        today = date.today()
+        start = days[0]
+        # streak vale se a última resposta foi hoje ou ontem (ainda dá pra manter)
+        if start not in (today.isoformat(), (today - timedelta(days=1)).isoformat()):
+            return 0
+        streak = 1
+        cur = date.fromisoformat(start)
+        for ds in days[1:]:
+            if date.fromisoformat(ds) == cur - timedelta(days=1):
+                streak += 1
+                cur = date.fromisoformat(ds)
+            else:
+                break
+        return streak
+
     # ------------------------- knowledge base (RAG) -------------------
     @_safe([])
     def search_analysis(

@@ -105,6 +105,11 @@ def render_range_png(
     pct = 100 * in_range / total_combos
     d.text((MARGIN, top + size - MARGIN + 6),
            f"{pct:.1f}% dos combos no range", fill=GREY_TEXT, font=f_sub)
+    # "como ler" — a âncora que faltava pra quem nunca viu a matriz
+    d.text((MARGIN, top + size - MARGIN + 22),
+           "verde = joga (tom escuro = sempre; % = frequência) · cinza = fold · "
+           "s = mesmo naipe, o = naipes diferentes",
+           fill=GREY_TEXT, font=_font(11, bold=False))
     from app.analysis.branding import draw_brand, paste_logo
 
     draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN)
@@ -132,8 +137,12 @@ def _ev_color(ev: float, fold_ev: float, scale: float) -> tuple[int, int, int]:
 
 def render_ev_range_png(
     evs: dict[str, float], fold_ev: float, title: str, subtitle: str,
+    premises: str = "",
 ) -> bytes:
-    """Grade 13×13 colorida pelo EV da ação vs fold, com o valor em BB na célula."""
+    """Grade 13×13 colorida pelo EV da ação vs fold, com o valor em BB na célula.
+
+    `premises`: linha de premissas do cálculo no rodapé ("HU SB vs BB · sem
+    ante · bf 1.5") — protege contra "esse número tá errado" sem contexto."""
     size = MARGIN * 2 + CELL * 13
     height = TITLE_H + size + LEGEND_H
     img = Image.new("RGB", (size, height), PAPER)
@@ -158,20 +167,26 @@ def render_ev_range_png(
             ev = float(evs.get(hand, fold_ev))
             x = MARGIN + col * CELL
             y = top + row * CELL
-            color = _ev_color(ev, fold_ev, scale)
+            delta = ev - fold_ev
+            # célula NEUTRA quando é empate na prática: some o "+0.0 vs -0.0"
+            neutral = abs(delta) < 0.05
+            color = GREY if neutral else _ev_color(ev, fold_ev, scale)
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=color)
             luminous = sum(color) / 3
             text_col = PAPER if luminous < 140 else INK
             w = d.textlength(hand, font=f_cell)
             d.text((x + (CELL - 2 - w) / 2, y + 9), hand, fill=text_col, font=f_cell)
-            t = f"{ev - fold_ev:+.1f}"
+            t = "0.0" if neutral else f"{delta:+.1f}"
             w = d.textlength(t, font=f_ev)
             d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
                    fill=text_col, font=f_ev)
 
     d.text((MARGIN, top + size - MARGIN + 6),
            "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; "
-           "vermelho: foldar)", fill=GREY_TEXT, font=f_sub)
+           "vermelho: foldar; cinza: tanto faz)", fill=GREY_TEXT, font=f_sub)
+    if premises:
+        d.text((MARGIN, top + size - MARGIN + 24), premises,
+               fill=GREY_TEXT, font=_font(11, bold=False))
     from app.analysis.branding import draw_brand, paste_logo
 
     draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, link=False)
@@ -243,6 +258,8 @@ def chart_for_query(
             evs, fold_ev,
             f"EV do {action} — {kind} · {stack:g}bb · {badge}",
             "EV em BB vs fold · equilíbrio re-resolvido nesta utilidade",
+            premises=(f"premissas: heads-up SB vs BB · stack efetivo "
+                      f"{stack:g}bb · sem ante · bubble factor {use_bf:g}"),
         )
         cap = (
             f"♠ EV de cada mão no {action} do {kind} com {stack:g}bb — {badge}. "

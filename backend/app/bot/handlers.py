@@ -39,6 +39,17 @@ from app.config import get_settings
 from app.db import get_repository
 from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
 
+# boas-vindas CURTA + 3 botões: primeiro contato não pode ser muro de comandos
+# (conselho: provável causa de churn). O guia completo fica no botão.
+WELCOME_SHORT = (
+    "♠️ *KKNuths — seu coach de poker*\n\n"
+    "Eu analiso as SUAS mãos com números calculados de verdade — equity, "
+    "preço do call, Nash — e te digo o que foi decisão boa e o que custou "
+    "caro.\n\n"
+    "Já deixei um torneio de teste carregado pra você experimentar. "
+    "Por onde quer começar?"
+)
+
 WELCOME = (
     "♠️ *KKNuths — seu coach de poker*\n\n"
     "Me envie suas mãos de qualquer jeito: arquivo `.txt` de hand history "
@@ -107,11 +118,44 @@ async def _log(update: Update, event: str, **detail) -> None:
         await asyncio.to_thread(repo.log_event, u.id, _uname(u), event, detail or None)
 
 
+_START_KB = InlineKeyboardMarkup([
+    [InlineKeyboardButton("🎯 Treinar agora (mão de teste)", callback_data="go:treino")],
+    [InlineKeyboardButton("📤 Enviar minhas mãos", callback_data="go:enviar")],
+    [InlineKeyboardButton("❓ Como funciona", callback_data="go:guia")],
+])
+
+_ENVIAR_TXT = (
+    "📤 *Me mande suas mãos do jeito mais fácil pra você:*\n\n"
+    "📸 *Print/foto* do replay ou da mesa — eu leio a mão inteira\n"
+    "📄 *Arquivo .txt* de hand history (GGPoker: PokerCraft → download; "
+    "PokerStars: pasta HandHistory)\n"
+    "📋 *Texto colado* direto aqui (cortou em partes? eu junto sozinho)\n"
+    "🔗 *Link de replay* do PPPoker — é só colar\n"
+    "🎙️ *Áudio* contando a mão\n\n"
+    "💡 Manda o torneio INTEIRO num arquivo que eu monto o relatório "
+    "mão a mão completo."
+)
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     # t.me/BOT?start=<origem> — rastreia de qual convite/grupo o usuário veio
     ref = ctx.args[0][:60] if ctx.args else None
     await _log(update, "start", ref=ref)
-    await update.message.reply_markdown(WELCOME)
+    await update.message.reply_markdown(WELCOME_SHORT, reply_markup=_START_KB)
+
+
+async def on_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botões do /start: primeiro contato guiado, sem muro de comandos."""
+    query = update.callback_query
+    await query.answer()
+    action = query.data.split(":", 1)[1]
+    if action == "treino":
+        await _log(update, "go_treino")
+        await _send_treino(query.message, update.effective_user.id, ctx)
+    elif action == "enviar":
+        await query.message.reply_markdown(_ENVIAR_TXT)
+    else:
+        await query.message.reply_markdown(WELCOME)
 
 
 async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -411,19 +455,21 @@ async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Drill: um spot real das suas mãos — o que você faria?"""
-    tg_id = update.effective_user.id
     await _log(update, "treino")
+    await _send_treino(update.message, update.effective_user.id, ctx)
+
+
+async def _send_treino(message, tg_id: int, ctx) -> None:
+    """Monta e envia um treino (usado pelo /treino e pelo botão do /start)."""
     drill = await asyncio.to_thread(build_drill, tg_id)
     if not drill:
-        await update.message.reply_text(
+        await message.reply_text(
             "Preciso de mãos suas para montar um treino. Envie um arquivo primeiro."
         )
         return
     ctx.user_data["drill"] = drill
     # persiste também no banco: sobrevive a restart do auto-deploy
-    await asyncio.to_thread(
-        get_repository().set_pending_drill, update.effective_user.id, drill
-    )
+    await asyncio.to_thread(get_repository().set_pending_drill, tg_id, drill)
     from app.bot.processing import drill_buttons, drill_message
 
     markup = InlineKeyboardMarkup([
@@ -455,13 +501,13 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 if drill.get("required_eq"):
                     cap += f" (precisa ~{drill['required_eq'] * 100:.0f}%)"
             cap += "\n\n*O que você faz?*"
-            await update.message.reply_photo(
+            await message.reply_photo(
                 photo=_io2.BytesIO(fig), caption=cap[:1000],
                 parse_mode="Markdown", reply_markup=markup)
         else:
-            await update.message.reply_markdown(text, reply_markup=markup)
+            await message.reply_markdown(text, reply_markup=markup)
     except Exception:
-        await update.message.reply_text(text, reply_markup=markup)
+        await message.reply_text(text, reply_markup=markup)
 
 
 async def _show_reveal(query, text: str) -> None:
@@ -503,6 +549,16 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     choice = query.data.split(":", 1)[1]
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
     text = await asyncio.to_thread(reveal_drill, drill, choice)
+    # streak: razão de voltar amanhã (o push das 19h traz; o 🔥 segura)
+    try:
+        streak = await asyncio.to_thread(
+            get_repository().quiz_streak_days, update.effective_user.id)
+        if streak >= 2:
+            text += f"\n\n🔥 *{streak} dias seguidos de treino!* Não quebra a corrente."
+        elif streak == 1:
+            text += "\n\n🔥 Treino de hoje feito — volta amanhã pra começar a sequência."
+    except Exception:
+        pass
     ctx.user_data.pop("drill", None)
     # o spot vira contexto de conversa: "por que fold?" já funciona em seguida
     LAST_ANALYSIS[update.effective_user.id] = {
@@ -536,11 +592,15 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception:
         pass
 
-    # empurrãozinho: quem quer ir além de uma decisão joga a mão inteira
+    # próximos passos em UM TOQUE (pedir pra digitar comando é fricção)
     try:
-        await query.message.reply_markdown(
-            "🎮 Quer rejogar *essa mão inteira*, decisão por decisão? "
-            "Manda /simular.")
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔁 Simular esta mão", callback_data="pa:sim"),
+            InlineKeyboardButton("🎯 Outro treino", callback_data="go:treino"),
+        ], [
+            InlineKeyboardButton("📖 Range do spot", callback_data="pa:range"),
+        ]])
+        await query.message.reply_text("E agora?", reply_markup=kb)
     except Exception:
         pass
 
@@ -1156,6 +1216,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("range", cmd_range))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
+    app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))

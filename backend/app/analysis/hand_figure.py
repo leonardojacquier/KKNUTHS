@@ -145,6 +145,16 @@ def _seat(d, x, y, pos, stack_bb, *, hero=False, folded=False, cards=None,
         _bet_marker(d, x, y + ph / 2 + 18 * s, bet_bb, s)
 
 
+def _dealer_button(d, x, y, s):
+    """Disco 'D' do dealer ao lado do assento do BTN."""
+    r = 13 * s
+    d.ellipse([x - r, y - r, x + r, y + r], fill=BTN_BG,
+              outline=(120, 110, 80), width=max(1, s))
+    f = _font(int(15 * s))
+    w = d.textlength("D", font=f)
+    d.text((x - w / 2, y - 9 * s), "D", font=f, fill=(60, 50, 20))
+
+
 def render_hand_figure(spot: dict) -> bytes:
     """`spot`: hero_cards, board, position, stack_bb, pot_bb, to_call_bb,
     required_eq, street, blinds, villains:[{pos, stack_bb, folded, to_act,
@@ -183,10 +193,10 @@ def render_hand_figure(spot: dict) -> bytes:
 
     # vilões: faixa rasa da esquerda p/ direita; a aposta desce SEM tocar o
     # board, que fica bem abaixo
-    villains = list(spot.get("villains") or [])[:7]
+    villains = list(spot.get("villains") or [])[:8]
     n = len(villains)
     if n:
-        spanx = (fx1 - fx0) * 0.70
+        spanx = (fx1 - fx0) * (0.70 if n <= 4 else 0.82)
         for i, v in enumerate(villains):
             frac = 0.5 if n == 1 else i / (n - 1)
             vx = cx + (frac - 0.5) * spanx
@@ -194,16 +204,23 @@ def render_hand_figure(spot: dict) -> bytes:
             _seat(d, sc(vx), sc(vy), v.get("pos"), v.get("stack_bb"),
                   folded=bool(v.get("folded")), to_act=bool(v.get("to_act")),
                   bet_bb=v.get("bet_bb"), s=S)
+            if (v.get("pos") or "").upper() == "BTN":
+                _dealer_button(d, sc(vx + 82), sc(vy + 8), S)
+    # dealer button do herói (quando VOCÊ é o botão)
+    if (spot.get("position") or "").upper() == "BTN":
+        _dealer_button(d, sc(cx + 110), sc(fy1 - 14), S)
 
-    # board
+    # board — com respiro entre flop | turn | river (lê a street no desenho)
     board = spot.get("board") or []
     if board:
-        bw, gap = 74, 14
-        total = len(board) * bw + (len(board) - 1) * gap
+        bw, gap, street_gap = 74, 12, 30
+        gaps = [(street_gap if i in (3, 4) else gap) for i in range(1, len(board))]
+        total = len(board) * bw + sum(gaps)
         bx = cx - total / 2 + bw / 2
-        for c in board:
+        for i, c in enumerate(board):
             _card(d, sc(bx), sc(BOARD_Y), c, w=sc(bw), h=sc(bw * 1.4))
-            bx += bw + gap
+            if i < len(board) - 1:
+                bx += bw + gaps[i]
     else:
         _center(d, sc(cx), sc(BOARD_Y - 14), "PRÉ-FLOP", F(26), (200, 220, 210))
 
@@ -249,10 +266,10 @@ def render_hand_figure(spot: dict) -> bytes:
                             radius=sc(16), fill=FELT_RIM, outline=GOLD, width=sc(2))
         _center(d, sc(W / 2), sc(by + 12), txt, ft, GOLD)
 
-    # downsample (antialias) e marca (emblema + assinatura)
+    # downsample (antialias) e marca (emblema + assinatura clara p/ fundo escuro)
     img = img.resize((W, H), Image.LANCZOS)
     d2 = ImageDraw.Draw(img)
-    draw_brand(d2, H - 32, right=W - 22, size=16)
+    draw_brand(d2, H - 32, right=W - 22, size=16, light=True)
     from app.analysis.branding import paste_logo
     paste_logo(img, 84, 22, 56)
 
@@ -493,7 +510,7 @@ def render_hand_strip(spot: dict) -> bytes:
     # downsample (antialias) + marca
     img = img.resize((SW, total_h), Image.LANCZOS)
     d2 = ImageDraw.Draw(img)
-    draw_brand(d2, total_h - 26, right=SW - 20, size=14)
+    draw_brand(d2, total_h - 26, right=SW - 20, size=14, light=True)
     buf = io.BytesIO()
     img.save(buf, "PNG")
     return buf.getvalue()

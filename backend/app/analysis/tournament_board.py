@@ -11,11 +11,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
-W, H = 900, 704
+W, H = 900, 728
 PAD_L, PAD_R = 64, 24
-KPI_Y, KPI_H = 96, 84
-KPI2_Y = 192
-CHART_Y, CHART_H = 336, 240
+KPI_Y, KPI_H = 96, 96
+KPI2_Y = 204
+CHART_Y, CHART_H = 360, 240
+
+# faixas típicas de referência (full-ring/6-max torneio) — âncora de leitura
+# para o aluno saber se o número dele é normal ("VPIP 19%… e daí?")
+_KPI_REF = {"VPIP": "típico 15–25%", "PFR": "típico 10–20%",
+            "3-bet": "típico 5–9%", "agressão (AF)": "típico 1.5–3"}
 
 PAPER = (250, 250, 247)
 CARD = (241, 243, 239)
@@ -162,6 +167,7 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         (f"{s['wsd']}/{s['wtsd']}", "showdowns (ganhou/foi)"),
         (f"{s['maior_pote_bb']:+.1f}", "maior pote (BB)"),
     ]
+    f_ref = _font(10, bold=False)
     for row_i, kpis in enumerate((row1, row2)):
         y0 = KPI_Y if row_i == 0 else KPI2_Y
         box_w = (W - PAD_L - PAD_R - 4 * 12) / 5
@@ -172,8 +178,12 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
             if lab.startswith("resultado") or lab.startswith("maior"):
                 ref = s["net_bb"] if lab.startswith("resultado") else s["maior_pote_bb"]
                 color = GREEN if ref >= 0 else RED
-            d.text((x + 14, y0 + 14), val, fill=color, font=f_kpi)
-            d.text((x + 14, y0 + 52), lab, fill=GREY_TEXT, font=f_kpi_l)
+            d.text((x + 14, y0 + 12), val, fill=color, font=f_kpi)
+            d.text((x + 14, y0 + 50), lab, fill=GREY_TEXT, font=f_kpi_l)
+            ref_txt = _KPI_REF.get(lab)
+            if ref_txt:
+                d.text((x + 14, y0 + 68), ref_txt, fill=(170, 176, 170),
+                       font=f_ref)
 
     # --------------------------- curva do stack ---------------------------
     d.text((PAD_L, CHART_Y - 24), "Stack do herói ao longo do torneio (BB)",
@@ -181,8 +191,15 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
     pts_data = s["stacks_bb"]
     if len(pts_data) >= 2:
         xs_i = [p[0] for p in pts_data]
-        ys_v = [p[1] for p in pts_data]
-        ymax = max(ys_v) * 1.15 or 1
+        ys_raw = [p[1] for p in pts_data]
+        # suaviza o serrilhado (média móvel de 3), preservando as pontas
+        ys_v = [ys_raw[0]] + [
+            (ys_raw[i - 1] + ys_raw[i] + ys_raw[i + 1]) / 3
+            for i in range(1, len(ys_raw) - 1)
+        ] + [ys_raw[-1]] if len(ys_raw) >= 3 else ys_raw
+        # eixo REDONDO: teto múltiplo de 10 (nada de "57/29/0")
+        import math as _m
+        ymax = max(10.0, _m.ceil(max(ys_raw) * 1.05 / 10) * 10)
         x0, x1 = min(xs_i), max(xs_i)
         plot_w = W - PAD_L - PAD_R
 
@@ -196,12 +213,13 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         if ymax > 10:
             y10 = CHART_Y + CHART_H - (10 / ymax) * CHART_H
             d.line([PAD_L, y10, W - PAD_R, y10], fill=(224, 190, 186), width=2)
-            d.text((PAD_L + 6, y10 - 16), "zona de shove", fill=RED, font=f_lab)
+            d.text((PAD_L + 6, y10 - 16), "zona de shove (<10bb)", fill=RED,
+                   font=f_lab)
 
         pts = [
             (PAD_L + plot_w * (xi - x0) / max(x1 - x0, 1),
              CHART_Y + CHART_H - (v / ymax) * CHART_H)
-            for xi, v in pts_data
+            for xi, v in zip(xs_i, ys_v)
         ]
         # área sob a curva; com muitas mãos os marcadores viram poluição —
         # mostra 1 a cada N e o ponto final
@@ -212,9 +230,14 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         for i, p in enumerate(pts):
             if i % step == 0 or i == len(pts) - 1:
                 d.ellipse([p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3], fill=FELT)
-        lbl_y = pts[-1][1] - 22 if pts[-1][1] > CHART_Y + 26 else pts[-1][1] + 10
-        d.text((min(pts[-1][0] - 40, W - PAD_R - 52), lbl_y),
-               f"{ys_v[-1]:.0f}bb", fill=FELT_DARK, font=_font(13))
+        # label do stack final com HALO (fundo) — não briga com a linha
+        lbl = f"{ys_raw[-1]:.0f}bb"
+        f_lbl = _font(13)
+        lx = min(pts[-1][0] - 40, W - PAD_R - 52)
+        ly = pts[-1][1] - 22 if pts[-1][1] > CHART_Y + 26 else pts[-1][1] + 10
+        lw = d.textlength(lbl, font=f_lbl)
+        d.rectangle([lx - 4, ly - 2, lx + lw + 4, ly + 16], fill=PAPER)
+        d.text((lx, ly), lbl, fill=FELT_DARK, font=f_lbl)
         d.text((PAD_L, CHART_Y + CHART_H + 8), "mão 1", fill=GREY_TEXT, font=f_lab)
         d.text((W - PAD_R - 60, CHART_Y + CHART_H + 8),
                f"mão {s['hands']}", fill=GREY_TEXT, font=f_lab)

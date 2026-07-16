@@ -1066,16 +1066,17 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
     stack_bb = round(seat.stack / bbv, 1) if seat else None
     blinds = f"{best.stakes.small_blind:g}/{best.stakes.big_blind:g}" + (
         f" (ante {best.stakes.ante:g})" if best.stakes.ante else "")
-    villains_base = _active_villains(best)
     pos_stack = {p.position: round(p.stack / bbv, 1)
                  for p in best.players if p.position}
     figures: dict[str, dict] = {}
+    dec_i = -1
     for idx, e in enumerate(best_events):
         if e["kind"] != "decision":
             continue
+        dec_i += 1
         pot_bb = round(e["pot"] / bbv, 1)
         to_call_bb = round(e["to_call"] / bbv, 1)
-        vills = [dict(v) for v in villains_base]
+        vills = _seats_at_decision(best, dec_i)
         if to_call_bb > 0:
             agg_pos, agg_bet = _decision_aggressor(best, e)
             _mark_aggressor(vills, agg_pos, agg_bet, pos_stack)
@@ -1514,8 +1515,9 @@ def build_drill(telegram_id: int) -> dict | None:
         post = lines[flop_i:d["line_idx"]]
         story = ([pre_sum] if pre_sum else []) + post
 
-    # vilões ATIVOS (para a figura da mesa): quem entrou no pote sem foldar
-    villains = _active_villains(h)
+    # a mesa COMPLETA no momento da decisão: todos os jogadores, foldados
+    # esmaecidos — a figura não pode "mentir" o spot (multiway ≠ heads-up)
+    villains = _seats_at_decision(h, di)
 
     # o "vilão da vez": quem apostou/aumentou por último antes da decisão do
     # herói — a figura mostra as fichas dele na frente (situação completa).
@@ -1604,6 +1606,38 @@ def _mark_aggressor(villains: list[dict], agg_pos, agg_bet,
     villains.append({"pos": agg_pos, "stack_bb": pos_stack.get(agg_pos),
                      "bet_bb": agg_bet, "to_act": True})
     return villains
+
+
+def _seats_at_decision(h: CanonicalHand, di: int) -> list[dict]:
+    """TODOS os jogadores (menos o herói) no estado do MOMENTO da decisão di:
+    folded=True só se já tinha foldado ANTES daquele instante. Corrige a mesa
+    que 'mentia' o spot: um vilão ativo na decisão sumia da figura porque
+    foldava mais tarde na mão (multiway virava heads-up)."""
+    from app.models.canonical import ActionType
+
+    bb = h.stakes.big_blind or 1
+    folded: set = set()
+    ndec = 0
+    done = False
+    for st in h.streets:
+        for a in st.actions:
+            if a.actor == h.hero and a.type != ActionType.POST:
+                if ndec == di:
+                    done = True
+                    break
+                ndec += 1
+            elif a.type == ActionType.FOLD:
+                folded.add(a.actor)
+        if done:
+            break
+    out = []
+    for p in sorted(h.players, key=lambda p: p.seat):
+        if p.is_hero or p.name == h.hero:
+            continue
+        out.append({"pos": p.position or p.name[:6],
+                    "stack_bb": round(p.stack / bb, 1),
+                    "folded": p.name in folded})
+    return out
 
 
 def _active_villains(h: CanonicalHand) -> list[dict]:

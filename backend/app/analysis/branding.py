@@ -41,14 +41,19 @@ def _font(name: str, size: int):
 
 def draw_brand(d, y: float, *, left: float | None = None,
                right: float | None = None, size: int = 15,
-               link: bool = True) -> None:
+               link: bool = True, light: bool = False) -> None:
     """Desenha "♠ KKNuths · t.me/KKNUts_BOT" ancorado à esquerda OU à direita.
 
     `size` é a altura do nome; espada e link escalam junto.
+    `light=True` para fundos ESCUROS (mesa/storyboard): nome creme e espada
+    dourada clara — senão a marca some no verde escuro.
     """
     f_spade = _font("DejaVuSans-Bold.ttf", size + 2)
     f_name = _font("DejaVuSerif-Bold.ttf", size + 1)
     f_link = _font("DejaVuSans.ttf", max(10, size - 4))
+    c_spade = (208, 168, 92) if light else GOLD
+    c_name = (240, 242, 236) if light else INK
+    c_link = (150, 168, 158) if light else GREY
 
     spade, name = "♠ ", "KKNuths"
     tail = "  ·  t.me/KKNUts_BOT" if link else ""
@@ -57,10 +62,10 @@ def draw_brand(d, y: float, *, left: float | None = None,
              (d.textlength(tail, font=f_link) if tail else 0))
     x = (right - total) if right is not None else (left or 0)
 
-    d.text((x, y - 1), spade, fill=GOLD, font=f_spade)
+    d.text((x, y - 1), spade, fill=c_spade, font=f_spade)
     x += d.textlength(spade, font=f_spade)
-    d.text((x, y), name, fill=INK, font=f_name)
+    d.text((x, y), name, fill=c_name, font=f_name)
     x += d.textlength(name, font=f_name)
     if tail:
         d.text((x, y + (size - max(10, size - 4)) / 2 + 1), tail,
-               fill=GREY, font=f_link)
+               fill=c_link, font=f_link)
