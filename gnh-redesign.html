@@ -247,9 +247,16 @@ svg{display:block}
   .chip.c1{top:4%}.chip.c2{bottom:4%}
   /* hero más corto en móvil: el vídeo 16:9 no queda con zoom gigante */
   .hero{min-height:0}
-  .hero-inner{padding:104px 20px 56px}
-  .pillars{margin-top:44px}
-  .l-photo.video-on{opacity:.45}
+  .hero-inner{padding:88px 18px 40px}
+  .hero h1{font-size:clamp(28px,8vw,38px)}
+  .hero .sub{font-size:15.5px;margin:14px auto 24px}
+  .hero-cta .btn{min-height:44px;padding:10px 20px;font-size:15px}
+  .pillars{margin-top:32px;gap:10px}
+  .pillar{padding:16px 10px}
+  .pillar .ic{width:38px;height:38px;margin-bottom:8px}
+  .pillar .ic svg{width:19px;height:19px}
+  .pillar h3{font-size:13px}
+  .l-photo.video-on{opacity:.4}
   .scroll-cue{display:none}
 }
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}

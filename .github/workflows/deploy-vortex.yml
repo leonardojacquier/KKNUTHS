@@ -1,27 +1,32 @@
 name: Deploy para vortex369
 
-# Disparo manual (Actions → Run workflow). Único secret necessário:
-# VORTEX_SSH_KEY — chave privada SSH com acesso ao VPS.
-# Para deploy automático a cada push, descomente o bloco "push".
+# Deploy automático a cada push na branch do site + botão manual.
+# Único secret necessário: VORTEX_SSH_KEY (chave privada com acesso ao VPS).
+# Sem o secret, o workflow passa em verde e apenas avisa que pulou o deploy.
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [claude/professional-website-design-qqgnfg]
-  #   paths: ['gnh-redesign.html', 'assets/**']
-
-env:
-  VORTEX_HOST: srv1555380.hstgr.cloud
-  VORTEX_USER: root
-  VORTEX_PATH: /opt/gnh
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      VORTEX_HOST: srv1555380.hstgr.cloud
+      VORTEX_USER: root
+      VORTEX_PATH: /opt/gnh
+      HAS_KEY: ${{ secrets.VORTEX_SSH_KEY != '' }}
     steps:
+      - name: Secret ausente — deploy pulado
+        if: env.HAS_KEY != 'true'
+        run: echo "VORTEX_SSH_KEY não configurado em Settings → Secrets. Deploy pulado."
+
       - name: Baixar código
+        if: env.HAS_KEY == 'true'
         uses: actions/checkout@v4
 
       - name: Configurar chave SSH
+        if: env.HAS_KEY == 'true'
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" > ~/.ssh/deploy_key
@@ -29,10 +34,8 @@ jobs:
           ssh-keyscan -H "$VORTEX_HOST" >> ~/.ssh/known_hosts
 
       - name: Enviar site e definir index.html
+        if: env.HAS_KEY == 'true'
         run: |
           tar czf - gnh-redesign.html assets \
             | ssh -i ~/.ssh/deploy_key "$VORTEX_USER@$VORTEX_HOST" \
-                "mkdir -p $VORTEX_PATH && tar xzf - -C $VORTEX_PATH && cd $VORTEX_PATH && cp gnh-redesign.html index.html && md5sum index.html"
-
-      - name: Verificar md5
-        run: md5sum gnh-redesign.html
+                "mkdir -p $VORTEX_PATH && tar xzf - -C $VORTEX_PATH && cd $VORTEX_PATH && cp gnh-redesign.html index.html && echo 'Deploy OK —' \$(md5sum index.html | cut -c1-10)"
