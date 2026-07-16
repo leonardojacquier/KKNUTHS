@@ -106,8 +106,10 @@ def main() -> None:
     n = 0
     for tpl, gen in by_tpl.items():
         datauri = gen()
+        # casa QUALQUER src (blob morto na 1ª rodada; data-URI nas seguintes)
+        # — o script fica re-executável quando os gráficos mudam de tema
         pat = re.compile(
-            r'(<img data-dc-tpl="' + tpl + r'"[^>]*?src=")blob:null/[^"]*(")')
+            r'(<img data-dc-tpl="' + tpl + r'"[^>]*?src=")[^"]*(")')
         html, cnt = pat.subn(lambda m: m.group(1) + datauri + m.group(2), html)
         if cnt != 1:
             print(f"AVISO tpl {tpl}: {cnt} substituições (esperado 1)")

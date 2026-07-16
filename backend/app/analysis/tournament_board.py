@@ -22,16 +22,18 @@ CHART_Y, CHART_H = 360, 240
 _KPI_REF = {"VPIP": "típico 15–25%", "PFR": "típico 10–20%",
             "3-bet": "típico 5–9%", "agressão (AF)": "típico 1.5–3"}
 
-PAPER = (250, 250, 247)
-CARD = (241, 243, 239)
-INK = (27, 33, 29)
-GREY_TEXT = (130, 138, 132)
-GRID = (225, 228, 223)
-FELT = (30, 107, 74)
-FELT_DARK = (16, 58, 40)
-GOLD = (166, 126, 53)
-RED = (168, 58, 46)
-GREEN = (46, 125, 91)
+# TEMA ESCURO unificado — mesma identidade da mesa/storyboard (as peças
+# claras davam "flashbang" no dark mode do Telegram)
+PAPER = (18, 40, 32)            # canvas escuro (nome mantido p/ o resto do código)
+CARD = (26, 52, 42)             # painel de KPI
+INK = (240, 242, 236)           # texto principal (creme)
+GREY_TEXT = (150, 168, 158)     # texto secundário
+GRID = (44, 66, 56)             # linhas de grade
+FELT = (96, 190, 140)           # pontos da curva (verde claro p/ fundo escuro)
+FELT_DARK = (140, 214, 176)     # linha da curva
+GOLD = (208, 168, 92)
+RED = (214, 96, 84)
+GREEN = (88, 190, 120)
 
 
 def _font(size: int, bold: bool = True):
@@ -182,7 +184,7 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
             d.text((x + 14, y0 + 50), lab, fill=GREY_TEXT, font=f_kpi_l)
             ref_txt = _KPI_REF.get(lab)
             if ref_txt:
-                d.text((x + 14, y0 + 68), ref_txt, fill=(170, 176, 170),
+                d.text((x + 14, y0 + 68), ref_txt, fill=(110, 130, 120),
                        font=f_ref)
 
     # --------------------------- curva do stack ---------------------------
@@ -212,7 +214,7 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         # da curva
         if ymax > 10:
             y10 = CHART_Y + CHART_H - (10 / ymax) * CHART_H
-            d.line([PAD_L, y10, W - PAD_R, y10], fill=(224, 190, 186), width=2)
+            d.line([PAD_L, y10, W - PAD_R, y10], fill=(116, 62, 56), width=2)
             d.text((PAD_L + 6, y10 - 16), "zona de shove (<10bb)", fill=RED,
                    font=f_lab)
 
@@ -224,7 +226,7 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         # área sob a curva; com muitas mãos os marcadores viram poluição —
         # mostra 1 a cada N e o ponto final
         poly = pts + [(pts[-1][0], CHART_Y + CHART_H), (pts[0][0], CHART_Y + CHART_H)]
-        d.polygon(poly, fill=(208, 228, 218))
+        d.polygon(poly, fill=(28, 72, 54))
         d.line(pts, fill=FELT_DARK, width=3)
         step = max(1, len(pts) // 36)
         for i, p in enumerate(pts):
@@ -258,7 +260,7 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
 
     from app.analysis.branding import draw_brand
 
-    draw_brand(d, H - 30, left=PAD_L)
+    draw_brand(d, H - 30, left=PAD_L, light=True)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
 

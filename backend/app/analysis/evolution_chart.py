@@ -15,15 +15,16 @@ TOP_H = 250      # painel das linhas
 GAP = 56
 BOT_H = 110      # painel do net acumulado
 
-PAPER = (250, 250, 247)
-INK = (27, 33, 29)
-GREY_TEXT = (130, 138, 132)
-GRID = (225, 228, 223)
-FELT = (30, 107, 74)
-GOLD = (166, 126, 53)
-BLUE = (70, 105, 150)
-RED = (168, 58, 46)
-GREEN = (46, 125, 91)
+# TEMA ESCURO unificado (mesma identidade da mesa/storyboard)
+PAPER = (18, 40, 32)
+INK = (240, 242, 236)
+GREY_TEXT = (150, 168, 158)
+GRID = (44, 66, 56)
+FELT = (96, 190, 140)
+GOLD = (208, 168, 92)
+BLUE = (110, 156, 210)
+RED = (214, 96, 84)
+GREEN = (88, 190, 120)
 
 
 def _font(size: int, bold: bool = True):
@@ -116,7 +117,7 @@ def render_evolution_png(history: list[dict], title: str = "Sua evolução") -> 
 
     from app.analysis.branding import draw_brand
 
-    draw_brand(d, H - 26, left=PAD_L)
+    draw_brand(d, H - 26, left=PAD_L, light=True)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
@@ -189,7 +190,7 @@ def render_indicator_png(history: list[dict], indicator: str) -> bytes | None:
 
     from app.analysis.branding import draw_brand
 
-    draw_brand(d, Hi - 28, left=PAD_L)
+    draw_brand(d, Hi - 28, left=PAD_L, light=True)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()

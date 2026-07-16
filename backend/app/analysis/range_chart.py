@@ -17,14 +17,20 @@ MARGIN = 16
 TITLE_H = 54
 LEGEND_H = 40
 
-# paleta do produto
+# paleta do produto — TEMA ESCURO unificado (mesma identidade da mesa e do
+# storyboard; no dark mode do Telegram as peças claras davam "flashbang").
+# As CÉLULAS continuam claras — cartas sobre o feltro — o que preserva o
+# contraste do texto dentro delas.
 FELT = (30, 107, 74)
 FELT_DARK = (16, 58, 40)
-GOLD = (166, 126, 53)
-PAPER = (250, 250, 247)
-INK = (27, 33, 29)
-GREY = (225, 228, 223)
-GREY_TEXT = (130, 138, 132)
+GOLD = (208, 168, 92)
+DARK_BG = (18, 40, 32)          # canvas (mesmo BG da mesa)
+CREAM = (240, 242, 236)         # títulos
+MUTED = (150, 168, 158)         # subtítulos/legendas
+PAPER = (250, 250, 247)         # texto sobre célula escura
+INK = (27, 33, 29)              # texto sobre célula clara
+GREY = (225, 228, 223)          # célula de fold (clara, como carta virada)
+GREY_TEXT = (130, 138, 132)     # texto na célula de fold
 
 
 def _font(size: int, bold: bool = True):
@@ -66,7 +72,7 @@ def render_range_png(
     """Renderiza o range como PNG. `freqs`: mão canônica -> frequência (0..1)."""
     size = MARGIN * 2 + CELL * 13
     height = TITLE_H + size + LEGEND_H
-    img = Image.new("RGB", (size, height), PAPER)
+    img = Image.new("RGB", (size, height), DARK_BG)
     d = ImageDraw.Draw(img)
 
     f_title = _font(24)
@@ -74,9 +80,9 @@ def render_range_png(
     f_cell = _font(15)
     f_pct = _font(11, bold=False)
 
-    d.text((MARGIN, 10), title, fill=INK, font=f_title)
+    d.text((MARGIN, 10), title, fill=CREAM, font=f_title)
     if subtitle:
-        d.text((MARGIN, 36), subtitle, fill=GREY_TEXT, font=f_sub)
+        d.text((MARGIN, 36), subtitle, fill=MUTED, font=f_sub)
 
     top = TITLE_H
     total_combos = in_range = 0.0
@@ -104,15 +110,15 @@ def render_range_png(
 
     pct = 100 * in_range / total_combos
     d.text((MARGIN, top + size - MARGIN + 6),
-           f"{pct:.1f}% dos combos no range", fill=GREY_TEXT, font=f_sub)
+           f"{pct:.1f}% dos combos no range", fill=MUTED, font=f_sub)
     # "como ler" — a âncora que faltava pra quem nunca viu a matriz
     d.text((MARGIN, top + size - MARGIN + 22),
            "verde = joga (tom escuro = sempre; % = frequência) · cinza = fold · "
            "s = mesmo naipe, o = naipes diferentes",
-           fill=GREY_TEXT, font=_font(11, bold=False))
+           fill=MUTED, font=_font(11, bold=False))
     from app.analysis.branding import draw_brand, paste_logo
 
-    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN)
+    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, light=True)
     paste_logo(img, size - MARGIN, 6, 48)
 
     buf = io.BytesIO()
@@ -145,7 +151,7 @@ def render_ev_range_png(
     ante · bf 1.5") — protege contra "esse número tá errado" sem contexto."""
     size = MARGIN * 2 + CELL * 13
     height = TITLE_H + size + LEGEND_H
-    img = Image.new("RGB", (size, height), PAPER)
+    img = Image.new("RGB", (size, height), DARK_BG)
     d = ImageDraw.Draw(img)
 
     f_title = _font(24)
@@ -153,8 +159,8 @@ def render_ev_range_png(
     f_cell = _font(14)
     f_ev = _font(11, bold=False)
 
-    d.text((MARGIN, 10), title, fill=INK, font=f_title)
-    d.text((MARGIN, 36), subtitle, fill=GREY_TEXT, font=f_sub)
+    d.text((MARGIN, 10), title, fill=CREAM, font=f_title)
+    d.text((MARGIN, 36), subtitle, fill=MUTED, font=f_sub)
 
     deltas = [abs(evs.get(_cell_hand(r, c), fold_ev) - fold_ev)
               for r in range(13) for c in range(13)]
@@ -183,13 +189,13 @@ def render_ev_range_png(
 
     d.text((MARGIN, top + size - MARGIN + 6),
            "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; "
-           "vermelho: foldar; cinza: tanto faz)", fill=GREY_TEXT, font=f_sub)
+           "vermelho: foldar; cinza: tanto faz)", fill=MUTED, font=f_sub)
     if premises:
         d.text((MARGIN, top + size - MARGIN + 24), premises,
-               fill=GREY_TEXT, font=_font(11, bold=False))
+               fill=MUTED, font=_font(11, bold=False))
     from app.analysis.branding import draw_brand, paste_logo
 
-    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, link=False)
+    draw_brand(d, top + size - MARGIN + 4, right=size - MARGIN, link=False, light=True)
     paste_logo(img, size - MARGIN, 6, 48)
     buf = io.BytesIO()
     img.save(buf, format="PNG")

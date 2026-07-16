@@ -14,13 +14,14 @@ from app.analysis.pro_styles import ARCHETYPES, match_pro_style
 W, H = 900, 560
 PAD_L, PAD_R = 56, 36
 
-PAPER = (250, 250, 247)
-CARD = (241, 243, 239)
-INK = (27, 33, 29)
-GREY_TEXT = (130, 138, 132)
-GRID = (225, 228, 223)
-FELT = (30, 107, 74)
-GOLD = (166, 126, 53)
+# TEMA ESCURO unificado (mesma identidade da mesa/storyboard)
+PAPER = (18, 40, 32)
+CARD = (26, 52, 42)
+INK = (240, 242, 236)
+GREY_TEXT = (150, 168, 158)
+GRID = (44, 66, 56)
+FELT = (96, 190, 140)
+GOLD = (208, 168, 92)
 
 
 def _font(size: int, bold: bool = True):
@@ -101,7 +102,7 @@ def render_style_png(vpip: float, pfr: float, af: float, three_bet: float) -> by
            fill=GREY_TEXT, font=f_sub)
     from app.analysis.branding import draw_brand
 
-    draw_brand(d, H - 30, right=W - 24)
+    draw_brand(d, H - 30, right=W - 24, light=True)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
