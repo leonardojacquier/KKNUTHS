@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GNH — Generando Nuevos Horizontes</title>
+<meta name="description" content="Importación, exportación, distribución y transporte con agilidad y confianza. GNH — Generando Nuevos Horizontes.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GNH — Generando Nuevos Horizontes">
+<meta property="og:description" content="Tu aliado estratégico para el crecimiento">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GNH Redesign — identidad original (navy + naranja + globo)
+   con motion moderno: parallax, reveals con stagger, glass nav.
+   ============================================================ */
+:root{
+  --navy:#1B2A5E;
+  --navy-2:#24357a;
+  --navy-deep:#0E1730;
+  --navy-ink:#0a1024;
+  --orange:#F26D21;
+  --orange-soft:#ff8a45;
+  --orange-tint:rgba(242,109,33,.12);
+  --paper:#f7f8fb;
+  --ink:#141821;
+  --muted:#5d6472;
+  --line:#e6e9f0;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --font-head:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-body);font-size:17px;line-height:1.6;
+  color:var(--ink);background:var(--navy-deep);
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-head);font-weight:700;letter-spacing:-.02em;line-height:1.12}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:4px}
+svg{display:block}
+
+/* ---------- NAV ---------- */
+.nav{
+  position:fixed;inset:0 0 auto 0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 26px;transition:background .4s var(--ease),padding .4s var(--ease),box-shadow .4s;
+}
+.nav.scrolled{
+  background:rgba(14,23,48,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  padding:10px 26px;box-shadow:0 1px 0 rgba(255,255,255,.07),0 12px 40px -18px rgba(0,0,0,.6);
+}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;min-height:44px}
+.logo svg{height:42px;width:auto}
+.nav-links{display:flex;gap:6px;list-style:none}
+.nav-links a{
+  display:inline-block;padding:10px 14px;min-height:44px;
+  color:rgba(255,255,255,.78);text-decoration:none;font-weight:500;font-size:15.5px;
+  border-radius:10px;transition:color .25s,background .25s;cursor:pointer;
+}
+.nav-links a:hover{color:#fff;background:rgba(255,255,255,.08)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:48px;padding:12px 26px;border-radius:100px;border:0;cursor:pointer;
+  background:var(--orange);color:#fff;text-decoration:none;
+  font-family:var(--font-head);font-weight:600;font-size:16px;
+  box-shadow:0 10px 26px -8px rgba(242,109,33,.55);
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease),background .3s;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px -8px rgba(242,109,33,.65);background:var(--orange-soft)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.3);box-shadow:none;color:#fff}
+.btn-ghost:hover{background:rgba(255,255,255,.09);box-shadow:none;border-color:rgba(255,255,255,.5)}
+.nav .btn{min-height:44px;padding:10px 22px;font-size:15px}
+.menu-toggle{display:none;background:none;border:0;cursor:pointer;padding:10px;min-width:44px;min-height:44px}
+.menu-toggle svg{stroke:#fff}
+@media(max-width:900px){
+  .nav-links{
+    position:fixed;top:64px;right:16px;flex-direction:column;
+    background:rgba(14,23,48,.97);backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px;
+    transform:translateY(-12px);opacity:0;pointer-events:none;transition:all .3s var(--ease);
+  }
+  .nav-links.open{transform:none;opacity:1;pointer-events:auto}
+  .menu-toggle{display:grid;place-items:center}
+  .nav .btn{display:none}
+}
+
+/* ---------- HERO (capas parallax) ---------- */
+.hero{
+  position:relative;min-height:100svh;display:flex;align-items:center;
+  overflow:hidden;color:#fff;text-align:center;
+}
+.layer{position:absolute;inset:-12% 0;will-change:transform;pointer-events:none}
+.l-sky{
+  background:
+    radial-gradient(1100px 560px at 70% -10%,rgba(242,109,33,.26),transparent 62%),
+    radial-gradient(900px 500px at 15% 10%,rgba(36,53,122,.55),transparent 60%),
+    linear-gradient(180deg,#15224e 0%,var(--navy-deep) 58%,var(--navy-ink) 100%);
+}
+.l-grid{
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:72px 72px;
+  -webkit-mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000,transparent 76%);
+  mask-image:radial-gradient(ellipse 75% 62% at 50% 42%,#000,transparent 76%);
+}
+.l-globe{display:grid;place-items:center;opacity:.16}
+.l-globe svg{width:min(78vmin,720px);height:auto;animation:slow-spin 90s linear infinite;transform-origin:center}
+@keyframes slow-spin{to{transform:rotate(360deg)}}
+.l-horizon{
+  top:auto;bottom:-2px;height:38%;
+  background:linear-gradient(180deg,rgba(27,42,94,.0),rgba(10,16,36,.9) 55%,var(--navy-ink));
+}
+.hero-inner{position:relative;z-index:5;width:100%;padding:120px 24px 90px;will-change:transform}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--font-head);font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--orange-soft);background:var(--orange-tint);
+  border:1px solid rgba(242,109,33,.35);border-radius:100px;padding:9px 18px;margin-bottom:26px;
+}
+.eyebrow svg{width:14px;height:14px}
+.hero h1{font-size:clamp(38px,6.4vw,76px);font-weight:800;max-width:900px;margin:0 auto}
+.hero h1 .grad{
+  background:linear-gradient(115deg,var(--orange-soft) 10%,#ffc79b 90%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero .sub{max-width:640px;margin:22px auto 36px;font-size:clamp(17px,2vw,21px);color:rgba(255,255,255,.75)}
+.hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+/* pilares */
+.pillars{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;max-width:1020px;margin:70px auto 0}
+@media(max-width:960px){.pillars{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.pillars{grid-template-columns:repeat(2,1fr)}}
+.pillar{
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;padding:22px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:transform .35s var(--ease),background .35s,border-color .35s;cursor:default;
+}
+.pillar:hover{transform:translateY(-6px);background:rgba(255,255,255,.09);border-color:rgba(242,109,33,.5)}
+.pillar .ic{
+  width:46px;height:46px;margin:0 auto 12px;border-radius:13px;
+  background:linear-gradient(135deg,var(--orange),var(--orange-soft));
+  display:grid;place-items:center;box-shadow:0 8px 20px -6px rgba(242,109,33,.55);
+}
+.pillar .ic svg{width:23px;height:23px;stroke:#fff}
+.pillar h3{font-size:14.5px;font-weight:600;color:rgba(255,255,255,.92);line-height:1.35}
+.scroll-cue{
+  position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:6;
+  color:rgba(255,255,255,.45);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  display:flex;flex-direction:column;align-items:center;gap:8px;font-family:var(--font-head);
+}
+.scroll-cue .dot{width:5px;height:5px;border-radius:50%;background:var(--orange);animation:fall 1.9s var(--ease) infinite}
+@keyframes fall{0%{transform:translateY(0);opacity:0}30%{opacity:1}100%{transform:translateY(20px);opacity:0}}
+
+/* ---------- Reveals ---------- */
+.reveal{opacity:0;transform:translateY(42px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}.d4{transition-delay:.32s}.d5{transition-delay:.4s}
+
+/* ---------- Secciones claras ---------- */
+.section{background:var(--paper);padding:110px 0;position:relative}
+.section.alt{background:#fff}
+.tag{
+  display:inline-block;font-family:var(--font-head);font-weight:600;font-size:13px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--orange);
+  background:var(--orange-tint);border-radius:100px;padding:7px 16px;margin-bottom:16px;
+}
+.section h2{font-size:clamp(30px,4.4vw,48px);color:var(--navy);margin-bottom:16px}
+.lead{font-size:19px;color:var(--muted);max-width:640px}
+
+/* About */
+.about-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+@media(max-width:900px){.about-grid{grid-template-columns:1fr}}
+.about ul{list-style:none;margin:26px 0;display:grid;gap:14px}
+.about li{display:flex;gap:12px;align-items:flex-start;font-size:17.5px}
+.about li svg{width:22px;height:22px;stroke:var(--orange);flex-shrink:0;margin-top:3px}
+.link-cta{
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;
+  color:var(--navy);font-family:var(--font-head);font-weight:600;text-decoration:none;
+  border-bottom:2px solid var(--orange);padding:4px 2px;cursor:pointer;background:none;border-top:0;border-left:0;border-right:0;
+  font-size:16.5px;transition:color .25s,gap .25s;
+}
+.link-cta:hover{color:var(--orange);gap:12px}
+.about-visual{position:relative}
+.about-visual .frame{
+  border-radius:24px;overflow:hidden;aspect-ratio:5/4;position:relative;
+  background:
+    radial-gradient(600px 300px at 80% 0%,rgba(242,109,33,.3),transparent 60%),
+    linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 55%,var(--navy-deep) 100%);
+  box-shadow:0 40px 80px -30px rgba(27,42,94,.45);
+  display:grid;place-items:center;
+}
+.about-visual .frame svg{width:62%;height:auto;opacity:.95}
+.about-visual .chip{
+  position:absolute;background:#fff;border-radius:16px;padding:14px 20px;
+  box-shadow:0 20px 44px -16px rgba(20,24,33,.3);
+  font-family:var(--font-head);font-weight:600;color:var(--navy);font-size:15px;
+  display:flex;align-items:center;gap:10px;animation:float 6s ease-in-out infinite;
+}
+.about-visual .chip svg{width:20px;height:20px;stroke:var(--orange)}
+.chip.c1{top:8%;left:-6%}
+.chip.c2{bottom:10%;right:-5%;animation-delay:-3s}
+@media(max-width:900px){.chip.c1{left:2%}.chip.c2{right:2%}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+
+/* Marquee alianzas */
+.band{background:var(--navy-deep);padding:64px 0;overflow:hidden}
+.band h2{color:#fff;text-align:center;font-size:clamp(22px,3vw,30px);margin-bottom:8px}
+.band p{text-align:center;color:rgba(255,255,255,.55);margin-bottom:38px}
+.marquee{display:flex;gap:18px;width:max-content;animation:scroll-x 28s linear infinite}
+.marquee:hover{animation-play-state:paused}
+@keyframes scroll-x{to{transform:translateX(-50%)}}
+.m-item{
+  display:flex;align-items:center;gap:12px;white-space:nowrap;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);
+  border-radius:100px;padding:14px 28px;color:#fff;text-decoration:none;
+  font-family:var(--font-head);font-weight:600;font-size:16px;min-height:48px;
+  transition:background .3s,border-color .3s,transform .3s var(--ease);
+}
+.m-item:hover{background:rgba(242,109,33,.18);border-color:var(--orange);transform:translateY(-3px)}
+.m-item svg{width:18px;height:18px;stroke:var(--orange-soft)}
+
+/* Servicios */
+.svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px}
+@media(max-width:960px){.svc-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.svc-grid{grid-template-columns:1fr}}
+.svc{
+  background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 28px;
+  transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .45s;
+  position:relative;overflow:hidden;
+}
+.svc::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:4px;
+  background:linear-gradient(90deg,var(--orange),var(--orange-soft));
+  transform:scaleX(0);transform-origin:left;transition:transform .45s var(--ease);
+}
+.svc:hover{transform:translateY(-8px);box-shadow:0 30px 60px -22px rgba(27,42,94,.28);border-color:transparent}
+.svc:hover::before{transform:scaleX(1)}
+.svc .ic{
+  width:54px;height:54px;border-radius:15px;margin-bottom:20px;
+  background:linear-gradient(135deg,var(--navy),var(--navy-2));
+  display:grid;place-items:center;transition:background .4s;
+}
+.svc .ic svg{width:26px;height:26px;stroke:#fff}
+.svc:hover .ic{background:linear-gradient(135deg,var(--orange),var(--orange-soft))}
+.svc h3{font-size:20px;color:var(--navy);margin-bottom:10px}
+.svc p{color:var(--muted);font-size:16px}
+
+/* CTA WhatsApp */
+.cta{
+  position:relative;padding:110px 0;text-align:center;color:#fff;overflow:hidden;
+  background:
+    radial-gradient(800px 420px at 50% 0%,rgba(242,109,33,.3),transparent 62%),
+    linear-gradient(180deg,var(--navy) 0%,var(--navy-deep) 100%);
+}
+.cta h2{font-size:clamp(28px,4.4vw,46px);color:#fff}
+.cta p{color:rgba(255,255,255,.72);font-size:19px;max-width:540px;margin:16px auto 34px}
+.btn-wa{background:#22c15e;box-shadow:0 10px 26px -8px rgba(34,193,94,.55)}
+.btn-wa:hover{background:#2ad06b;box-shadow:0 16px 34px -8px rgba(34,193,94,.6)}
+.btn-wa svg{width:20px;height:20px;fill:#fff}
+
+/* Contacto */
+.contact-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:44px;margin-top:52px}
+@media(max-width:900px){.contact-grid{grid-template-columns:1fr}}
+.info-card{
+  display:flex;gap:16px;align-items:flex-start;background:#fff;border:1px solid var(--line);
+  border-radius:18px;padding:22px;margin-bottom:16px;text-decoration:none;
+  transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s;
+}
+.info-card:hover{transform:translateX(6px);box-shadow:0 18px 40px -18px rgba(27,42,94,.25);border-color:rgba(242,109,33,.45)}
+.info-card .ic{
+  width:48px;height:48px;border-radius:13px;flex-shrink:0;
+  background:var(--orange-tint);display:grid;place-items:center;
+}
+.info-card .ic svg{width:23px;height:23px;stroke:var(--orange)}
+.info-card .ic svg.fill{fill:var(--orange);stroke:none}
+.info-card h3{font-size:16px;color:var(--navy);margin-bottom:2px}
+.info-card p{color:var(--muted);font-size:16px}
+.form-card{
+  background:#fff;border:1px solid var(--line);border-radius:22px;padding:34px;
+  box-shadow:0 30px 70px -34px rgba(27,42,94,.3);
+}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.f-row{grid-template-columns:1fr}}
+.field{margin-bottom:16px}
+.field label{display:block;font-family:var(--font-head);font-weight:600;font-size:14px;color:var(--navy);margin-bottom:7px}
+.field input,.field textarea{
+  width:100%;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);
+  padding:13px 15px;font:inherit;color:var(--ink);min-height:48px;
+  transition:border-color .25s,box-shadow .25s,background .25s;
+}
+.field textarea{resize:vertical;min-height:140px}
+.field input:focus,.field textarea:focus{
+  outline:none;border-color:var(--orange);background:#fff;
+  box-shadow:0 0 0 4px rgba(242,109,33,.15);
+}
+.form-status{display:none;margin-bottom:16px;border-radius:12px;padding:13px 16px;font-size:15.5px}
+.form-status.err{display:block;background:#fdecea;color:#b3261e;border:1px solid #f5c6c2}
+.form-status.ok{display:block;background:#e8f7ee;color:#1c7c43;border:1px solid #bfe8cf}
+
+/* Footer */
+footer{background:var(--navy-ink);color:rgba(255,255,255,.6);padding:60px 0 0}
+.foot-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:40px;padding-bottom:44px}
+@media(max-width:800px){.foot-grid{grid-template-columns:1fr;text-align:center}
+  .foot-grid .logo{justify-content:center}.social{justify-content:center}}
+footer h4{color:#fff;font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
+footer p{font-size:15.5px;margin-bottom:8px}
+footer a{color:rgba(255,255,255,.75);text-decoration:none;transition:color .25s}
+footer a:hover{color:var(--orange-soft)}
+.social{display:flex;gap:12px;margin-top:18px}
+.social a{
+  width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  transition:background .3s,border-color .3s,transform .3s var(--ease);
+}
+.social a:hover{background:var(--orange);border-color:var(--orange);transform:translateY(-4px)}
+.social svg{width:20px;height:20px;fill:#fff}
+.copy{border-top:1px solid rgba(255,255,255,.09);padding:22px 0;text-align:center;font-size:14.5px}
+
+/* Modal (Carta CEO) */
+dialog{
+  border:0;border-radius:22px;padding:0;max-width:640px;width:calc(100vw - 40px);
+  box-shadow:0 40px 100px -20px rgba(0,0,0,.5);
+}
+dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
+.modal-head{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding:24px 28px 0;
+}
+.modal-head h3{color:var(--navy);font-size:22px}
+.modal-close{
+  background:var(--paper);border:0;border-radius:50%;width:44px;height:44px;
+  display:grid;place-items:center;cursor:pointer;transition:background .25s;flex-shrink:0;
+}
+.modal-close:hover{background:var(--line)}
+.modal-close svg{width:18px;height:18px;stroke:var(--ink)}
+.modal-body{padding:18px 28px 30px;max-height:62vh;overflow:auto;color:#3c4250;font-size:16.5px}
+.modal-body p{margin-bottom:14px}
+.modal-body .sign{font-family:var(--font-head);font-weight:600;color:var(--navy)}
+
+/* Scroll top */
+.scroll-top{
+  position:fixed;right:22px;bottom:22px;z-index:90;width:50px;height:50px;border-radius:50%;
+  background:var(--orange);border:0;cursor:pointer;display:grid;place-items:center;
+  box-shadow:0 12px 30px -8px rgba(242,109,33,.6);
+  opacity:0;transform:translateY(16px);pointer-events:none;
+  transition:opacity .35s,transform .35s var(--ease),background .3s;
+}
+.scroll-top.show{opacity:1;transform:none;pointer-events:auto}
+.scroll-top:hover{background:var(--orange-soft)}
+.scroll-top svg{width:22px;height:22px;stroke:#fff}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+  .layer,.hero-inner{transform:none!important}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ SVG sprite (iconos) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-binoculars"><path d="M7 10h4M13 10h4M9 4h6M10 4v3M14 4v3" fill="none" stroke-width="1.8" stroke-linecap="round"/><circle cx="6.5" cy="14.5" r="3.5" fill="none" stroke-width="1.8"/><circle cx="17.5" cy="14.5" r="3.5" fill="none" stroke-width="1.8"/><path d="M10 14h4" fill="none" stroke-width="1.8"/></g>
+    <g id="i-fingerprint"><path d="M12 11a3 3 0 0 0-3 3c0 2 .5 4.5 1.5 6M12 11a3 3 0 0 1 3 3c0 2.5-.3 5-1 7M12 7a7 7 0 0 0-7 7c0 1.5.2 3 .5 4M12 7a7 7 0 0 1 7 7c0 1.8-.2 3.5-.6 5M12 3a11 11 0 0 0-9.5 5.5" fill="none" stroke-width="1.7" stroke-linecap="round"/></g>
+    <g id="i-spark"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></g>
+    <g id="i-truck"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7" fill="none" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="1.8" fill="none" stroke-width="1.8"/><circle cx="17" cy="17.5" r="1.8" fill="none" stroke-width="1.8"/></g>
+    <g id="i-rocket"><path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2M14.5 4.5C17 3 21 3 21 3s0 4-1.5 6.5c-2 3.4-5.5 6.5-8 8L7 13c1.5-2.5 4.6-6 7.5-8.5z" fill="none" stroke-width="1.7" stroke-linejoin="round"/><circle cx="15.5" cy="8.5" r="1.6" fill="none" stroke-width="1.7"/></g>
+    <g id="i-globe"><circle cx="12" cy="12" r="9" fill="none" stroke-width="1.8"/><path d="M3 12h18M12 3c2.7 2.6 4 5.6 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.6-4-9s1.3-6.4 4-9z" fill="none" stroke-width="1.8"/></g>
+    <g id="i-check"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="i-handshake"><path d="M2 8l4-2 5 2 5.5-2L21 8M6 6v8l5 5 3-2.5M11 8l-3.5 3.5a1.6 1.6 0 0 0 2.3 2.3L12 12l4.5 4L18 14V6" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="i-market"><path d="M4 9l1.5-5h13L20 9M4 9v10h16V9M4 9h16M9 19v-5h6v5" fill="none" stroke-width="1.8" stroke-linejoin="round"/></g>
+    <g id="i-gear"><circle cx="12" cy="12" r="3.2" fill="none" stroke-width="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19" fill="none" stroke-width="1.8" stroke-linecap="round"/></g>
+    <g id="i-phone"><path d="M5 4h4l1.5 4.5L8 10a12 12 0 0 0 6 6l1.5-2.5L20 15v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></g>
+    <g id="i-mail"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke-width="1.8"/><path d="M3.5 7l8.5 6 8.5-6" fill="none" stroke-width="1.8" stroke-linecap="round"/></g>
+    <g id="i-arrow-up"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="i-arrow-r"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="i-close"><path d="M6 6l12 12M18 6L6 18" stroke-width="2.2" stroke-linecap="round"/></g>
+    <g id="i-menu"><path d="M4 7h16M4 12h16M4 17h16" stroke-width="2.2" stroke-linecap="round"/></g>
+    <g id="i-wa"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5 13.7c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a13 13 0 0 1-5.9-5.2c-.7-1.1-1.1-2.4-.6-3.1.2-.4.6-.6 1-.6h.7c.2 0 .5-.1.7.5l1 2.3c.1.2 0 .4-.1.6l-.5.7c-.2.2-.3.4-.1.7a9.6 9.6 0 0 0 3.6 3.2c.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2.2 1c.2.1.4.2.4.4 0 .1 0 .8-.3 1.6z"/></g>
+    <g id="i-ig"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.3"/></g>
+    <g id="i-fb"><path d="M14 8h3V4h-3a4.5 4.5 0 0 0-4.5 4.5V11H7v4h2.5v7h4v-7H17l.7-4h-4.2V8.8A.8.8 0 0 1 14 8z"/></g>
+  </defs>
+</svg>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav" aria-label="Principal">
+  <a href="#hero" class="logo" aria-label="GNH — inicio">
+    <!-- Logo GNH: globo + arco naranja (versión clara para fondo oscuro) -->
+    <svg viewBox="0 0 230 80" role="img" aria-label="GNH">
+      <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
+      <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
+      <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
+      <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
+      <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
+      <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <text x="78" y="57" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+    </svg>
+  </a>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#about">Acerca</a></li>
+    <li><a href="#alianzas">Alianzas</a></li>
+    <li><a href="#servicios">Servicios</a></li>
+    <li><a href="#contacto">Contacto</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a class="btn" href="#contacto">Hablemos</a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none"><use href="#i-menu"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="hero">
+  <div class="layer l-sky" data-speed="0.14"></div>
+  <div class="layer l-globe" data-speed="0.3" aria-hidden="true">
+    <svg viewBox="0 0 200 200" fill="none">
+      <circle cx="100" cy="100" r="88" stroke="#fff" stroke-width="1"/>
+      <ellipse cx="100" cy="100" rx="50" ry="88" stroke="#fff" stroke-width=".8"/>
+      <ellipse cx="100" cy="100" rx="88" ry="50" stroke="#fff" stroke-width=".8"/>
+      <line x1="12" y1="100" x2="188" y2="100" stroke="#fff" stroke-width=".8"/>
+      <line x1="100" y1="12" x2="100" y2="188" stroke="#fff" stroke-width=".8"/>
+      <path d="M 30 55 Q 100 10 170 55" stroke="#F26D21" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="layer l-grid" data-speed="0.42"></div>
+  <div class="layer l-horizon" data-speed="0.55"></div>
+
+  <div class="hero-inner" data-speed="-0.18">
+    <span class="eyebrow reveal in">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg>
+      Generando Nuevos Horizontes
+    </span>
+    <h1 class="reveal in d1">Tu aliado estratégico<br>para el <span class="grad">crecimiento</span></h1>
+    <p class="sub reveal in d2">Integramos importación, exportación, distribución y transporte con agilidad y confianza.</p>
+    <div class="hero-cta reveal in d3">
+      <a class="btn" href="#contacto">Hablar con un experto
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#servicios">Nuestros servicios</a>
+    </div>
+
+    <div class="pillars">
+      <div class="pillar reveal d1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-binoculars"/></svg></div><h3>Visión 360</h3></div>
+      <div class="pillar reveal d2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-fingerprint"/></svg></div><h3>Lealtad y Confiabilidad</h3></div>
+      <div class="pillar reveal d3"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-spark"/></svg></div><h3>Innovación y Emprendimiento</h3></div>
+      <div class="pillar reveal d4"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div><h3>x-Supply</h3></div>
+      <div class="pillar reveal d5"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-rocket"/></svg></div><h3>Resultados Reales</h3></div>
+    </div>
+  </div>
+  <div class="scroll-cue" aria-hidden="true">Desliza<span class="dot"></span></div>
+</header>
+
+<!-- ============ ACERCA ============ -->
+<section class="section" id="about">
+  <div class="wrap about">
+    <div class="about-grid">
+      <div>
+        <span class="tag reveal">Acerca de GNH</span>
+        <h2 class="reveal d1">Importación y distribución con visión global</h2>
+        <p class="lead reveal d2">GNH (Generando Nuevos Horizontes) es una empresa dedicada a la importación y distribución de productos estratégicos, con origen en el sector de materiales de construcción y una vocación orientada a oportunidades emergentes.</p>
+        <ul>
+          <li class="reveal d2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Comprometida con innovación.</li>
+          <li class="reveal d3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Expansiones inteligentes.</li>
+          <li class="reveal d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Visión del comercio global.</li>
+        </ul>
+        <p class="reveal d4" style="color:var(--muted);margin-bottom:24px">Brindamos soluciones eficientes al mercado a través de importaciones responsables, estableciendo alianzas confiables y explorando nuevos horizontes comerciales.</p>
+        <button class="link-cta reveal d5" id="openCeo">
+          Carta del CEO – GNH
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg>
+        </button>
+      </div>
+      <div class="about-visual reveal d2">
+        <div class="frame">
+          <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <circle cx="100" cy="100" r="82" stroke="rgba(255,255,255,.85)" stroke-width="3"/>
+            <ellipse cx="100" cy="100" rx="45" ry="82" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
+            <line x1="18" y1="100" x2="182" y2="100" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
+            <line x1="25" y1="62" x2="175" y2="62" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>
+            <line x1="25" y1="138" x2="175" y2="138" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>
+            <path d="M 32 40 Q 100 -4 168 40" stroke="#F26D21" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="chip c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg> Comercio global</div>
+        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg> Logística confiable</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ALIANZAS ============ -->
+<section class="band" id="alianzas">
+  <div class="wrap reveal">
+    <h2>Nuestras Alianzas</h2>
+    <p>Marcas y socios que confían en GNH</p>
+  </div>
+  <div class="marquee" aria-label="Alianzas de GNH">
+    <!-- pista 1 -->
+    <a class="m-item" href="https://gnhorizons.com/alianza/camargo-quimica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Camargo Química</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/cecon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>CECON</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/hormigomix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Hormigomix</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/rodosafra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Rodosafra</a>
+    <!-- pista 2 (duplicada para loop continuo) -->
+    <a class="m-item" href="https://gnhorizons.com/alianza/camargo-quimica" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Camargo Química</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/cecon" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>CECON</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/hormigomix" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Hormigomix</a>
+    <a class="m-item" href="https://gnhorizons.com/alianza/rodosafra" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg>Rodosafra</a>
+  </div>
+</section>
+
+<!-- ============ SERVICIOS ============ -->
+<section class="section alt" id="servicios">
+  <div class="wrap">
+    <span class="tag reveal">Servicios</span>
+    <h2 class="reveal d1">Descubra nuestros servicios</h2>
+    <p class="lead reveal d2">Cinco frentes integrados para llevar productos estratégicos del origen al mercado.</p>
+
+    <div class="svc-grid">
+      <div class="svc reveal d1">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
+        <h3>Importación Estratégica</h3>
+        <p>Selección y nacionalización de productos con alto potencial.</p>
+      </div>
+      <div class="svc reveal d2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
+        <h3>Distribución Inteligente</h3>
+        <p>Logística ágil y controlada para el mercado mayorista.</p>
+      </div>
+      <div class="svc reveal d3">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
+        <h3>Parcerias Comerciales</h3>
+        <p>Representación de marcas internacionales con foco local.</p>
+      </div>
+      <div class="svc reveal d2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-market"/></svg></div>
+        <h3>Expansión de Mercado</h3>
+        <p>Exploramos nuevos canales para productos estratégicos.</p>
+      </div>
+      <div class="svc reveal d3">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-gear"/></svg></div>
+        <h3>Automatización y Productividad</h3>
+        <p>Integración y automatización de procesos a través de tecnologías.</p>
+      </div>
+      <div class="svc reveal d4" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;background:linear-gradient(150deg,var(--navy),var(--navy-2))">
+        <h3 style="color:#fff">¿Listo para crecer?</h3>
+        <p style="color:rgba(255,255,255,.7);margin-bottom:18px">Descubra las soluciones adaptadas a su negocio.</p>
+        <a class="btn" href="#contacto" style="min-height:44px;padding:10px 22px;font-size:15px">Contactar</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA WHATSAPP ============ -->
+<section class="cta">
+  <div class="wrap reveal">
+    <h2>Habla con un experto hoy</h2>
+    <p>Descubra las mejores soluciones adaptadas a las necesidades de su negocio.</p>
+    <a class="btn btn-wa" href="https://wa.me/+595985311031?text=Hola" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24"><use href="#i-wa"/></svg>
+      ¡Habla ahora!
+    </a>
+  </div>
+</section>
+
+<!-- ============ CONTACTO ============ -->
+<section class="section" id="contacto">
+  <div class="wrap">
+    <span class="tag reveal">Contacto</span>
+    <h2 class="reveal d1">Contacta con nosotros</h2>
+
+    <div class="contact-grid">
+      <div>
+        <a class="info-card reveal d1" href="tel:+595985311031">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-phone"/></svg></div>
+          <div><h3>Llámanos</h3><p>+595 985 311031</p></div>
+        </a>
+        <a class="info-card reveal d2" href="mailto:adm@gnhorizons.com">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-mail"/></svg></div>
+          <div><h3>Correo electrónico</h3><p>adm@gnhorizons.com</p></div>
+        </a>
+        <a class="info-card reveal d3" href="https://wa.me/+595985311031?text=Hola" target="_blank" rel="noopener">
+          <div class="ic"><svg viewBox="0 0 24 24" class="fill"><use href="#i-wa"/></svg></div>
+          <div><h3>WhatsApp</h3><p>+595 985 311031</p></div>
+        </a>
+      </div>
+
+      <form class="form-card reveal d2" id="contactForm" autocomplete="off" novalidate>
+        <div class="form-status" id="formStatus" role="status"></div>
+        <div class="f-row">
+          <div class="field">
+            <label for="contact_name">Su nombre</label>
+            <input type="text" id="contact_name" name="nmcontatct" required>
+          </div>
+          <div class="field">
+            <label for="contact_email">Su correo electrónico</label>
+            <input type="email" id="contact_email" name="email" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="contact_msg">Mensaje</label>
+          <textarea id="contact_msg" name="message" required></textarea>
+        </div>
+        <button class="btn" type="submit" style="width:100%">Enviar mensaje
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a href="#hero" class="logo" aria-label="GNH — inicio">
+          <svg viewBox="0 0 230 80" style="height:48px;width:auto" role="img" aria-label="GNH">
+            <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
+            <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
+            <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
+            <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
+            <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
+            <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <text x="78" y="57" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+          </svg>
+        </a>
+        <p style="margin-top:14px;max-width:300px">Generando Nuevos Horizontes — importación, distribución y alianzas estratégicas.</p>
+        <button class="link-cta" id="openCeoFoot" style="color:rgba(255,255,255,.85);border-color:var(--orange)">Carta del CEO</button>
+      </div>
+      <div>
+        <h4>Contacto</h4>
+        <p><a href="tel:+595985311031">+595 985 311031</a></p>
+        <p><a href="mailto:adm@gnhorizons.com">adm@gnhorizons.com</a></p>
+      </div>
+      <div>
+        <h4>Síguenos</h4>
+        <div class="social">
+          <a href="https://www.facebook.com/edzon.camilomazzonrtto" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg viewBox="0 0 24 24"><use href="#i-fb"/></svg>
+          </a>
+          <a href="https://www.instagram.com/gnhimportacionespy/" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24"><use href="#i-ig"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="copy">© <span id="year"></span> <strong style="color:#fff">GNH</strong> — Reservados todos los derechos</div>
+</footer>
+
+<!-- ============ MODAL CARTA CEO ============ -->
+<dialog id="ceoModal" aria-labelledby="ceoTitle">
+  <div class="modal-head">
+    <h3 id="ceoTitle">Carta del CEO – GNH</h3>
+    <button class="modal-close" id="closeCeo" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-close"/></svg>
+    </button>
+  </div>
+  <div class="modal-body">
+    <p>Estimados colaboradores, socios y amigos de GNH,</p>
+    <p>Es un gran honor dirigirme a todos ustedes en este momento tan importante de nuestra trayectoria.</p>
+    <p>GNH nació con un propósito claro: <strong>Generar Nuevos Horizontes</strong>. No solo como una frase inspiradora, sino como una visión que guía cada paso que damos. Desde el inicio entendimos que nuestro compromiso no se limita al ámbito local; se extiende al mundo, porque creemos que los desafíos son globales y las oportunidades también.</p>
+    <p>Hoy reafirmo nuestra misión de transformar a GNH en una referencia internacional. Para ello necesitamos coraje, innovación y unidad. Coraje para enfrentar los desafíos de un mercado cada vez más competitivo. Innovación para crear soluciones que generen valor real. Y unidad para que cada miembro de nuestro equipo, cada socio estratégico y cada cliente sienta que forma parte de algo más grande.</p>
+    <p>Nuestra visión está más clara: llevar a GNH a un nivel global, expandiendo fronteras, construyendo alianzas sólidas y generando un impacto positivo en los mercados donde actuamos.</p>
+    <p>Agradezco a todos los que creen en este proyecto, que trabajan con dedicación y que comparten nuestra ambición de crecer. El futuro es prometedor, y juntos tenemos la fuerza necesaria para conquistarlo.</p>
+    <p>Que esta carta sea una invitación a soñar en grande, trabajar con pasión y avanzar con determinación.</p>
+    <p class="sign">Con confianza y visión,<br><br>Edzon Camilo Mazzonetto<br>CEO – GNH</p>
+  </div>
+</dialog>
+
+<button class="scroll-top" id="scrollTop" aria-label="Volver arriba">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-arrow-up"/></svg>
+</button>
+
+<script>
+/* ---------- Parallax + nav ---------- */
+const nav = document.getElementById('nav');
+const layers = document.querySelectorAll('[data-speed]');
+const topBtn = document.getElementById('scrollTop');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let ticking = false;
+
+function onScroll(){
+  const y = scrollY;
+  nav.classList.toggle('scrolled', y > 40);
+  topBtn.classList.toggle('show', y > 600);
+  if (!reduceMotion){
+    layers.forEach(el => {
+      el.style.transform = `translate3d(0, ${y * parseFloat(el.dataset.speed)}px, 0)`;
+    });
+  }
+  ticking = false;
+}
+addEventListener('scroll', () => {
+  if(!ticking){ requestAnimationFrame(onScroll); ticking = true; }
+}, {passive:true});
+onScroll();
+
+topBtn.addEventListener('click', () => scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'}));
+
+/* ---------- Menú móvil ---------- */
+const menuToggle = document.getElementById('menuToggle');
+const navLinks = document.getElementById('navLinks');
+menuToggle.addEventListener('click', () => {
+  const open = navLinks.classList.toggle('open');
+  menuToggle.setAttribute('aria-expanded', open);
+});
+navLinks.addEventListener('click', e => {
+  if (e.target.tagName === 'A'){ navLinks.classList.remove('open'); menuToggle.setAttribute('aria-expanded','false'); }
+});
+
+/* ---------- Reveals (stagger al entrar en viewport) ---------- */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+  });
+}, {threshold:.14});
+document.querySelectorAll('.reveal:not(.in)').forEach(el => io.observe(el));
+
+/* ---------- Modal Carta CEO ---------- */
+const ceoModal = document.getElementById('ceoModal');
+['openCeo','openCeoFoot'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => ceoModal.showModal());
+});
+document.getElementById('closeCeo').addEventListener('click', () => ceoModal.close());
+ceoModal.addEventListener('click', e => { if (e.target === ceoModal) ceoModal.close(); });
+
+/* ---------- Formulario (misma API del sitio actual) ---------- */
+const form = document.getElementById('contactForm');
+const status = document.getElementById('formStatus');
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  status.className = 'form-status';
+  const name = form.nmcontatct.value.trim();
+  const email = form.email.value.trim();
+  const message = form.message.value.trim();
+  if (!name || !email || !message){
+    status.textContent = 'Por favor, complete todos los campos.';
+    status.classList.add('err');
+    return;
+  }
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true; btn.style.opacity = .7;
+  try{
+    const fd = new FormData();
+    fd.append('nmcontatct', name);
+    fd.append('email', email);
+    fd.append('message', message);
+    const r = await fetch('../api/registerenssage/', {method:'POST', body: fd});
+    const data = await r.json();
+    if (data.status === 1){
+      form.reset();
+      status.textContent = '¡Mensaje enviado exitosamente!';
+      status.classList.add('ok');
+    } else { throw new Error(); }
+  } catch {
+    status.textContent = '¡Error al enviar el mensaje! Intente por WhatsApp o correo.';
+    status.classList.add('err');
+  } finally {
+    btn.disabled = false; btn.style.opacity = 1;
+  }
+});
+
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
