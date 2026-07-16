@@ -473,6 +473,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <img src="https://gnhorizons.com/assets/images/hero-bg.jpg" alt=""
          onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/hero-bg.jpg'}else{this.remove()}">
     <video muted loop playsinline autoplay preload="auto">
+      <source src="assets/video/hero.webm" type="video/webm">
       <source src="assets/video/hero.mp4" type="video/mp4">
     </video>
   </div>
@@ -833,7 +834,9 @@ window.__io = io;
   if (video.readyState >= 2) activate();          // ya cargado antes de enganchar eventos
   video.play().catch(() => {});                    // fuerza autoplay silencioso
   video.addEventListener('error', () => video.remove(), {once:true});
-  video.querySelector('source')?.addEventListener('error', () => video.remove(), {once:true});
+  const sources = video.querySelectorAll('source');
+  const last = sources[sources.length - 1];       // solo desistir cuando falle el último formato
+  last && last.addEventListener('error', () => video.remove(), {once:true});
   soundBtn.addEventListener('click', () => {
     video.muted = !video.muted;
     if (!video.muted) video.play();
