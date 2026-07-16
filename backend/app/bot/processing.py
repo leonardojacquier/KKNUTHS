@@ -1774,10 +1774,14 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     if not bands:
         return None
 
+    # equity contra o Nº REAL de oponentes ativos (multiway muda tudo) — e a
+    # premissa vai ROTULADA na imagem ("vs mãos aleatórias")
+    n_opp = max(1, len([v for v in (drill.get("villains") or [])
+                        if not v.get("folded")]))
     eq = None
     try:
         eq = equity_vs_random(drill["cards"], drill.get("board") or [],
-                              1, iterations=3000, seed=11)
+                              n_opp, iterations=3000, seed=11)
     except Exception:
         pass
     need = drill.get("required_eq")
@@ -1786,10 +1790,13 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     if eq is not None:
         math_d = {"equity": eq, "need": need}
         if need and to_call:
-            pot_now = (drill.get("pot_bb") or 0) + to_call
-            math_d["ev_bb"] = ev_call(eq, pot_now, to_call)
-            math_d["note"] = (f"o call precisaria de {need*100:.0f}% e você "
-                              f"tem ~{eq*100:.0f}%")
+            # pot_bb JÁ inclui a aposta do vilão (mesma base do required_eq).
+            # Somar to_call de novo inflava o EV (+28bb onde era +20bb).
+            math_d["ev_bb"] = ev_call(eq, drill.get("pot_bb") or 0, to_call)
+            math_d["note"] = (
+                f"call precisa de {need*100:.0f}%; você tem ~{eq*100:.0f}% "
+                f"(vs {n_opp} mão{'s' if n_opp > 1 else ''} aleatória"
+                f"{'s' if n_opp > 1 else ''})")
 
     # veredito CLARO: reconcilia o que VOCÊ respondeu, o que é CERTO e o que
     # rolou na mão REAL (senão o filme mostra 'fold' e o rodapé diz 'call' —

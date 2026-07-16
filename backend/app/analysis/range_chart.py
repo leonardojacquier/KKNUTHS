@@ -237,7 +237,8 @@ def chart_for_query(
         evs = sol["sb_ev"] if kind == "SB" else sol["bb_ev"]
         fold_ev = sol["sb_fold_ev"] if kind == "SB" else sol["bb_fold_ev"]
         action = "all-in" if kind == "SB" else "call de all-in"
-        badge = "💰 chip-EV" if mode == "ev" else f"🏆 ICM (bubble factor {use_bf:g})"
+        # sem emoji no título: DejaVu não tem o glifo e renderiza tofu (⧠)
+        badge = "chip-EV" if mode == "ev" else f"ICM (bubble factor {use_bf:g})"
         png = render_ev_range_png(
             evs, fold_ev,
             f"EV do {action} — {kind} · {stack:g}bb · {badge}",
