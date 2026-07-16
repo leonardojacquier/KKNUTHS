@@ -1,0 +1,32 @@
+name: Diagnóstico gnh.vortex369.com.br
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DNS
+        run: |
+          echo "== resolução =="
+          getent hosts gnh.vortex369.com.br || echo "NAO RESOLVE"
+          getent hosts titancalc.vortex369.com.br || true
+
+      - name: HTTPS gnh
+        run: |
+          echo "== resposta HTTPS gnh =="
+          curl -sk -o /tmp/body.html -w "status=%{http_code} tempo=%{time_total}s tamanho=%{size_download}\n" \
+            --max-time 20 https://gnh.vortex369.com.br/ || echo "FALHA DE CONEXÃO"
+          echo "== headers =="
+          curl -skI --max-time 20 https://gnh.vortex369.com.br/ || true
+          echo "== primeiros 500 chars do body =="
+          head -c 500 /tmp/body.html || true
+
+      - name: HTTPS titancalc (referência)
+        run: |
+          curl -sk -o /dev/null -w "titancalc status=%{http_code}\n" --max-time 20 https://titancalc.vortex369.com.br/ || echo "titancalc FALHA"
+
+      - name: Certificado
+        run: |
+          echo | timeout 15 openssl s_client -connect gnh.vortex369.com.br:443 -servername gnh.vortex369.com.br 2>/dev/null | openssl x509 -noout -subject -dates 2>/dev/null || echo "SEM CERTIFICADO / porta 443 não respondeu"
