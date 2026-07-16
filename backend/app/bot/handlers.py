@@ -607,10 +607,29 @@ def _sim_buttons(decision: dict, pos: int) -> InlineKeyboardMarkup:
 
 
 async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
-    """Envia um passo da simulação em TEXTO (narração + botões). Uma foto por
-    decisão embaralhava a leitura da mão — o fluxo em texto é mais limpo."""
+    """Envia um passo da simulação: a FIGURA da mesa daquela decisão (o gráfico
+    que o aluno quer ver) + a narração como legenda + botões. Cai pra texto se
+    não houver figura ou o render falhar. A narração de cada passo é curta (só
+    o que rolou desde a última decisão), então cabe na legenda."""
     text = prefix + step["narration"]
     kb = _sim_buttons(step["decision"], sim["pos"]) if step["decision"] else None
+    fig = None
+    if step["decision"]:
+        spot = (sim.get("figures") or {}).get(str(sim["pos"]))
+        if spot:
+            try:
+                from app.analysis.hand_figure import render_hand_figure
+                fig = await asyncio.to_thread(render_hand_figure, spot)
+            except Exception:
+                fig = None
+    if fig:
+        import io as _io
+        try:
+            await msg.reply_photo(photo=_io.BytesIO(fig), caption=text[:1000],
+                                  parse_mode="Markdown", reply_markup=kb)
+            return
+        except Exception:
+            pass
     try:
         await msg.reply_markdown(text, reply_markup=kb)
     except Exception:
