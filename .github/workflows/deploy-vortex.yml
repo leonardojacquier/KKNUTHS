@@ -27,10 +27,16 @@ jobs:
 
       - name: Configurar chave SSH
         if: env.HAS_KEY == 'true'
+        env:
+          KEY_RAW: ${{ secrets.VORTEX_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          # normaliza CRLF do Windows e garante quebra final
-          printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          # aceita a chave em texto plano OU em base64 (uma linha só, à prova de cópia)
+          if [[ "$KEY_RAW" == *"PRIVATE KEY"* ]]; then
+            printf '%s\n' "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            printf '%s' "$KEY_RAW" | tr -d ' \t\n\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
+          fi
           chmod 600 ~/.ssh/deploy_key
           if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
             echo "::error::VORTEX_SSH_KEY inválida — recole o secret com o conteúdo COMPLETO de /root/.ssh/gnh_deploy (da linha BEGIN até a linha END, sem cortar nada)"
