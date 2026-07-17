@@ -740,6 +740,26 @@ async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
         await msg.reply_text(text, reply_markup=kb)
 
 
+async def _send_hand_film(msg, telegram_id: int, hand_id, lead: str) -> None:
+    """Mostra o FILME da mão inteira (fallback pra mão sem decisão jogável, ex.:
+    herói foldou o pré). Cai pra texto se não der pra renderizar."""
+    from app.bot.processing import hand_film
+
+    png = await asyncio.to_thread(hand_film, telegram_id, hand_id)
+    if not png:
+        await msg.reply_text(lead)
+        return
+    import io as _io
+    try:
+        await msg.reply_photo(photo=_io.BytesIO(png), caption=lead[:1000],
+                              parse_mode="Markdown")
+    except Exception:
+        try:
+            await msg.reply_markdown(lead)
+        except Exception:
+            await msg.reply_text(lead)
+
+
 async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
     tg_id = update.effective_user.id
@@ -762,6 +782,14 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             "Preciso de uma mão sua com a ação completa para simular. "
             "Envie um hand history (.txt) ou um print de replay primeiro."
         )
+        return
+    if sim.get("dead_end"):
+        # herói foldou o pré (ou teve só uma decisão de fold): não há jogada pra
+        # rejogar. Em vez do beco sem saída, mostra o filme de como a mão terminou.
+        await _send_hand_film(
+            update.message, tg_id, sim.get("hand_id"),
+            "🃏 Nessa mão você *foldou o pré-flop*, então não tem decisão sua "
+            "pra rejogar. Mas aqui está o *filme* de como ela terminou 👇")
         return
     ctx.user_data["sim"] = sim
     step = sim_advance(sim)
@@ -1140,6 +1168,12 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
         if not sim:
             await query.message.reply_text(
                 "Preciso de uma mão sua com a ação completa para simular.")
+            return
+        if sim.get("dead_end"):
+            await _send_hand_film(
+                query.message, tg_user.id, sim.get("hand_id"),
+                "🃏 Nessa mão você *foldou o pré-flop*, então não tem decisão "
+                "sua pra rejogar. Mas aqui está o *filme* de como ela terminou 👇")
             return
         ctx.user_data["sim"] = sim
         step = sim_advance(sim)

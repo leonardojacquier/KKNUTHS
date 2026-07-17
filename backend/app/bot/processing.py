@@ -1098,6 +1098,12 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
             "villains": vills,
         }
 
+    # herói que só teve UMA decisão e nela FOLDOU está fora da mão — não há o
+    # que "rejogar" decisão a decisão (o Leo colou um replay onde foldou o pré e
+    # a simulação morria num toque só). Marca pra o handler mostrar o FILME.
+    hero_decs = [e for e in best_events if e["kind"] == "decision"]
+    dead_end = len(hero_decs) == 1 and hero_decs[0].get("actual") == "fold"
+
     return {
         "hand_id": best.hand_id,
         "cards": best.hero_cards,
@@ -1108,7 +1114,57 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
         "figures": figures,
         "pos": 0,
         "results": [],
+        "dead_end": dead_end,
     }
+
+
+def _user_hands(telegram_id: int) -> list:
+    """Mãos do usuário: memória recente e, se vazio, o histórico do banco."""
+    hands = list(RECENT_HANDS.get(telegram_id, []))
+    repo = get_repository()
+    if not hands and repo.enabled:
+        user = repo.get_or_create_user(telegram_id, None)
+        if user:
+            hands = repo.get_all_hands(user["id"], limit=200)
+    return hands
+
+
+def hand_film(telegram_id: int, hand_id: str | None = None) -> bytes | None:
+    """Filme da mão INTEIRA (todos os jogadores, todas as streets) numa imagem.
+
+    Usado quando não há decisão do herói pra rejogar (ex.: foldou o pré-flop):
+    em vez de um beco sem saída, o aluno vê como a mão terminou. Custo zero de
+    LLM (render determinístico)."""
+    from app.analysis.hand_figure import render_hand_strip
+
+    hands = _user_hands(telegram_id)
+    h = None
+    if hand_id:
+        h = next((x for x in hands
+                  if x.hand_id == hand_id and x.hero and x.hero_cards), None)
+    if h is None:
+        h = next((x for x in hands if x.hero and x.hero_cards), None)
+    if h is None:
+        return None
+    bands = hand_storyboard_streets(h)  # upto_di=None -> mão inteira
+    if not bands:
+        return None
+    bb = h.stakes.big_blind or 1
+    seat = h.hero_seat()
+    blinds = f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}" + (
+        f" (ante {h.stakes.ante:g})" if h.stakes.ante else "")
+    spot = {
+        "title": "🎬 O filme da mão",
+        "hero_cards": h.hero_cards,
+        "position": seat.position if seat else None,
+        "stack_bb": round(seat.stack / bb, 1) if seat else None,
+        "blinds": blinds,
+        "streets": bands,
+    }
+    try:
+        return render_hand_strip(spot)
+    except Exception:
+        return None
 
 
 def sim_advance(sim: dict) -> dict:

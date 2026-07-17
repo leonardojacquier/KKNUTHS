@@ -1067,6 +1067,47 @@ def test_drill_narracao_pre_flop_limpa():
     assert _preflop_summary(h2, stop_actor="Hero") == "Pré-flop: folda até você"
 
 
+def test_simular_mao_foldada_pre_vira_filme():
+    # caso real do Leo: colou um replay onde FOLDOU o pré-flop e clicou simular.
+    # Não há decisão dele pra rejogar (1 decisão, um fold) -> a sim marca
+    # dead_end e o handler mostra o FILME da mão em vez de um beco sem saída.
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pl = [
+        PlayerSeat(seat=1, name="Hero", stack=30000, position="UTG",
+                   is_hero=True),
+        PlayerSeat(seat=2, name="vilaoA", stack=40000, position="BTN"),
+        PlayerSeat(seat=3, name="vilaoB", stack=50000, position="BB"),
+    ]
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilaoB", type=ActionType.POST, amount=200, post_type="bb"),
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="vilaoA", type=ActionType.RAISE, amount=600, to_amount=600),
+        Action(actor="vilaoB", type=ActionType.CALL, amount=400, to_amount=600),
+    ])
+    flop = Street(name=StreetName.FLOP, board=["Qs", "3c", "4c"], actions=[
+        Action(actor="vilaoA", type=ActionType.BET, amount=500),
+        Action(actor="vilaoB", type=ActionType.CALL, amount=500),
+    ])
+    h = CanonicalHand(site="PPPoker · clube", hand_id="pppoker-fold-pre",
+                      hero="Hero", stakes=Stakes(small_blind=100, big_blind=200),
+                      players=pl, hero_cards=["7s", "2d"], streets=[pre, flop],
+                      final_board=["Qs", "3c", "4c"])
+
+    tid = 555001
+    proc.RECENT_HANDS[tid] = [h]
+    try:
+        sim = proc.build_simulation(tid, "pppoker-fold-pre")
+        assert sim and sim.get("dead_end") is True
+        # o filme da mão inteira sai como PNG válido
+        png = proc.hand_film(tid, "pppoker-fold-pre")
+        assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+
+
 def test_figura_da_mesa_render():
     # figura da mesa: render deterministico (custo zero de LLM). Só garante
     # que sai um PNG válido e não quebra sem board/vilões.
