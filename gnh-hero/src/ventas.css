@@ -23,6 +23,16 @@
 }
 .vh-slide:not(.is-active) .vh-media img { animation: none; }
 @keyframes vh-kenburns { from { transform: translateY(-50%) scale(1.04); } to { transform: translateY(-50%) scale(1); } }
+
+/* ---- full-bleed: la imagen cubre TODO el banner (fotos 21:9 de ambiente) ---- */
+.vh-slide.is-bleed .vh-media img {
+  position: absolute; inset: 0; right: auto; top: auto; translate: 0;
+  width: 100%; height: 100%; max-width: none; max-height: none;
+  object-fit: cover; object-position: center; filter: none;
+  animation: vh-kenburns-cover 8s ease-out both;
+}
+.vh-slide.is-bleed:not(.is-active) .vh-media img { animation: none; }
+@keyframes vh-kenburns-cover { from { transform: scale(1.06); } to { transform: scale(1); } }
 /* scrim para legibilidad del texto a la izquierda */
 .vh-slide::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;

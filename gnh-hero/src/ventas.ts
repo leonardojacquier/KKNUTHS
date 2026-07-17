@@ -103,13 +103,16 @@ const icon = (k: string, cls = '') =>
    CARROSSEL DO HERO — líneas destacadas (productos foco).
    Agregar aquí a medida que llega el material (BIO 360, Macro-fibras…).
    ============================================================ */
-interface Featured { name: string; tag: string; img: string; cat: string }
+// bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
+// bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
+interface Featured { name: string; tag: string; img: string; cat: string; bleed?: boolean }
 const FEATURED: Featured[] = [
   { name: 'Plataformas', tag: 'Plataformas de elevación de personal para trabajos en altura, seguras y versátiles.', img: '../img/prod/elevador.png', cat: 'equipos' },
-  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos' },
+  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos', bleed: true },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/central-concreto.png', cat: 'equipos' },
-  // { name: 'BIO 360', tag: 'Solución BIO 360 — próximamente.', img: '../img/prod/bio360.png', cat: 'aditivos' },
-  // { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras.', img: '../img/prod/macrofibras.png', cat: 'aditivos' },
+  // Cuando lleguen las fotos 21:9 de ambiente, reemplazar img y poner bleed: true:
+  // { name: 'BIO 360', tag: 'Solución BIO 360.', img: '../img/prod/bio360.jpg', cat: 'aditivos', bleed: true },
+  // { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras.', img: '../img/prod/macrofibras.jpg', cat: 'aditivos', bleed: true },
 ]
 const PAUSE_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>'
 const PLAY_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>'
@@ -123,7 +126,7 @@ function renderHeroCarousel(): void {
   root.innerHTML = `
     <div class="vh-track">
       ${FEATURED.map((f, i) => `
-        <article class="vh-slide${i === 0 ? ' is-active' : ''}" data-i="${i}">
+        <article class="vh-slide${i === 0 ? ' is-active' : ''}${f.bleed ? ' is-bleed' : ''}" data-i="${i}">
           <div class="vh-media"><img src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}></div>
           <div class="vh-inner">
             <div class="vh-copy">
