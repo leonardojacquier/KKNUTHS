@@ -342,6 +342,27 @@ def _process_upload_inner(
                      collect_charts=chart_specs)
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
+    # mão única (replay da PPPoker, .txt, print legível): o FILME da mão
+    # inteira — street a street, lance a lance — vai junto da análise.
+    # Feedback do admin: "o link do pppoker tem que contar a mão toda".
+    if not is_tournament:
+        try:
+            from app.models.canonical import ActionType as _AT
+
+            h0 = hands[0]
+            has_story = any(a.type != _AT.POST
+                            for st in h0.streets for a in st.actions)
+            film = hand_film_png(h0) if (has_story and h0.hero_cards) else None
+            if film:
+                import time as _time
+
+                _ts, _lst = PENDING_CHARTS.get(telegram_id) or (0.0, [])
+                _lst.insert(0, (film, "🎬 O filme da mão — street a street, "
+                                      "lance a lance, do pré ao fim."))
+                PENDING_CHARTS[telegram_id] = (_time.time(), _lst)
+        except Exception as exc:
+            log.warning("filme da mão falhou: %s", exc)
+
     # quadro-resumo do campeonato: chega ANTES dos outros gráficos
     board_png: bytes | None = None
     if is_tournament and len(hands) >= 3:
@@ -1129,23 +1150,11 @@ def _user_hands(telegram_id: int) -> list:
     return hands
 
 
-def hand_film(telegram_id: int, hand_id: str | None = None) -> bytes | None:
-    """Filme da mão INTEIRA (todos os jogadores, todas as streets) numa imagem.
-
-    Usado quando não há decisão do herói pra rejogar (ex.: foldou o pré-flop):
-    em vez de um beco sem saída, o aluno vê como a mão terminou. Custo zero de
-    LLM (render determinístico)."""
+def hand_film_png(h) -> bytes | None:
+    """Filme da mão INTEIRA (todas as streets, lance a lance) numa imagem só.
+    Render determinístico (PIL) — custo zero de LLM. None se não der."""
     from app.analysis.hand_figure import render_hand_strip
 
-    hands = _user_hands(telegram_id)
-    h = None
-    if hand_id:
-        h = next((x for x in hands
-                  if x.hand_id == hand_id and x.hero and x.hero_cards), None)
-    if h is None:
-        h = next((x for x in hands if x.hero and x.hero_cards), None)
-    if h is None:
-        return None
     bands = hand_storyboard_streets(h)  # upto_di=None -> mão inteira
     if not bands:
         return None
@@ -1165,6 +1174,23 @@ def hand_film(telegram_id: int, hand_id: str | None = None) -> bytes | None:
         return render_hand_strip(spot)
     except Exception:
         return None
+
+
+def hand_film(telegram_id: int, hand_id: str | None = None) -> bytes | None:
+    """Filme da mão inteira a partir do acervo do usuário (por hand_id, com
+    fallback pra mão mais recente). Usado quando não há decisão do herói pra
+    rejogar (ex.: foldou o pré-flop) — em vez de um beco sem saída, o aluno vê
+    como a mão terminou."""
+    hands = _user_hands(telegram_id)
+    h = None
+    if hand_id:
+        h = next((x for x in hands
+                  if x.hand_id == hand_id and x.hero and x.hero_cards), None)
+    if h is None:
+        h = next((x for x in hands if x.hero and x.hero_cards), None)
+    if h is None:
+        return None
+    return hand_film_png(h)
 
 
 def sim_advance(sim: dict) -> dict:
@@ -1768,24 +1794,70 @@ def drill_action(choice: str) -> tuple[str, str]:
     return _DRILL_ACTIONS.get(choice, (choice, choice.upper()))
 
 
+def _fmt_bb(x: float | None) -> str:
+    """'(9bb)' pronto pra botão — vazio quando não dá pra calcular."""
+    if not x or x <= 0:
+        return ""
+    return f" ({round(x, 1):g}bb)"
+
+
+def sizing_amounts(pot_bb: float | None, to_call_bb: float | None,
+                   stack_bb: float | None) -> dict[str, float | None]:
+    """Tamanho REAL (em bb) de cada botão de sizing — o aluno vê o número,
+    não só 'raise pote'. Convenções padrão:
+    - raise 3x = aumenta PARA 3× a aposta enfrentada
+    - raise pote = pote + 2× a aposta (pot_bb já inclui a aposta do vilão)
+    - bet ⅓/½/pote = fração do pote atual
+    - all-in = o stack do herói
+    Cap no stack: nunca oferece um sizing maior que o all-in."""
+    pot = pot_bb or 0
+    tc = to_call_bb or 0
+    stack = stack_bb or 0
+
+    def cap(x: float) -> float | None:
+        if x <= 0:
+            return None
+        return min(x, stack) if stack else x
+
+    return {
+        "raise3x": cap(3 * tc),
+        "raisepot": cap(pot + 2 * tc),
+        "bet33": cap(pot / 3),
+        "bet50": cap(pot / 2),
+        "betpot": cap(pot),
+        "allin": stack or None,
+    }
+
+
 def drill_buttons(drill: dict) -> list[list[dict]]:
-    """Botões do quiz COM tamanho de aposta (não só 'Raise/All-in'):
-    - enfrentando aposta: Fold/Call + Raise 3x / Raise pote / All-in
-    - sem aposta: Check + Bet ⅓ / ½ / pote / All-in"""
+    """Botões do quiz COM o tamanho REAL em bb (feedback do admin: 'só tem
+    raise pote e coisas do tipo' — agora cada sizing mostra o número):
+    - enfrentando aposta: Fold/Call(x) + Raise 3x(x) / pote(x) / All-in(x)
+    - sem aposta: Check + Bet ⅓(x) / ½(x) / pote(x) / All-in(x)"""
+    amt = sizing_amounts(drill.get("pot_bb"), drill.get("to_call_bb"),
+                         drill.get("stack_bb"))
     if drill.get("to_call_bb"):
         return [
             [{"text": "🚫 Fold", "callback_data": "drill:fold"},
-             {"text": "✅ Call", "callback_data": "drill:call"}],
-            [{"text": "Raise 3x", "callback_data": "drill:raise3x"},
-             {"text": "Raise pote", "callback_data": "drill:raisepot"},
-             {"text": "💥 All-in", "callback_data": "drill:allin"}],
+             {"text": f"✅ Call{_fmt_bb(drill.get('to_call_bb'))}",
+              "callback_data": "drill:call"}],
+            [{"text": f"Raise 3x{_fmt_bb(amt['raise3x'])}",
+              "callback_data": "drill:raise3x"},
+             {"text": f"R. pote{_fmt_bb(amt['raisepot'])}",
+              "callback_data": "drill:raisepot"},
+             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
+              "callback_data": "drill:allin"}],
         ]
     return [
         [{"text": "Check", "callback_data": "drill:check"}],
-        [{"text": "Bet ⅓", "callback_data": "drill:bet33"},
-         {"text": "Bet ½", "callback_data": "drill:bet50"},
-         {"text": "Bet pote", "callback_data": "drill:betpot"},
-         {"text": "💥 All-in", "callback_data": "drill:allin"}],
+        [{"text": f"Bet ⅓{_fmt_bb(amt['bet33'])}",
+          "callback_data": "drill:bet33"},
+         {"text": f"Bet ½{_fmt_bb(amt['bet50'])}",
+          "callback_data": "drill:bet50"},
+         {"text": f"B. pote{_fmt_bb(amt['betpot'])}",
+          "callback_data": "drill:betpot"},
+         {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
+          "callback_data": "drill:allin"}],
     ]
 
 

@@ -1067,6 +1067,34 @@ def test_drill_narracao_pre_flop_limpa():
     assert _preflop_summary(h2, stop_actor="Hero") == "Pré-flop: folda até você"
 
 
+def test_botoes_com_tamanho_real_em_bb():
+    # feedback do admin: "só tem raise pote e coisas do tipo" — os botões de
+    # sizing agora mostram o NÚMERO (bb) calculado do spot, capado no stack.
+    from app.bot.processing import drill_buttons, sizing_amounts
+
+    # enfrentando aposta: pote 9bb (já inclui a aposta), 3bb a pagar, 40bb stack
+    amt = sizing_amounts(9.0, 3.0, 40.0)
+    assert amt["raise3x"] == 9.0            # 3× a aposta
+    assert amt["raisepot"] == 15.0          # pote + 2× aposta
+    assert amt["allin"] == 40.0
+    # cap no stack: sem sizing maior que o all-in
+    curto = sizing_amounts(9.0, 3.0, 10.0)
+    assert curto["raisepot"] == 10.0
+
+    d = {"pot_bb": 9.0, "to_call_bb": 3.0, "stack_bb": 40.0}
+    rows = drill_buttons(d)
+    flat = " | ".join(b["text"] for r in rows for b in r)
+    assert "Raise 3x (9bb)" in flat and "R. pote (15bb)" in flat
+    assert "All-in (40bb)" in flat and "Call (3bb)" in flat
+
+    # sem aposta: frações do pote
+    d2 = {"pot_bb": 12.0, "to_call_bb": 0, "stack_bb": 33.0}
+    rows2 = drill_buttons(d2)
+    flat2 = " | ".join(b["text"] for r in rows2 for b in r)
+    assert "Bet ⅓ (4bb)" in flat2 and "Bet ½ (6bb)" in flat2
+    assert "B. pote (12bb)" in flat2
+
+
 def test_simular_mao_foldada_pre_vira_filme():
     # caso real do Leo: colou um replay onde FOLDOU o pré-flop e clicou simular.
     # Não há decisão dele pra rejogar (1 decisão, um fold) -> a sim marca

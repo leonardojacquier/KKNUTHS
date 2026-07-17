@@ -691,23 +691,45 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _send_pending_charts(update.message, tg_user.id)
 
 
-def _sim_buttons(decision: dict, pos: int) -> InlineKeyboardMarkup:
-    """Botões contextuais: com aposta a pagar = Fold/Call/Raise; sem = Check/Bet.
+def _sim_buttons(sim: dict, decision: dict, pos: int) -> InlineKeyboardMarkup:
+    """Botões da simulação COM o tamanho real em bb (mesma régua do quiz):
+    com aposta = Fold/Call(x) + Raise 3x(x)/pote(x)/All-in(x); sem = Check +
+    Bet ⅓(x)/½(x)/pote(x)/All-in(x).
 
     O índice da decisão vai no callback_data: um duplo-clique no celular não
     pode responder a decisão SEGUINTE (que o usuário nem viu)."""
+    from app.bot.processing import _fmt_bb, sizing_amounts
+
+    bb = sim.get("bb") or 1
+    fig = (sim.get("figures") or {}).get(str(pos)) or {}
+    pot_bb = round(decision["pot"] / bb, 1)
+    tc_bb = round(decision["to_call"] / bb, 1)
+    amt = sizing_amounts(pot_bb, tc_bb, fig.get("stack_bb"))
     if decision["to_call"] > 0:
-        row = [
-            InlineKeyboardButton("Fold (desistir)", callback_data=f"sim:fold:{pos}"),
-            InlineKeyboardButton("Call (pagar)", callback_data=f"sim:call:{pos}"),
-            InlineKeyboardButton("Raise (aumentar)", callback_data=f"sim:raise:{pos}"),
+        rows = [
+            [InlineKeyboardButton("🚫 Fold", callback_data=f"sim:fold:{pos}"),
+             InlineKeyboardButton(f"✅ Call{_fmt_bb(tc_bb)}",
+                                  callback_data=f"sim:call:{pos}")],
+            [InlineKeyboardButton(f"Raise 3x{_fmt_bb(amt['raise3x'])}",
+                                  callback_data=f"sim:raise3x:{pos}"),
+             InlineKeyboardButton(f"R. pote{_fmt_bb(amt['raisepot'])}",
+                                  callback_data=f"sim:raisepot:{pos}"),
+             InlineKeyboardButton(f"💥 All-in{_fmt_bb(amt['allin'])}",
+                                  callback_data=f"sim:allin:{pos}")],
         ]
     else:
-        row = [
-            InlineKeyboardButton("Check (passar)", callback_data=f"sim:check:{pos}"),
-            InlineKeyboardButton("Bet (apostar)", callback_data=f"sim:bet:{pos}"),
+        rows = [
+            [InlineKeyboardButton("Check", callback_data=f"sim:check:{pos}")],
+            [InlineKeyboardButton(f"Bet ⅓{_fmt_bb(amt['bet33'])}",
+                                  callback_data=f"sim:bet33:{pos}"),
+             InlineKeyboardButton(f"Bet ½{_fmt_bb(amt['bet50'])}",
+                                  callback_data=f"sim:bet50:{pos}"),
+             InlineKeyboardButton(f"B. pote{_fmt_bb(amt['betpot'])}",
+                                  callback_data=f"sim:betpot:{pos}"),
+             InlineKeyboardButton(f"💥 All-in{_fmt_bb(amt['allin'])}",
+                                  callback_data=f"sim:allin:{pos}")],
         ]
-    return InlineKeyboardMarkup([row])
+    return InlineKeyboardMarkup(rows)
 
 
 async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
@@ -716,7 +738,7 @@ async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
     não houver figura ou o render falhar. A narração de cada passo é curta (só
     o que rolou desde a última decisão), então cabe na legenda."""
     text = prefix + step["narration"]
-    kb = _sim_buttons(step["decision"], sim["pos"]) if step["decision"] else None
+    kb = _sim_buttons(sim, step["decision"], sim["pos"]) if step["decision"] else None
     fig = None
     if step["decision"]:
         spot = (sim.get("figures") or {}).get(str(sim["pos"]))
@@ -812,7 +834,14 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await _show_reveal(query, "Simulação expirada. Use /simular para outra.")
         return
     parts = query.data.split(":")
-    choice = parts[1]
+    raw = parts[1]
+    # botões com sizing (raise3x/betpot/...): registra a ação-base + o tamanho
+    # legível — o resumo compara pelo verbo ("raise" vs "raise") e o aluno vê
+    # o sizing que escolheu ("raise 3x", "bet ½ pote")
+    _SIZES = {"raise3x": "raise 3x", "raisepot": "raise pote",
+              "allin": "raise all-in", "bet33": "bet ⅓ pote",
+              "bet50": "bet ½ pote", "betpot": "bet pote"}
+    choice = _SIZES.get(raw, raw)
     # callback velho (duplo-clique / retoque em mensagem antiga): ignora em vez
     # de registrar resposta numa decisão que o usuário nem viu
     if len(parts) > 2 and parts[2].isdigit() and int(parts[2]) != sim["pos"]:
