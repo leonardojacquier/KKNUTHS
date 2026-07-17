@@ -8,6 +8,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from 'lenis'
 import { initHero } from './hero'
 import { initSections } from './sections'
+import { mountFooter } from './footer'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -21,6 +22,7 @@ if (!reduced) {
   gsap.ticker.lagSmoothing(0)
 }
 
+mountFooter()
 initHero(reduced)
 initSections(reduced)
 

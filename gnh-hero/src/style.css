@@ -94,6 +94,58 @@
 }
 .card-media .placeholder-label { color: rgba(255, 255, 255, 0.3); }
 
+/* ---------- logos das empresas (I3) ---------- */
+.company-card .card-logo {
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f2f4f8;
+}
+.company-card .card-logo img { max-height: 44px; max-width: 78%; width: auto; }
+.company-card .logo-fallback {
+  display: none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #14213D;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- fortaleza (I4) ---------- */
+.fort-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 26px;
+  transition: border-color 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fort-card:hover { border-color: rgba(232, 119, 34, 0.5); transform: translateY(-6px); }
+
+/* ---------- rodapé social ---------- */
+.foot-social {
+  width: 42px; height: 42px; border-radius: 11px;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transition: background 0.3s, transform 0.3s ease;
+}
+.foot-social:hover { background: #E87722; transform: translateY(-3px); }
+.foot-social svg { width: 19px; height: 19px; }
+
+/* ---------- WhatsApp flotante ---------- */
+.wa-float {
+  position: fixed; right: 20px; bottom: 20px; z-index: 90;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #22c15e; display: grid; place-items: center;
+  box-shadow: 0 14px 32px -8px rgba(34, 193, 94, 0.6);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wa-float:hover { transform: scale(1.1); }
+.wa-float svg { width: 29px; height: 29px; }
+
 /* ---------- prefers-reduced-motion: versão estática legível ---------- */
 @media (prefers-reduced-motion: reduce) {
   .eyebrow, .hero-sub, .hero-cta, .scroll-cue { opacity: 1 !important; }

@@ -3,117 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Grupo GNH — Construimos lo que viene</title>
-  <meta name="description" content="Grupo GNH: concreto, pavimento y logística que mueven Paraguay y Brasil." />
-  <script type="module" crossorigin src="../assets/ventas-wTtonuwT.js"></script>
-  <link rel="modulepreload" crossorigin href="../assets/style-Dvx9pfBz.js">
-  <link rel="modulepreload" crossorigin href="../assets/index-D0eETidV.js">
-  <link rel="stylesheet" crossorigin href="../assets/style-Bf_ApBvs.css">
-  <link rel="stylesheet" crossorigin href="../assets/index-DdiD-jsa.css">
+  <title>GNH Ventas — Equipos, Aditivos, Fletes, Cemento y Morteros | Paraguay</title>
+  <meta name="description" content="Canal B2B de GNH: equipos, aditivos, fletes, cemento y morteros. Fichas técnicas, catálogos y cotización directa por WhatsApp. Paraguay y Brasil." />
+  <script type="module" crossorigin src="../assets/ventas-Cm2jFtSC.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/style-CzJdUt4s.js">
+  <link rel="modulepreload" crossorigin href="../assets/footer-CcsZwzv7.js">
+  <link rel="stylesheet" crossorigin href="../assets/style-COMv3rcZ.css">
+  <link rel="stylesheet" crossorigin href="../assets/ventas-CS-oF_48.css">
 </head>
-<body class="bg-navy font-body text-white antialiased">
+<body class="bg-paper font-body text-ink antialiased">
 
-  <!-- ================= HERO ================= -->
-  <section id="hero" class="relative h-[100svh] overflow-hidden bg-navy">
-    <!-- camada que faz scrub (scale + y). Placeholder de gradiente até subir /public/img/hero.webp -->
-    <div class="hero-bg" aria-hidden="true">
-      <span class="placeholder-label">/public/img/hero.webp</span>
-    </div>
-    <div class="hero-overlay" aria-hidden="true"></div>
-
-    <div class="hero-content relative z-10 flex h-full flex-col items-start justify-center px-6 md:px-16 max-w-6xl mx-auto">
-      <span class="eyebrow font-display text-sm md:text-base font-bold uppercase tracking-[0.28em] text-orange">
-        Grupo GNH
-      </span>
-      <h1 class="hero-title font-display font-bold uppercase leading-[0.95] tracking-[-0.02em] mt-5"
-          style="font-size:clamp(2.8rem,8vw,7rem)">
-        Construimos<br>lo que <span class="text-orange">viene</span>
-      </h1>
-      <p class="hero-sub mt-6 max-w-xl text-base md:text-lg text-white/70">
-        Concreto, pavimento y logística que mueven Paraguay y Brasil.
-      </p>
-      <a href="#grupo" class="hero-cta mt-9 inline-flex min-h-[48px] items-center gap-3 rounded-full bg-orange px-8 py-3 font-display font-bold uppercase tracking-wide text-navy2 transition-transform duration-300 hover:scale-105">
-        Conocé el grupo
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+  <!-- ============ TOP BAR (leve) ============ -->
+  <header class="sticky top-0 z-40 border-b border-black/5 bg-paper/85 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
+      <a href="../" class="flex items-center gap-2" aria-label="GNH — inicio">
+        <img src="/img/gnh-logo-dark.svg" alt="GNH" class="h-9 w-auto"
+             onerror="this.onerror=null;this.src='/img/gnh-logo.svg'">
       </a>
+      <nav class="hidden items-center gap-6 text-sm font-medium md:flex">
+        <a href="#catalog" class="hover:text-orange">Catálogo</a>
+        <a href="#promos" class="hover:text-orange">Promociones</a>
+        <a href="#cotizar" class="hover:text-orange">Cotizar</a>
+        <a href="../institucional/" class="hover:text-orange">Institucional</a>
+      </nav>
+      <a href="#cotizar" class="rounded-full bg-orange px-5 py-2 text-sm font-bold text-white transition hover:brightness-110">Cotizar</a>
     </div>
+  </header>
 
-    <div class="scroll-cue" aria-hidden="true">
-      <span class="font-display text-[11px] uppercase tracking-[0.3em] text-white/50">Scroll</span>
-      <span class="cue-dot"></span>
-    </div>
-  </section>
-
-  <!-- ================= COUNTERS ================= -->
-  <section id="numeros" class="relative bg-navy2 py-20 md:py-28">
-    <div class="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 text-center md:grid-cols-4">
-      <!-- AJUSTAR: números reales del grupo cuando estén definidos -->
-      <div class="counter-item">
-        <div class="font-display text-5xl md:text-6xl font-bold"><span class="counter" data-count="14">0</span><span class="text-orange">+</span></div>
-        <p class="mt-2 text-sm uppercase tracking-widest text-white/50">Marcas representadas</p>
-      </div>
-      <div class="counter-item">
-        <div class="font-display text-5xl md:text-6xl font-bold"><span class="counter" data-count="5">0</span></div>
-        <p class="mt-2 text-sm uppercase tracking-widest text-white/50">Empresas del grupo</p>
-      </div>
-      <div class="counter-item">
-        <div class="font-display text-5xl md:text-6xl font-bold"><span class="counter" data-count="3">0</span></div>
-        <p class="mt-2 text-sm uppercase tracking-widest text-white/50">Países</p>
-      </div>
-      <div class="counter-item">
-        <div class="font-display text-5xl md:text-6xl font-bold"><span class="counter" data-count="4">0</span></div>
-        <p class="mt-2 text-sm uppercase tracking-widest text-white/50">Alianzas estratégicas</p>
-      </div>
+  <!-- ============ HERO leve (sin video pesado) ============ -->
+  <section class="relative overflow-hidden bg-navy text-white">
+    <div class="mx-auto max-w-6xl px-6 py-20 md:py-28">
+      <span class="font-display text-sm font-bold uppercase tracking-[0.28em] text-orange">Canal mayorista B2B</span>
+      <h1 class="mt-3 font-display text-4xl font-bold uppercase leading-[0.98] tracking-[-0.02em] md:text-6xl">
+        Todo para tu <span class="text-orange">obra</span>,<br>del origen al destino
+      </h1>
+      <p class="mt-5 max-w-xl text-white/70">Equipos, aditivos, fletes, cemento y morteros. Marcas internacionales con stock y logística en Paraguay y Brasil.</p>
+      <div id="cat-chips" class="mt-8 flex flex-wrap gap-2"></div>
     </div>
   </section>
 
-  <!-- ================= GRID DE EMPRESAS ================= -->
-  <section id="grupo" class="bg-paper py-20 md:py-28 text-ink">
-    <div class="mx-auto max-w-6xl px-6">
-      <span class="font-display text-sm font-bold uppercase tracking-[0.28em] text-orange">Negocios del grupo</span>
-      <h2 class="mt-3 font-display text-3xl md:text-5xl font-bold uppercase tracking-[-0.02em] text-navy">
-        Un grupo, <span class="text-orange">muchas</span> fortalezas
-      </h2>
+  <!-- ============ CATÁLOGO (renderizado por JS desde CATALOG) ============ -->
+  <main id="catalog" class="mx-auto max-w-6xl px-5 py-16"></main>
 
-      <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <!-- Placeholder de imagem por card: subir em /public/img/card-<empresa>.webp -->
-        <article class="company-card" data-img="card-gnh.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-gnh.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">GNH Importaciones</h3>
-          <p class="mt-1 text-sm text-slate">Comercio internacional y distribución mayorista.</p>
-        </article>
-        <article class="company-card" data-img="card-titan.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-titan.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">Titan Ingeniería</h3>
-          <p class="mt-1 text-sm text-slate">Pavimentos rígidos y soluciones de concreto.</p>
-        </article>
-        <article class="company-card" data-img="card-intonaco.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-intonaco.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">Intonaco</h3>
-          <p class="mt-1 text-sm text-slate">Revoques y morteros industrializados.</p>
-        </article>
-        <article class="company-card" data-img="card-fletepar.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-fletepar.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">FletePar</h3>
-          <p class="mt-1 text-sm text-slate">Transporte y fletes con cobertura regional.</p>
-        </article>
-        <article class="company-card" data-img="card-rodosafra.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-rodosafra.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">Rodosafra</h3>
-          <p class="mt-1 text-sm text-slate">Logística agrícola y de granos.</p>
-        </article>
-        <article class="company-card" data-img="card-nexa.webp">
-          <div class="card-media"><span class="placeholder-label">img/card-nexa.webp</span></div>
-          <h3 class="font-display text-xl font-bold uppercase text-navy">Nexa Trading</h3>
-          <p class="mt-1 text-sm text-slate">Exportación e importación internacional.</p>
-        </article>
-      </div>
+  <!-- ============ PROMOCIONES (se oculta si vacío) ============ -->
+  <section id="promos" class="mx-auto max-w-6xl px-5 pb-8"></section>
+
+  <!-- ============ COTIZACIÓN (V5 / lead) ============ -->
+  <section id="cotizar" class="bg-white py-16">
+    <div class="mx-auto max-w-2xl px-6">
+      <span class="font-display text-sm font-bold uppercase tracking-[0.28em] text-orange">Cotización</span>
+      <h2 class="mt-2 font-display text-2xl md:text-3xl font-bold uppercase tracking-[-0.02em] text-navy">Pedí tu presupuesto</h2>
+      <p class="mt-2 text-slate">Respondemos por WhatsApp en el día.</p>
+      <form id="quote-form" class="mt-6 grid gap-4" autocomplete="off" novalidate>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <input name="nombre" required placeholder="Nombre" class="v-input" />
+          <input name="empresa" placeholder="Empresa" class="v-input" />
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <input name="whatsapp" required placeholder="WhatsApp" class="v-input" />
+          <input name="producto" placeholder="Producto de interés" class="v-input" />
+        </div>
+        <textarea name="mensaje" rows="3" placeholder="Mensaje (opcional)" class="v-input"></textarea>
+        <button type="submit" class="rounded-full bg-orange px-8 py-3 font-bold text-white transition hover:brightness-110">Enviar por WhatsApp</button>
+        <p id="quote-status" class="text-sm"></p>
+      </form>
     </div>
   </section>
 
-  <footer class="bg-ink py-8 text-center text-sm text-white/40">
-    © <span id="year"></span> Grupo GNH — Generando Nuevos Horizontes
-  </footer>
+  <!-- ============ FOOTER común ============ -->
+  <div id="footer-slot"></div>
 
 </body>
 </html>
