@@ -403,6 +403,35 @@ svg{display:block}
   .cat h3{white-space:normal}
 }
 
+/* Banda showcase — vídeo da frota com a marca GNH */
+.showcase{
+  position:relative;min-height:74vh;display:flex;align-items:flex-end;
+  overflow:hidden;background:var(--navy-ink);color:#fff;
+}
+.showcase video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 1.2s;
+}
+.showcase.video-on video{opacity:1}
+.sc-veil{
+  position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(6,10,24,.55) 0%,rgba(6,10,24,.08) 42%,rgba(6,10,24,.82) 100%);
+}
+.sc-inner{position:relative;z-index:2;padding:64px 24px}
+.sc-inner .tag{background:rgba(242,109,33,.18);color:var(--orange-soft)}
+.sc-inner h2{color:#fff;font-size:clamp(28px,4.4vw,46px)}
+.sc-inner p{color:rgba(255,255,255,.78);font-size:18px;max-width:520px;margin-top:10px}
+@media(max-width:640px){.showcase{min-height:52vh}.sc-inner{padding:44px 20px}}
+
+/* vídeo dentro do painel Equipos (catálogo) */
+.cat{isolation:isolate}
+.cat-video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity .9s;z-index:-1;pointer-events:none;
+}
+.cat.video-on .cat-video{opacity:.38}
+.cat.video-on:hover .cat-video,.cat.video-on:focus-within .cat-video{opacity:.55}
+
 /* WhatsApp flotante */
 .wa-float{
   position:fixed;right:20px;bottom:20px;z-index:95;
@@ -803,6 +832,10 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       </article>
 
       <article class="cat" tabindex="0">
+        <video class="cat-video" muted loop playsinline preload="none" data-lazy aria-hidden="true">
+          <source data-src="assets/video/showcase.webm" type="video/webm">
+          <source data-src="assets/video/showcase.mp4" type="video/mp4">
+        </video>
         <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-hook"/></svg></div>
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-hook"/></svg></div>
         <span class="t-vert">Equipos y Maquinaria</span>
@@ -815,6 +848,20 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         </div>
       </article>
     </div>
+  </div>
+</section>
+
+<!-- ============ SHOWCASE FROTA GNH ============ -->
+<section class="showcase" id="flota">
+  <video muted loop playsinline preload="none" data-lazy aria-hidden="true">
+    <source data-src="assets/video/showcase.webm" type="video/webm">
+    <source data-src="assets/video/showcase.mp4" type="video/mp4">
+  </video>
+  <div class="sc-veil" aria-hidden="true"></div>
+  <div class="wrap sc-inner reveal">
+    <span class="tag">Nuestra flota</span>
+    <h2>La marca que trabaja en la calle</h2>
+    <p>Equipos con el sello GNH: la misma confianza que entregamos en cada operación.</p>
   </div>
 </section>
 
@@ -1039,6 +1086,27 @@ window.__io = io;
     soundBtn.setAttribute('aria-pressed', String(!video.muted));
     soundBtn.setAttribute('aria-label', video.muted ? 'Activar sonido del vídeo' : 'Silenciar vídeo');
   });
+})();
+
+/* ---------- Vídeos lazy (só baixam quando a seção se aproxima) ---------- */
+(() => {
+  if (reduceMotion) return;
+  const vio = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const v = e.target;
+      vio.unobserve(v);
+      v.querySelectorAll('source[data-src]').forEach(s => { s.src = s.dataset.src; });
+      v.load();
+      const holder = v.closest('.showcase') || v.closest('.cat');
+      v.addEventListener('canplay', () => {
+        holder && holder.classList.add('video-on');
+        v.play().catch(() => {});
+      }, {once:true});
+      v.addEventListener('error', () => v.remove(), {once:true});
+    });
+  }, {rootMargin: '500px'});
+  document.querySelectorAll('video[data-lazy]').forEach(v => vio.observe(v));
 })();
 
 /* ---------- Contadores ---------- */
