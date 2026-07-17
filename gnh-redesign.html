@@ -281,7 +281,10 @@ svg{display:block}
   .pillar .ic{width:38px;height:38px;margin-bottom:8px}
   .pillar .ic svg{width:19px;height:19px}
   .pillar h3{font-size:13px}
-  .l-photo.video-on video{opacity:.85}
+  .l-photo.video-on video{opacity:.9}
+  .l-photo video{object-position:55% center}  /* enquadra a marca GNH da máquina */
+  /* pilares translúcidos no móvil: a marca do vídeo aparece através deles */
+  .pillar{background:rgba(10,16,36,.32);backdrop-filter:none;-webkit-backdrop-filter:none;border-color:rgba(255,255,255,.16)}
   .scroll-cue{display:none}
 }
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
