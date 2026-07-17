@@ -93,6 +93,43 @@ def _best_hand_score(cards7: list[str]) -> tuple:
     return max(_score5(list(combo)) for combo in itertools.combinations(cards7, 5))
 
 
+_NOME_PT = "2 3 4 5 6 7 8 9 10 J Q K A".split()
+
+
+def describe_hand(hole: list[str], board: list[str]) -> str | None:
+    """Leitura DETERMINÍSTICA da mão feita, em português de mesa.
+
+    'dois pares (J e 10), kicker K' — é o gabarito do que o jogador fez no
+    board; o coach usa isto em vez de recontar de cabeça (que rendeu uma
+    'trinca de J' inexistente numa mão real). None sem 5+ cartas."""
+    cards = list(hole or []) + list(board or [])
+    if not hole or len(set(cards)) < 5:
+        return None
+    sc = _best_hand_score(cards)
+
+    def rn(v: int) -> str:
+        return _NOME_PT[v]
+
+    cat = sc[0]
+    if cat == 8:
+        return f"straight flush até {rn(sc[1])}"
+    if cat == 7:
+        return f"quadra de {rn(sc[1])}"
+    if cat == 6:
+        return f"full house ({rn(sc[1])} cheio de {rn(sc[2])})"
+    if cat == 5:
+        return f"flush, maior carta {rn(sc[1])}"
+    if cat == 4:
+        return f"sequência até {rn(sc[1])}"
+    if cat == 3:
+        return f"trinca de {rn(sc[1])}"
+    if cat == 2:
+        return f"dois pares ({rn(sc[1])} e {rn(sc[2])}), kicker {rn(sc[3])}"
+    if cat == 1:
+        return f"par de {rn(sc[1])}, kicker {rn(sc[2])}"
+    return f"carta alta {rn(sc[1])}"
+
+
 def _score5(cards: list[str]) -> tuple:
     ranks = sorted((_rank_value(c[0]) for c in cards), reverse=True)
     suits = [c[1] for c in cards]

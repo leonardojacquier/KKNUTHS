@@ -7,6 +7,7 @@ ver `llm_summary()`. Mantendo a parte cara (LLM) opcional, todo o resto roda off
 """
 from __future__ import annotations
 
+from app.analysis.equity import describe_hand as _describe
 from app.analysis.tools import pot_odds
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
@@ -120,6 +121,14 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # O coach só pode afirmar cartas de vilão que estejam AQUI.
         "showdown_cards": dict(hand.shown_cards or {}),
         "pot_winners": dict(hand.collected or {}),
+        # leitura DETERMINÍSTICA da mão feita (gabarito — o coach não pode
+        # recontar de cabeça: já rendeu 'trinca de J' onde havia dois pares)
+        "hero_final_hand": _describe(hand.hero_cards, hand.final_board),
+        "showdown_hands": {
+            n: _describe(cs, hand.final_board)
+            for n, cs in (hand.shown_cards or {}).items()
+            if _describe(cs, hand.final_board)
+        },
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }

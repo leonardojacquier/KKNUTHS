@@ -1180,6 +1180,35 @@ def test_simular_mao_foldada_pre_vira_filme():
     assert "vilaoA (BTN) aposta" in flop_blob
 
 
+def test_leitura_deterministica_da_mao_feita():
+    # caso real: coach disse "trinca de J" quando o herói (K♥T♠ no
+    # J♠T♦J♦7♠6♥) tinha DOIS PARES (J e 10). A leitura agora é calculada.
+    from app.agent.analyzer import analyze_hand
+    from app.analysis.equity import describe_hand
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    board = ["Js", "Td", "Jd", "7s", "6h"]
+    assert describe_hand(["Kh", "Ts"], board) == "dois pares (J e 10), kicker K"
+    assert describe_hand(["Ad", "Qc"], board) == "par de J, kicker A"
+    assert describe_hand(["Jc", "2c"], board) == "trinca de J"
+    assert describe_hand(["Th", "Tc"], board) == "full house (10 cheio de J)"
+    assert describe_hand(["Ah", "Kd"], ["9s", "9h", "9c", "As", "3d"]) \
+        == "full house (9 cheio de A)"      # o cooler TT vs AK do 999-A-3
+    assert describe_hand(["Kh", "Ts"], ["Js"]) is None  # sem 5 cartas
+
+    h = CanonicalHand(
+        site="x", hand_id="t1", hero="Hero",
+        stakes=Stakes(small_blind=100, big_blind=200),
+        players=[PlayerSeat(seat=1, name="Hero", stack=10000, is_hero=True)],
+        hero_cards=["Kh", "Ts"], final_board=board,
+        shown_cards={"vilao": ["Ad", "Qc"]},
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    a = analyze_hand(h)
+    assert a["hero_final_hand"] == "dois pares (J e 10), kicker K"
+    assert a["showdown_hands"]["vilao"] == "par de J, kicker A"
+
+
 def test_figura_da_mesa_render():
     # figura da mesa: render deterministico (custo zero de LLM). Só garante
     # que sai um PNG válido e não quebra sem board/vilões.

@@ -1174,13 +1174,21 @@ def film_bands(h) -> list[dict]:
         p = next((x.position for x in h.players if x.name == who), None)
         return f"{who} ({p})" if p else who
 
+    from app.analysis.equity import describe_hand
+
     result_lines: list[str] = []
     for who, cs in (h.shown_cards or {}).items():
-        result_lines.append(f"{_label(who)} mostra {_pretty_cards(cs)}")
+        desc = describe_hand(cs, h.final_board)
+        result_lines.append(f"{_label(who)} mostra {_pretty_cards(cs)}"
+                            + (f" — {desc}" if desc else ""))
+    hero_desc = describe_hand(h.hero_cards, h.final_board)
     for who, amount in sorted((h.collected or {}).items(),
                               key=lambda kv: -kv[1]):
         # sem "►" aqui: o render já prefixa cada linha com a seta
-        result_lines.append(f"{_label(who)} leva o pote ({amount / bb:g}bb)")
+        line = f"{_label(who)} leva o pote ({amount / bb:g}bb)"
+        if who == h.hero and hero_desc:
+            line += f" — {hero_desc}"
+        result_lines.append(line)
     if result_lines:
         bands.append({"name": "Resultado",
                       "board": list(h.final_board or []),
