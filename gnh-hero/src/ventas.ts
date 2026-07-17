@@ -93,9 +93,70 @@ const ICONS: Record<string, string> = {
   arrow: '<path d="M4 12h15M13 6l6 6-6 6"/>',
   doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
   gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"/>',
+  chevL: '<path d="M15 5l-7 7 7 7"/>',
+  chevR: '<path d="M9 5l7 7-7 7"/>',
 }
 const icon = (k: string, cls = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${ICONS[k] ?? ''}</svg>`
+
+/* ============================================================
+   CARROSSEL DO HERO — líneas destacadas (productos foco).
+   Agregar aquí a medida que llega el material (BIO 360, Macro-fibras…).
+   ============================================================ */
+interface Featured { name: string; tag: string; img: string }
+const FEATURED: Featured[] = [
+  { name: 'Plataformas', tag: 'Elevación de personal', img: '../img/prod/elevador.png' },
+  { name: 'Grúas Araña', tag: 'De 1,5 t a 70 t', img: '../img/prod/grua-arana.png' },
+  { name: 'Mini Central de Concreto', tag: 'Mezcla + bombeo', img: '../img/prod/central-concreto.png' },
+  // { name: 'BIO 360', tag: 'Próximamente', img: '../img/prod/bio360.png' },
+  // { name: 'Macro-fibras', tag: 'Refuerzo estructural', img: '../img/prod/macrofibras.png' },
+]
+
+function renderHeroCarousel(): void {
+  const root = document.getElementById('hero-carousel')
+  if (!root || !FEATURED.length) return
+  root.innerHTML = `
+    <div class="hc-stage">
+      ${FEATURED.map((f, i) => `
+        <div class="hc-slide${i === 0 ? ' is-active' : ''}" data-i="${i}">
+          <img src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}>
+          <div class="hc-caption"><div class="hc-tag">Línea destacada</div><div class="hc-name">${f.name}</div></div>
+        </div>`).join('')}
+      <button class="hc-arrow hc-prev" aria-label="Anterior">${icon('chevL')}</button>
+      <button class="hc-arrow hc-next" aria-label="Siguiente">${icon('chevR')}</button>
+    </div>
+    <div class="hc-dots" role="tablist">${FEATURED.map((f, i) =>
+      `<button class="hc-dot${i === 0 ? ' is-active' : ''}" data-i="${i}" role="tab" aria-label="${f.name}"></button>`).join('')}</div>`
+
+  const slides = Array.from(root.querySelectorAll<HTMLElement>('.hc-slide'))
+  const dots = Array.from(root.querySelectorAll<HTMLElement>('.hc-dot'))
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let idx = 0, timer = 0
+  const go = (n: number) => {
+    idx = (n + FEATURED.length) % FEATURED.length
+    slides.forEach((s, i) => s.classList.toggle('is-active', i === idx))
+    dots.forEach((d, i) => d.classList.toggle('is-active', i === idx))
+  }
+  const next = () => go(idx + 1)
+  const prev = () => go(idx - 1)
+  const start = () => { if (!reduce && FEATURED.length > 1) timer = window.setInterval(next, 4200) }
+  const stop = () => window.clearInterval(timer)
+  const kick = () => { stop(); start() }
+
+  root.querySelector('.hc-next')!.addEventListener('click', () => { next(); kick() })
+  root.querySelector('.hc-prev')!.addEventListener('click', () => { prev(); kick() })
+  dots.forEach((d) => d.addEventListener('click', () => { go(Number(d.dataset.i)); kick() }))
+  const stage = root.querySelector('.hc-stage')!
+  stage.addEventListener('mouseenter', stop)
+  stage.addEventListener('mouseleave', start)
+  let x0: number | null = null
+  stage.addEventListener('touchstart', (e) => { x0 = (e as TouchEvent).touches[0].clientX; stop() }, { passive: true })
+  stage.addEventListener('touchend', (e) => {
+    if (x0 !== null) { const dx = (e as TouchEvent).changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) (dx < 0 ? next() : prev()) }
+    x0 = null; start()
+  }, { passive: true })
+  start()
+}
 
 /* ---------- render do catálogo ---------- */
 function productCard(p: Product): string {
@@ -229,6 +290,7 @@ function initForm(): void {
   })
 }
 
+renderHeroCarousel()
 renderCatalog()
 renderPromos()
 initForm()
