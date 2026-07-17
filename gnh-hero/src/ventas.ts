@@ -103,59 +103,89 @@ const icon = (k: string, cls = '') =>
    CARROSSEL DO HERO — líneas destacadas (productos foco).
    Agregar aquí a medida que llega el material (BIO 360, Macro-fibras…).
    ============================================================ */
-interface Featured { name: string; tag: string; img: string }
+interface Featured { name: string; tag: string; img: string; cat: string }
 const FEATURED: Featured[] = [
-  { name: 'Plataformas', tag: 'Elevación de personal', img: '../img/prod/elevador.png' },
-  { name: 'Grúas Araña', tag: 'De 1,5 t a 70 t', img: '../img/prod/grua-arana.png' },
-  { name: 'Mini Central de Concreto', tag: 'Mezcla + bombeo', img: '../img/prod/central-concreto.png' },
-  // { name: 'BIO 360', tag: 'Próximamente', img: '../img/prod/bio360.png' },
-  // { name: 'Macro-fibras', tag: 'Refuerzo estructural', img: '../img/prod/macrofibras.png' },
+  { name: 'Plataformas', tag: 'Plataformas de elevación de personal para trabajos en altura, seguras y versátiles.', img: '../img/prod/elevador.png', cat: 'equipos' },
+  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos' },
+  { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/central-concreto.png', cat: 'equipos' },
+  // { name: 'BIO 360', tag: 'Solución BIO 360 — próximamente.', img: '../img/prod/bio360.png', cat: 'aditivos' },
+  // { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras.', img: '../img/prod/macrofibras.png', cat: 'aditivos' },
 ]
+const PAUSE_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>'
+const PLAY_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>'
 
 function renderHeroCarousel(): void {
   const root = document.getElementById('hero-carousel')
   if (!root || !FEATURED.length) return
+  const DUR = 5200
+  root.className = 'v-showcase'
+  root.style.setProperty('--vh-dur', DUR + 'ms')
   root.innerHTML = `
-    <div class="hc-stage">
+    <div class="vh-track">
       ${FEATURED.map((f, i) => `
-        <div class="hc-slide${i === 0 ? ' is-active' : ''}" data-i="${i}">
-          <img src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}>
-          <div class="hc-caption"><div class="hc-tag">Línea destacada</div><div class="hc-name">${f.name}</div></div>
-        </div>`).join('')}
-      <button class="hc-arrow hc-prev" aria-label="Anterior">${icon('chevL')}</button>
-      <button class="hc-arrow hc-next" aria-label="Siguiente">${icon('chevR')}</button>
+        <article class="vh-slide${i === 0 ? ' is-active' : ''}" data-i="${i}">
+          <div class="vh-media"><img src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}></div>
+          <div class="vh-inner">
+            <div class="vh-copy">
+              <span class="vh-eyebrow">Línea destacada</span>
+              <h2 class="vh-title">${f.name}</h2>
+              <p class="vh-desc">${f.tag}</p>
+              <button class="vh-cta" data-cat="${f.cat}">Ver productos ${icon('arrow', 'vh-cta-i')}</button>
+            </div>
+          </div>
+        </article>`).join('')}
+      <button class="vh-arrow vh-prev" aria-label="Anterior">${icon('chevL')}</button>
+      <button class="vh-arrow vh-next" aria-label="Siguiente">${icon('chevR')}</button>
     </div>
-    <div class="hc-dots" role="tablist">${FEATURED.map((f, i) =>
-      `<button class="hc-dot${i === 0 ? ' is-active' : ''}" data-i="${i}" role="tab" aria-label="${f.name}"></button>`).join('')}</div>`
+    <div class="vh-controls">
+      <div class="vh-segs">${FEATURED.map((_, i) =>
+        `<button class="vh-seg" data-i="${i}" aria-label="Ver ${i + 1}"><span class="vh-seg-fill"></span></button>`).join('')}</div>
+      <button class="vh-pause" aria-label="Pausar o reanudar" aria-pressed="false">${PAUSE_ICO}</button>
+    </div>`
 
-  const slides = Array.from(root.querySelectorAll<HTMLElement>('.hc-slide'))
-  const dots = Array.from(root.querySelectorAll<HTMLElement>('.hc-dot'))
+  const slides = Array.from(root.querySelectorAll<HTMLElement>('.vh-slide'))
+  const segs = Array.from(root.querySelectorAll<HTMLElement>('.vh-seg'))
+  const fills = Array.from(root.querySelectorAll<HTMLElement>('.vh-seg-fill'))
+  const pauseBtn = root.querySelector<HTMLElement>('.vh-pause')!
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  let idx = 0, timer = 0
-  const go = (n: number) => {
-    idx = (n + FEATURED.length) % FEATURED.length
+  let idx = 0, paused = reduce
+
+  const paint = () => {
     slides.forEach((s, i) => s.classList.toggle('is-active', i === idx))
-    dots.forEach((d, i) => d.classList.toggle('is-active', i === idx))
+    segs.forEach((s, i) => { s.classList.remove('is-active', 'is-done'); if (i < idx) s.classList.add('is-done') })
+    const cur = segs[idx]; void cur.offsetWidth; cur.classList.add('is-active') // reinicia la animación de llenado
   }
+  const go = (n: number) => { idx = (n + FEATURED.length) % FEATURED.length; paint() }
   const next = () => go(idx + 1)
   const prev = () => go(idx - 1)
-  const start = () => { if (!reduce && FEATURED.length > 1) timer = window.setInterval(next, 4200) }
-  const stop = () => window.clearInterval(timer)
-  const kick = () => { stop(); start() }
 
-  root.querySelector('.hc-next')!.addEventListener('click', () => { next(); kick() })
-  root.querySelector('.hc-prev')!.addEventListener('click', () => { prev(); kick() })
-  dots.forEach((d) => d.addEventListener('click', () => { go(Number(d.dataset.i)); kick() }))
-  const stage = root.querySelector('.hc-stage')!
-  stage.addEventListener('mouseenter', stop)
-  stage.addEventListener('mouseleave', start)
+  // el avance lo dispara el fin de la animación del segmento activo (se sincroniza con la barra)
+  fills.forEach((fl) => fl.addEventListener('animationend', () => {
+    if (!paused && segs[idx].classList.contains('is-active')) next()
+  }))
+  const setPaused = (p: boolean) => {
+    paused = p
+    root.classList.toggle('is-paused', p)
+    pauseBtn.setAttribute('aria-pressed', String(p))
+    pauseBtn.innerHTML = p ? PLAY_ICO : PAUSE_ICO
+  }
+  pauseBtn.addEventListener('click', () => setPaused(!paused))
+  root.querySelector('.vh-next')!.addEventListener('click', next)
+  root.querySelector('.vh-prev')!.addEventListener('click', prev)
+  segs.forEach((s) => s.addEventListener('click', () => go(Number(s.dataset.i))))
+  root.querySelectorAll<HTMLElement>('.vh-cta').forEach((btn) =>
+    btn.addEventListener('click', () => selectCategory(btn.dataset.cat || 'equipos', true)))
+
+  const track = root.querySelector<HTMLElement>('.vh-track')!
   let x0: number | null = null
-  stage.addEventListener('touchstart', (e) => { x0 = (e as TouchEvent).touches[0].clientX; stop() }, { passive: true })
-  stage.addEventListener('touchend', (e) => {
+  track.addEventListener('touchstart', (e) => { x0 = (e as TouchEvent).touches[0].clientX }, { passive: true })
+  track.addEventListener('touchend', (e) => {
     if (x0 !== null) { const dx = (e as TouchEvent).changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) (dx < 0 ? next() : prev()) }
-    x0 = null; start()
+    x0 = null
   }, { passive: true })
-  start()
+
+  paint()
+  if (reduce) setPaused(true)
 }
 
 /* ---------- render do catálogo ---------- */
