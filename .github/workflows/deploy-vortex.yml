@@ -3,10 +3,10 @@ name: Deploy para vortex369
 # Deploy automático a cada push na branch do site + botão manual.
 # Único secret necessário: VORTEX_SSH_KEY (chave privada com acesso ao VPS).
 # Sem o secret, o workflow passa em verde e apenas avisa que pulou o deploy.
+# O deploy automático agora é feito pelo próprio VPS (cron + vps-autodeploy.sh).
+# Este workflow fica como alternativa manual (botão Run workflow).
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/professional-website-design-qqgnfg]
 
 jobs:
   deploy:
