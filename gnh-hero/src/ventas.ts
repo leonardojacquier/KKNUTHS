@@ -39,9 +39,7 @@ const CATALOG: Category[] = [
       {
         title: 'Movimentación',
         products: [
-          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
-          { name: 'Grúa Araña SC-4T', img: '../img/prod/grua-sc4t.png', note: 'Grúa araña de orugas — 4 t de carga y 15 m de altura de elevación.' },
-          { name: 'Grúa Araña SC-5T', img: '../img/prod/grua-sc5t.png', note: 'Grúa araña de orugas — 5 t de carga y 21 m de altura de elevación.' },
+          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 70 t de capacidad. Control remoto e indicador de par incluidos. Brazo extensor y cesto opcionales.' },
           { name: 'Carretilla Elevadora Diésel 3,5 t', img: '../img/prod/carretilla.png', note: 'Montacargas diésel, capacidad 3,5 t y elevación de 3 m. Dispositivo rotatorio opcional.' },
           { name: 'Montacargas Todoterreno 3,5 t', img: '../img/prod/montacargas.png', note: 'Montacargas todoterreno 3,5 t para superficies difíciles.' },
           { name: 'Apilador Eléctrico', img: '../img/prod/apilador.png', note: 'Apiladores eléctricos — capacidades de 1 a 2 t y alturas de 1,6 a 4,5 m.' },
