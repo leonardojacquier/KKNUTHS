@@ -1155,6 +1155,9 @@ def test_simular_mao_foldada_pre_vira_filme():
     blob = " ".join(bands[-1]["lines"])
     assert "vilaoA (BTN) mostra A♥ Q♦" in blob
     assert "leva o pote (11bb)" in blob
+    # pós-flop identifica o vilão por NOME (posição), não só posição
+    flop_blob = " ".join(bands[1]["lines"])
+    assert "vilaoA (BTN) aposta" in flop_blob
 
 
 def test_figura_da_mesa_render():

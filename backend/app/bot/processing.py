@@ -1448,7 +1448,17 @@ def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
     from app.models.canonical import ActionType, StreetName
 
     bb = h.stakes.big_blind or 1
-    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
+    # pós-flop identifica o vilão por NOME (posição) — "TabaVet (BB) aposta";
+    # o pré segue compacto por posição (jeito que jogador narra a mão)
+    posmap = {p.name: p.position for p in h.players}
+
+    def _who(nm: str) -> str:
+        if nm == h.hero:
+            return "VOCÊ"
+        short = (nm or "?").strip()[:14]
+        p = posmap.get(nm)
+        return f"{short} ({p})" if p else short
+
     verbs = {"fold": "folda", "check": "dá check", "call": "paga",
              "bet": "aposta", "raise": "aumenta p/"}
     order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
@@ -1505,7 +1515,7 @@ def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
             # narra pós-flop lance a lance (o pré já veio do resumo)
             if sname != StreetName.PREFLOP and a.type != ActionType.POST:
                 amt = round((a.to_amount or a.amount) / bb, 1)
-                who = "VOCÊ" if is_hero else pos.get(a.actor, a.actor[:8])
+                who = _who(a.actor)
                 show_amt = amt and a.type.value in ("bet", "raise", "call")
                 display_lines.append(
                     f"{who} {verbs.get(a.type.value, a.type.value)}"
