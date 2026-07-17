@@ -15,41 +15,36 @@ interface Category {
   id: string
   title: string
   icon: string
-  docLabel?: string   // "Ficha técnica" | "Catálogo"
-  docUrl?: string     // link externo (Drive/servidor) — download nunca trava a página
+  blurb: string       // texto curto no painel do deck
   products: Product[]
 }
 
 const CATALOG: Category[] = [
   {
-    id: 'equipos', title: 'Equipos', icon: 'hook', docLabel: 'Catálogo', docUrl: '',
+    id: 'construccion', title: 'Construcción', icon: 'layers',
+    blurb: 'Reglas láser, bombas de concreto, allanadoras y cortadoras para tu obra.',
     products: [
-      { name: 'Grúa araña', brand: 'GNH', note: 'Elevación de precisión' },
-      { name: 'Equipo — placeholder', note: 'AJUSTAR' },
+      { name: 'Regla Láser Vibratoria WS940', img: '../img/prod/ws940.png', note: 'Nivelación láser de pisos de concreto de alta precisión.' },
+      { name: 'Bomba Transportadora de Concreto', img: '../img/prod/bomba-cemento.png', note: 'Bombeo y transporte de concreto con caudal estable y operación continua.' },
+      { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.' },
+      { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.' },
     ],
   },
   {
-    id: 'aditivos', title: 'Aditivos', icon: 'flask', docLabel: 'Ficha técnica', docUrl: '',
+    id: 'movimentacion', title: 'Movimentación', icon: 'truck',
+    blurb: 'Grúas araña, elevadores y equipos para manipulación y elevación.',
     products: [
-      { name: 'Aditivo — placeholder', brand: 'Camargo Química', note: 'AJUSTAR' },
+      { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.jpg', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
+      { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.' },
     ],
   },
   {
-    id: 'fletes', title: 'Fletes', icon: 'truck',
+    id: 'industria', title: 'Industria', icon: 'gear',
+    blurb: 'Motores diésel, grupos electrógenos y equipos de laboratorio.',
     products: [
-      { name: 'Transporte de cargas', brand: 'FletePar', note: 'Cobertura regional' },
-    ],
-  },
-  {
-    id: 'cemento', title: 'Cemento', icon: 'layers', docLabel: 'Ficha técnica', docUrl: '',
-    products: [
-      { name: 'Cemento — placeholder', brand: 'Itambé', note: 'AJUSTAR' },
-    ],
-  },
-  {
-    id: 'morteros', title: 'Morteros', icon: 'grid', docLabel: 'Ficha técnica', docUrl: '',
-    products: [
-      { name: 'Mortero — placeholder', brand: 'Intonaco', note: 'AJUSTAR' },
+      { name: 'Ensayo a Compresión HST-YES2000', img: '../img/prod/compresion.png', note: 'Prensa digital para ensayos de resistencia a la compresión. Control de calidad.' },
+      { name: 'Motor Diésel 4HZD', img: '../img/prod/motor.png', note: 'Motor diésel industrial de alto desempeño para generación y usos estacionarios.' },
+      { name: 'Grupo Electrógeno Diésel 38 kVA', img: '../img/prod/generador.png', note: 'Generador trifásico 400 V / 50 Hz, cabina súper silenciosa.' },
     ],
   },
 ]
@@ -63,6 +58,7 @@ const ICONS: Record<string, string> = {
   grid: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   arrow: '<path d="M4 12h15M13 6l6 6-6 6"/>',
   doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"/>',
 }
 const icon = (k: string, cls = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${ICONS[k] ?? ''}</svg>`
@@ -82,27 +78,58 @@ function productCard(p: Product): string {
     </article>`
 }
 
-function categoryBlock(c: Category): string {
-  const doc = c.docUrl
-    ? `<a class="v-doc" href="${c.docUrl}" target="_blank" rel="noopener" data-ev="doc" data-detail="${c.id}">${icon('doc', 'v-doc-i')} ${c.docLabel}</a>`
-    : c.docLabel ? `<span class="v-doc v-doc-off">${icon('doc', 'v-doc-i')} ${c.docLabel} — próximamente</span>` : ''
+/* painel do deck (categoria) */
+function deckPanel(c: Category): string {
   return `
-    <section class="v-cat" id="cat-${c.id}">
-      <div class="v-cat-head">
-        <div class="v-cat-ic">${icon(c.icon)}</div>
-        <h2 class="v-cat-title">${c.title}</h2>
-        ${doc}
+    <article class="v-cat-panel" data-cat="${c.id}" tabindex="0" role="button" aria-label="Ver productos de ${c.title}">
+      <div class="ghost">${icon(c.icon)}</div>
+      <div class="p-ic">${icon(c.icon)}</div>
+      <span class="t-vert">${c.title}</span>
+      <div class="p-body">
+        <h3>${c.title}</h3>
+        <p>${c.blurb}</p>
+        <span class="p-go">Ver productos ${icon('arrow')}</span>
       </div>
-      <div class="v-rail">${c.products.map(productCard).join('')}</div>
-    </section>`
+    </article>`
+}
+
+/* mostra os produtos da categoria selecionada */
+function selectCategory(id: string, scroll = false): void {
+  const cat = CATALOG.find((c) => c.id === id)
+  if (!cat) return
+  document.querySelectorAll<HTMLElement>('.v-cat-panel').forEach((p) =>
+    p.classList.toggle('is-active', p.dataset.cat === id))
+  document.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
+    ch.classList.toggle('is-active', ch.dataset.cat === id))
+
+  const box = document.getElementById('v-products')!
+  box.innerHTML = `
+    <div class="v-products-head"><div class="v-cat-ic">${icon(cat.icon)}</div><h2>${cat.title}</h2></div>
+    <div class="v-rail">${cat.products.map(productCard).join('')}</div>`
+  box.classList.remove('revealing'); void box.offsetWidth; box.classList.add('revealing')
+  if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function renderCatalog(): void {
   const root = document.getElementById('catalog')!
-  root.innerHTML = CATALOG.map(categoryBlock).join('')
+  root.innerHTML = `
+    <div class="v-deck">${CATALOG.map(deckPanel).join('')}</div>
+    <div class="v-products" id="v-products"></div>`
+
+  root.querySelectorAll<HTMLElement>('.v-cat-panel').forEach((panel) => {
+    const id = panel.dataset.cat!
+    panel.addEventListener('click', () => selectCategory(id, true))
+    panel.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); selectCategory(id, true) }
+    })
+  })
 
   const chips = document.getElementById('cat-chips')!
-  chips.innerHTML = CATALOG.map((c) => `<a class="v-chip" href="#cat-${c.id}">${c.title}</a>`).join('')
+  chips.innerHTML = CATALOG.map((c) => `<button class="v-chip" data-cat="${c.id}">${c.title}</button>`).join('')
+  chips.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
+    ch.addEventListener('click', () => selectCategory(ch.dataset.cat!, true)))
+
+  selectCategory(CATALOG[0].id) // abre a primeira por padrão (sem rolar)
 }
 
 /* ---------- promoções (oculta se vazio) ---------- */
