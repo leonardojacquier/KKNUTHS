@@ -2,47 +2,35 @@
 
 #gateway {
   background:
-    radial-gradient(720px 480px at 50% 42%, #1b2c4d 0%, #14213D 55%, #0D1626 100%);
+    radial-gradient(120% 90% at 50% 42%, #1b2c4d 0%, #14213D 45%, #0D1626 100%);
 }
 
-/* ---------- cortina de abertura ---------- */
+/* ---------- cortina de abertura (BRANCA, fecha pro centro) ---------- */
 .gw-curtain {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 60;                       /* cortina > gateway > hero */
   pointer-events: none;
 }
 .gw-curtain-panel {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 51%;                      /* 1% de sobreposição: sem fresta no centro */
-  background: #060A18;
+  width: 50%;
+  background: #ffffff;               /* fundo BRANCO limpo, sem elemento no centro */
+  transform: scaleX(1);              /* cobre a tela */
+  transition: transform 1s cubic-bezier(0.76, 0, 0.24, 1);
   will-change: transform;
 }
-.gw-cp-left  { left: 0; }
-.gw-cp-right { right: 0; }
-.gw-curtain-dot {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #E87722;
-  transform: translate(-50%, -50%) scale(0);
-  box-shadow:
-    0 0 12px 3px rgba(232, 119, 34, 0.55),
-    0 0 34px 10px rgba(232, 119, 34, 0.25);
-}
-@media (prefers-reduced-motion: reduce) {
-  .gw-curtain { display: none; }
-}
+.gw-cp-left  { left: 0;  transform-origin: right center; }  /* recolhe p/ o centro */
+.gw-cp-right { right: 0; transform-origin: left center; }
+.gw-curtain.is-open .gw-curtain-panel { transform: scaleX(0); }  /* revela das bordas p/ dentro */
 
-/* estados iniciais (JS anima; reduced-motion reverte no fim do arquivo) */
-.gw-logo { opacity: 0; transform: translateY(-14px); }
+/* ---------- estados iniciais (JS anima; reduced-motion reverte no fim) ---------- */
+.gw-logo { opacity: 0; transform: scale(0.92); filter: blur(10px); }
 .gw-wordmark { opacity: 0; letter-spacing: 0.55em; }
 .gw-door { opacity: 0; transform: translateY(12px); }
+.gw-footer { opacity: 0; }
 
 /* ---------- horizonte ---------- */
 .gw-horizon {
@@ -55,7 +43,7 @@
 .gw-line {
   width: 100%;
   height: 1px;
-  transform: scaleX(0);            /* desenha do centro pra fora */
+  transform: scaleX(0);              /* desenha do centro pra fora */
   will-change: transform;
   background: linear-gradient(90deg,
     transparent 0%,
@@ -96,7 +84,7 @@
   text-transform: uppercase;
   transition: color 0.3s ease;
 }
-.gw-door::after {                   /* sublinhado que cresce da esquerda */
+.gw-door::after {                    /* sublinhado que cresce da esquerda */
   content: '';
   position: absolute;
   left: 0;
@@ -135,7 +123,20 @@
   .gw-divider { width: 120px; height: 1px; }   /* divisor vira horizontal */
 }
 
-/* ---------- saída (classe aplicada no clique) ---------- */
+/* ---------- rodapé ---------- */
+.gw-footer {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  translate: -50% 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ---------- saída (aplicada no clique) ---------- */
 #gateway.gw-exit {
   transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
   opacity: 0;
@@ -143,10 +144,12 @@
   pointer-events: none;
 }
 
-/* ---------- reduced-motion: tudo estático e legível ---------- */
+/* ---------- reduced-motion: pula a cortina, gateway estático e legível ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .gw-logo, .gw-door { opacity: 1; transform: none; }
+  .gw-curtain { display: none; }
+  .gw-logo { opacity: 1; transform: none; filter: none; }
   .gw-wordmark { opacity: 1; letter-spacing: 0.42em; }
+  .gw-door, .gw-footer { opacity: 1; transform: none; }
   .gw-line { transform: scaleX(1); }
   .gw-sun { transform: translate(-50%, -50%) scale(1); }
   #gateway.gw-exit { transition: none; }

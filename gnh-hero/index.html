@@ -8,33 +8,32 @@
 </head>
 <body class="bg-navy font-body text-white antialiased">
 
-  <!-- CORTINA de abertura: preto → sol acende → painéis se abrem -->
+  <!-- ============ CORTINA (preloader branco, fecha pro centro) ============ -->
   <div class="gw-curtain" aria-hidden="true">
     <div class="gw-curtain-panel gw-cp-left"></div>
     <div class="gw-curtain-panel gw-cp-right"></div>
-    <div class="gw-curtain-dot"></div>
   </div>
 
-  <!-- ============ GATEWAY (primeiro frame, 100svh) ============ -->
+  <!-- ============ GATEWAY (revelado por baixo) ============ -->
   <main id="gateway" class="relative flex h-[100svh] flex-col items-center justify-center overflow-hidden px-6">
 
-    <!-- 1. LOGO — oficial via hotlink (mesmo mecanismo do site em produção);
+    <!-- LOGO — oficial via hotlink (mesmo mecanismo do site em produção);
          cai no SVG vetorial local se o gnhorizons.com estiver inacessível -->
     <div class="gw-logo mb-10">
       <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH" class="h-16 w-auto"
            onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.onerror=null;this.src='./img/gnh-logo.svg'}">
     </div>
 
-    <!-- 2. HORIZONTE — linha assinatura + "sol" -->
+    <!-- HORIZONTE — linha assinatura + "sol" -->
     <div class="gw-horizon" aria-hidden="true">
       <div class="gw-line"></div>
       <div class="gw-sun"></div>
     </div>
 
-    <!-- 3. WORDMARK -->
+    <!-- WORDMARK -->
     <p class="gw-wordmark mt-8 text-center font-body text-[11px] uppercase text-white/55" data-str="wordmark"></p>
 
-    <!-- 4. PORTAS -->
+    <!-- PORTAS -->
     <nav class="gw-doors mt-14 flex items-center gap-10 max-[560px]:flex-col max-[560px]:gap-6" aria-label="Elige tu camino">
       <a class="gw-door" href="ventas/" data-side="ventas">
         <span class="gw-door-label" data-str="ventas"></span>
@@ -46,6 +45,9 @@
         <span class="gw-door-arrow" aria-hidden="true">→</span>
       </a>
     </nav>
+
+    <!-- RODAPÉ discreto -->
+    <p class="gw-footer" data-str="footer"></p>
   </main>
 
   <script type="module" src="/src/portal.ts"></script>
