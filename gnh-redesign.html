@@ -146,13 +146,12 @@ svg{display:block}
   top:auto;bottom:-2px;height:38%;
   background:linear-gradient(180deg,rgba(27,42,94,.0),rgba(10,16,36,.9) 55%,var(--navy-ink));
 }
-/* foto/vídeo real del sitio, mezclada con el gradiente */
-.l-photo{opacity:.26;mix-blend-mode:luminosity}
-.l-photo img,.l-photo video{width:100%;height:100%;object-fit:cover}
-.l-photo video{position:absolute;inset:0;opacity:0;transition:opacity 1.2s}
-.l-photo.video-on{opacity:.6;mix-blend-mode:normal}
-.l-photo.video-on video{opacity:1}
-.l-photo.video-on img{display:none}
+/* vídeo del hero directo sobre el gradiente */
+.l-photo video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 1.2s;
+}
+.l-photo.video-on video{opacity:.6}
 .l-photo.video-on::after{ /* velo para mantener el texto legible sobre el vídeo */
   content:"";position:absolute;inset:0;
   background:radial-gradient(ellipse 80% 70% at 50% 45%,rgba(10,16,36,.45),rgba(10,16,36,.78));
@@ -282,7 +281,7 @@ svg{display:block}
   .pillar .ic{width:38px;height:38px;margin-bottom:8px}
   .pillar .ic svg{width:19px;height:19px}
   .pillar h3{font-size:13px}
-  .l-photo.video-on{opacity:.4}
+  .l-photo.video-on video{opacity:.4}
   .scroll-cue{display:none}
 }
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
@@ -598,10 +597,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- ============ HERO ============ -->
 <header class="hero" id="hero">
   <div class="layer l-sky" data-speed="0.14"></div>
-  <!-- Foto real del sitio + vídeo opcional (assets/video/hero.mp4 en el servidor) -->
+  <!-- Vídeo del hero directo sobre el gradiente (sin imagen de transición) -->
   <div class="layer l-photo" id="heroMedia" data-speed="0.2" aria-hidden="true">
-    <img src="https://gnhorizons.com/assets/images/hero-bg.jpg" alt=""
-         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/hero-bg.jpg'}else{this.remove()}">
     <video muted loop playsinline autoplay preload="auto">
       <source src="assets/video/hero.webm" type="video/webm">
       <source src="assets/video/hero.mp4" type="video/mp4">
