@@ -34,7 +34,7 @@ const CATALOG: Category[] = [
     id: 'movimentacion', title: 'Movimentación', icon: 'truck',
     blurb: 'Grúas araña, elevadores y equipos para manipulación y elevación.',
     products: [
-      { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.jpg', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
+      { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
       { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.' },
     ],
   },

@@ -9,9 +9,20 @@ const SOCIAL = {
 }
 
 const TIENDAS = [
-  // AJUSTAR: direcciones reales
-  { ciudad: 'Ciudad del Este', dir: 'Dirección — CDE', maps: '#' },
-  { ciudad: 'Asunción', dir: 'Dirección — Asunción', maps: '#' },
+  {
+    ciudad: 'Ciudad del Este',
+    dir: 'Av. República del Perú km 7, CDE 100101',
+    tel: '0995 360060',
+    share: 'https://share.google/OAtbh8akZyeNATtUM',
+    q: 'Av. República del Perú km 7, Ciudad del Este, Paraguay',
+  },
+  {
+    ciudad: 'Asunción · Ñemby',
+    dir: 'Acceso Sur, Ñemby 111210',
+    tel: '',
+    share: 'https://share.google/DB7b1OL7m1ISorPhY',
+    q: 'Acceso Sur, Ñemby, Paraguay',
+  },
 ]
 
 export function mountFooter(slotId = 'footer-slot'): void {
@@ -19,12 +30,29 @@ export function mountFooter(slotId = 'footer-slot'): void {
   if (!slot) return
   slot.innerHTML = `
     <footer class="bg-ink text-white/70">
-      <div class="mx-auto max-w-6xl px-6 py-14 grid gap-10 md:grid-cols-3">
+      <!-- tiendas con mapa -->
+      <div class="mx-auto max-w-6xl px-6 pt-14">
+        <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Nuestras tiendas</h4>
+        <div class="mt-5 grid gap-6 md:grid-cols-2">
+          ${TIENDAS.map((t) => `
+            <div class="foot-store">
+              <iframe class="foot-map" src="https://www.google.com/maps?q=${encodeURIComponent(t.q)}&output=embed"
+                      loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa ${t.ciudad}"></iframe>
+              <div class="foot-store-info">
+                <p class="font-semibold text-white">${t.ciudad}</p>
+                <p class="text-sm">${t.dir}</p>
+                ${t.tel ? `<p class="text-sm">Tel: <a href="tel:+595${t.tel.replace(/\D/g, '').replace(/^0/, '')}" class="hover:text-orange">${t.tel}</a></p>` : ''}
+                <a href="${t.share}" target="_blank" rel="noopener" class="text-orange hover:underline text-sm">Ver en Google Maps →</a>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- marca + redes + contacto -->
+      <div class="mx-auto max-w-6xl px-6 py-12 grid gap-10 md:grid-cols-3 border-t border-white/10 mt-12">
         <div>
-          <div class="flex items-center gap-3">
-            <img src="/img/gnh-logo.svg" alt="GNH" class="h-10 w-auto"
-                 onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'font-display text-2xl font-bold text-white',textContent:'GNH'}))">
-          </div>
+          <img src="/img/gnh-logo.svg" alt="GNH" class="h-10 w-auto"
+               onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'font-display text-2xl font-bold text-white',textContent:'GNH'}))">
           <p class="mt-4 text-sm max-w-xs">Generando Nuevos Horizontes — comercio internacional, distribución y logística.</p>
           <div class="mt-5 flex gap-3">
             <a href="${SOCIAL.instagram}" target="_blank" rel="noopener" aria-label="Instagram" class="foot-social">${IG}</a>
@@ -32,19 +60,6 @@ export function mountFooter(slotId = 'footer-slot'): void {
             <a href="${SOCIAL.tiktok}" target="_blank" rel="noopener" aria-label="TikTok" class="foot-social">${TT}</a>
           </div>
         </div>
-
-        <div>
-          <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Tiendas</h4>
-          <ul class="mt-4 space-y-4 text-sm">
-            ${TIENDAS.map((t) => `
-              <li>
-                <p class="font-semibold text-white">${t.ciudad}</p>
-                <p>${t.dir}</p>
-                <a href="${t.maps}" target="_blank" rel="noopener" class="text-orange hover:underline">Ver en el mapa →</a>
-              </li>`).join('')}
-          </ul>
-        </div>
-
         <div>
           <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Contacto</h4>
           <ul class="mt-4 space-y-2 text-sm">
@@ -53,13 +68,20 @@ export function mountFooter(slotId = 'footer-slot'): void {
             <li><a href="${SOCIAL.whatsapp}" target="_blank" rel="noopener" class="hover:text-orange">WhatsApp</a></li>
           </ul>
         </div>
+        <div>
+          <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Seguinos</h4>
+          <ul class="mt-4 space-y-2 text-sm">
+            <li><a href="${SOCIAL.instagram}" target="_blank" rel="noopener" class="hover:text-orange">Instagram</a></li>
+            <li><a href="${SOCIAL.facebook}" target="_blank" rel="noopener" class="hover:text-orange">Facebook</a></li>
+            <li><a href="${SOCIAL.tiktok}" target="_blank" rel="noopener" class="hover:text-orange">TikTok</a></li>
+          </ul>
+        </div>
       </div>
       <div class="border-t border-white/10 py-6 text-center text-xs text-white/40">
         © ${'{'}year${'}'} Grupo GNH — Reservados todos los derechos · Paraguay · Brasil
       </div>
     </footer>`
-  const y = slot.querySelector('.border-t')
-  if (y) y.innerHTML = y.innerHTML.replace('{year}', String(new Date().getFullYear()))
+  slot.innerHTML = slot.innerHTML.replace('{year}', String(new Date().getFullYear()))
 
   // WhatsApp flotante
   const wa = document.createElement('a')
