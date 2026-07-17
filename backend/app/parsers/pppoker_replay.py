@@ -136,8 +136,8 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
         is_hero = bool(p.get("isSelf"))
         if is_hero:
             hero = name
-        # cartas reveladas no showdown (quando o JSON traz por jogador) —
-        # viram shown_cards e aparecem na banda "Resultado" do filme
+        # cartas reveladas junto ao jogador (formato raro) — o formato comum
+        # é flow.show_hands, tratado abaixo
         cs = _cards(p.get("cards"))
         if cs and not is_hero:
             shown[name] = cs
@@ -147,6 +147,21 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
 
     # posições: ordem horária começando no SB (quem postou o SB)
     _assign_positions(players, flow, seat_name)
+
+    # SHOWDOWN (sonda 2026-07-17): as cartas reveladas ficam em
+    # flow.show_hands = [{seatid, code:[c1,c2]}, ...] (mão completa no
+    # showdown) e flow.show_cards = [{seatid, code:int}] (jogador que mostra
+    # UMA carta voluntariamente). Herói fica fora (já temos info.cards).
+    for sh in flow.get("show_hands") or []:
+        nm = seat_name.get(sh.get("seatid"))
+        cs = _cards(sh.get("code"))
+        if nm and cs and nm != hero:
+            shown[nm] = cs
+    for sc in flow.get("show_cards") or []:
+        nm = seat_name.get(sc.get("seatid"))
+        c = _card(sc.get("code"))
+        if nm and c and nm != hero and nm not in shown:
+            shown[nm] = [c]
 
     # streets + ações
     streets: list[Street] = []

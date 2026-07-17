@@ -951,6 +951,10 @@ def _pppoker_fixture():
             ], "chips_back": [{"seatid": 3, "chips": 1820000}]},
             "turn": {"cards": [], "actions": []},
             "river": {"cards": [], "actions": []},
+            # showdown (formato real da sonda): mão completa revelada por
+            # seatid em show_hands; carta única voluntária em show_cards
+            "show_hands": [{"seatid": 3, "code": [520, 1032]}],   # 8c 8s
+            "show_cards": [{"seatid": 1, "code": 771}],           # 3h
             "winning_info": [{"seatid": 3, "chips": 3240000, "profit": 2070000}],
         },
     }
@@ -993,6 +997,10 @@ def test_pppoker_replay_parser():
     assert ftipos == [("RicoFarah", "check"), ("ImperadorJuju", "bet"),
                       ("RicoFarah", "fold")]
     assert h.total_pot == 3240000 and h.collected.get("ImperadorJuju") == 3240000
+
+    # showdown: mão completa de flow.show_hands + carta única de show_cards
+    assert h.shown_cards["ImperadorJuju"] == ["8c", "8s"]
+    assert h.shown_cards["vilmots"] == ["3h"]
 
 
 def test_replay_link_detection_routes_pppoker():

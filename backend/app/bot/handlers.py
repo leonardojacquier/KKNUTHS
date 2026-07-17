@@ -1020,7 +1020,9 @@ async def _route_text(update: Update, text: str) -> None:
             reply = await asyncio.to_thread(
                 process_upload, rl["share_key"], "pppoker_replay",
                 tg_user.id, _uname(tg_user), "pt", None)
-            await _log(update, "replay_pppoker")
+            # share_key no evento: sondas/diagnóstico acham a mão certa (o
+            # fluxo antigo só deixava rastro quando caía no followup)
+            await _log(update, "replay_pppoker", share_key=rl["share_key"])
             await _safe_reply(update.message, reply,
                               kind=LAST_UPLOAD_KIND.get(tg_user.id))
             await _send_pending_charts(update.message, tg_user.id)
