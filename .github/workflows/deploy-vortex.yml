@@ -31,11 +31,22 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$VORTEX_HOST" >> ~/.ssh/known_hosts
+          # keyscan é best-effort; o ssh abaixo usa accept-new como rede de segurança
+          ssh-keyscan -T 10 -H "$VORTEX_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "keyscan falhou — seguindo com accept-new"
 
       - name: Enviar site e definir index.html
         if: env.HAS_KEY == 'true'
         run: |
-          tar czf - gnh-redesign.html assets \
-            | ssh -i ~/.ssh/deploy_key "$VORTEX_USER@$VORTEX_HOST" \
-                "mkdir -p $VORTEX_PATH && tar xzf - -C $VORTEX_PATH && cd $VORTEX_PATH && cp gnh-redesign.html index.html && echo 'Deploy OK —' \$(md5sum index.html | cut -c1-10)"
+          for i in 1 2; do
+            tar czf - gnh-redesign.html assets \
+              | ssh -i ~/.ssh/deploy_key \
+                  -o StrictHostKeyChecking=accept-new \
+                  -o ConnectTimeout=20 \
+                  "$VORTEX_USER@$VORTEX_HOST" \
+                  "mkdir -p $VORTEX_PATH && tar xzf - -C $VORTEX_PATH && cd $VORTEX_PATH && cp gnh-redesign.html index.html && echo 'Deploy OK —' \$(md5sum index.html | cut -c1-10)" \
+              && exit 0
+            echo "tentativa $i falhou; aguardando 20s (fail2ban-friendly)"
+            sleep 20
+          done
+          echo "::error::Deploy falhou após 2 tentativas"
+          exit 1
