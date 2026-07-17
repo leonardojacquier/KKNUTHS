@@ -320,13 +320,13 @@ svg{display:block}
 .stat .lbl{color:rgba(255,255,255,.6);font-size:15px;margin-top:6px}
 
 /* Servicios */
-.svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px}
+.svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px;align-items:stretch}
 @media(max-width:960px){.svc-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.svc-grid{grid-template-columns:1fr}}
 .svc{
   background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 28px;
   transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .45s;
-  position:relative;overflow:hidden;
+  position:relative;overflow:hidden;height:100%;
 }
 .svc::before{
   content:"";position:absolute;inset:0 0 auto 0;height:4px;
@@ -747,7 +747,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       </div>
       <div class="svc reveal d2">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
-        <h3>Distribución y Logística</h3>
+        <h3>Supply-Chain</h3>
         <p>Red mayorista con cobertura regional: almacenamiento, transporte y entregas con trazabilidad total.</p>
       </div>
       <div class="svc reveal d3">

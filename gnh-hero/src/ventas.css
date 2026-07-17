@@ -56,6 +56,19 @@
 @keyframes vfade { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 .v-products-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .v-products-head h2 { font-family: 'Satoshi', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 24px; color: #0F172A; letter-spacing: -.02em; }
+.v-subgroup { margin-top: 22px; }
+.v-subtitle {
+  font-family: 'Satoshi', sans-serif; font-weight: 600; font-size: 14px; letter-spacing: .14em;
+  text-transform: uppercase; color: #F26D21; margin-bottom: 12px;
+  padding-left: 12px; border-left: 3px solid #F26D21;
+}
+.v-empty { padding: 40px 4px; }
+.v-empty p { color: #5B6472; font-size: 16px; margin-bottom: 16px; }
+.btn-empty {
+  display: inline-flex; align-items: center; min-height: 46px; padding: 12px 24px; border-radius: 100px;
+  background: #F26D21; color: #fff; font-weight: 700; text-decoration: none; transition: filter .2s;
+}
+.btn-empty:hover { filter: brightness(1.1); }
 @media (prefers-reduced-motion: reduce) {
   .v-cat-panel, .v-cat-panel .p-body { transition: none; }
   .v-products.revealing { animation: none; }

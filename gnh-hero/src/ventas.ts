@@ -11,41 +11,68 @@ const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}
    Cada produto: nome, marca, imagem (placeholder até chegar), nota.
    ============================================================ */
 interface Product { name: string; brand?: string; img?: string; note?: string }
+interface SubGroup { title: string; products: Product[] }
 interface Category {
   id: string
   title: string
   icon: string
-  blurb: string       // texto curto no painel do deck
-  products: Product[]
+  blurb: string                 // texto curto no painel do deck
+  products?: Product[]          // categoria simples
+  groups?: SubGroup[]           // categoria com subcategorias (ex.: Equipos)
 }
 
 const CATALOG: Category[] = [
   {
-    id: 'construccion', title: 'Construcción', icon: 'layers',
-    blurb: 'Reglas láser, bombas de concreto, allanadoras y cortadoras para tu obra.',
-    products: [
-      { name: 'Regla Láser Vibratoria WS940', img: '../img/prod/ws940.png', note: 'Nivelación láser de pisos de concreto de alta precisión.' },
-      { name: 'Bomba Transportadora de Concreto', img: '../img/prod/bomba-cemento.png', note: 'Bombeo y transporte de concreto con caudal estable y operación continua.' },
-      { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.' },
-      { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.' },
+    id: 'equipos', title: 'Equipos', icon: 'gear',
+    blurb: 'Reglas láser, bombas de concreto, allanadoras, grúas, generadores y más.',
+    groups: [
+      {
+        title: 'Construcción',
+        products: [
+          { name: 'Regla Láser Vibratoria WS940', img: '../img/prod/ws940.png', note: 'Nivelación láser de pisos de concreto de alta precisión.' },
+          { name: 'Bomba Transportadora de Concreto', img: '../img/prod/bomba-cemento.png', note: 'Bombeo y transporte de concreto con caudal estable y operación continua.' },
+          { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.' },
+          { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.' },
+        ],
+      },
+      {
+        title: 'Movimentación',
+        products: [
+          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
+          { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.' },
+        ],
+      },
+      {
+        title: 'Industria',
+        products: [
+          { name: 'Ensayo a Compresión HST-YES2000', img: '../img/prod/compresion.png', note: 'Prensa digital para ensayos de resistencia a la compresión. Control de calidad.' },
+          { name: 'Motor Diésel 4HZD', img: '../img/prod/motor.png', note: 'Motor diésel industrial de alto desempeño para generación y usos estacionarios.' },
+          { name: 'Grupo Electrógeno Diésel 38 kVA', img: '../img/prod/generador.png', note: 'Generador trifásico 400 V / 50 Hz, cabina súper silenciosa.' },
+        ],
+      },
     ],
   },
   {
-    id: 'movimentacion', title: 'Movimentación', icon: 'truck',
-    blurb: 'Grúas araña, elevadores y equipos para manipulación y elevación.',
+    id: 'aditivos', title: 'Aditivos', icon: 'flask',
+    blurb: 'Aditivos y soluciones químicas para construcción.',
+    products: [],
+  },
+  {
+    id: 'fletes', title: 'Fletes', icon: 'truck',
+    blurb: 'Transporte y fletes de carga con cobertura regional.',
     products: [
-      { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúa compacta de orugas para elevación de precisión en espacios reducidos.' },
-      { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.' },
+      { name: 'Transporte de Cargas', brand: 'FletePar', note: 'Fletes con cobertura regional y trazabilidad total, del origen al destino.' },
     ],
   },
   {
-    id: 'industria', title: 'Industria', icon: 'gear',
-    blurb: 'Motores diésel, grupos electrógenos y equipos de laboratorio.',
-    products: [
-      { name: 'Ensayo a Compresión HST-YES2000', img: '../img/prod/compresion.png', note: 'Prensa digital para ensayos de resistencia a la compresión. Control de calidad.' },
-      { name: 'Motor Diésel 4HZD', img: '../img/prod/motor.png', note: 'Motor diésel industrial de alto desempeño para generación y usos estacionarios.' },
-      { name: 'Grupo Electrógeno Diésel 38 kVA', img: '../img/prod/generador.png', note: 'Generador trifásico 400 V / 50 Hz, cabina súper silenciosa.' },
-    ],
+    id: 'morteros', title: 'Morteros', icon: 'grid',
+    blurb: 'Revoques y morteros industrializados.',
+    products: [],
+  },
+  {
+    id: 'cementos', title: 'Cementos', icon: 'layers',
+    blurb: 'Cemento de alto desempeño para toda obra.',
+    products: [],
   },
 ]
 
@@ -102,10 +129,29 @@ function selectCategory(id: string, scroll = false): void {
   document.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
     ch.classList.toggle('is-active', ch.dataset.cat === id))
 
+  let body: string
+  if (cat.groups && cat.groups.length) {
+    // categoria com subcategorias (ex.: Equipos → Construcción/Movimentación/Industria)
+    body = cat.groups.map((g) => `
+      <div class="v-subgroup">
+        <h3 class="v-subtitle">${g.title}</h3>
+        <div class="v-rail">${g.products.map(productCard).join('')}</div>
+      </div>`).join('')
+  } else if (cat.products && cat.products.length) {
+    body = `<div class="v-rail">${cat.products.map(productCard).join('')}</div>`
+  } else {
+    // categoria sin productos aún
+    body = `
+      <div class="v-empty">
+        <p>Pronto sumaremos productos de esta línea.</p>
+        <a class="btn-empty" href="${wa('Hola, quiero consultar sobre ' + cat.title)}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+      </div>`
+  }
+
   const box = document.getElementById('v-products')!
   box.innerHTML = `
     <div class="v-products-head"><div class="v-cat-ic">${icon(cat.icon)}</div><h2>${cat.title}</h2></div>
-    <div class="v-rail">${cat.products.map(productCard).join('')}</div>`
+    ${body}`
   box.classList.remove('revealing'); void box.offsetWidth; box.classList.add('revealing')
   if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }

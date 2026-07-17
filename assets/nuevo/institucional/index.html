@@ -320,13 +320,13 @@ svg{display:block}
 .stat .lbl{color:rgba(255,255,255,.6);font-size:15px;margin-top:6px}
 
 /* Servicios */
-.svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px}
+.svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:52px;align-items:stretch}
 @media(max-width:960px){.svc-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.svc-grid{grid-template-columns:1fr}}
 .svc{
   background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 28px;
   transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .45s;
-  position:relative;overflow:hidden;
+  position:relative;overflow:hidden;height:100%;
 }
 .svc::before{
   content:"";position:absolute;inset:0 0 auto 0;height:4px;
@@ -747,7 +747,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       </div>
       <div class="svc reveal d2">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
-        <h3>Distribución y Logística</h3>
+        <h3>Supply-Chain</h3>
         <p>Red mayorista con cobertura regional: almacenamiento, transporte y entregas con trazabilidad total.</p>
       </div>
       <div class="svc reveal d3">
@@ -774,55 +774,80 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   </div>
 </section>
 
-<!-- ============ FRENTES DEL GRUPO (deck institucional) ============ -->
-<section class="section alt" id="frentes">
-  <div class="wrap">
-    <span class="tag reveal">Grupo GNH</span>
-    <h2 class="reveal d1">Nuestras <span style="color:var(--orange)">fortalezas</span></h2>
-    <p class="lead reveal d2">Cuatro frentes que trabajan como uno. Pasá el cursor o tocá para explorar.</p>
-    <div class="cat-deck reveal d2">
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-globe"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
-        <span class="t-vert">Comercio Internacional</span>
-        <div class="body">
-          <h3>Comercio Internacional</h3>
-          <p>Importación y exportación estratégica. Conectamos marcas globales con Paraguay y Brasil.</p>
-          <a class="go" href="#contact">Hablemos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-truck"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
-        <span class="t-vert">Logística Propia</span>
-        <div class="body">
-          <h3>Logística Propia</h3>
-          <p>Flota propia (FletePar) y red regional. Del origen al destino, con trazabilidad total.</p>
-          <a class="go" href="#contact">Hablemos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-handshake"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
-        <span class="t-vert">Representación de Marcas</span>
-        <div class="body">
-          <h3>Representación de Marcas</h3>
-          <p>Representación exclusiva de marcas internacionales, con desarrollo y soporte local.</p>
-          <a class="go" href="#contact">Hablemos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-spark"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-spark"/></svg></div>
-        <span class="t-vert">Alianzas Estratégicas</span>
-        <div class="body">
-          <h3>Alianzas Estratégicas</h3>
-          <p>Socios en China, Brasil y Paraguay que amplían nuestro alcance y capacidad.</p>
-          <a class="go" href="#contact">Hablemos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-    </div>
+<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) ============ -->
+<style>
+.fort-cine{background:radial-gradient(900px 500px at 80% 0%,rgba(242,109,33,.12),transparent 60%),linear-gradient(180deg,var(--navy-deep),var(--navy-ink));padding:104px 0 72px;position:relative;overflow:hidden}
+.fort-cine .head{margin-bottom:26px}
+.fort-cine .head h2{color:#fff;font-size:clamp(30px,4.6vw,50px)}
+.fort-cine .head p{color:rgba(255,255,255,.62);font-size:18px;margin-top:10px}
+.fort-scene{padding:44px 0;border-top:1px solid rgba(255,255,255,.07)}
+.fort-row{display:flex;align-items:center;gap:36px;position:relative}
+.fort-scene:nth-child(even) .fort-row{flex-direction:row-reverse}
+.fort-num{font-family:var(--font-head);font-weight:800;font-size:clamp(64px,11vw,140px);line-height:.85;color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.14);flex-shrink:0}
+.fort-text{max-width:600px}
+.fort-ic{width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--orange),var(--orange-soft));display:grid;place-items:center;margin-bottom:18px;box-shadow:0 10px 26px -8px rgba(242,109,33,.55)}
+.fort-ic svg{width:27px;height:27px;stroke:#fff}
+.fort-text h3{color:#fff;font-size:clamp(24px,3.2vw,36px);margin-bottom:12px}
+.fort-text p{color:rgba(255,255,255,.72);font-size:17.5px;line-height:1.6}
+.fort-ghost{margin-left:auto;opacity:.05;flex-shrink:0}
+.fort-scene:nth-child(even) .fort-ghost{margin-left:0;margin-right:auto}
+.fort-ghost svg{width:150px;height:150px;stroke:#fff}
+@media(max-width:820px){
+  .fort-row,.fort-scene:nth-child(even) .fort-row{flex-direction:column;text-align:center;gap:6px}
+  .fort-ic{margin-inline:auto}.fort-ghost{display:none}.fort-text p{margin-inline:auto}
+}
+</style>
+<section class="fort-cine" id="frentes">
+  <div class="wrap head reveal">
+    <span class="tag">Grupo GNH</span>
+    <h2>Nuestras <span style="color:var(--orange)">fortalezas</span></h2>
+    <p>Cuatro pilares que trabajan como uno.</p>
   </div>
+  
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">01</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
+          <h3>Comercio Internacional</h3>
+          <p>Importación y exportación estratégica. Conectamos marcas globales con Paraguay y Brasil, con procesos aduaneros ágiles y seguros.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-globe"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">02</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
+          <h3>Logística Propia</h3>
+          <p>Flota propia (FletePar) y red regional. Del origen al destino, con trazabilidad total y tiempos que se cumplen.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-truck"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">03</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
+          <h3>Representación de Marcas</h3>
+          <p>Representación exclusiva de marcas internacionales, con desarrollo comercial, posicionamiento y soporte local.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-handshake"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">04</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-spark"/></svg></div>
+          <h3>Alianzas Estratégicas</h3>
+          <p>Socios en China, Brasil y Paraguay que amplían nuestro alcance, nuestra capacidad y nuestros horizontes.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-spark"/></svg></div>
+      </div>
+    </div>
 </section>
 
 <!-- ============ SHOWCASE FROTA GNH ============ -->
