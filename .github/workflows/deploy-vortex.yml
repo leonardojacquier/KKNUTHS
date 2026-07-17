@@ -29,8 +29,14 @@ jobs:
         if: env.HAS_KEY == 'true'
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" > ~/.ssh/deploy_key
+          # normaliza CRLF do Windows e garante quebra final
+          printf '%s\n' "${{ secrets.VORTEX_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+            echo "::error::VORTEX_SSH_KEY inválida — recole o secret com o conteúdo COMPLETO de /root/.ssh/gnh_deploy (da linha BEGIN até a linha END, sem cortar nada)"
+            exit 1
+          fi
+          echo "Chave válida ✓"
           # keyscan é best-effort; o ssh abaixo usa accept-new como rede de segurança
           ssh-keyscan -4 -T 10 -H "$VORTEX_HOST" >> ~/.ssh/known_hosts 2>/dev/null || echo "keyscan falhou — seguindo com accept-new"
 
