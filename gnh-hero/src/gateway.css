@@ -72,7 +72,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   min-height: 44px;
   padding: 8px 4px;
   text-decoration: none;
@@ -97,8 +97,12 @@
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .gw-door-arrow {
+  position: absolute;                /* fora do fluxo: não desloca o label */
+  left: 100%;
+  top: 50%;
+  margin-left: 8px;
   opacity: 0;
-  transform: translateX(-6px);
+  transform: translateY(-50%) translateX(-6px);
   transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   color: #E87722;
 }
@@ -106,7 +110,7 @@
 .gw-door:hover::after, .gw-door:focus-visible::after { transform: scaleX(1); }
 .gw-door:hover .gw-door-arrow, .gw-door:focus-visible .gw-door-arrow {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateY(-50%) translateX(0);
 }
 .gw-door:focus-visible {
   outline: 3px solid #E87722;
