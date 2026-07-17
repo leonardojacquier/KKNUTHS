@@ -1829,36 +1829,67 @@ def sizing_amounts(pot_bb: float | None, to_call_bb: float | None,
     }
 
 
-def drill_buttons(drill: dict) -> list[list[dict]]:
-    """Botões do quiz COM o tamanho REAL em bb (feedback do admin: 'só tem
-    raise pote e coisas do tipo' — agora cada sizing mostra o número):
-    - enfrentando aposta: Fold/Call(x) + Raise 3x(x) / pote(x) / All-in(x)
-    - sem aposta: Check + Bet ⅓(x) / ½(x) / pote(x) / All-in(x)"""
-    amt = sizing_amounts(drill.get("pot_bb"), drill.get("to_call_bb"),
-                         drill.get("stack_bb"))
-    if drill.get("to_call_bb"):
+def action_menu_rows(pot_bb, to_call_bb, stack_bb, prefix: str,
+                     suffix: str = "") -> list[list[dict]]:
+    """Menu PRINCIPAL de ação, como numa sala de verdade: primeiro a decisão
+    (Fold/Call/Raise ou Check/Bet); apertar Raise/Bet abre o menu de tamanhos
+    (size_menu_rows) — feedback do admin: 'quero apertar no raise e poder
+    escolher o tamanho da aposta'."""
+    if to_call_bb:
         return [
-            [{"text": "🚫 Fold", "callback_data": "drill:fold"},
-             {"text": f"✅ Call{_fmt_bb(drill.get('to_call_bb'))}",
-              "callback_data": "drill:call"}],
-            [{"text": f"Raise 3x{_fmt_bb(amt['raise3x'])}",
-              "callback_data": "drill:raise3x"},
-             {"text": f"R. pote{_fmt_bb(amt['raisepot'])}",
-              "callback_data": "drill:raisepot"},
-             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
-              "callback_data": "drill:allin"}],
+            [{"text": "🚫 Fold", "callback_data": f"{prefix}:fold{suffix}"},
+             {"text": f"✅ Call{_fmt_bb(to_call_bb)}",
+              "callback_data": f"{prefix}:call{suffix}"}],
+            [{"text": "⬆️ Raise — escolher tamanho ▸",
+              "callback_data": f"{prefix}:sizes{suffix}"}],
         ]
     return [
-        [{"text": "Check", "callback_data": "drill:check"}],
-        [{"text": f"Bet ⅓{_fmt_bb(amt['bet33'])}",
-          "callback_data": "drill:bet33"},
-         {"text": f"Bet ½{_fmt_bb(amt['bet50'])}",
-          "callback_data": "drill:bet50"},
-         {"text": f"B. pote{_fmt_bb(amt['betpot'])}",
-          "callback_data": "drill:betpot"},
-         {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
-          "callback_data": "drill:allin"}],
+        [{"text": "Check", "callback_data": f"{prefix}:check{suffix}"}],
+        [{"text": "🎯 Bet — escolher tamanho ▸",
+          "callback_data": f"{prefix}:sizes{suffix}"}],
     ]
+
+
+def size_menu_rows(pot_bb, to_call_bb, stack_bb, prefix: str,
+                   suffix: str = "") -> list[list[dict]]:
+    """Submenu de tamanhos (abre no toque em Raise/Bet), com o valor REAL em
+    bb de cada sizing e o Voltar pra trocar de ideia."""
+    amt = sizing_amounts(pot_bb, to_call_bb, stack_bb)
+    if to_call_bb:
+        rows = [
+            [{"text": f"3x{_fmt_bb(amt['raise3x'])}",
+              "callback_data": f"{prefix}:raise3x{suffix}"},
+             {"text": f"Pote{_fmt_bb(amt['raisepot'])}",
+              "callback_data": f"{prefix}:raisepot{suffix}"},
+             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
+              "callback_data": f"{prefix}:allin{suffix}"}],
+        ]
+    else:
+        rows = [
+            [{"text": f"⅓ pote{_fmt_bb(amt['bet33'])}",
+              "callback_data": f"{prefix}:bet33{suffix}"},
+             {"text": f"½ pote{_fmt_bb(amt['bet50'])}",
+              "callback_data": f"{prefix}:bet50{suffix}"},
+             {"text": f"Pote{_fmt_bb(amt['betpot'])}",
+              "callback_data": f"{prefix}:betpot{suffix}"},
+             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
+              "callback_data": f"{prefix}:allin{suffix}"}],
+        ]
+    rows.append([{"text": "↩️ Voltar",
+                  "callback_data": f"{prefix}:back{suffix}"}])
+    return rows
+
+
+def drill_buttons(drill: dict) -> list[list[dict]]:
+    """Menu principal do quiz (Fold/Call + Raise ▸ ou Check + Bet ▸)."""
+    return action_menu_rows(drill.get("pot_bb"), drill.get("to_call_bb"),
+                            drill.get("stack_bb"), "drill")
+
+
+def drill_size_buttons(drill: dict) -> list[list[dict]]:
+    """Submenu de tamanhos do quiz (abre no toque em Raise/Bet)."""
+    return size_menu_rows(drill.get("pot_bb"), drill.get("to_call_bb"),
+                          drill.get("stack_bb"), "drill")
 
 
 def reveal_drill(drill: dict, choice: str) -> str:

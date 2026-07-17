@@ -150,11 +150,13 @@ def test_professional_quiz_drill():
         reveal = proc.reveal_drill(drill, "call")
         assert "A conta" in reveal and "equity" in reveal
         assert "Na mão real" in reveal
-        # botões contextuais COM tamanho de aposta (não só Raise/All-in)
+        # menu em dois passos: principal = ação; submenu = tamanhos em bb
         btns = [b["text"] for row in proc.drill_buttons(drill) for b in row]
         blob = " ".join(btns)
-        assert "Fold" in blob and "Call" in blob
-        assert "3x" in blob and "All-in" in blob   # tem opções de sizing
+        assert "Fold" in blob and "Call" in blob and "Raise" in blob
+        sub = " ".join(b["text"]
+                       for row in proc.drill_size_buttons(drill) for b in row)
+        assert "3x" in sub and "All-in" in sub and "Voltar" in sub
         # o choice do botão de tamanho normaliza pra ação base
         assert proc.drill_action("raise3x") == ("raise", "RAISE 3x")
         assert proc.drill_action("allin")[0] == "raise"

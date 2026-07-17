@@ -1081,18 +1081,28 @@ def test_botoes_com_tamanho_real_em_bb():
     curto = sizing_amounts(9.0, 3.0, 10.0)
     assert curto["raisepot"] == 10.0
 
-    d = {"pot_bb": 9.0, "to_call_bb": 3.0, "stack_bb": 40.0}
-    rows = drill_buttons(d)
-    flat = " | ".join(b["text"] for r in rows for b in r)
-    assert "Raise 3x (9bb)" in flat and "R. pote (15bb)" in flat
-    assert "All-in (40bb)" in flat and "Call (3bb)" in flat
+    # fluxo em DOIS passos ("quero apertar no raise e escolher o tamanho"):
+    # menu principal = ação; toque em Raise/Bet abre o submenu de tamanhos
+    from app.bot.processing import drill_size_buttons
 
-    # sem aposta: frações do pote
+    d = {"pot_bb": 9.0, "to_call_bb": 3.0, "stack_bb": 40.0}
+    main = " | ".join(b["text"] for r in drill_buttons(d) for b in r)
+    assert "Fold" in main and "Call (3bb)" in main and "Raise" in main
+    assert "3x" not in main                    # tamanhos só no submenu
+    cbs = [b["callback_data"] for r in drill_buttons(d) for b in r]
+    assert "drill:sizes" in cbs                # o toque que abre o submenu
+
+    sub = " | ".join(b["text"] for r in drill_size_buttons(d) for b in r)
+    assert "3x (9bb)" in sub and "Pote (15bb)" in sub
+    assert "All-in (40bb)" in sub and "Voltar" in sub
+
+    # sem aposta: frações do pote no submenu
     d2 = {"pot_bb": 12.0, "to_call_bb": 0, "stack_bb": 33.0}
-    rows2 = drill_buttons(d2)
-    flat2 = " | ".join(b["text"] for r in rows2 for b in r)
-    assert "Bet ⅓ (4bb)" in flat2 and "Bet ½ (6bb)" in flat2
-    assert "B. pote (12bb)" in flat2
+    main2 = " | ".join(b["text"] for r in drill_buttons(d2) for b in r)
+    assert "Check" in main2 and "Bet" in main2
+    sub2 = " | ".join(b["text"] for r in drill_size_buttons(d2) for b in r)
+    assert "⅓ pote (4bb)" in sub2 and "½ pote (6bb)" in sub2
+    assert "Pote (12bb)" in sub2 and "All-in (33bb)" in sub2
 
 
 def test_simular_mao_foldada_pre_vira_filme():

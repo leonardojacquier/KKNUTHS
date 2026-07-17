@@ -572,6 +572,21 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         await _show_reveal(query, "Treino expirado. Use /treino para outro.")
         return
     choice = query.data.split(":", 1)[1]
+    # navegação do menu (Raise ▸ tamanhos / Voltar): troca só o teclado da
+    # mensagem, nada de reveal. O drill volta pro estado (ctx + banco) — o
+    # pop lá em cima não pode engolir o quiz num mero toque de menu.
+    if choice in ("sizes", "back"):
+        from app.bot.processing import drill_buttons, drill_size_buttons
+
+        rows = (drill_size_buttons if choice == "sizes" else drill_buttons)(drill)
+        try:
+            await query.edit_message_reply_markup(reply_markup=_kb(rows))
+        except Exception:
+            pass
+        ctx.user_data["drill"] = drill
+        await asyncio.to_thread(
+            get_repository().set_pending_drill, update.effective_user.id, drill)
+        return
     await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
     # os botões pós-reveal agem sobre ESTA mão. Quando o quiz veio do banco
     # (quiz diário do cron), o LAST_HAND_META deste processo está vazio — e o
@@ -691,45 +706,42 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _send_pending_charts(update.message, tg_user.id)
 
 
+def _kb(rows: list[list[dict]]) -> InlineKeyboardMarkup:
+    """Converte linhas de botões-dict (processing) em InlineKeyboardMarkup."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(b["text"], callback_data=b["callback_data"])
+         for b in row]
+        for row in rows
+    ])
+
+
+def _sim_menu_args(sim: dict, decision: dict, pos: int) -> tuple:
+    """(pot_bb, to_call_bb, stack_bb) da decisão atual — régua dos menus."""
+    bb = sim.get("bb") or 1
+    fig = (sim.get("figures") or {}).get(str(pos)) or {}
+    return (round(decision["pot"] / bb, 1),
+            round(decision["to_call"] / bb, 1),
+            fig.get("stack_bb"))
+
+
 def _sim_buttons(sim: dict, decision: dict, pos: int) -> InlineKeyboardMarkup:
-    """Botões da simulação COM o tamanho real em bb (mesma régua do quiz):
-    com aposta = Fold/Call(x) + Raise 3x(x)/pote(x)/All-in(x); sem = Check +
-    Bet ⅓(x)/½(x)/pote(x)/All-in(x).
+    """Menu principal da simulação (Fold/Call + Raise ▸ ou Check + Bet ▸).
+    Apertar Raise/Bet abre o submenu de tamanhos (dois toques, como numa sala).
 
     O índice da decisão vai no callback_data: um duplo-clique no celular não
     pode responder a decisão SEGUINTE (que o usuário nem viu)."""
-    from app.bot.processing import _fmt_bb, sizing_amounts
+    from app.bot.processing import action_menu_rows
 
-    bb = sim.get("bb") or 1
-    fig = (sim.get("figures") or {}).get(str(pos)) or {}
-    pot_bb = round(decision["pot"] / bb, 1)
-    tc_bb = round(decision["to_call"] / bb, 1)
-    amt = sizing_amounts(pot_bb, tc_bb, fig.get("stack_bb"))
-    if decision["to_call"] > 0:
-        rows = [
-            [InlineKeyboardButton("🚫 Fold", callback_data=f"sim:fold:{pos}"),
-             InlineKeyboardButton(f"✅ Call{_fmt_bb(tc_bb)}",
-                                  callback_data=f"sim:call:{pos}")],
-            [InlineKeyboardButton(f"Raise 3x{_fmt_bb(amt['raise3x'])}",
-                                  callback_data=f"sim:raise3x:{pos}"),
-             InlineKeyboardButton(f"R. pote{_fmt_bb(amt['raisepot'])}",
-                                  callback_data=f"sim:raisepot:{pos}"),
-             InlineKeyboardButton(f"💥 All-in{_fmt_bb(amt['allin'])}",
-                                  callback_data=f"sim:allin:{pos}")],
-        ]
-    else:
-        rows = [
-            [InlineKeyboardButton("Check", callback_data=f"sim:check:{pos}")],
-            [InlineKeyboardButton(f"Bet ⅓{_fmt_bb(amt['bet33'])}",
-                                  callback_data=f"sim:bet33:{pos}"),
-             InlineKeyboardButton(f"Bet ½{_fmt_bb(amt['bet50'])}",
-                                  callback_data=f"sim:bet50:{pos}"),
-             InlineKeyboardButton(f"B. pote{_fmt_bb(amt['betpot'])}",
-                                  callback_data=f"sim:betpot:{pos}"),
-             InlineKeyboardButton(f"💥 All-in{_fmt_bb(amt['allin'])}",
-                                  callback_data=f"sim:allin:{pos}")],
-        ]
-    return InlineKeyboardMarkup(rows)
+    pot_bb, tc_bb, stack_bb = _sim_menu_args(sim, decision, pos)
+    return _kb(action_menu_rows(pot_bb, tc_bb, stack_bb, "sim", f":{pos}"))
+
+
+def _sim_size_buttons(sim: dict, decision: dict, pos: int) -> InlineKeyboardMarkup:
+    """Submenu de tamanhos da simulação (abre no toque em Raise/Bet)."""
+    from app.bot.processing import size_menu_rows
+
+    pot_bb, tc_bb, stack_bb = _sim_menu_args(sim, decision, pos)
+    return _kb(size_menu_rows(pot_bb, tc_bb, stack_bb, "sim", f":{pos}"))
 
 
 async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
@@ -835,19 +847,36 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     parts = query.data.split(":")
     raw = parts[1]
-    # botões com sizing (raise3x/betpot/...): registra a ação-base + o tamanho
-    # legível — o resumo compara pelo verbo ("raise" vs "raise") e o aluno vê
-    # o sizing que escolheu ("raise 3x", "bet ½ pote")
-    _SIZES = {"raise3x": "raise 3x", "raisepot": "raise pote",
-              "allin": "raise all-in", "bet33": "bet ⅓ pote",
-              "bet50": "bet ½ pote", "betpot": "bet pote"}
-    choice = _SIZES.get(raw, raw)
     # callback velho (duplo-clique / retoque em mensagem antiga): ignora em vez
     # de registrar resposta numa decisão que o usuário nem viu
     if len(parts) > 2 and parts[2].isdigit() and int(parts[2]) != sim["pos"]:
         return
     if sim["pos"] >= len(sim["events"]):
         return
+    # navegação do menu (Raise ▸ tamanhos / Voltar): só troca o teclado da
+    # MESMA mensagem — nada é registrado como resposta
+    if raw in ("sizes", "back"):
+        e = sim["events"][sim["pos"]]
+        kb = (_sim_size_buttons if raw == "sizes" else _sim_buttons)(
+            sim, e, sim["pos"])
+        try:
+            await query.edit_message_reply_markup(reply_markup=kb)
+        except Exception:
+            pass
+        return
+    # botões com sizing (raise3x/betpot/...): registra a ação-base + o tamanho
+    # legível — o resumo compara pelo verbo ("raise" vs "raise") e o aluno vê
+    # o sizing que escolheu ("raise 3x", "bet ½ pote")
+    _SIZES = {"raise3x": "raise 3x", "raisepot": "raise pote",
+              "bet33": "bet ⅓ pote", "bet50": "bet ½ pote",
+              "betpot": "bet pote"}
+    if raw == "allin":
+        # all-in enfrentando aposta = raise; sem aposta = bet (o verbo certo
+        # é o que o resumo compara com a ação real)
+        e = sim["events"][sim["pos"]]
+        choice = "raise all-in" if e["to_call"] > 0 else "bet all-in"
+    else:
+        choice = _SIZES.get(raw, raw)
     sim_choose(sim, choice)
     # remove os botões da mensagem anterior e registra a escolha
     try:
