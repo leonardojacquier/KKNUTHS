@@ -326,7 +326,7 @@ svg{display:block}
 .svc{
   background:#fff;border:1px solid var(--line);border-radius:20px;padding:32px 28px;
   transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .45s;
-  position:relative;overflow:hidden;height:100%;
+  position:relative;overflow:hidden;height:100%;min-height:288px;
 }
 .svc::before{
   content:"";position:absolute;inset:0 0 auto 0;height:4px;
@@ -740,32 +740,32 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <p class="lead reveal d2">Cinco frentes que funcionan como uno: del origen del producto al punto de venta.</p>
 
     <div class="svc-grid">
-      <div class="svc reveal d1">
+      <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
         <h3>Comercio Internacional</h3>
         <p>Identificamos, importamos y nacionalizamos productos de alto potencial, con procesos aduaneros ágiles y seguros.</p>
       </div>
-      <div class="svc reveal d2">
+      <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
         <h3>Supply-Chain</h3>
         <p>Red mayorista con cobertura regional: almacenamiento, transporte y entregas con trazabilidad total.</p>
       </div>
-      <div class="svc reveal d3">
+      <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
         <h3>Representación de Marcas</h3>
         <p>Somos la cara local de marcas internacionales: desarrollo comercial, posicionamiento y soporte postventa.</p>
       </div>
-      <div class="svc reveal d2">
+      <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-market"/></svg></div>
         <h3>Expansión de Mercados</h3>
         <p>Abrimos canales nuevos para productos estratégicos y conectamos la oferta global con la demanda regional.</p>
       </div>
-      <div class="svc reveal d3">
+      <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-gear"/></svg></div>
         <h3>Tecnología y Automatización</h3>
         <p>Procesos integrados y automatizados, con datos en tiempo real para decidir más rápido.</p>
       </div>
-      <div class="svc reveal d4" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;background:linear-gradient(150deg,var(--navy),var(--navy-2))">
+      <div class="svc" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;background:linear-gradient(150deg,var(--navy),var(--navy-2))">
         <h3 style="color:#fff">¿Llevamos tu marca más lejos?</h3>
         <p style="color:rgba(255,255,255,.7);margin-bottom:18px">Cuéntanos tu desafío y diseñamos la solución.</p>
         <a class="btn" href="#contacto" style="min-height:44px;padding:10px 22px;font-size:15px">Conversemos</a>
