@@ -379,12 +379,18 @@ def render_hand_strip(spot: dict) -> bytes:
         st_heights.append(max(h, 104))
 
     math_h = 160 if has_math else 0
+    # rodapé do veredito só quando HÁ veredito (quiz/reveal). No filme puro
+    # (mão inteira, sem decisão julgada) o selo "DECISÃO MISTA" era ruído.
+    has_foot = bool(spot.get("verdict") or verdict_text or correct)
     foot_lines = _wrap(probe, verdict_text, f_foot, SW - 2 * pad - 20)
     corr_lines = _wrap(probe, correct, _font(21), SW - 2 * pad - 176) if correct else []
-    foot_h = 78 + len(foot_lines) * 30
-    if corr_lines:
-        foot_h += len(corr_lines) * 32 + 30
-    foot_h += 40
+    if has_foot:
+        foot_h = 78 + len(foot_lines) * 30
+        if corr_lines:
+            foot_h += len(corr_lines) * 32 + 30
+        foot_h += 40
+    else:
+        foot_h = 44  # faixa fina só pra marca
 
     head_h = 176
     total_h = head_h + sum(st_heights) + math_h + foot_h
@@ -487,32 +493,33 @@ def render_hand_strip(spot: dict) -> bytes:
             ctr(SW / 2, y + math_h - 24, math_d["note"], 15, MUTED, bold=False)
         y += math_h
 
-    # ---------- RODAPÉ: veredito do coach ----------
+    # ---------- RODAPÉ: veredito do coach (só quando há veredito) ----------
     box(0, y, SW, total_h, fill=FOOT_BG)
     d.rectangle([0, sc(y), sc(SW), sc(y + 3)], fill=GOLD_DK)
-    verd = (spot.get("verdict") or "mista").lower()
-    badge_col, badge_txt = {
-        "boa": (OK, "✔ DECISÃO BOA"),
-        "ruim": (BAD, "✘ DECISÃO RUIM"),
-    }.get(verd, (MIX, "≈ DECISÃO MISTA"))
-    box(pad, y + 18, pad + 250, y + 56, radius=12, fill=badge_col)
-    ctr(pad + 125, y + 25, badge_txt, 20, (16, 24, 18))
-    left(pad + 270, y + 27, "análise do coach", 17, MUTED, bold=False)
-    fy = y + 70
-    for wl in foot_lines:
-        left(pad, fy, wl, 21, CREAM, bold=False)
-        fy += 30
-    if corr_lines:
-        fy += 10
-        bh = len(corr_lines) * 32 + 18
-        box(pad, fy, SW - pad, fy + bh, radius=12, fill=(22, 50, 40),
-            outline=OK, width=2)
-        left(pad + 16, fy + 12, "DECISÃO CERTA", 17, OK)
-        cy2, cx0 = fy + 12, pad + 176
-        for wl in corr_lines:
-            left(cx0, cy2, wl, 21, CREAM)
-            cy2 += 32
-            cx0 = pad + 16
+    if has_foot:
+        verd = (spot.get("verdict") or "mista").lower()
+        badge_col, badge_txt = {
+            "boa": (OK, "✔ DECISÃO BOA"),
+            "ruim": (BAD, "✘ DECISÃO RUIM"),
+        }.get(verd, (MIX, "≈ DECISÃO MISTA"))
+        box(pad, y + 18, pad + 250, y + 56, radius=12, fill=badge_col)
+        ctr(pad + 125, y + 25, badge_txt, 20, (16, 24, 18))
+        left(pad + 270, y + 27, "análise do coach", 17, MUTED, bold=False)
+        fy = y + 70
+        for wl in foot_lines:
+            left(pad, fy, wl, 21, CREAM, bold=False)
+            fy += 30
+        if corr_lines:
+            fy += 10
+            bh = len(corr_lines) * 32 + 18
+            box(pad, fy, SW - pad, fy + bh, radius=12, fill=(22, 50, 40),
+                outline=OK, width=2)
+            left(pad + 16, fy + 12, "DECISÃO CERTA", 17, OK)
+            cy2, cx0 = fy + 12, pad + 176
+            for wl in corr_lines:
+                left(cx0, cy2, wl, 21, CREAM)
+                cy2 += 32
+                cx0 = pad + 16
 
     # downsample (antialias) + marca
     img = img.resize((SW, total_h), Image.LANCZOS)

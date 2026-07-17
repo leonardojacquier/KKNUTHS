@@ -1171,7 +1171,8 @@ def film_bands(h) -> list[dict]:
         result_lines.append(f"{_label(who)} mostra {_pretty_cards(cs)}")
     for who, amount in sorted((h.collected or {}).items(),
                               key=lambda kv: -kv[1]):
-        result_lines.append(f"► {_label(who)} leva o pote ({amount / bb:g}bb)")
+        # sem "►" aqui: o render já prefixa cada linha com a seta
+        result_lines.append(f"{_label(who)} leva o pote ({amount / bb:g}bb)")
     if result_lines:
         bands.append({"name": "Resultado",
                       "board": list(h.final_board or []),
