@@ -1150,12 +1150,42 @@ def _user_hands(telegram_id: int) -> list:
     return hands
 
 
+def film_bands(h) -> list[dict]:
+    """Bandas do filme da mão inteira: streets + banda final "Resultado" com
+    o showdown (cartas reveladas) e quem levou o pote."""
+    bands = hand_storyboard_streets(h)  # upto_di=None -> mão inteira
+    if not bands:
+        return []
+    bb = h.stakes.big_blind or 1
+
+    # banda final: showdown (cartas reveladas) + quem levou o pote. Sem emoji
+    # aqui — o render é PIL/DejaVu e emoji vira tofu na imagem.
+    def _label(who: str) -> str:
+        if who == h.hero:
+            return "VOCÊ"
+        p = next((x.position for x in h.players if x.name == who), None)
+        return f"{who} ({p})" if p else who
+
+    result_lines: list[str] = []
+    for who, cs in (h.shown_cards or {}).items():
+        result_lines.append(f"{_label(who)} mostra {_pretty_cards(cs)}")
+    for who, amount in sorted((h.collected or {}).items(),
+                              key=lambda kv: -kv[1]):
+        result_lines.append(f"► {_label(who)} leva o pote ({amount / bb:g}bb)")
+    if result_lines:
+        bands.append({"name": "Resultado",
+                      "board": list(h.final_board or []),
+                      "lines": result_lines,
+                      "pot_bb": round((h.total_pot or 0) / bb, 1) or None})
+    return bands
+
+
 def hand_film_png(h) -> bytes | None:
     """Filme da mão INTEIRA (todas as streets, lance a lance) numa imagem só.
     Render determinístico (PIL) — custo zero de LLM. None se não der."""
     from app.analysis.hand_figure import render_hand_strip
 
-    bands = hand_storyboard_streets(h)  # upto_di=None -> mão inteira
+    bands = film_bands(h)
     if not bands:
         return None
     bb = h.stakes.big_blind or 1
@@ -1163,7 +1193,7 @@ def hand_film_png(h) -> bytes | None:
     blinds = f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}" + (
         f" (ante {h.stakes.ante:g})" if h.stakes.ante else "")
     spot = {
-        "title": "🎬 O filme da mão",
+        "title": "Sua mão — o filme",  # sem emoji: PIL/DejaVu renderiza tofu
         "hero_cards": h.hero_cards,
         "position": seat.position if seat else None,
         "stack_bb": round(seat.stack / bb, 1) if seat else None,

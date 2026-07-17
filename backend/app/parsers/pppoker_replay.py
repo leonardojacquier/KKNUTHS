@@ -125,6 +125,7 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
     seat_name = {}
     hero = None
     players: list[PlayerSeat] = []
+    shown: dict[str, list[str]] = {}
     for p in jplayers:
         seat = p.get("seatid")
         name = str(p.get("user_name") or f"seat{seat}")
@@ -132,6 +133,11 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
         is_hero = bool(p.get("isSelf"))
         if is_hero:
             hero = name
+        # cartas reveladas no showdown (quando o JSON traz por jogador) —
+        # viram shown_cards e aparecem na banda "Resultado" do filme
+        cs = _cards(p.get("cards"))
+        if cs and not is_hero:
+            shown[name] = cs
         players.append(PlayerSeat(
             seat=int(seat) if seat is not None else 0, name=name,
             stack=float(p.get("hand_chips") or 0), is_hero=is_hero))
@@ -193,6 +199,7 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
         hero=hero,
         players=players,
         hero_cards=_cards(info.get("cards")),
+        shown_cards=shown,
         streets=streets,
         final_board=board,
         total_pot=total_pot,

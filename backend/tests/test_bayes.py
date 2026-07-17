@@ -1132,7 +1132,9 @@ def test_simular_mao_foldada_pre_vira_filme():
     h = CanonicalHand(site="PPPoker · clube", hand_id="pppoker-fold-pre",
                       hero="Hero", stakes=Stakes(small_blind=100, big_blind=200),
                       players=pl, hero_cards=["7s", "2d"], streets=[pre, flop],
-                      final_board=["Qs", "3c", "4c"])
+                      final_board=["Qs", "3c", "4c"],
+                      shown_cards={"vilaoA": ["Ah", "Qd"]},
+                      collected={"vilaoA": 2200}, total_pot=2200)
 
     tid = 555001
     proc.RECENT_HANDS[tid] = [h]
@@ -1144,6 +1146,13 @@ def test_simular_mao_foldada_pre_vira_filme():
         assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
     finally:
         proc.RECENT_HANDS.pop(tid, None)
+
+    # o filme termina com a banda "Resultado": showdown + quem levou o pote
+    bands = proc.film_bands(h)
+    assert bands[-1]["name"] == "Resultado"
+    blob = " ".join(bands[-1]["lines"])
+    assert "vilaoA (BTN) mostra A♥ Q♦" in blob
+    assert "leva o pote (11bb)" in blob
 
 
 def test_figura_da_mesa_render():
