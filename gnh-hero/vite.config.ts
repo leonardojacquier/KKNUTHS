@@ -7,9 +7,10 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       input: {
+        // /institucional/ é reaproveitado de gnh-redesign.html (self-contained),
+        // colocado pós-build — não passa pelo Vite.
         gateway: resolve(__dirname, 'index.html'),
         ventas: resolve(__dirname, 'ventas/index.html'),
-        institucional: resolve(__dirname, 'institucional/index.html'),
       },
     },
   },

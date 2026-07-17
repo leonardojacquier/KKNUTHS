@@ -13,7 +13,7 @@
   background:
     radial-gradient(900px 480px at 72% 18%, rgba(232, 119, 34, 0.18), transparent 60%),
     radial-gradient(700px 420px at 15% 80%, rgba(20, 33, 61, 0.9), transparent 65%),
-    linear-gradient(160deg, #1b2b4d 0%, #14213D 55%, #0D1626 100%);
+    linear-gradient(160deg, #1b2b4d 0%, #0F172A 55%, #0D1626 100%);
 }
 .hero-overlay {
   position: absolute;
@@ -25,7 +25,7 @@
     radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(10, 14, 26, 0.55) 100%); /* vinheta */
 }
 .placeholder-label {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Satoshi', sans-serif;
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -59,7 +59,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #E87722;
+  background: #F26D21;
   animation: cue-fall 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 @keyframes cue-fall {
@@ -90,7 +90,7 @@
   place-items: center;
   background:
     radial-gradient(300px 160px at 80% 0%, rgba(232, 119, 34, 0.22), transparent 60%),
-    linear-gradient(150deg, #1b2b4d, #14213D 60%, #0D1626);
+    linear-gradient(150deg, #1b2b4d, #0F172A 60%, #0D1626);
 }
 .card-media .placeholder-label { color: rgba(255, 255, 255, 0.3); }
 
@@ -105,10 +105,10 @@
 .company-card .card-logo img { max-height: 44px; max-width: 78%; width: auto; }
 .company-card .logo-fallback {
   display: none;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Satoshi', sans-serif;
   font-weight: 700;
   text-transform: uppercase;
-  color: #14213D;
+  color: #0F172A;
   align-items: center;
   justify-content: center;
 }
@@ -132,7 +132,7 @@
   color: #fff;
   transition: background 0.3s, transform 0.3s ease;
 }
-.foot-social:hover { background: #E87722; transform: translateY(-3px); }
+.foot-social:hover { background: #F26D21; transform: translateY(-3px); }
 .foot-social svg { width: 19px; height: 19px; }
 
 /* ---------- WhatsApp flotante ---------- */

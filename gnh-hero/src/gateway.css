@@ -2,7 +2,7 @@
 
 #gateway {
   background:
-    radial-gradient(120% 90% at 50% 42%, #1b2c4d 0%, #14213D 45%, #0D1626 100%);
+    radial-gradient(120% 90% at 50% 42%, #1b2c4d 0%, #0F172A 45%, #0D1626 100%);
 }
 
 /* ---------- cortina de abertura (BRANCA, fecha pro centro) ---------- */
@@ -59,7 +59,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #E87722;
+  background: #F26D21;
   transform: translate(-50%, -50%) scale(0);
   will-change: transform;
   box-shadow:
@@ -77,7 +77,7 @@
   padding: 8px 4px;
   text-decoration: none;
   color: rgba(255, 255, 255, 0.85);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Satoshi', sans-serif;
   font-weight: 700;
   font-size: 17px;
   letter-spacing: 0.12em;
@@ -91,7 +91,7 @@
   bottom: 2px;
   height: 2px;
   width: 100%;
-  background: #E87722;
+  background: #F26D21;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -104,16 +104,16 @@
   opacity: 0;
   transform: translateY(-50%) translateX(-6px);
   transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  color: #E87722;
+  color: #F26D21;
 }
-.gw-door:hover, .gw-door:focus-visible { color: #E87722; }
+.gw-door:hover, .gw-door:focus-visible { color: #F26D21; }
 .gw-door:hover::after, .gw-door:focus-visible::after { transform: scaleX(1); }
 .gw-door:hover .gw-door-arrow, .gw-door:focus-visible .gw-door-arrow {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
 .gw-door:focus-visible {
-  outline: 3px solid #E87722;
+  outline: 3px solid #F26D21;
   outline-offset: 6px;
   border-radius: 4px;
 }
@@ -133,7 +133,7 @@
   bottom: 26px;
   left: 50%;
   translate: -50% 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Satoshi', sans-serif;
   font-size: 11px;
   letter-spacing: 0.28em;
   text-transform: uppercase;

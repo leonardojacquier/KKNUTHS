@@ -4,16 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy:   '#14213D',   // base / fundo do hero
+        navy:   '#0F172A',   // base / fundo do hero
         navy2:  '#0D1626',   // navy mais escuro p/ vinheta e gradientes
-        orange: '#E87722',   // acento / CTA / detalhe do título
+        orange: '#F26D21',   // acento / CTA / detalhe do título
         ink:    '#0A0E1A',
         paper:  '#F5F6F8',   // seções claras pós-hero
         slate:  '#5B6472',
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
+        display: ['"Satoshi"', 'sans-serif'],
+        body: ['"General Sans"', 'sans-serif'],
       },
     },
   },
