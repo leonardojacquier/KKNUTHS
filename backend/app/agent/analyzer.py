@@ -116,6 +116,10 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "pot_total": round(pot, 2),
         "net_chips": net,
         "net_bb": round(net / bb, 2),
+        # showdown REAL: cartas reveladas por jogador + quem levou o pote.
+        # O coach só pode afirmar cartas de vilão que estejam AQUI.
+        "showdown_cards": dict(hand.shown_cards or {}),
+        "pot_winners": dict(hand.collected or {}),
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }
