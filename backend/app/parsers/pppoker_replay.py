@@ -42,7 +42,10 @@ _UA = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0) AppleWebKit/605 "
 
 _RANK = {2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7", 8: "8", 9: "9",
          10: "T", 11: "J", 12: "Q", 13: "K", 14: "A"}
-_SUIT = {1: "s", 2: "h", 3: "d", 4: "c"}
+# naipes: escada asiática ouros<paus<copas<espadas (1..4). O mapa antigo
+# ({1:s,...,4:c}) chutou a ordem ocidental invertida — o admin conferiu o
+# VÍDEO do replay: as cartas de código 4 (que saíam como ♣) são ESPADAS.
+_SUIT = {1: "d", 2: "c", 3: "h", 4: "s"}
 
 # código de ação do JSON -> nosso ActionType
 _ACT = {1: ActionType.FOLD, 12: ActionType.FOLD, 2: ActionType.CHECK,

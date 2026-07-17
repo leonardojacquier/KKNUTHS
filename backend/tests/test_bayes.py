@@ -929,7 +929,7 @@ def _pppoker_fixture():
                 {"user_name": "bbp", "seatid": 7, "hand_chips": 13106900, "uid": 7},
                 {"user_name": "arisn", "seatid": 8, "hand_chips": 26020400, "uid": 8},
             ],
-            "cards": [269, 782],  # Ks, Ad = AKo
+            "cards": [269, 782],  # Kd, Ah = AKo (naipe 1=d, 3=h)
         },
         "flow": {
             "pre_flop": {"cards": [], "actions": antes + [
@@ -944,7 +944,7 @@ def _pppoker_fixture():
                 {"seatid": 5, "chips": 0, "type": 1},
                 {"seatid": 7, "chips": 0, "type": 1},
             ], "pools": [{"poolid": 0, "pool": 3240000}]},
-            "flop": {"cards": [268, 1027, 1028], "actions": [  # Qs 3c 4c
+            "flop": {"cards": [268, 1027, 1028], "actions": [  # Qd 3s 4s
                 {"seatid": 0, "chips": 0, "type": 2},        # check
                 {"seatid": 3, "chips": 1820000, "type": 7},  # bet
                 {"seatid": 0, "chips": 0, "type": 1},        # fold
@@ -968,8 +968,10 @@ def test_pppoker_replay_parser():
     h = parse(_pppoker_fixture(), "f48bcbb5")
     assert h is not None
     assert h.hero == "RicoFarah"
-    assert set(h.hero_cards) == {"Ks", "Ad"}                 # AKo decodificado
-    assert h.final_board == ["Qs", "3c", "4c"]               # flop decodificado
+    # naipes: 1=♦ 2=♣ 3=♥ 4=♠ (escada asiática; o vídeo do replay confirmou
+    # que código 4 = espadas — o mapa antigo dava paus)
+    assert set(h.hero_cards) == {"Kd", "Ah"}                 # AKo decodificado
+    assert h.final_board == ["Qd", "3s", "4s"]               # flop decodificado
     assert h.stakes.big_blind == 400000 and h.stakes.small_blind == 200000
     assert h.stakes.ante == 50000
     assert h.format.value == "tournament"
