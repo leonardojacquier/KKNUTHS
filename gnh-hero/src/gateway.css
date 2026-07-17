@@ -1,0 +1,119 @@
+/* ============ Gateway — tela-pórtico ============ */
+
+#gateway {
+  background:
+    radial-gradient(720px 480px at 50% 42%, #1b2c4d 0%, #14213D 55%, #0D1626 100%);
+}
+
+/* estados iniciais (JS anima; reduced-motion reverte no fim do arquivo) */
+.gw-logo { opacity: 0; transform: translateY(-14px); }
+.gw-wordmark { opacity: 0; letter-spacing: 0.55em; }
+.gw-door { opacity: 0; transform: translateY(12px); }
+
+/* ---------- horizonte ---------- */
+.gw-horizon {
+  position: relative;
+  width: clamp(200px, 42vw, 340px);
+  height: 12px;
+  display: grid;
+  place-items: center;
+}
+.gw-line {
+  width: 100%;
+  height: 1px;
+  transform: scaleX(0);            /* desenha do centro pra fora */
+  will-change: transform;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 18%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.55) 82%,
+    transparent 100%);
+}
+.gw-sun {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #E87722;
+  transform: translate(-50%, -50%) scale(0);
+  will-change: transform;
+  box-shadow:
+    0 0 12px 3px rgba(232, 119, 34, 0.55),
+    0 0 34px 10px rgba(232, 119, 34, 0.25);
+}
+
+/* ---------- portas ---------- */
+.gw-door {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 4px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+.gw-door::after {                   /* sublinhado que cresce da esquerda */
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  height: 2px;
+  width: 100%;
+  background: #E87722;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gw-door-arrow {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  color: #E87722;
+}
+.gw-door:hover, .gw-door:focus-visible { color: #E87722; }
+.gw-door:hover::after, .gw-door:focus-visible::after { transform: scaleX(1); }
+.gw-door:hover .gw-door-arrow, .gw-door:focus-visible .gw-door-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+.gw-door:focus-visible {
+  outline: 3px solid #E87722;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.gw-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.18);
+}
+@media (max-width: 560px) {
+  .gw-divider { width: 120px; height: 1px; }   /* divisor vira horizontal */
+}
+
+/* ---------- saída (classe aplicada no clique) ---------- */
+#gateway.gw-exit {
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 0;
+  transform: translateY(-32px);
+  pointer-events: none;
+}
+
+/* ---------- reduced-motion: tudo estático e legível ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .gw-logo, .gw-door { opacity: 1; transform: none; }
+  .gw-wordmark { opacity: 1; letter-spacing: 0.42em; }
+  .gw-line { transform: scaleX(1); }
+  .gw-sun { transform: translate(-50%, -50%) scale(1); }
+  #gateway.gw-exit { transition: none; }
+}

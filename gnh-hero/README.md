@@ -1,8 +1,19 @@
-# GNH Hero — abertura cinematográfica
+# GNH Hero — gateway + abertura cinematográfica
 
-Landing de uma seção (hero + counters + grid de empresas) do Grupo GNH, replicando o
-comportamento de abertura da referência (gorostiaga.com.py) com stack open-source.
-Spec completa: `GNH-HERO-BRIEF.md` (raiz do repositório).
+Site multi-página do Grupo GNH: **tela-pórtico** (gateway) na raiz que roteia para
+`/ventas/` (hero cinematográfico do brief) ou `/institucional/` (placeholder Fase 4).
+Spec do hero: `GNH-HERO-BRIEF.md` (raiz do repositório).
+
+## Rotas
+
+| Rota | Conteúdo | Entry |
+|---|---|---|
+| `/` | Gateway: logo, horizonte com "sol", wordmark, portas Ventas/Institucional | `src/portal.ts` + `src/gateway.css` |
+| `/ventas/` | Hero do brief + counters + grid de empresas | `src/main.ts` |
+| `/institucional/` | Placeholder (Fase 4 do plano) | `src/institucional.ts` |
+
+Strings do gateway centralizadas em `STRINGS` (`src/portal.ts`) — trocar ES→PT é editar um objeto.
+Logo real: subir `public/img/gnh-logo.svg` (até lá, placeholder "GNH" em Space Grotesk).
 
 ## Rodar
 
