@@ -800,8 +800,12 @@ def spot_range_chart(telegram_id: int) -> tuple[bytes, str] | None:
 
 
 # domínios de replay de clube conhecidos (link, não arquivo)
-_REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "supremapoker.net",
-                 "clubgg.com", "wepoker", "pokerbros", "upoker")
+# pppoker.club = link de compartilhamento novo (share.php?...&shareKey=UUID);
+# replay.pppoker.net = link antigo do frame do replayer. Ambos carregam o
+# shareKey que é o nome do arquivo JSON no CDN.
+_REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "pppoker.club",
+                 "supremapoker.net", "clubgg.com", "wepoker", "pokerbros",
+                 "upoker")
 
 
 def replay_link_info(text: str) -> dict | None:

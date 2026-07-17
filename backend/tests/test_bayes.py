@@ -1006,6 +1006,15 @@ def test_replay_link_detection_routes_pppoker():
 
     assert replay_link_info("qual o range de UTG?") is None
 
+    # link novo de compartilhamento (share.php em pppoker.club, shareKey UUID)
+    # — antes caía no fallback genérico porque o host não batia
+    p = replay_link_info(
+        "https://pppoker.club/poker/api/share.php?share_type=handreview&"
+        "uid=1151574&lang=pt&time=1784248958&"
+        "shareKey=29e84d82-10f9-93aa-a5f1-78cd9edaf984")
+    assert p and p["site"] == "pppoker"
+    assert p["share_key"] == "29e84d82-10f9-93aa-a5f1-78cd9edaf984"
+
 
 def test_drill_narracao_pre_flop_limpa():
     # feedback do admin: "a sequência das ações está confusa, precisa ser
