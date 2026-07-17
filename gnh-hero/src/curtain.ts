@@ -1,8 +1,8 @@
 /** Curtain — preloader branco que fecha pro centro e revela o gateway das bordas. */
 
-const MIN_MS = 1200 // piso: evita "piscar"
+const MIN_MS = 700  // piso: evita "piscar"
 const MAX_MS = 3000 // teto de segurança
-const OPEN_MS = 1000 // deve casar com a transition do CSS (.gw-curtain-panel)
+const OPEN_MS = 700 // deve casar com a transition do CSS (.gw-curtain-panel)
 
 function preloadImage(src: string): Promise<void> {
   return new Promise((resolve) => {

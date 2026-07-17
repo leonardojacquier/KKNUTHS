@@ -16,13 +16,10 @@ const curtain = document.querySelector<HTMLElement>('.gw-curtain')!
 fillStrings()
 initDoors(reduced)
 
-// cortina só na 1ª visita da sessão
-const alreadySeen = sessionStorage.getItem('seenIntro') === '1'
-
+// cortina em toda carga da página (inclusive reload)
 async function boot(): Promise<void> {
-  if (RUN_CURTAIN && !reduced && !alreadySeen) {
+  if (RUN_CURTAIN && !reduced) {
     await runCurtain(curtain)
-    sessionStorage.setItem('seenIntro', '1')
   } else {
     curtain.style.display = 'none'
   }

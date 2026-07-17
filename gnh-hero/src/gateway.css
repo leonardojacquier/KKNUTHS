@@ -19,7 +19,7 @@
   width: 50%;
   background: #ffffff;               /* fundo BRANCO limpo, sem elemento no centro */
   transform: scaleX(1);              /* cobre a tela */
-  transition: transform 1s cubic-bezier(0.76, 0, 0.24, 1);
+  transition: transform 0.7s cubic-bezier(0.76, 0, 0.24, 1);
   will-change: transform;
 }
 .gw-cp-left  { left: 0;  transform-origin: right center; }  /* recolhe p/ o centro */
