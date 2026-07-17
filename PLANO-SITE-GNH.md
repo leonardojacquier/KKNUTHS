@@ -44,7 +44,7 @@ orange #E87722) · GSAP + ScrollTrigger + Lenis · Space Grotesk + Inter. Pasta:
 
 | # | Passo | Status |
 |---|-------|--------|
-| V1 | **Vitrine por categoria** (deck expansível): Aditivos · Cementos · Pisos · Equipos · Transportes | a fazer |
+| V1 | **Vitrine por categoria** (deck expansível): **Equipos · Aditivos · Fletes · Cemento · Morteros** | a fazer |
 | V2 | **Carrossel de produtos** (scroll-snap): foto, marca, **CTA WhatsApp pré-preenchido por produto** | a fazer |
 | V3 | **Fichas técnicas** (aditivos) + **catálogos** (equipos) = **download por link externo** (nunca trava) | a fazer |
 | V4 | **Faixa de promoções** (editável; some quando vazia) | a fazer |
@@ -52,8 +52,9 @@ orange #E87722) · GSAP + ScrollTrigger + Lenis · Space Grotesk + Inter. Pasta:
 | V6 | **Performance**: Lighthouse ≥ 90 · 1ª tela < 2s em 4G · sem vídeo pesado | meta |
 | V7 | **SEO + Google IA**: JSON-LD `Product`/`ItemList` + `FAQPage`, hreflang **es-PY / pt-BR**, sitemap | a fazer |
 
-**Insumos necessários (você):** fichas técnicas · catálogos · lista de produtos/marcas por
-categoria · fotos de produtos · promoções ativas.
+**Categorias (V1):** Equipos · Aditivos · Fletes · Cemento · Morteros.
+**Insumos necessários (você):** fichas técnicas (aditivos) · catálogos (equipos) · lista de
+produtos/marcas por categoria · fotos de produtos · promoções ativas.
 
 ---
 
@@ -63,11 +64,24 @@ categoria · fotos de produtos · promoções ativas.
 |---|-------|--------|
 | I1 | **Hero cinematográfico** (brief: máscara+blur, scroll-scrub, counters) | esqueleto pronto ✅ |
 | I2 | **Quiénes somos** — quem é o Grupo GNH | a fazer |
-| I3 | **Negocios del Grupo** — empresas como cards (GNH, Titan, Intonaco, FletePar, Rodosafra, Nexa) | esqueleto pronto ✅ |
+| I3 | **Negocios del Grupo** — 4 empresas como cards **com as logos reais**: **GNH · FletePar · Rodosafra · Intonaco** | ajustar |
 | I4 | **Nuestra Fortaleza**: Logística · Alianzas · Exclusividad | a fazer |
 | I5 | **Carta del CEO** | a fazer |
 | I6 | **Multilíngue**: ES base → PT / EN / 中文 | a fazer |
 | I7 | **SEO**: JSON-LD `Organization`, Open Graph | a fazer |
+
+---
+
+## 🧩 ELEMENTOS COMUNS (rodapé / contato — nas duas linhas)
+
+| # | Elemento | Detalhe |
+|---|----------|---------|
+| C1 | **Localización de tiendas** | **Ciudad del Este (CDE)** e **Asunción** — endereço + mapa (Google Maps embed leve ou link) |
+| C2 | **Redes sociales** | **Instagram · Facebook · TikTok** (ícones no rodapé, links reais) |
+| C3 | **Contacto directo** | WhatsApp flutuante + telefone + e-mail (já validados no site atual) |
+| C4 | **Logos das empresas** | GNH · FletePar · Rodosafra · Intonaco — arquivos reais em `/public/img` |
+
+**Insumos (você):** endereços das 2 lojas · links das redes (IG/FB/TikTok) · arquivos das 4 logos.
 
 ---
 
