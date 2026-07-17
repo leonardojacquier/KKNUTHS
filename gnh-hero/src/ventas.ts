@@ -34,12 +34,15 @@ const CATALOG: Category[] = [
           { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.' },
           { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.' },
           { name: 'Máquina de Marcado Vial', img: '../img/prod/marcado.png', note: 'Marcación de pavimentos y viales con pintura de alto rendimiento.' },
+          { name: 'Central de Concreto JBTS20', img: '../img/prod/central-concreto.png', note: 'Mezcladora y bomba de concreto sobre remolque. Equipada con motor Cummins, para producción y bombeo continuo en obra.' },
         ],
       },
       {
         title: 'Movimentación',
         products: [
           { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 70 t de capacidad. Control remoto e indicador de par incluidos. Brazo extensor y cesto opcionales.' },
+          { name: 'Mini Excavadora HT15', img: '../img/prod/excavadora.png', note: 'Miniexcavadora de orugas con motor Kubota. Balanceo lateral del brazo, cabina y aire acondicionado opcionales.' },
+          { name: 'Camión Volquete de Orugas', img: '../img/prod/volquete.png', note: 'Dumper de orugas para transporte de materiales en obra. Capacidades de 0,5 t y 1,2 t; versión giratoria con motor diésel.' },
           { name: 'Carretilla Elevadora Diésel 3,5 t', img: '../img/prod/carretilla.png', note: 'Montacargas diésel, capacidad 3,5 t y elevación de 3 m. Dispositivo rotatorio opcional.' },
           { name: 'Montacargas Todoterreno 3,5 t', img: '../img/prod/montacargas.png', note: 'Montacargas todoterreno 3,5 t para superficies difíciles.' },
           { name: 'Apilador Eléctrico', img: '../img/prod/apilador.png', note: 'Apiladores eléctricos — capacidades de 1 a 2 t y alturas de 1,6 a 4,5 m.' },
