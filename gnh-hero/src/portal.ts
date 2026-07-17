@@ -29,7 +29,17 @@ const horizon = document.querySelector<HTMLElement>('.gw-horizon')!
 let sunFloat: gsap.core.Tween | null = null
 
 if (!reduced) {
-  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+  // ---------- cortina: preto → sol acende → painéis se abrem ----------
+  const curtain = gsap.timeline({ defaults: { ease: 'power4.inOut' } })
+  curtain
+    .to('.gw-curtain-dot', { scale: 1, duration: 0.45, ease: 'back.out(2)' }, 0.25)
+    .to('.gw-curtain-dot', { opacity: 0, duration: 0.35, ease: 'power2.out' }, 0.95)
+    .to('.gw-cp-left',  { xPercent: -101, duration: 1.05 }, 0.9)
+    .to('.gw-cp-right', { xPercent: 101,  duration: 1.05 }, 0.9)
+    .set('.gw-curtain', { display: 'none' })
+
+  // ---------- entrada do pórtico (começa quando a cortina abre) ----------
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 1.15 })
 
   // 1. horizonte desenha do centro pra fora — primeiro movimento
   tl.to('.gw-line', { scaleX: 1, duration: 1.0 }, 0)
