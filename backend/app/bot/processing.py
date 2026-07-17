@@ -837,13 +837,21 @@ def replay_link_info(text: str) -> dict | None:
 
     t = (text or "").strip()
     m = _re.search(r'https?://[^\s]+', t)
-    if not m:
-        return None
-    url = m.group(0)
+    if m:
+        raw = m.group(0)
+        url = raw
+    else:
+        # o público cola o link SEM https:// (copiado do chat do clube):
+        # "replay.pppoker.net/...?shareKey=..." tem que funcionar igual
+        m = _re.search(r'\b[\w][\w.-]*\.[a-z]{2,6}/[^\s]+', t, _re.IGNORECASE)
+        if not m:
+            return None
+        raw = m.group(0)
+        url = "https://" + raw
     host = _re.sub(r'^https?://([^/]+).*', r'\1', url).lower()
     if not any(h in host for h in _REPLAY_HOSTS):
         return None
-    if len(t) > len(url) + 40:
+    if len(t) > len(raw) + 40:
         return None
     from app.parsers.pppoker_replay import share_key_from_url
 

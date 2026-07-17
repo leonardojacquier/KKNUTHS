@@ -1025,6 +1025,18 @@ def test_replay_link_detection_routes_pppoker():
     assert p and p["site"] == "pppoker"
     assert p["share_key"] == "29e84d82-10f9-93aa-a5f1-78cd9edaf984"
 
+    # link SEM https:// (como o público copia do chat do clube) — caso real:
+    # o admin colou assim e caía no coach em vez de abrir a mão
+    s2 = replay_link_info(
+        "replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
+        "index.html?shareKey=1027209d-560c-25ed-40c1-878cf23f0056&lan=pt")
+    assert s2 and s2["site"] == "pppoker"
+    assert s2["share_key"] == "1027209d-560c-25ed-40c1-878cf23f0056"
+    # texto comum com ponto não vira link ("kknuths.com" citado numa frase longa)
+    assert replay_link_info(
+        "olha, o site kknuths.com/manual tem a explicação completa dessa "
+        "jogada que a gente discutiu ontem, dá uma olhada com calma") is None
+
 
 def test_drill_narracao_pre_flop_limpa():
     # feedback do admin: "a sequência das ações está confusa, precisa ser
