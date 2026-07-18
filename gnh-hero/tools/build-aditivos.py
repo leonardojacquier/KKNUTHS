@@ -24,7 +24,7 @@ FAMILIES = [
     ('impermeabilizantes','Impermeabilizantes',           '#14B8A6', r'impermeabiliz|cristaliz|seal|admix|impermix|estanque'),
     ('cura',              'Cura del concreto',            '#22C55E', r'\bcura\b|curador|curamix|membrana de cura|curado'),
     ('desmoldantes',      'Desmoldantes',                 '#64748B', r'desmold|desform'),
-    ('control-fraguado',  'Aceleradores y retardadores',  '#8B5CF6', r'acelerador|retardador|stabilizer|estabilizador|fraguado'),
+    ('control-fraguado',  'Aceleradores y retardadores',  '#8B5CF6', r'acelerador|accelera|retardador|stabilizer|estabilizador|fraguado'),
     ('selladores',        'Selladores y PU',              '#F26D21', r'\bpu\b|poliuretano|sellador|mastique'),
     ('limpieza',          'Limpieza y removedores',       '#10B981', r'\bbio\s?\d|remover|removedor|limpieza|desincrustante|acido bio'),
     ('plastificantes',    'Plastificantes',               '#3B82F6', r'plastificante|superplast|polifuncional|reductor de agua|vibroprensado|press.?mix|flow|plast'),
@@ -261,6 +261,17 @@ def main():
             'family': fam_key, 'familyLabel': fam_label, 'color': color,
             'initials': initials_of(name), 'kw': kws, 'ficha': has_ficha,
         })
+
+    # descarta las páginas "de línea" (genéricas): describen la familia entera y
+    # conviven con productos específicos (cq-desform vs cq-desform-a-435, etc.)
+    slugs = {p['slug'] for p in products}
+    def is_line_page(p):
+        has_children = any(s != p['slug'] and s.startswith(p['slug'] + '-') for s in slugs)
+        la_linea = bool(re.match(r'^la l[ií]nea', norm(p['desc'] or '')))
+        return has_children and (la_linea or not p['ficha'])
+    dropped = [p['name'] for p in products if is_line_page(p)]
+    products = [p for p in products if not is_line_page(p)]
+    if dropped: print('descartadas páginas de línea:', ', '.join(dropped))
 
     products.sort(key=lambda p: (p['familyLabel'], p['name']))
     ts = ('// GENERADO por tools/build-aditivos.py — no editar a mano\n'
