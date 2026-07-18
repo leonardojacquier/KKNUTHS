@@ -236,10 +236,19 @@
 }
 .v-card:hover { transform: translateY(-6px); box-shadow: 0 24px 44px -22px rgba(20, 33, 61, 0.3); }
 .v-card-media {
-  aspect-ratio: 4 / 3; display: grid; place-items: center;
+  aspect-ratio: 4 / 3; display: grid; place-items: center; position: relative;
   background:
     radial-gradient(280px 150px at 80% 0%, rgba(232, 119, 34, 0.18), transparent 60%),
     linear-gradient(150deg, #1b2c4d, #0F172A 60%, #0D1626);
+}
+/* anillo dorado sutil en TODOS los productos (borde metálico premium) */
+.v-card-media::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  padding: 1.5px; border-radius: inherit;
+  background: linear-gradient(135deg, #F7E7B4, #D4AF37 42%, #8C6A1D 78%, #E6C96A);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .75;
 }
 .v-card-media img { width: 100%; height: 100%; object-fit: contain; }
 .v-card-media .ph {
@@ -256,6 +265,47 @@
 }
 .v-cta:hover { gap: 11px; }
 .v-cta-i { width: 15px; height: 15px; }
+
+/* ===== Aditivos: iconos con anillo dorado + acciones ===== */
+.adi-media { padding: 0; }
+.adi-svg { width: 100%; height: 100%; display: block; }
+.v-subcount {
+  display: inline-grid; place-items: center; min-width: 24px; height: 24px; margin-left: 8px;
+  border-radius: 100px; padding: 0 7px; font-size: 12px; font-weight: 700;
+  color: #8C6A1D; background: linear-gradient(135deg, #F7E7B4, #E6C96A); vertical-align: 2px;
+}
+.adi-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.adi-doc {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 6px 14px;
+  border-radius: 100px; font-size: 13px; font-weight: 600; text-decoration: none;
+  color: #0F172A; background: #fff; border: 1.5px solid #D4AF37; transition: background .2s;
+}
+.adi-doc:hover { background: #FBF3DC; }
+.adi-doc.adi-pdf { background: linear-gradient(135deg, #F0DCA0, #D4AF37); border-color: #B8962E; }
+.adi-card .v-cta { margin-top: 0; }
+
+/* ===== Buscador ===== */
+.bsc-box { position: relative; }
+.bsc-ic {
+  position: absolute; left: 20px; top: 50%; translate: 0 -50%;
+  width: 22px; height: 22px; color: #D4AF37; pointer-events: none;
+}
+#buscador-input {
+  width: 100%; min-height: 60px; padding: 16px 22px 16px 56px; border-radius: 100px;
+  font: inherit; font-size: 16.5px; color: #fff;
+  background: rgba(255, 255, 255, 0.07); border: 1.5px solid rgba(255, 255, 255, 0.18);
+  transition: border-color .25s, box-shadow .25s, background .25s;
+}
+#buscador-input::placeholder { color: rgba(255, 255, 255, 0.42); }
+#buscador-input:focus {
+  outline: none; border-color: #D4AF37; background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.18);
+}
+.bsc-results.has { margin-top: 22px; }
+.bsc-count { color: rgba(255, 255, 255, 0.65); font-size: 14px; margin-bottom: 12px; }
+.bsc-empty { color: rgba(255, 255, 255, 0.75); font-size: 15.5px; padding: 14px 4px; }
+.bsc-empty a { color: #ff9a4d; font-weight: 700; text-decoration: underline; }
+.bsc-results .v-card { flex: 0 0 250px; }
 
 /* promoções */
 .v-promo-band { display: grid; gap: 14px; }

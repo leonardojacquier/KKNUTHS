@@ -46,6 +46,20 @@
   <!-- ============ SHOWCASE — carrusel cinematográfico full-width (render por JS) ============ -->
   <section id="hero-carousel" aria-label="Líneas destacadas"></section>
 
+  <!-- ============ BUSCADOR INTELIGENTE ============ -->
+  <section class="bg-navy pb-14 pt-12" id="buscar">
+    <div class="mx-auto max-w-6xl px-5">
+      <span class="font-display text-xs font-bold uppercase tracking-[0.3em] text-orange">Asistente de compra</span>
+      <h2 class="mt-2 font-display text-2xl md:text-3xl font-bold uppercase tracking-[-0.02em] text-white">¿Qué necesitás <span class="text-orange">resolver</span>?</h2>
+      <div class="bsc-box mt-5">
+        <svg viewBox="0 0 24 24" class="bsc-ic" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="buscador-input" type="search" autocomplete="off"
+               placeholder="Escribí tu problema o producto: impermeabilizar un tanque, fisuras, piso industrial, desmoldante…">
+      </div>
+      <div id="buscador-results" class="bsc-results"></div>
+    </div>
+  </section>
+
   <!-- ============ CATÁLOGO (renderizado por JS desde CATALOG) ============ -->
   <main id="catalog" class="mx-auto max-w-6xl px-5 py-16"></main>
 

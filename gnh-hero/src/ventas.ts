@@ -1,6 +1,7 @@
 import './style.css'
 import './ventas.css'
 import { mountFooter } from './footer'
+import { ADITIVOS, type Aditivo } from './aditivos-data'
 
 const WA = '595985311031'
 const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}`
@@ -61,8 +62,8 @@ const CATALOG: Category[] = [
   },
   {
     id: 'aditivos', title: 'Aditivos', icon: 'flask',
-    blurb: 'Aditivos y soluciones químicas para construcción.',
-    products: [],
+    blurb: 'Más de 70 soluciones químicas para el concreto: plastificantes, impermeabilizantes, curadores, fibras y más — con ficha técnica y PDF.',
+    products: [], // renderizado desde ADITIVOS (ver selectCategory)
   },
   {
     id: 'fletes', title: 'Fletes', icon: 'truck',
@@ -98,6 +99,117 @@ const ICONS: Record<string, string> = {
 }
 const icon = (k: string, cls = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${ICONS[k] ?? ''}</svg>`
+
+/* ============================================================
+   ADITIVOS — iconos por familia (sin fotos): pictograma + anillo dorado
+   ============================================================ */
+const FAM_PICT: Record<string, string> = {
+  plastificantes: '<path d="M12 3.5c3 4.4 5.6 7.2 5.6 10a5.6 5.6 0 1 1-11.2 0c0-2.8 2.6-5.6 5.6-10z"/>',
+  impermeabilizantes: '<path d="M12 3l7 2.8v5.1c0 4.5-2.9 8-7 10.1-4.1-2.1-7-5.6-7-10.1V5.8z"/><path d="M12 8.2c1.6 2.3 3 3.8 3 5.3a3 3 0 1 1-6 0c0-1.5 1.4-3 3-5.3z"/>',
+  cura: '<path d="M7 15a5 5 0 0 1 .8-9.9A6 6 0 0 1 19 7.5 4 4 0 0 1 18 15"/><path d="M8 18.5v2M12 17.5v2M16 18.5v2"/>',
+  'control-fraguado': '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4.2l2.8 1.6M9.5 3h5"/>',
+  desmoldantes: '<path d="M4 8.2 12 4l8 4.2-8 4.2z"/><path d="M4 8.2v7.6l8 4.2 8-4.2V8.2M12 12.4v7.6"/>',
+  pisos: '<path d="M5.5 8.5h13l2.5 3.5-9 8.5-9-8.5z"/><path d="M5.5 8.5 12 12l6.5-3.5M12 12v8.5"/>',
+  fibras: '<path d="M5 4c3 5 3 11 0 16M12 4c3 5 3 11 0 16M19 4c-3 5-3 11 0 16" transform="rotate(14 12 12)"/>',
+  pigmentos: '<path d="M12 3a9 9 0 1 0 .5 18c1.6 0 2.1-1 1.5-2-.7-1.2.1-2.5 1.5-2.5H17a4.5 4.5 0 0 0 4-4.5C21 7 17 3 12 3z"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="7.5" r="1" fill="currentColor"/><circle cx="16" cy="10" r="1" fill="currentColor"/>',
+  selladores: '<path d="M4 11h11v6H4zM15 12.5h3.6l1.9 1.5-1.9 1.5H15zM7 11V8h6v3M9.5 8V6"/>',
+  limpieza: '<path d="M8 9h6v11a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 8 20zM9 9V6.5h4V9M10 6.5V4h5.5M17 4h2"/><path d="M17.5 9.5l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" fill="currentColor" stroke="none"/>',
+  otros: ICONS.flask,
+}
+function aditivoIconSVG(a: Aditivo): string {
+  const pict = FAM_PICT[a.family] ?? FAM_PICT.otros
+  return `
+  <svg viewBox="0 0 200 150" class="adi-svg" role="img" aria-label="${a.familyLabel}">
+    <defs>
+      <linearGradient id="gold-${a.slug}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#F7E7B4"/><stop offset=".45" stop-color="#D4AF37"/>
+        <stop offset=".75" stop-color="#8C6A1D"/><stop offset="1" stop-color="#E6C96A"/>
+      </linearGradient>
+      <radialGradient id="glow-${a.slug}" cx=".5" cy=".42" r=".65">
+        <stop offset="0" stop-color="${a.color}" stop-opacity=".28"/><stop offset="1" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="200" height="150" fill="url(#glow-${a.slug})"/>
+    <circle cx="100" cy="64" r="40" fill="rgba(255,255,255,.04)" stroke="url(#gold-${a.slug})" stroke-width="2.6"/>
+    <circle cx="100" cy="64" r="33.5" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+    <g transform="translate(78,42) scale(1.83)" fill="none" stroke="${a.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${pict}</g>
+    <text x="100" y="124" text-anchor="middle" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="15" letter-spacing="1.4" fill="#fff">${a.initials}</text>
+    <rect x="70" y="136" width="60" height="2.4" rx="1.2" fill="url(#gold-${a.slug})"/>
+  </svg>`
+}
+
+function aditivoCard(a: Aditivo): string {
+  const msg = `Hola, me interesa el aditivo ${a.name}`
+  return `
+    <article class="v-card adi-card">
+      <div class="v-card-media adi-media" style="--fam:${a.color}">${aditivoIconSVG(a)}</div>
+      <div class="v-card-body">
+        <span class="v-brand" style="color:${a.color}">${a.familyLabel}</span>
+        <h3 class="v-name">${a.name}</h3>
+        ${a.desc ? `<p class="v-note">${a.desc.slice(0, 130)}${a.desc.length > 130 ? '…' : ''}</p>` : ''}
+        <div class="adi-actions">
+          ${a.ficha ? `<a class="adi-doc" href="../fichas/${a.slug}.html">Ficha técnica</a>
+          <a class="adi-doc adi-pdf" href="../fichas/pdf/${a.slug}.pdf" download>PDF</a>` : ''}
+          <a class="v-cta" href="${wa(msg)}" target="_blank" rel="noopener">Consultar ${icon('arrow', 'v-cta-i')}</a>
+        </div>
+      </div>
+    </article>`
+}
+
+/* ---------- buscador inteligente (client-side) ---------- */
+const deacc = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+interface Hit { score: number; html: string; name: string }
+function searchAll(q: string): Hit[] {
+  const terms = deacc(q).split(/\s+/).filter((t) => t.length >= 2)
+  if (!terms.length) return []
+  const hits: Hit[] = []
+  for (const a of ADITIVOS) {
+    let s = 0
+    const name = deacc(a.name), fam = deacc(a.familyLabel), sub = deacc(a.sub), desc = deacc(a.desc)
+    for (const t of terms) {
+      if (name.includes(t)) s += 10
+      if (deacc(a.initials).includes(t)) s += 6
+      if (fam.includes(t)) s += 6
+      if (sub.includes(t)) s += 4
+      if (a.kw.some((k) => k.includes(t))) s += 3
+      if (desc.includes(t)) s += 1
+    }
+    if (s > 0) hits.push({ score: s, html: aditivoCard(a), name: a.name })
+  }
+  for (const c of CATALOG) {
+    for (const g of c.groups ?? []) {
+      for (const p of g.products) {
+        let s = 0
+        const name = deacc(p.name), note = deacc(p.note ?? '')
+        for (const t of terms) {
+          if (name.includes(t)) s += 10
+          if (note.includes(t)) s += 2
+        }
+        if (s > 0) hits.push({ score: s, html: productCard(p), name: p.name })
+      }
+    }
+  }
+  return hits.sort((x, y) => y.score - x.score).slice(0, 12)
+}
+
+function initBuscador(): void {
+  const input = document.getElementById('buscador-input') as HTMLInputElement | null
+  const out = document.getElementById('buscador-results')
+  if (!input || !out) return
+  let t = 0
+  input.addEventListener('input', () => {
+    window.clearTimeout(t)
+    t = window.setTimeout(() => {
+      const q = input.value.trim()
+      if (q.length < 2) { out.innerHTML = ''; out.classList.remove('has'); return }
+      const hits = searchAll(q)
+      out.classList.add('has')
+      out.innerHTML = hits.length
+        ? `<p class="bsc-count">${hits.length} resultado${hits.length > 1 ? 's' : ''} para “${q}”</p><div class="v-rail">${hits.map((h) => h.html).join('')}</div>`
+        : `<p class="bsc-empty">No encontramos resultados para “${q}”. <a href="${wa('Hola, busco: ' + q)}" target="_blank" rel="noopener">Consultá por WhatsApp</a> — seguro podemos ayudarte.</p>`
+    }, 160)
+  })
+}
 
 /* ============================================================
    CARROSSEL DO HERO — líneas destacadas (productos foco).
@@ -239,7 +351,19 @@ function selectCategory(id: string, scroll = false): void {
     ch.classList.toggle('is-active', ch.dataset.cat === id))
 
   let body: string
-  if (cat.groups && cat.groups.length) {
+  if (cat.id === 'aditivos' && ADITIVOS.length) {
+    // agrupa por familia
+    const fams = new Map<string, Aditivo[]>()
+    for (const a of ADITIVOS) {
+      if (!fams.has(a.familyLabel)) fams.set(a.familyLabel, [])
+      fams.get(a.familyLabel)!.push(a)
+    }
+    body = [...fams.entries()].map(([label, items]) => `
+      <div class="v-subgroup">
+        <h3 class="v-subtitle">${label} <span class="v-subcount">${items.length}</span></h3>
+        <div class="v-rail">${items.map(aditivoCard).join('')}</div>
+      </div>`).join('')
+  } else if (cat.groups && cat.groups.length) {
     // categoria com subcategorias (ex.: Equipos → Construcción/Movimentación/Industria)
     body = cat.groups.map((g) => `
       <div class="v-subgroup">
@@ -335,6 +459,7 @@ function initForm(): void {
 
 renderHeroCarousel()
 renderCatalog()
+initBuscador()
 renderPromos()
 initForm()
 mountFooter()
