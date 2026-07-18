@@ -199,13 +199,20 @@ h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(26px,4.5vw,
 pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#3c4657;background:#F8FAFC;border:1px solid #E5EAF1;border-radius:14px;padding:20px 22px}}
 .foot{{padding:22px 44px 34px;border-top:1px solid #E5EAF1;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#7c8698}}
 .foot b{{color:var(--navy)}}
-@media print{{ body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}} .top{{-webkit-print-color-adjust:exact;print-color-adjust:exact}} }}
+@media print{{
+  body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}}
+  .top{{-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:14px;padding:26px 30px 24px}}
+  .body{{padding:22px 6px 8px}}
+  .body h2{{margin:18px 0 8px}}
+  pre.raw{{background:#fff;border:0;padding:4px 2px;font-size:12.8px;line-height:1.6}}
+  .foot{{padding:12px 6px 0;border-top:1px solid #E5EAF1}}
+}}
 @media(max-width:640px){{ .top,.body,.foot{{padding-left:22px;padding-right:22px}} }}
 </style></head><body>
 <div class="sheet">
   <header class="top">
     <div class="brand">
-      <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH" onerror="this.style.display='none'">
+      {logo_html}
       <span class="tagline">Generando Nuevos Horizontes</span>
     </div>
     <span class="fam">{family_label}</span>
@@ -228,6 +235,24 @@ pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#
 </div>
 </body></html>
 """
+
+def logo_html() -> str:
+    """Logo GNH del membrete: usa public/img/logo-oficial.png (base64) si existe;
+    si no, la marca en SVG vectorial (globo + arco naranja + wordmark)."""
+    png = ROOT / 'public' / 'img' / 'logo-oficial.png'
+    if png.exists():
+        import base64
+        b64 = base64.b64encode(png.read_bytes()).decode()
+        return f'<img src="data:image/png;base64,{b64}" alt="GNH" style="height:44px;width:auto">'
+    return '''<svg viewBox="0 0 230 80" style="height:44px;width:auto" role="img" aria-label="GNH">
+      <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
+      <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
+      <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
+      <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
+      <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
+      <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+    </svg>'''
 
 def clean_raw(text: str) -> str:
     body = text
@@ -280,7 +305,7 @@ def main():
             html = FICHA_TPL.format(
                 name=name, meta=(desc or sub)[:150], color=color, family_label=fam_label,
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
-                slug=slug, wa=wa.replace(' ', '%20'),
+                slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
                 raw=clean_raw(g['ficha']))
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
