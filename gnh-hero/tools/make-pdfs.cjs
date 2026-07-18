@@ -12,7 +12,7 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const LOGO_PATH = path.resolve(__dirname, '../public/img/logo-oficial.png')
 const LOGO_B64 = fs.existsSync(LOGO_PATH) ? fs.readFileSync(LOGO_PATH).toString('base64') : ''
 const LOGO_IMG = LOGO_B64
-  ? `<img src="data:image/png;base64,${LOGO_B64}" style="height:17px;width:auto;vertical-align:middle">`
+  ? `<img src="data:image/png;base64,${LOGO_B64}" style="height:22px;width:auto;vertical-align:middle">`
   : 'GNH'
 
 ;(async () => {
@@ -34,7 +34,7 @@ const LOGO_IMG = LOGO_B64
       margin: { top: '10mm', bottom: '16mm', left: '11mm', right: '11mm' },
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
-      footerTemplate: `<div style="width:100%;font-size:10.5px;color:#6b7688;text-align:center;font-family:Arial,sans-serif">
+      footerTemplate: `<div style="width:100%;font-size:12px;color:#5B6472;text-align:center;font-family:Arial,sans-serif">
         ${LOGO_IMG} &nbsp;·&nbsp; gnhorizons.com · WhatsApp +595 995 360060 &nbsp;·&nbsp; Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>`,
     })
     done++
