@@ -3,7 +3,7 @@
 const SOCIAL = {
   // AJUSTAR: URLs reales de GNH
   instagram: 'https://www.instagram.com/gnhorizons',
-  facebook: 'https://www.facebook.com/edzon.camilomazzonrtto',
+  facebook: 'https://www.facebook.com/share/1BZWSKyvbK/',
   tiktok: 'https://www.tiktok.com/@gnhorizons',
   whatsapp: 'https://wa.me/595985311031?text=Hola,%20quiero%20más%20información',
 }
