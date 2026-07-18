@@ -105,10 +105,10 @@ const icon = (k: string, cls = '') =>
    ============================================================ */
 // bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
-interface Featured { name: string; tag: string; img: string; cat: string; bleed?: boolean }
+interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; videoWebm?: string; videoMp4?: string; poster?: string }
 const FEATURED: Featured[] = [
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas.jpg', cat: 'equipos', bleed: true },
-  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana-banner.jpg', cat: 'equipos', bleed: true },
+  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central.jpg', cat: 'equipos', bleed: true },
   { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', cat: 'equipos', bleed: true },
   { name: 'Mezcladora de Mortero', tag: 'Ideal para la aplicación de AC-I y AC-III.', img: '../img/prod/mezcladora-mortero.jpg', cat: 'equipos', bleed: true },
@@ -129,7 +129,9 @@ function renderHeroCarousel(): void {
     <div class="vh-track">
       ${FEATURED.map((f, i) => `
         <article class="vh-slide${i === 0 ? ' is-active' : ''}${f.bleed ? ' is-bleed' : ''}" data-i="${i}">
-          <div class="vh-media"><img src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}></div>
+          <div class="vh-media">${f.videoMp4
+            ? `<video class="vh-el" muted loop playsinline preload="metadata" poster="${f.poster || ''}"><source src="${f.videoWebm}" type="video/webm"><source src="${f.videoMp4}" type="video/mp4"></video>`
+            : `<img class="vh-el" src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}>`}</div>
           <div class="vh-inner">
             <div class="vh-copy">
               <span class="vh-eyebrow">Línea destacada</span>
@@ -156,7 +158,12 @@ function renderHeroCarousel(): void {
   let idx = 0, paused = reduce
 
   const paint = () => {
-    slides.forEach((s, i) => s.classList.toggle('is-active', i === idx))
+    slides.forEach((s, i) => {
+      const active = i === idx
+      s.classList.toggle('is-active', active)
+      const vid = s.querySelector('video')
+      if (vid) { if (active) { try { vid.currentTime = 0 } catch { /* noop */ } vid.play().catch(() => {}) } else { vid.pause() } }
+    })
     segs.forEach((s, i) => { s.classList.remove('is-active', 'is-done'); if (i < idx) s.classList.add('is-done') })
     const cur = segs[idx]; void cur.offsetWidth; cur.classList.add('is-active') // reinicia la animación de llenado
   }

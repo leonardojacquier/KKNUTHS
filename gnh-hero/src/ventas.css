@@ -15,7 +15,7 @@
     radial-gradient(760px 520px at 76% 42%, rgba(242,109,33,.20), transparent 60%),
     linear-gradient(115deg, #0B1120 0%, #13213f 48%, #0F172A 100%);
 }
-.vh-media img {
+.vh-media img, .vh-media video {
   position: absolute; right: 3%; top: 50%; translate: 0 -50%;
   max-height: 88%; max-width: 58%; object-fit: contain;
   filter: drop-shadow(0 44px 66px rgba(0,0,0,.6));
@@ -24,13 +24,14 @@
 .vh-slide:not(.is-active) .vh-media img { animation: none; }
 @keyframes vh-kenburns { from { transform: translateY(-50%) scale(1.04); } to { transform: translateY(-50%) scale(1); } }
 
-/* ---- full-bleed: la imagen cubre TODO el banner (fotos 21:9 de ambiente) ---- */
-.vh-slide.is-bleed .vh-media img {
+/* ---- full-bleed: la imagen/vídeo cubre TODO el banner (contenido 16:9 de ambiente) ---- */
+.vh-slide.is-bleed .vh-media img, .vh-slide.is-bleed .vh-media video {
   position: absolute; inset: 0; right: auto; top: auto; translate: 0;
   width: 100%; height: 100%; max-width: none; max-height: none;
-  object-fit: cover; object-position: center; filter: none;
+  object-fit: cover; object-position: center 22%; filter: none;
   animation: vh-kenburns-cover 8s ease-out both;
 }
+.vh-slide.is-bleed .vh-media video { animation: none; }
 .vh-slide.is-bleed:not(.is-active) .vh-media img { animation: none; }
 @keyframes vh-kenburns-cover { from { transform: scale(1.06); } to { transform: scale(1); } }
 /* scrim para legibilidad del texto a la izquierda */
