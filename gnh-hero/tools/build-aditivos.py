@@ -199,15 +199,15 @@ h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34
 .body h2{{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}}
 .body h2::before{{content:'';width:8px;height:8px;background:var(--orange)}}
 pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
-.foot{{padding:20px 46px 30px;border-top:2px solid var(--navy);text-align:center;font-size:12px;color:#7c8698}}
-.foot .mfr{{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}}
-.foot .mfr img{{height:30px;width:auto}}
-.foot .mfr span{{font-size:11.5px;color:#5B6472}}
-.foot .note{{font-style:italic;margin-bottom:12px;color:#8a93a3}}
-.foot-logo{{margin:2px 0 6px}}
-.foot-logo img{{height:36px;width:auto}}
+.foot{{padding:24px 46px 28px;border-top:2px solid var(--navy);font-size:13px;color:#5B6472}}
+.foot-grid{{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}}
+.f-left img{{height:48px;width:auto}}
+.f-left .excl{{font-family:'Satoshi',sans-serif;font-weight:700;color:var(--navy);font-size:15px;line-height:1.35;margin-top:10px}}
+.f-right{{text-align:right;font-size:12.5px;line-height:1.5}}
+.f-right img{{height:36px;width:auto;margin-bottom:8px}}
+.f-contact{{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}}
+.foot .note{{font-style:italic;color:#8a93a3;font-size:12px;margin-top:6px}}
 .foot b{{color:var(--navy)}}
-.foot p{{margin-top:2px}}
 @media print{{
   body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}}
   .top{{padding:0 4px}} .body{{padding:4px 4px 10px}}
@@ -240,11 +240,18 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
     <pre class="raw">{raw}</pre>
   </main>
   <footer class="foot">
-    <div class="mfr">{camargo_html}<span>Información técnica proporcionada por el fabricante — Camargo Química.</span></div>
+    <div class="foot-grid">
+      <div class="f-left">
+        {logo_foot}
+        <p class="excl">Distribuidores exclusivos de<br>Camargo Química en Paraguay</p>
+      </div>
+      <div class="f-right">
+        {camargo_html}
+        <p>Información técnica proporcionada<br>por el fabricante — Camargo Química</p>
+      </div>
+    </div>
+    <div class="f-contact">Av. República del Perú km 7, Ciudad del Este &nbsp;·&nbsp; Acceso Sur, Ñemby &nbsp;·&nbsp; WhatsApp <b>+595 995 360060</b> &nbsp;·&nbsp; comercial@gnhorizons.com</div>
     <p class="note">Documento orientativo. Realice pruebas preliminares y consulte a nuestro equipo técnico antes de la aplicación.</p>
-    <div class="foot-logo">{logo_foot}</div>
-    <p><b>Distribuidores exclusivos de Camargo Química en Paraguay</b></p>
-    <p>Av. República del Perú km 7, Ciudad del Este · Acceso Sur, Ñemby · WhatsApp +595 995 360060 · comercial@gnhorizons.com</p>
   </footer>
 </div>
 </body></html>
@@ -321,7 +328,7 @@ def main():
                 name=name, meta=(desc or sub)[:150], color=color, family_label=fam_label,
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
                 slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
-                logo_foot=logo_html().replace('height:58px', 'height:36px'),
+                logo_foot=logo_html().replace('height:58px', 'height:48px'),
                 camargo_html=camargo_html(), raw=clean_raw(g['ficha']))
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
