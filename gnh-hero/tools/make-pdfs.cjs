@@ -28,9 +28,8 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
       margin: { top: '10mm', bottom: '16mm', left: '11mm', right: '11mm' },
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
-      footerTemplate: `<div style="width:100%;font-size:8px;color:#8a93a3;padding:0 11mm;display:flex;justify-content:space-between;font-family:Arial,sans-serif">
-        <span>GNH — Generando Nuevos Horizontes · gnhorizons.com · WhatsApp +595 995 360060</span>
-        <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>`,
+      footerTemplate: `<div style="width:100%;font-size:8px;color:#8a93a3;text-align:center;font-family:Arial,sans-serif">
+        GNH — Generando Nuevos Horizontes · gnhorizons.com · WhatsApp +595 995 360060 &nbsp;·&nbsp; Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>`,
     })
     done++
     if (done % 20 === 0) console.log(`${done}/${files.length}`)

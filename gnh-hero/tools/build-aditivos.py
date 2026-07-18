@@ -167,7 +167,7 @@ def initials_of(name: str) -> str:
     short = re.sub(r'^CQ\s+', '', name.strip(), flags=re.I).upper()
     return (short[:15] + '…') if len(short) > 16 else short
 
-# ---------- plantilla de ficha HTML (marca GNH, imprimible) ----------
+# ---------- plantilla de ficha HTML (hoja técnica clara, membrete GNH) ----------
 FICHA_TPL = """<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -175,49 +175,58 @@ FICHA_TPL = """<!DOCTYPE html>
 <meta name="description" content="{meta}">
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
 <style>
-:root{{--navy:#0F172A;--orange:#F26D21;--gold1:#F7E7B4;--gold2:#D4AF37;--gold3:#8C6A1D;--fam:{color}}}
+:root{{--navy:#14213D;--ink:#1e2733;--orange:#F26D21;--gold:#D4AF37;--line:#D8DEE8;--fam:{color}}}
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'General Sans',system-ui,sans-serif;color:#1e2733;background:#F4F6F9;line-height:1.62}}
-.sheet{{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 30px 80px -40px rgba(15,23,42,.35)}}
-.top{{background:linear-gradient(135deg,#0B1120,#13213f 55%,#0F172A);color:#fff;padding:34px 44px 28px;position:relative;overflow:hidden}}
-.top::after{{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--gold3),var(--gold2),var(--gold1),var(--gold2),var(--gold3))}}
-.brand{{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}}
-.brand img{{height:40px;width:auto}}
-.brand .tagline{{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:600}}
-.fam{{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:color-mix(in srgb,var(--fam) 32%,transparent);border:1px solid var(--fam);border-radius:100px;padding:5px 14px;margin-bottom:14px}}
-h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(26px,4.5vw,40px);letter-spacing:-.01em;text-transform:uppercase;line-height:1.04}}
-.sub{{color:rgba(255,255,255,.72);margin-top:8px;font-size:16px}}
-.actions{{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}}
-.btn{{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 22px;border-radius:100px;font-weight:700;font-size:14px;text-decoration:none;font-family:'Satoshi',sans-serif}}
-.btn-pdf{{background:linear-gradient(135deg,var(--gold2),#c39b2a);color:#151515}}
+body{{font-family:'General Sans',system-ui,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}}
+.sheet{{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 30px 80px -40px rgba(15,23,42,.3)}}
+.top{{background:#fff;padding:30px 46px 0}}
+.brand-row{{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:18px}}
+.brand-row img{{height:58px;width:auto}}
+.doc-tag{{text-align:right}}
+.doc-tag .dt{{display:block;font-family:'Satoshi',sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}}
+.doc-tag .fam{{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fam);border:1.5px solid var(--fam);border-radius:4px;padding:3px 10px}}
+.rule{{height:3px;background:var(--navy);position:relative}}
+.rule::after{{content:'';position:absolute;left:0;top:3px;height:2px;width:100%;background:linear-gradient(90deg,var(--orange),var(--gold))}}
+.title-block{{padding:24px 0 20px;border-bottom:1px solid var(--line)}}
+h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}}
+.sub{{color:#5B6472;margin-top:6px;font-size:15.5px}}
+.actions{{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;padding-bottom:8px}}
+.btn{{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 20px;border-radius:6px;font-weight:700;font-size:13.5px;text-decoration:none;font-family:'Satoshi',sans-serif}}
+.btn-pdf{{background:var(--navy);color:#fff}}
 .btn-wa{{background:#22c15e;color:#fff}}
-.btn-back{{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}}
-.body{{padding:38px 44px 30px}}
-.body h2{{font-family:'Satoshi',sans-serif;font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--navy);border-left:4px solid var(--gold2);padding-left:12px;margin:28px 0 10px}}
-.body p,.body li{{font-size:15px;color:#3c4657}}
-.body ul{{padding-left:22px;display:grid;gap:5px}}
-pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#3c4657;background:#F8FAFC;border:1px solid #E5EAF1;border-radius:14px;padding:20px 22px}}
-.foot{{padding:22px 44px 34px;border-top:1px solid #E5EAF1;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#7c8698}}
+.btn-back{{background:#fff;color:var(--navy);border:1.5px solid var(--line)}}
+.body{{padding:6px 46px 26px}}
+.body h2{{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}}
+.body h2::before{{content:'';width:8px;height:8px;background:var(--orange)}}
+pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
+.foot{{padding:20px 46px 30px;border-top:2px solid var(--navy);text-align:center;font-size:12px;color:#7c8698}}
+.foot .mfr{{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}}
+.foot .mfr img{{height:30px;width:auto}}
+.foot .mfr span{{font-size:11.5px;color:#5B6472}}
+.foot .note{{font-style:italic;margin-bottom:10px;color:#8a93a3}}
 .foot b{{color:var(--navy)}}
+.foot p{{margin-top:2px}}
 @media print{{
   body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}}
-  .top{{-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:14px;padding:26px 30px 24px}}
-  .body{{padding:22px 6px 8px}}
-  .body h2{{margin:18px 0 8px}}
-  pre.raw{{background:#fff;border:0;padding:4px 2px;font-size:12.8px;line-height:1.6}}
-  .foot{{padding:12px 6px 0;border-top:1px solid #E5EAF1}}
+  .top{{padding:0 4px}} .body{{padding:4px 4px 10px}}
+  .rule{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .doc-tag .fam{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  pre.raw{{background:#fff;border:1px solid var(--line);border-left:3px solid var(--navy);font-size:12.6px}}
+  .foot{{padding:14px 4px 0}}
 }}
-@media(max-width:640px){{ .top,.body,.foot{{padding-left:22px;padding-right:22px}} }}
+@media(max-width:640px){{ .top,.body,.foot{{padding-left:20px;padding-right:20px}} .brand-row img{{height:44px}} }}
 </style></head><body>
 <div class="sheet">
   <header class="top">
-    <div class="brand">
+    <div class="brand-row">
       {logo_html}
-      <span class="tagline">Generando Nuevos Horizontes</span>
+      <div class="doc-tag"><span class="dt">Ficha Técnica</span><span class="fam">{family_label}</span></div>
     </div>
-    <span class="fam">{family_label}</span>
-    <h1>{name}</h1>
-    {sub_html}
+    <div class="rule"></div>
+    <div class="title-block">
+      <h1>{name}</h1>
+      {sub_html}
+    </div>
     <div class="actions">
       <a class="btn btn-pdf" href="pdf/{slug}.pdf" download>⬇ Descargar PDF</a>
       <a class="btn btn-wa" href="https://wa.me/595995360060?text={wa}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
@@ -225,34 +234,37 @@ pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#
     </div>
   </header>
   <main class="body">
-    <h2>Ficha técnica</h2>
+    <h2>Información del producto</h2>
     <pre class="raw">{raw}</pre>
   </main>
   <footer class="foot">
-    <span><b>GNH — Generando Nuevos Horizontes E.A.S.</b> · Av. República del Perú km 7, Ciudad del Este · Acceso Sur, Ñemby · Paraguay</span>
-    <span>WhatsApp +595 995 360060 · Documento orientativo; consulte a nuestro equipo técnico.</span>
+    <div class="mfr">{camargo_html}<span>Información técnica proporcionada por el fabricante — Camargo Química.</span></div>
+    <p class="note">Documento orientativo. Realice pruebas preliminares y consulte a nuestro equipo técnico antes de la aplicación.</p>
+    <p><b>GNH — Generando Nuevos Horizontes E.A.S.</b> · Distribuidor en Paraguay</p>
+    <p>Av. República del Perú km 7, Ciudad del Este · Acceso Sur, Ñemby · WhatsApp +595 995 360060 · comercial@gnhorizons.com</p>
   </footer>
 </div>
 </body></html>
 """
 
+def _b64img(path, height, alt) -> str:
+    import base64
+    b64 = base64.b64encode(path.read_bytes()).decode()
+    return f'<img src="data:image/png;base64,{b64}" alt="{alt}" style="height:{height}px;width:auto">'
+
 def logo_html() -> str:
-    """Logo GNH del membrete: usa public/img/logo-oficial.png (base64) si existe;
-    si no, la marca en SVG vectorial (globo + arco naranja + wordmark)."""
+    """Logo GNH oficial del membrete (public/img/logo-oficial.png embebida en base64)."""
     png = ROOT / 'public' / 'img' / 'logo-oficial.png'
     if png.exists():
-        import base64
-        b64 = base64.b64encode(png.read_bytes()).decode()
-        return f'<img src="data:image/png;base64,{b64}" alt="GNH" style="height:44px;width:auto">'
-    return '''<svg viewBox="0 0 230 80" style="height:44px;width:auto" role="img" aria-label="GNH">
-      <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
-      <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
-      <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
-      <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
-      <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
-      <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
-      <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
-    </svg>'''
+        return _b64img(png, 58, 'GNH — Generando Nuevos Horizontes')
+    return '<strong style="font-family:Satoshi,Arial;font-size:28px;color:#14213D">GNH</strong>'
+
+def camargo_html() -> str:
+    """Logo Camargo Química del pie (public/img/logo-camargo.png embebida)."""
+    png = ROOT / 'public' / 'img' / 'logo-camargo.png'
+    if png.exists():
+        return _b64img(png, 30, 'Camargo Química')
+    return ''
 
 def clean_raw(text: str) -> str:
     body = text
@@ -306,7 +318,7 @@ def main():
                 name=name, meta=(desc or sub)[:150], color=color, family_label=fam_label,
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
                 slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
-                raw=clean_raw(g['ficha']))
+                camargo_html=camargo_html(), raw=clean_raw(g['ficha']))
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
             'slug': slug, 'name': name, 'sub': sub, 'desc': desc[:260],
