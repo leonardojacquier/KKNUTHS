@@ -4,7 +4,7 @@ const SOCIAL = {
   // AJUSTAR: URLs reales de GNH
   instagram: 'https://www.instagram.com/gnhorizons',
   facebook: 'https://www.facebook.com/edzon.camilomazzonrtto',
-  tiktok: 'https://www.tiktok.com/@gnh',
+  tiktok: 'https://www.tiktok.com/@gnhorizons',
   whatsapp: 'https://wa.me/595985311031?text=Hola,%20quiero%20más%20información',
 }
 
@@ -49,7 +49,7 @@ export function mountFooter(slotId = 'footer-slot'): void {
       </div>
 
       <!-- marca + redes + contacto -->
-      <div class="mx-auto max-w-6xl px-6 py-12 grid gap-10 md:grid-cols-3 border-t border-white/10 mt-12">
+      <div class="mx-auto max-w-6xl px-6 py-12 grid gap-10 md:grid-cols-2 border-t border-white/10 mt-12">
         <div>
           <img src="/img/gnh-logo.svg" alt="GNH" class="h-10 w-auto"
                onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'font-display text-2xl font-bold text-white',textContent:'GNH'}))">
@@ -60,20 +60,12 @@ export function mountFooter(slotId = 'footer-slot'): void {
             <a href="${SOCIAL.tiktok}" target="_blank" rel="noopener" aria-label="TikTok" class="foot-social">${TT}</a>
           </div>
         </div>
-        <div>
+        <div class="md:justify-self-end">
           <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Contacto</h4>
           <ul class="mt-4 space-y-2 text-sm">
             <li><a href="tel:+595985311031" class="hover:text-orange">+595 985 311031</a></li>
             <li><a href="mailto:adm@gnhorizons.com" class="hover:text-orange">adm@gnhorizons.com</a></li>
             <li><a href="${SOCIAL.whatsapp}" target="_blank" rel="noopener" class="hover:text-orange">WhatsApp</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Seguinos</h4>
-          <ul class="mt-4 space-y-2 text-sm">
-            <li><a href="${SOCIAL.instagram}" target="_blank" rel="noopener" class="hover:text-orange">Instagram</a></li>
-            <li><a href="${SOCIAL.facebook}" target="_blank" rel="noopener" class="hover:text-orange">Facebook</a></li>
-            <li><a href="${SOCIAL.tiktok}" target="_blank" rel="noopener" class="hover:text-orange">TikTok</a></li>
           </ul>
         </div>
       </div>
