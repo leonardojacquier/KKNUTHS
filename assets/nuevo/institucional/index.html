@@ -624,7 +624,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <li><a href="#about">Acerca</a></li>
     <li><a href="#alianzas">Alianzas</a></li>
     <li><a href="#servicios">Servicios</a></li>
-    <li><a href="#catalogo">Catálogo</a></li>
+          <li><a href="#frentes">Grupo</a></li>
     <li><a href="#contacto">Contacto</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:8px">
@@ -641,8 +641,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <!-- Vídeo del hero directo sobre el gradiente (sin imagen de transición) -->
   <div class="layer l-photo" id="heroMedia" data-speed="0.2" aria-hidden="true">
     <video muted loop playsinline autoplay preload="auto">
-      <source src="assets/video/showcase.webm" type="video/webm">
-      <source src="assets/video/showcase.mp4" type="video/mp4">
+      <source src="/assets/video/showcase.webm" type="video/webm">
+      <source src="/assets/video/showcase.mp4" type="video/mp4">
     </video>
   </div>
   <div class="layer l-grid" data-speed="0.42"></div>
@@ -819,80 +819,137 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   </div>
 </section>
 
-<!-- ============ CATÁLOGO ============ -->
-<section class="section" id="catalogo">
+<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) ============ -->
+<style>
+.fort-cine{background:radial-gradient(900px 500px at 80% 0%,rgba(242,109,33,.12),transparent 60%),linear-gradient(180deg,var(--navy-deep),var(--navy-ink));padding:104px 0 72px;position:relative;overflow:hidden}
+.fort-cine .head{margin-bottom:26px}
+.fort-cine .head h2{color:#fff;font-size:clamp(30px,4.6vw,50px)}
+.fort-cine .head p{color:rgba(255,255,255,.62);font-size:18px;margin-top:10px}
+.fort-scene{padding:44px 0;border-top:1px solid rgba(255,255,255,.07)}
+.fort-row{display:flex;align-items:center;gap:36px;position:relative}
+.fort-scene:nth-child(even) .fort-row{flex-direction:row-reverse}
+.fort-num{font-family:var(--font-head);font-weight:800;font-size:clamp(64px,11vw,140px);line-height:.85;color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.14);flex-shrink:0}
+.fort-text{max-width:600px}
+.fort-ic{width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--orange),var(--orange-soft));display:grid;place-items:center;margin-bottom:18px;box-shadow:0 10px 26px -8px rgba(242,109,33,.55)}
+.fort-ic svg{width:27px;height:27px;stroke:#fff}
+.fort-text h3{color:#fff;font-size:clamp(24px,3.2vw,36px);margin-bottom:12px}
+.fort-text p{color:rgba(255,255,255,.72);font-size:17.5px;line-height:1.6}
+.fort-ghost{margin-left:auto;opacity:.05;flex-shrink:0}
+.fort-scene:nth-child(even) .fort-ghost{margin-left:0;margin-right:auto}
+.fort-ghost svg{width:150px;height:150px;stroke:#fff}
+@media(max-width:820px){
+  .fort-row,.fort-scene:nth-child(even) .fort-row{flex-direction:column;text-align:center;gap:6px}
+  .fort-ic{margin-inline:auto}.fort-ghost{display:none}.fort-text p{margin-inline:auto}
+}
+</style>
+<section class="fort-cine" id="frentes">
+  <div class="wrap head reveal">
+    <span class="tag">Grupo GNH</span>
+    <h2>Nuestras <span style="color:var(--orange)">fortalezas</span></h2>
+    <p>Cuatro pilares que trabajan como uno.</p>
+  </div>
+  
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">01</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
+          <h3>Comercio Internacional</h3>
+          <p>Importación y exportación estratégica. Conectamos marcas globales con Paraguay y Brasil, con procesos aduaneros ágiles y seguros.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-globe"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">02</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
+          <h3>Logística — FletePar</h3>
+          <p>El marketplace de fletes #1 de Paraguay: conecta cargas con transportistas verificados, con rastreo GPS y pagos seguros.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-truck"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">03</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
+          <h3>Representación de Marcas</h3>
+          <p>Representación exclusiva de marcas internacionales, con desarrollo comercial, posicionamiento y soporte local.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-handshake"/></svg></div>
+      </div>
+    </div>
+    <div class="fort-scene reveal">
+      <div class="wrap fort-row">
+        <div class="fort-num" aria-hidden="true">04</div>
+        <div class="fort-text">
+          <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-spark"/></svg></div>
+          <h3>Alianzas Estratégicas</h3>
+          <p>Socios en China, Brasil y Paraguay que amplían nuestro alcance, nuestra capacidad y nuestros horizontes.</p>
+        </div>
+        <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#i-spark"/></svg></div>
+      </div>
+    </div>
+</section>
+
+<!-- ============ LÍNEAS DE PRODUCTO (deck → Ventas) ============ -->
+<section class="section alt" id="lineas">
   <div class="wrap">
     <span class="tag reveal">Catálogo</span>
-    <h2 class="reveal d1">Un portafolio que construye</h2>
-    <p class="lead reveal d2">Líneas de producto seleccionadas del mercado internacional. Toca una categoría para explorarla.</p>
-
+    <h2 class="reveal d1">Líneas de <span style="color:var(--orange)">producto</span></h2>
+    <p class="lead reveal d2">Explorá nuestras categorías — cotización directa por WhatsApp.</p>
     <div class="cat-deck reveal d2">
       <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-layers"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-layers"/></svg></div>
-        <span class="t-vert">Cementos y Morteros</span>
+        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-gear"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-gear"/></svg></div>
+        <span class="t-vert">Equipos</span>
         <div class="body">
-          <h3>Cementos y Morteros</h3>
-          <p>Cemento de alto desempeño para obras que no pueden parar.</p>
-          <div class="brands"><span>Itambé</span></div>
-          <a class="go" href="https://wa.me/595995360060?text=Hola,%20me%20interesan%20los%20cementos%20y%20morteros" target="_blank" rel="noopener">Consultar disponibilidad
-            <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
+          <h3>Equipos</h3>
+          <p>Reglas láser, bombas, grúas araña, montacargas, generadores y más.</p>
+          <a class="go" href="../ventas/">Ver productos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
-
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-truck"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
-        <span class="t-vert">Transportes</span>
-        <div class="body">
-          <h3>Transportes</h3>
-          <p>Fletes y transporte de cargas con cobertura regional, en tiempo y con trazabilidad.</p>
-          <div class="brands"><span>Fletepar</span></div>
-          <a class="go" href="https://wa.me/595995360060?text=Hola,%20me%20interesa%20el%20servicio%20de%20transportes" target="_blank" rel="noopener">Consultar disponibilidad
-            <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-
-      <article class="cat" tabindex="0">
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-market"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-market"/></svg></div>
-        <span class="t-vert">Pisos y Superficies de Concreto</span>
-        <div class="body">
-          <h3>Pisos y Superficies de Concreto</h3>
-          <p>Pisos arquitectónicos y soluciones de concreto para cada proyecto.</p>
-          <div class="brands"><span>Castelatto</span><span>Hormigomix</span></div>
-          <a class="go" href="https://wa.me/595995360060?text=Hola,%20me%20interesan%20los%20pisos%20de%20concreto" target="_blank" rel="noopener">Consultar disponibilidad
-            <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
-        </div>
-      </article>
-
       <article class="cat" tabindex="0">
         <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-flask"/></svg></div>
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-flask"/></svg></div>
-        <span class="t-vert">Químicos para Construcción</span>
+        <span class="t-vert">Aditivos</span>
         <div class="body">
-          <h3>Químicos para Construcción</h3>
-          <p>Aditivos y soluciones químicas que elevan el desempeño de la obra.</p>
-          <div class="brands"><span>Camargo Química</span></div>
-          <a class="go" href="https://wa.me/595995360060?text=Hola,%20me%20interesan%20los%20qu%C3%ADmicos%20para%20construcci%C3%B3n" target="_blank" rel="noopener">Consultar disponibilidad
-            <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
+          <h3>Aditivos</h3>
+          <p>Aditivos y soluciones químicas para construcción.</p>
+          <a class="go" href="../ventas/">Ver productos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
-
       <article class="cat" tabindex="0">
-        <video class="cat-video" muted loop playsinline preload="none" data-lazy aria-hidden="true">
-          <source data-src="assets/video/showcase.webm" type="video/webm">
-          <source data-src="assets/video/showcase.mp4" type="video/mp4">
-        </video>
-        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-hook"/></svg></div>
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-hook"/></svg></div>
-        <span class="t-vert">Equipos y Maquinaria</span>
+        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-truck"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
+        <span class="t-vert">Fletes</span>
         <div class="body">
-          <h3>Equipos y Maquinaria</h3>
-          <p>Grúas araña y equipos de elevación para trabajos de precisión.</p>
-          <div class="brands"><span>Elevación</span><span>Obras especiales</span></div>
-          <a class="go" href="https://wa.me/595995360060?text=Hola,%20me%20interesan%20los%20equipos%20y%20maquinaria" target="_blank" rel="noopener">Consultar disponibilidad
-            <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
+          <h3>Fletes</h3>
+          <p>Transporte y fletes de carga con cobertura regional.</p>
+          <a class="go" href="../ventas/">Ver productos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
+        </div>
+      </article>
+      <article class="cat" tabindex="0">
+        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-tiles"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-tiles"/></svg></div>
+        <span class="t-vert">Morteros</span>
+        <div class="body">
+          <h3>Morteros</h3>
+          <p>Revoques y morteros industrializados.</p>
+          <a class="go" href="../ventas/">Ver productos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
+        </div>
+      </article>
+      <article class="cat" tabindex="0">
+        <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#i-layers"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-layers"/></svg></div>
+        <span class="t-vert">Cementos</span>
+        <div class="body">
+          <h3>Cementos</h3>
+          <p>Cemento de alto desempeño para toda obra.</p>
+          <a class="go" href="../ventas/">Ver productos <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
     </div>
@@ -902,8 +959,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- ============ SHOWCASE FROTA GNH ============ -->
 <section class="showcase" id="flota">
   <video muted loop playsinline preload="none" data-lazy aria-hidden="true">
-    <source data-src="assets/video/hero.webm" type="video/webm">
-    <source data-src="assets/video/hero.mp4" type="video/mp4">
+    <source data-src="/assets/video/hero.webm" type="video/webm">
+    <source data-src="/assets/video/hero.mp4" type="video/mp4">
   </video>
   <div class="sc-veil" aria-hidden="true"></div>
   <div class="wrap sc-inner reveal">
