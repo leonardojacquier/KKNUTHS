@@ -108,7 +108,7 @@ const icon = (k: string, cls = '') =>
 interface Featured { name: string; tag: string; img: string; cat: string; bleed?: boolean }
 const FEATURED: Featured[] = [
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas.jpg', cat: 'equipos', bleed: true },
-  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos', bleed: true },
+  { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana-banner.jpg', cat: 'equipos', bleed: true },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central.jpg', cat: 'equipos', bleed: true },
   { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', cat: 'equipos', bleed: true },
   { name: 'Mezcladora de Mortero', tag: 'Ideal para la aplicación de AC-I y AC-III.', img: '../img/prod/mezcladora-mortero.jpg', cat: 'equipos', bleed: true },
