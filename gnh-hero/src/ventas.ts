@@ -83,9 +83,9 @@ const CATALOG: Category[] = [
   },
   {
     id: 'fletes', title: 'Fletes', icon: 'truck',
-    blurb: 'FletePar: la transportadora del Grupo GNH. Flota propia, cobertura nacional y conexión con Brasil.',
+    blurb: 'FletePar: los fletes del Grupo GNH. Cobertura nacional y conexión con Brasil.',
     products: [
-      { name: 'Fletes de Carga General', brand: 'FletePar', note: 'Transporte de mercaderías en todo Paraguay con flota propia y trazabilidad total.',
+      { name: 'Fletes de Carga General', brand: 'FletePar', note: 'Transporte de mercaderías en todo Paraguay con seguimiento total.',
         tags: ['transporte', 'carga', 'camion', 'mudanza', 'mercaderia', 'envio', 'logistica', 'cde', 'asuncion'] },
       { name: 'Cargas Voluminosas y Maquinaria', brand: 'FletePar', note: 'Traslado de equipos, maquinaria y cargas de gran volumen, del puerto o depósito a tu obra.',
         tags: ['maquinaria', 'equipo pesado', 'volumen', 'obra', 'puerto', 'deposito', 'traslado'] },
@@ -425,9 +425,9 @@ function selectCategory(id: string, scroll = false): void {
       <div class="fp-text">
         <span class="v-brand">FletePar · Grupo GNH</span>
         <h3>La transportadora del Grupo</h3>
-        <p>FletePar es el brazo logístico de GNH: fletes y transporte de carga con <b>flota propia</b>, cobertura en todo Paraguay
-        (eje Ciudad del Este – Asunción) y conexión con la frontera con Brasil. La misma logística que respalda nuestras
-        importaciones, al servicio de tu carga: trazabilidad de punta a punta y tiempos que se cumplen.</p>
+        <p>FletePar es el brazo logístico de GNH: <b>gestión de fletes</b> y transporte de carga con cobertura en todo Paraguay
+        (eje Ciudad del Este – Asunción) y conexión con la frontera con Brasil. La misma logística que coordina nuestras
+        importaciones, al servicio de tu carga: seguimiento de punta a punta y tiempos que se cumplen.</p>
       </div>
       <div class="fp-links">
         <a href="https://fletepar.com.py/" target="_blank" rel="noopener">🌐 Sitio oficial — fletepar.com.py</a>
