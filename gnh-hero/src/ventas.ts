@@ -83,15 +83,8 @@ const CATALOG: Category[] = [
   },
   {
     id: 'fletes', title: 'Fletes', icon: 'truck',
-    blurb: 'FletePar: los fletes del Grupo GNH. Cobertura nacional y conexión con Brasil.',
-    products: [
-      { name: 'Fletes de Carga General', brand: 'FletePar', note: 'Transporte de mercaderías en todo Paraguay con seguimiento total.',
-        tags: ['transporte', 'carga', 'camion', 'mudanza', 'mercaderia', 'envio', 'logistica', 'cde', 'asuncion'] },
-      { name: 'Cargas Voluminosas y Maquinaria', brand: 'FletePar', note: 'Traslado de equipos, maquinaria y cargas de gran volumen, del puerto o depósito a tu obra.',
-        tags: ['maquinaria', 'equipo pesado', 'volumen', 'obra', 'puerto', 'deposito', 'traslado'] },
-      { name: 'Distribución Regional', brand: 'FletePar', note: 'Eje Ciudad del Este – Asunción y conexión con la frontera con Brasil, con tiempos que se cumplen.',
-        tags: ['distribucion', 'regional', 'brasil', 'frontera', 'ruta', 'entrega'] },
-    ],
+    blurb: 'FletePar: la plataforma de fletes #1 de Paraguay. Conectamos cargas con transportistas verificados, en tiempo real.',
+    products: [], // la categoría se renderiza con el panel FletePar (ver selectCategory)
   },
   {
     id: 'morteros', title: 'Morteros', icon: 'grid',
@@ -418,23 +411,47 @@ function selectCategory(id: string, scroll = false): void {
   document.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
     ch.classList.toggle('is-active', ch.dataset.cat === id))
 
-  // FletePar: panel de presentación + enlaces (sitio, WhatsApp, contactos, descargas)
-  const FLETES_DOWNLOADS: { label: string; href: string }[] = [] // AGREGAR: brochure/presentación cuando estén los archivos
+  // FletePar: marketplace de fletes — panel + doble camino (transportistas / embarcadores)
+  const FP_WA = '595985336505' // WhatsApp FletePar
+  const fpwa = (msg: string) => `https://wa.me/${FP_WA}?text=${encodeURIComponent(msg)}`
   const fletesIntro = cat.id !== 'fletes' ? '' : `
     <div class="fp-panel">
       <div class="fp-text">
         <span class="v-brand">FletePar · Grupo GNH</span>
-        <h3>La transportadora del Grupo</h3>
-        <p>FletePar es el brazo logístico de GNH: <b>gestión de fletes</b> y transporte de carga con cobertura en todo Paraguay
-        (eje Ciudad del Este – Asunción) y conexión con la frontera con Brasil. La misma logística que coordina nuestras
-        importaciones, al servicio de tu carga: seguimiento de punta a punta y tiempos que se cumplen.</p>
+        <h3>La plataforma de fletes #1 de Paraguay</h3>
+        <p>FletePar conecta <b>empresas con cargas</b> y <b>transportistas verificados</b> en tiempo real.
+        Rastreo GPS con actualizaciones cada 30 segundos, verificación de identidad en 3 capas (facial,
+        documental y vehicular), pagos protegidos y seguro de carga desde la recogida hasta la entrega.
+        Soporte 24/7 por app y WhatsApp.</p>
       </div>
       <div class="fp-links">
-        <a href="https://fletepar.com.py/" target="_blank" rel="noopener">🌐 Sitio oficial — fletepar.com.py</a>
-        <a href="${wa('Hola, quiero cotizar un flete con FletePar')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
-        <a href="tel:+595995360060">📞 +595 995 360060</a>
-        <a href="mailto:comercial@gnhorizons.com">✉️ comercial@gnhorizons.com</a>
-        ${FLETES_DOWNLOADS.map((d) => `<a href="${d.href}" download>⬇ ${d.label}</a>`).join('')}
+        <a href="https://fletepar.com.py/" target="_blank" rel="noopener">🌐 fletepar.com.py</a>
+        <a href="https://fletepar-consulta.web.app" target="_blank" rel="noopener">🔎 Consultá la reputación de un transportista</a>
+        <a href="https://fletepar-ed077.web.app/tv" target="_blank" rel="noopener">🗺️ Mapa en vivo (pantalla TV)</a>
+        <a href="${fpwa('Hola, quiero más información sobre FletePar')}" target="_blank" rel="noopener">💬 WhatsApp +595 985 336 505</a>
+        <a href="mailto:everson@fletepar.com.py">✉️ everson@fletepar.com.py</a>
+      </div>
+    </div>
+    <div class="fp-dual">
+      <div class="fp-role fp-role-truck">
+        <span class="fp-role-tag">Para transportistas</span>
+        <h3>¿Tenés camión?<br>Sumate a la red</h3>
+        <p>Recibí pedidos de flete cerca tuyo con matching inteligente, cobrá seguro con pagos integrados y construí tu reputación verificada.</p>
+        <div class="fp-btns">
+          <a class="fp-btn fp-btn-solid" href="${fpwa('Hola, soy transportista y quiero sumarme a FletePar')}" target="_blank" rel="noopener">Sumarme por WhatsApp</a>
+          <a class="fp-btn" href="https://play.google.com/store/apps/details?id=com.everson.FleteParapp" target="_blank" rel="noopener">Google Play</a>
+          <a class="fp-btn" href="https://apps.apple.com/app/id6759286072" target="_blank" rel="noopener">App Store</a>
+        </div>
+      </div>
+      <div class="fp-role fp-role-cargo">
+        <span class="fp-role-tag">Para empresas</span>
+        <h3>¿Necesitás enviar<br>una carga?</h3>
+        <p>Publicá tu carga y conectá en minutos con transportistas verificados: rastreo GPS en tiempo real, seguro de carga y notificaciones de entrega.</p>
+        <div class="fp-btns">
+          <a class="fp-btn fp-btn-solid" href="${fpwa('Hola, necesito enviar una carga con FletePar')}" target="_blank" rel="noopener">Enviar carga por WhatsApp</a>
+          <a class="fp-btn" href="https://play.google.com/store/apps/details?id=com.everson.FleteParapp" target="_blank" rel="noopener">Google Play</a>
+          <a class="fp-btn" href="https://apps.apple.com/app/id6759286072" target="_blank" rel="noopener">App Store</a>
+        </div>
       </div>
     </div>`
 
@@ -458,6 +475,8 @@ function selectCategory(id: string, scroll = false): void {
         <h3 class="v-subtitle">${g.title}</h3>
         <div class="v-rail">${g.products.map(productCard).join('')}</div>
       </div>`).join('')
+  } else if (cat.id === 'fletes') {
+    body = '' // el panel FletePar (fletesIntro) es todo el contenido de la categoría
   } else if (cat.products && cat.products.length) {
     body = `<div class="v-rail">${cat.products.map(productCard).join('')}</div>`
   } else {

@@ -383,3 +383,42 @@
 }
 .fp-links a:hover { background: rgba(255,255,255,.07); color: #ff9a4d; }
 @media (max-width: 760px) { .fp-panel { grid-template-columns: 1fr; padding: 22px 20px; } }
+
+/* ===== FletePar: doble camino — transportistas y embarcadores ===== */
+.fp-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 26px; }
+.fp-role {
+  position: relative; overflow: hidden; border-radius: 20px; padding: 28px 26px; color: #fff;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.fp-role-truck {
+  background:
+    radial-gradient(420px 240px at 15% 0%, rgba(242,109,33,.28), transparent 62%),
+    linear-gradient(155deg, #1E3A8A, #0F172A 70%);
+}
+.fp-role-cargo {
+  background:
+    radial-gradient(420px 240px at 85% 0%, rgba(59,130,246,.3), transparent 62%),
+    linear-gradient(155deg, #13214a, #0D1626 70%);
+}
+.fp-role::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; padding: 1.5px; border-radius: inherit;
+  background: linear-gradient(135deg, #F7E7B4, #D4AF37 42%, #8C6A1D 78%, #E6C96A);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity: .45;
+}
+.fp-role-tag {
+  display: inline-block; font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 12px;
+  letter-spacing: .18em; text-transform: uppercase; color: #ff9a4d; margin-bottom: 10px;
+}
+.fp-role h3 { font-family: 'Satoshi', sans-serif; font-weight: 800; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.1; margin-bottom: 10px; }
+.fp-role p { color: rgba(255,255,255,.75); font-size: 14.5px; line-height: 1.6; margin-bottom: 18px; }
+.fp-btns { display: flex; flex-wrap: wrap; gap: 9px; }
+.fp-btn {
+  display: inline-flex; align-items: center; min-height: 42px; padding: 9px 18px; border-radius: 100px;
+  font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 13.5px; text-decoration: none;
+  color: #fff; border: 1.5px solid rgba(255,255,255,.28); transition: background .2s, border-color .2s;
+}
+.fp-btn:hover { border-color: #ff9a4d; color: #ff9a4d; }
+.fp-btn-solid { background: #F26D21; border-color: #F26D21; }
+.fp-btn-solid:hover { background: #ff813d; color: #fff; }
+@media (max-width: 760px) { .fp-dual { grid-template-columns: 1fr; } }
