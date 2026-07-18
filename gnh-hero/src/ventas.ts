@@ -11,7 +11,7 @@ const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}
    Cada categoria: título, ícone, link de ficha/catálogo (externo), produtos.
    Cada produto: nome, marca, imagem (placeholder até chegar), nota.
    ============================================================ */
-interface Product { name: string; brand?: string; img?: string; note?: string }
+interface Product { name: string; brand?: string; img?: string; note?: string; tags?: string[] }
 interface SubGroup { title: string; products: Product[] }
 interface Category {
   id: string
@@ -30,32 +30,48 @@ const CATALOG: Category[] = [
       {
         title: 'Construcción',
         products: [
-          { name: 'Regla Láser Vibratoria WS940', img: '../img/prod/ws940.png', note: 'Nivelación láser de pisos de concreto de alta precisión.' },
-          { name: 'Bomba Transportadora de Concreto', img: '../img/prod/bomba-cemento.png', note: 'Bombeo y transporte de concreto con caudal estable y operación continua.' },
-          { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.' },
-          { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.' },
-          { name: 'Máquina de Marcado Vial', img: '../img/prod/marcado.png', note: 'Marcación de pavimentos y viales con pintura de alto rendimiento.' },
-          { name: 'Central de Concreto JBTS20', img: '../img/prod/central-concreto.png', note: 'Mezcladora y bomba de concreto sobre remolque. Equipada con motor Cummins, para producción y bombeo continuo en obra.' },
+          { name: 'Regla Láser Vibratoria WS940', img: '../img/prod/ws940.png', note: 'Nivelación láser de pisos de concreto de alta precisión.',
+            tags: ['nivelacion', 'nivelar', 'piso', 'pavimento', 'contrapiso', 'laser', 'hormigon', 'llana', 'acabado', 'losa', 'galpon'] },
+          { name: 'Bomba Transportadora de Concreto', img: '../img/prod/bomba-cemento.png', note: 'Bombeo y transporte de concreto con caudal estable y operación continua.',
+            tags: ['bombeo', 'bombear', 'hormigon', 'transporte', 'distancia', 'altura', 'losa', 'llenado', 'colado', 'hormigonado'] },
+          { name: 'Allanadora de Concreto 1 m', img: '../img/prod/allanadora.png', note: 'Alisado y pulido de pisos de concreto. Ancho de trabajo de 1 metro.',
+            tags: ['alisado', 'alisar', 'pulido', 'pulir', 'acabado', 'piso', 'helicoptero', 'flotadora', 'fratasadora', 'terminacion', 'losa'] },
+          { name: 'Cortadora de Piso', img: '../img/prod/cortadora.png', note: 'Corte de juntas en concreto y asfalto con disco diamantado.',
+            tags: ['corte', 'cortar', 'junta', 'juntas', 'disco', 'diamantado', 'asfalto', 'pavimento', 'sierra', 'aserrado'] },
+          { name: 'Máquina de Marcado Vial', img: '../img/prod/marcado.png', note: 'Marcación de pavimentos y viales con pintura de alto rendimiento.',
+            tags: ['pintura', 'senalizacion', 'demarcacion', 'carretera', 'vial', 'estacionamiento', 'lineas', 'pintar calle'] },
+          { name: 'Central de Concreto JBTS20', img: '../img/prod/central-concreto.png', note: 'Mezcladora y bomba de concreto sobre remolque. Equipada con motor Cummins, para producción y bombeo continuo en obra.',
+            tags: ['planta', 'mezcla', 'mezcladora', 'bombeo', 'produccion', 'hormigon', 'obra', 'cummins', 'hormigonera', 'betonera'] },
         ],
       },
       {
         title: 'Movimentación',
         products: [
-          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 70 t de capacidad. Control remoto e indicador de par incluidos. Brazo extensor y cesto opcionales.' },
-          { name: 'Mini Excavadora HT15', img: '../img/prod/excavadora.png', note: 'Miniexcavadora de orugas con motor Kubota. Balanceo lateral del brazo, cabina y aire acondicionado opcionales.' },
-          { name: 'Camión Volquete de Orugas', img: '../img/prod/volquete.png', note: 'Dumper de orugas para transporte de materiales en obra. Capacidades de 0,5 t y 1,2 t; versión giratoria con motor diésel.' },
-          { name: 'Carretilla Elevadora Diésel 3,5 t', img: '../img/prod/carretilla.png', note: 'Montacargas diésel, capacidad 3,5 t y elevación de 3 m. Dispositivo rotatorio opcional.' },
-          { name: 'Montacargas Todoterreno 3,5 t', img: '../img/prod/montacargas.png', note: 'Montacargas todoterreno 3,5 t para superficies difíciles.' },
-          { name: 'Apilador Eléctrico', img: '../img/prod/apilador.png', note: 'Apiladores eléctricos — capacidades de 1 a 2 t y alturas de 1,6 a 4,5 m.' },
-          { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.' },
+          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 70 t de capacidad. Control remoto e indicador de par incluidos. Brazo extensor y cesto opcionales.',
+            tags: ['izaje', 'izar', 'elevacion', 'elevar', 'carga', 'altura', 'vidrio', 'montaje', 'compacta', 'acceso dificil', 'tonelada', 'levantar', 'gruas'] },
+          { name: 'Mini Excavadora HT15', img: '../img/prod/excavadora.png', note: 'Miniexcavadora de orugas con motor Kubota. Balanceo lateral del brazo, cabina y aire acondicionado opcionales.',
+            tags: ['excavacion', 'excavar', 'zanja', 'zanjeo', 'movimiento de tierra', 'kubota', 'demolicion', 'jardin', 'pala', 'retro', 'cimiento'] },
+          { name: 'Camión Volquete de Orugas', img: '../img/prod/volquete.png', note: 'Dumper de orugas para transporte de materiales en obra. Capacidades de 0,5 t y 1,2 t; versión giratoria con motor diésel.',
+            tags: ['transporte', 'carga', 'materiales', 'dumper', 'orugas', 'volteo', 'escombro', 'arena', 'tierra', 'carretilla motorizada'] },
+          { name: 'Carretilla Elevadora Diésel 3,5 t', img: '../img/prod/carretilla.png', note: 'Montacargas diésel, capacidad 3,5 t y elevación de 3 m. Dispositivo rotatorio opcional.',
+            tags: ['montacargas', 'pallet', 'pallets', 'deposito', 'almacen', 'carga', 'elevacion', 'diesel', 'horquilla', 'autoelevador'] },
+          { name: 'Montacargas Todoterreno 3,5 t', img: '../img/prod/montacargas.png', note: 'Montacargas todoterreno 3,5 t para superficies difíciles.',
+            tags: ['pallet', 'pallets', 'terreno dificil', 'obra', 'carga', 'barro', 'autoelevador', 'todoterreno', 'horquilla'] },
+          { name: 'Apilador Eléctrico', img: '../img/prod/apilador.png', note: 'Apiladores eléctricos — capacidades de 1 a 2 t y alturas de 1,6 a 4,5 m.',
+            tags: ['pallet', 'pallets', 'deposito', 'almacen', 'estanteria', 'elevacion', 'altura', 'electrico', 'apilar', 'zorra electrica'] },
+          { name: 'Elevador de Dos Columnas', img: '../img/prod/elevador.png', note: 'Plataforma de elevación de personal de dos mástiles, uso industrial.',
+            tags: ['plataforma', 'altura', 'personal', 'trabajo en altura', 'mantenimiento', 'elevacion', 'andamio', 'techo', 'iluminacion', 'electricista'] },
         ],
       },
       {
         title: 'Industria',
         products: [
-          { name: 'Ensayo a Compresión HST-YES2000', img: '../img/prod/compresion.png', note: 'Prensa digital para ensayos de resistencia a la compresión. Control de calidad.' },
-          { name: 'Motor Diésel 4HZD', img: '../img/prod/motor.png', note: 'Motor diésel industrial de alto desempeño para generación y usos estacionarios.' },
-          { name: 'Grupo Electrógeno Diésel 38 kVA', img: '../img/prod/generador.png', note: 'Generador trifásico 400 V / 50 Hz, cabina súper silenciosa.' },
+          { name: 'Ensayo a Compresión HST-YES2000', img: '../img/prod/compresion.png', note: 'Prensa digital para ensayos de resistencia a la compresión. Control de calidad.',
+            tags: ['laboratorio', 'calidad', 'ensayo', 'probeta', 'resistencia', 'control', 'prensa', 'rotura', 'certificacion'] },
+          { name: 'Motor Diésel 4HZD', img: '../img/prod/motor.png', note: 'Motor diésel industrial de alto desempeño para generación y usos estacionarios.',
+            tags: ['motor', 'estacionario', 'bomba de agua', 'generacion', 'diesel', 'repuesto', 'maquinaria'] },
+          { name: 'Grupo Electrógeno Diésel 38 kVA', img: '../img/prod/generador.png', note: 'Generador trifásico 400 V / 50 Hz, cabina súper silenciosa.',
+            tags: ['energia', 'electricidad', 'luz', 'corte de luz', 'trifasico', 'silencioso', 'emergencia', 'generador', 'kva', 'respaldo', 'evento'] },
         ],
       },
     ],
@@ -222,9 +238,10 @@ function searchAll(q: string): Hit[] {
     for (const g of c.groups ?? []) {
       for (const p of g.products) {
         let s = 0
-        const name = deacc(p.name), note = deacc(p.note ?? '')
+        const name = deacc(p.name), note = deacc(p.note ?? ''), tags = deacc((p.tags ?? []).join(' '))
         for (const vars of groups) {
           if (hitIn(name, vars)) s += 10
+          if (hitIn(tags, vars)) s += 5
           if (hitIn(note, vars)) s += 2
         }
         if (s > 0) hits.push({ score: s, html: productCard(p), name: p.name })
@@ -357,7 +374,7 @@ function renderHeroCarousel(): void {
 function productCard(p: Product): string {
   const msg = `Hola, me interesa: ${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`
   return `
-    <article class="v-card" data-s="${deacc(`${p.name} ${p.brand ?? ''} ${p.note ?? ''}`)}">
+    <article class="v-card" data-s="${deacc(`${p.name} ${p.brand ?? ''} ${p.note ?? ''} ${(p.tags ?? []).join(' ')}`)}">
       <div class="v-card-media">${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy">` : `<span class="ph">${p.name}</span>`}</div>
       <div class="v-card-body">
         ${p.brand ? `<span class="v-brand">${p.brand}</span>` : ''}
