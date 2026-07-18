@@ -3,7 +3,7 @@ import './ventas.css'
 import { mountFooter } from './footer'
 import { ADITIVOS, type Aditivo } from './aditivos-data'
 
-const WA = '595985311031'
+const WA = '595995360060'
 const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}`
 
 /* ============================================================

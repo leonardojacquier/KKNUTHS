@@ -191,7 +191,7 @@ pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#
     {sub_html}
     <div class="actions">
       <a class="btn btn-pdf" href="pdf/{slug}.pdf" download>⬇ Descargar PDF</a>
-      <a class="btn btn-wa" href="https://wa.me/595985311031?text={wa}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+      <a class="btn btn-wa" href="https://wa.me/595995360060?text={wa}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
       <a class="btn btn-back" href="../ventas/">← Volver al catálogo</a>
     </div>
   </header>
@@ -201,7 +201,7 @@ pre.raw{{white-space:pre-wrap;font:13.5px/1.65 'General Sans',sans-serif;color:#
   </main>
   <footer class="foot">
     <span><b>GNH — Generando Nuevos Horizontes E.A.S.</b> · Av. República del Perú km 7, Ciudad del Este · Acceso Sur, Ñemby · Paraguay</span>
-    <span>WhatsApp +595 985 311031 · Documento orientativo; consulte a nuestro equipo técnico.</span>
+    <span>WhatsApp +595 995 360060 · Documento orientativo; consulte a nuestro equipo técnico.</span>
   </footer>
 </div>
 </body></html>

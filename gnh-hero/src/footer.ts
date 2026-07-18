@@ -5,7 +5,7 @@ const SOCIAL = {
   instagram: 'https://www.instagram.com/gnhorizons',
   facebook: 'https://www.facebook.com/share/1BZWSKyvbK/',
   tiktok: 'https://www.tiktok.com/@gnhorizons',
-  whatsapp: 'https://wa.me/595985311031?text=Hola,%20quiero%20más%20información',
+  whatsapp: 'https://wa.me/595995360060?text=Hola,%20quiero%20más%20información',
 }
 
 const TIENDAS = [
@@ -63,8 +63,8 @@ export function mountFooter(slotId = 'footer-slot'): void {
         <div class="md:justify-self-end">
           <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Contacto</h4>
           <ul class="mt-4 space-y-2 text-sm">
-            <li><a href="tel:+595985311031" class="hover:text-orange">+595 985 311031</a></li>
-            <li><a href="mailto:adm@gnhorizons.com" class="hover:text-orange">adm@gnhorizons.com</a></li>
+            <li><a href="tel:+595995360060" class="hover:text-orange">+595 995 360060</a></li>
+            <li><a href="mailto:comercial@gnhorizons.com" class="hover:text-orange">comercial@gnhorizons.com</a></li>
             <li><a href="${SOCIAL.whatsapp}" target="_blank" rel="noopener" class="hover:text-orange">WhatsApp</a></li>
           </ul>
         </div>
