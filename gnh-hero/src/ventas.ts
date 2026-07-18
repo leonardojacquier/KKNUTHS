@@ -273,10 +273,12 @@ function renderCatalog(): void {
     })
   })
 
-  const chips = document.getElementById('cat-chips')!
-  chips.innerHTML = CATALOG.map((c) => `<button class="v-chip" data-cat="${c.id}">${c.title}</button>`).join('')
-  chips.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
-    ch.addEventListener('click', () => selectCategory(ch.dataset.cat!, true)))
+  const chips = document.getElementById('cat-chips')
+  if (chips) {
+    chips.innerHTML = CATALOG.map((c) => `<button class="v-chip" data-cat="${c.id}">${c.title}</button>`).join('')
+    chips.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
+      ch.addEventListener('click', () => selectCategory(ch.dataset.cat!, true)))
+  }
 
   selectCategory(CATALOG[0].id) // abre a primeira por padrão (sem rolar)
 }
