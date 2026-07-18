@@ -203,7 +203,9 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
 .foot .mfr{{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}}
 .foot .mfr img{{height:30px;width:auto}}
 .foot .mfr span{{font-size:11.5px;color:#5B6472}}
-.foot .note{{font-style:italic;margin-bottom:10px;color:#8a93a3}}
+.foot .note{{font-style:italic;margin-bottom:12px;color:#8a93a3}}
+.foot-logo{{margin:2px 0 6px}}
+.foot-logo img{{height:36px;width:auto}}
 .foot b{{color:var(--navy)}}
 .foot p{{margin-top:2px}}
 @media print{{
@@ -240,7 +242,8 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
   <footer class="foot">
     <div class="mfr">{camargo_html}<span>Información técnica proporcionada por el fabricante — Camargo Química.</span></div>
     <p class="note">Documento orientativo. Realice pruebas preliminares y consulte a nuestro equipo técnico antes de la aplicación.</p>
-    <p><b>GNH — Generando Nuevos Horizontes E.A.S.</b> · Distribuidor en Paraguay</p>
+    <div class="foot-logo">{logo_foot}</div>
+    <p><b>Distribuidores exclusivos de Camargo Química en Paraguay</b></p>
     <p>Av. República del Perú km 7, Ciudad del Este · Acceso Sur, Ñemby · WhatsApp +595 995 360060 · comercial@gnhorizons.com</p>
   </footer>
 </div>
@@ -318,6 +321,7 @@ def main():
                 name=name, meta=(desc or sub)[:150], color=color, family_label=fam_label,
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
                 slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
+                logo_foot=logo_html().replace('height:58px', 'height:36px'),
                 camargo_html=camargo_html(), raw=clean_raw(g['ficha']))
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
