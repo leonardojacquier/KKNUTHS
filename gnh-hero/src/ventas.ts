@@ -105,12 +105,12 @@ const icon = (k: string, cls = '') =>
    ============================================================ */
 // bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
-interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; videoWebm?: string; videoMp4?: string; poster?: string }
+interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string }
 const FEATURED: Featured[] = [
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central.jpg', cat: 'equipos', bleed: true },
-  { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', cat: 'equipos', bleed: true },
+  { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', imgMobile: '../img/prod/minibomba-mobile.jpg', cat: 'equipos', bleed: true },
   { name: 'Mezcladora de Mortero', tag: 'Ideal para la aplicación de AC-I y AC-III.', img: '../img/prod/mezcladora-mortero.jpg', cat: 'equipos', bleed: true },
   { name: 'BIO 360', tag: 'Ácido bio 100% biodegradable para limpieza de concreto. Sin necesidad de EPP.', cat: 'aditivos', bleed: true, videoWebm: '../video/bio360.webm', videoMp4: '../video/bio360.mp4', poster: '../img/prod/bio360-poster.jpg' },
   { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras sintéticas.', cat: 'aditivos', bleed: true, videoWebm: '../video/macrofibras.webm', videoMp4: '../video/macrofibras.mp4', poster: '../img/prod/macrofibras-poster.jpg' },
@@ -130,7 +130,7 @@ function renderHeroCarousel(): void {
         <article class="vh-slide${i === 0 ? ' is-active' : ''}${f.bleed ? ' is-bleed' : ''}" data-i="${i}">
           <div class="vh-media">${f.videoMp4
             ? `<video class="vh-el" muted loop playsinline preload="metadata" poster="${f.poster || ''}"><source src="${f.videoWebm}" type="video/webm"><source src="${f.videoMp4}" type="video/mp4"></video>`
-            : `<img class="vh-el" src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}>`}</div>
+            : `<picture>${f.imgMobile ? `<source media="(max-width: 760px)" srcset="${f.imgMobile}">` : ''}<img class="vh-el" src="${f.img}" alt="${f.name}" ${i === 0 ? '' : 'loading="lazy"'}></picture>`}</div>
           <div class="vh-inner">
             <div class="vh-copy">
               <span class="vh-eyebrow">Línea destacada</span>
