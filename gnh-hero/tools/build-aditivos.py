@@ -31,6 +31,27 @@ FAMILIES = [
 ]
 FAMILY_FALLBACK = ('otros', 'Especialidades', '#A78BFA')
 
+# correcciones manuales (auditoría): el texto engaña a las reglas en estos casos
+FAMILY_OVERRIDE = {
+    'cq-robust-79': 'plastificantes',        # superplastificante 3ª gen (menciona fibras en el texto)
+    'cq-robust-81': 'plastificantes',
+    'cq-acryltop-hyper': 'pisos',            # resina acrílica de acabado de pisos
+    'cq-acryltop-plus': 'pisos',
+    'cq-admix-mv-100': 'plastificantes',     # modificador de viscosidad
+    'cq-admix-n-20': 'plastificantes',       # desincorporador de aire
+    'cq-sil-55': 'pisos',                    # silicato densificador de pisos
+    'maturix': 'otros',                      # sensores de monitoreo (no es cura química)
+    'cq-cola-35': 'otros',                   # adhesivo
+}
+NAME_OVERRIDE = {
+    'q-flow-ultratech-90': 'CQ Flow Ultratech 90',
+    'maturix': 'Maturix — Monitoreo de curado',
+    'pigmentos-ferrox-color': 'Pigmentos Ferrox Color',
+}
+# páginas genéricas/duplicadas detectadas en la auditoría
+DROP_SLUGS = {'tecnologias', 'authenty-piso', 'cq-concreto-seco-press-mix', 'cq-flow-ultratech',
+              'cq-construcao', 'pu-cq-40-cinza-branco', 'cq-ferrox-color'}
+
 # sinónimos ES → expanden las keywords de búsqueda
 SYNONYMS = {
     'impermeabilizantes': ['humedad', 'infiltracion', 'filtracion', 'goteras', 'estanqueidad', 'tanque', 'cisterna', 'subsuelo'],
@@ -80,9 +101,10 @@ def product_name(text: str, fallback: str) -> str:
         n = base_slug(slugify(n)).replace('-', ' ')
         n = ' '.join(w.upper() if (len(w) <= 3 or w.isdigit()) else w.capitalize() for w in n.split())
     # títulos largos de páginas ("Aditivo para X - CQ Stable - Línea…") → toma el segmento con el nombre comercial
-    if len(n) > 28 and ' - ' in n:
-        parts = [p.strip() for p in n.split(' - ')]
-        cq = [p for p in parts if re.match(r'^(CQ|PU|BIO)\b', p, re.I)]
+    n_norm = n.replace(' – ', ' - ').replace(' — ', ' - ')
+    if len(n_norm) > 28 and ' - ' in n_norm:
+        parts = [p.strip() for p in n_norm.split(' - ')]
+        cq = [p for p in parts if re.match(r'^(CQ|Q|PU|BIO)\b', p, re.I)]
         n = cq[0] if cq else min(parts, key=len)
     return n
 
@@ -241,10 +263,15 @@ def main():
         b = g['slug']
         src = g['ficha'] or g['pagina'] or (g['extra'][0] if g['extra'] else '')
         if not src: continue
-        name = product_name(src, b)
+        if b in DROP_SLUGS: continue
+        name = NAME_OVERRIDE.get(b) or product_name(src, b)
         sub = subtitle_of(src)
         desc = description_of(g['pagina'] or src) or sub
         fam_key, fam_label, color = classify(name, sub, src)
+        if b in FAMILY_OVERRIDE:
+            fk = FAMILY_OVERRIDE[b]
+            match = [f for f in FAMILIES if f[0] == fk]
+            fam_key, fam_label, color = match[0][:3] if match else FAMILY_FALLBACK
         kws = keywords_of(name, sub, src, fam_key)
         has_ficha = bool(g['ficha'])
         slug = b
