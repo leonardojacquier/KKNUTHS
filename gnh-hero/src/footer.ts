@@ -28,6 +28,8 @@ const TIENDAS = [
 export function mountFooter(slotId = 'footer-slot'): void {
   const slot = document.getElementById(slotId)
   if (!slot) return
+  // prefijo relativo: la página puede estar en /ventas/ o /institucional/ (base './')
+  const REL = /\/(ventas|institucional)\//.test(location.pathname) ? '../' : ''
   slot.innerHTML = `
     <footer class="bg-ink text-white/70">
       <!-- tiendas con mapa -->
@@ -51,9 +53,10 @@ export function mountFooter(slotId = 'footer-slot'): void {
       <!-- marca + redes + contacto -->
       <div class="mx-auto max-w-6xl px-6 py-12 grid gap-10 md:grid-cols-2 border-t border-white/10 mt-12">
         <div>
-          <img src="/img/gnh-logo.svg" alt="GNH" class="h-10 w-auto"
+          <img src="${REL}img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes" class="h-14 w-auto"
                onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'font-display text-2xl font-bold text-white',textContent:'GNH'}))">
-          <p class="mt-4 text-sm max-w-xs">Generando Nuevos Horizontes — comercio internacional, distribución y logística.</p>
+          <p class="mt-4 font-display text-lg font-semibold text-white">Generando Nuevos Horizontes</p>
+          <p class="mt-1 text-sm max-w-xs">Tu aliado estratégico para el crecimiento.</p>
           <div class="mt-5 flex gap-3">
             <a href="${SOCIAL.instagram}" target="_blank" rel="noopener" aria-label="Instagram" class="foot-social">${IG}</a>
             <a href="${SOCIAL.facebook}" target="_blank" rel="noopener" aria-label="Facebook" class="foot-social">${FB}</a>
