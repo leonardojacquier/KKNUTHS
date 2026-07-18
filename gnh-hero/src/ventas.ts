@@ -112,9 +112,8 @@ const FEATURED: Featured[] = [
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central.jpg', cat: 'equipos', bleed: true },
   { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', cat: 'equipos', bleed: true },
   { name: 'Mezcladora de Mortero', tag: 'Ideal para la aplicación de AC-I y AC-III.', img: '../img/prod/mezcladora-mortero.jpg', cat: 'equipos', bleed: true },
-  // Cuando lleguen las fotos 21:9 de ambiente, reemplazar img y poner bleed: true:
-  // { name: 'BIO 360', tag: 'Solución BIO 360.', img: '../img/prod/bio360.jpg', cat: 'aditivos', bleed: true },
-  // { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras.', img: '../img/prod/macrofibras.jpg', cat: 'aditivos', bleed: true },
+  { name: 'BIO 360', tag: 'Ácido bio 100% biodegradable para limpieza de concreto. Sin necesidad de EPP.', cat: 'aditivos', bleed: true, videoWebm: '../video/bio360.webm', videoMp4: '../video/bio360.mp4', poster: '../img/prod/bio360-poster.jpg' },
+  { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras sintéticas.', cat: 'aditivos', bleed: true, videoWebm: '../video/macrofibras.webm', videoMp4: '../video/macrofibras.mp4', poster: '../img/prod/macrofibras-poster.jpg' },
 ]
 const PAUSE_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="6" width="3.4" height="12" rx="1"/><rect x="13.6" y="6" width="3.4" height="12" rx="1"/></svg>'
 const PLAY_ICO = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>'
