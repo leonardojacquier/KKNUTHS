@@ -7,27 +7,27 @@
 <style>
 :root{--navy:#14213D;--ink:#1e2733;--orange:#F26D21;--gold:#C9A961;--line:#D8DEE8;--hair:#E6EAF0;--fam:#94A3B8}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'General Sans',system-ui,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}
+body{font-family:'General Sans','Liberation Sans','Helvetica Neue',Arial,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}
 .sheet{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 30px 80px -40px rgba(15,23,42,.3)}
 .top{background:#fff;padding:30px 46px 0}
 .brand-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:18px}
 .brand-row img{height:58px;width:auto}
 .doc-tag{text-align:right}
-.doc-tag .dt{display:block;font-family:'Satoshi',sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}
+.doc-tag .dt{display:block;font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}
 .doc-tag .fam{display:inline-flex;align-items:center;gap:7px;margin-top:7px;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#5B6472;border:1px solid var(--line);border-radius:3px;padding:3px 10px}
 .doc-tag .fam::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--fam)}
 .rule{height:2px;background:var(--navy);position:relative}
 .rule::after{content:'';position:absolute;left:0;top:2px;height:1px;width:100%;background:var(--gold)}
 .title-block{padding:24px 0 20px;border-bottom:1px solid var(--line)}
-h1{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}
+h1{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}
 .sub{color:#5B6472;margin-top:6px;font-size:15.5px}
 .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;padding-bottom:8px}
-.btn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 20px;border-radius:6px;font-weight:700;font-size:13.5px;text-decoration:none;font-family:'Satoshi',sans-serif}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 20px;border-radius:6px;font-weight:700;font-size:13.5px;text-decoration:none;font-family:'Satoshi','Liberation Sans',Arial,sans-serif}
 .btn-pdf{background:var(--navy);color:#fff}
 .btn-wa{background:#22c15e;color:#fff}
 .btn-back{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
 .body{padding:6px 46px 26px}
-.body h2{font-family:'Satoshi',sans-serif;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:10px}
+.body h2{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:10px}
 .body h2::before{content:'';width:3px;height:13px;background:var(--navy);flex-shrink:0}
 .body p{font-size:13.2px;color:#3c4657;line-height:1.7;margin:0 0 10px}
 .body .lead p{font-size:14px;color:#2c3646;line-height:1.75}
@@ -38,6 +38,11 @@ h1{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34p
 .dr{padding:6px 16px;font-size:12.8px;color:#3c4657;border-bottom:1px solid var(--hair)}
 .dr:nth-child(odd){background:#F7F9FB}
 .dr:last-child{border-bottom:0}
+table.kv{width:100%;border-collapse:collapse;border:1px solid var(--hair);border-top:2px solid var(--navy)}
+.kv th{width:31%;text-align:left;font-weight:600;color:var(--navy);background:#F4F6FA;padding:8px 18px;font-size:12.6px;border-bottom:1px solid var(--hair);border-right:1px solid var(--hair);vertical-align:top}
+.kv td{padding:8px 18px;font-size:12.8px;color:#3c4657;border-bottom:1px solid var(--hair)}
+.kv tr:last-child th,.kv tr:last-child td{border-bottom:0}
+.kv-extra{font-size:11.5px;color:#8a93a3;margin-top:6px;font-style:italic}
 .meta{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}
 .meta b{color:var(--navy);font-weight:600}
 pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}
@@ -45,7 +50,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
 .foot-grid{display:flex;justify-content:space-between;align-items:center;gap:24px}
 .f-left{display:flex;align-items:center;gap:14px}
 .f-left img{height:30px;width:auto}
-.f-left .excl{font-family:'Satoshi',sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}
+.f-left .excl{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}
 .f-right{display:flex;align-items:center;gap:10px;text-align:right;font-size:10.5px;line-height:1.45}
 .f-right img{height:22px;width:auto;margin:0;order:2}
 .f-contact{margin-top:12px;padding-top:9px;border-top:1px solid var(--hair);font-size:11.5px}
@@ -60,7 +65,8 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
   .foot{padding:14px 4px 0}
   .body h2{page-break-after:avoid}
   .body li,.dr{page-break-inside:avoid}
-  .data{page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .data,table.kv{page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .kv th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .body h2::before,.body li::before{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:640px){ .top,.body,.foot{padding-left:20px;padding-right:20px} .brand-row img{height:44px} }
@@ -84,7 +90,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
     </div>
   </header>
   <main class="body">
-    <section><h2>Cq siltop stone</h2><p>Repelente al agua</p><p>CQ SILTOP STONE es un hidrofugante incoloro, a base de silano-siloxano oligomérico en medio disolvente. Desarrollado especialmente para piedras y superficies minerales, haciéndolas repelentes al agua y al aceite.</p></section><section><h2>Propiedades y ventajas:</h2><p>No altera la apariencia del sustrato; Protege la superficie contra la lluvia; Facilita la respiración y el secado del sustrato, permitiendo el paso del vapor de agua; Actúa como barrera contra la humedad exterior; Aumenta la durabilidad del sustrato; Preserva la belleza natural de la superficie; Previene la formación de hongos, moho y manchas; Buena resistencia a las acciones químicas.</p></section><section><h2>Campo de aplicación:</h2><p>CQ SILTOP STONE se recomienda su uso en:</p><p>Piedras Naturales; Granitos; Mármoles; Calizas en general.</p></section><section><h2>Datos Técnicos</h2><div class="data"><div class="dr">Función repelente al agua</div><div class="dr">Almacenamiento</div><div class="dr">Base química Silano-siloxano oligomérico Envase</div><div class="dr">Almacenar en su lugar</div><div class="dr">Aspecto Comercializado:</div><div class="dr">Seco y protegido del líquido transparente.</div><div class="dr">mal tiempo. Válido</div><div class="dr">durante un año después de Densidad 0,75 – 0,76 g/cm³ Bidones de 50 y 200 L</div><div class="dr">fecha de fabricación.</div><div class="dr">y Contenedor de 1000 L.</div><div class="dr">Nota: "No contiene cloruro de calcio, intencionalmente</div><div class="dr">Repelentes al agua Camargo Química</div><div class="dr">añadidos o productos a base de cloruros".</div></div></section><section><h2>Cómo utilizar:</h2><p>CQ SILTOP STONE debe aplicarse sobre una superficie limpia, seca y libre de aceites, grasas o partículas. suelto. Se puede aplicar con brocha, brocha, brocha o pistola.</p><p>CQ SILTOP STONE se presenta listo para usar, sin necesidad de dilución. Para obtener un mejor resultado se recomienda aplicar CQ SILTOP STONE en dos Manos generosas, cuidando de mantener un intervalo de 6 horas entre manos.</p></section><section><h2>Limpieza:</h2><p>Después de terminar el trabajo, las herramientas se pueden limpiar con disolvente (aguarrás).</p></section><section><h2>Rendimiento aproximado:</h2><p>El rendimiento aproximado de CQ SILTOP STONE es de 5 a 8 m²/L, dependiendo de la porosidad superficial.</p></section><section><h2>Cq siltop stone</h2><p>Repelente al agua</p></section><section><h2>Precauciones, transporte y seguridad:</h2><p>Producto clasificado como transporte no peligroso. El producto es inflamable y no explosivo.</p><p>Utilice EPI apropiado: guantes, botas impermeables, gafas de seguridad química;</p><p>No ingerir, evitar el contacto prolongado con la piel y ojos;</p><p>No beber, comer ni fumar durante la manipulación; Lávese las manos antes de un descanso y después del trabajo.</p></section><section><h2>Rendimiento del producto</h2><p>Se protegerán sus características, siempre que se conserve correctamente y se utilice de acuerdo con las instrucciones del fabricante. El rendimiento del producto que tienes en tus manos depende de las condiciones ideales de funcionamiento. preparación de la superficie donde se aplicará y factores externos fuera del control del fabricante: uniformidad, ausencia de grasa, humedad relativa del aire, temperatura y condiciones climáticas locales, conocimientos técnicos y aplicación práctica del aplicador y en otros casos excepcionales. Este boletín tiene únicamente fines orientativos y no debe considerado como garantía o especificación de calidad. El consumidor debe observar los procedimientos y normativa vigente en virtud del Código de Protección al Consumidor. Para obtener más información, consulte la MSDS del producto.</p><p>Repelentes al agua Camargo Química</p></section>
+    <section><h2>Cq siltop stone</h2><p>Repelente al agua</p><p>CQ SILTOP STONE es un hidrofugante incoloro, a base de silano-siloxano oligomérico en medio disolvente. Desarrollado especialmente para piedras y superficies minerales, haciéndolas repelentes al agua y al aceite.</p></section><section><h2>Propiedades y ventajas:</h2><p>No altera la apariencia del sustrato; Protege la superficie contra la lluvia; Facilita la respiración y el secado del sustrato, permitiendo el paso del vapor de agua; Actúa como barrera contra la humedad exterior; Aumenta la durabilidad del sustrato; Preserva la belleza natural de la superficie; Previene la formación de hongos, moho y manchas; Buena resistencia a las acciones químicas.</p></section><section><h2>Campo de aplicación:</h2><p>CQ SILTOP STONE se recomienda su uso en:</p><p>Piedras Naturales; Granitos; Mármoles; Calizas en general.</p></section><section><h2>Datos Técnicos</h2><table class="kv"><tbody><tr><th>Función</th><td>Repelente al agua Almacenamiento</td></tr><tr><th>Base química</th><td>Silano-siloxano oligomérico Envase Almacenar en su lugar</td></tr><tr><th>Aspecto</th><td>Comercializado Seco y protegido del líquido transparente. mal tiempo. Válido durante un año después de Densidad 0,75 – 0,76 g/cm³ Bidones de 50 y 200 L fecha de fabricación. y Contenedor de 1000 L. Nota: "No contiene cloruro de calcio, intencionalmente Repelentes al agua Camargo Química añadidos o productos a base de cloruros".</td></tr></tbody></table></section><section><h2>Cómo utilizar:</h2><p>CQ SILTOP STONE debe aplicarse sobre una superficie limpia, seca y libre de aceites, grasas o partículas. suelto. Se puede aplicar con brocha, brocha, brocha o pistola.</p><p>CQ SILTOP STONE se presenta listo para usar, sin necesidad de dilución. Para obtener un mejor resultado se recomienda aplicar CQ SILTOP STONE en dos Manos generosas, cuidando de mantener un intervalo de 6 horas entre manos.</p></section><section><h2>Limpieza:</h2><p>Después de terminar el trabajo, las herramientas se pueden limpiar con disolvente (aguarrás).</p></section><section><h2>Rendimiento aproximado:</h2><p>El rendimiento aproximado de CQ SILTOP STONE es de 5 a 8 m²/L, dependiendo de la porosidad superficial.</p></section><section><h2>Cq siltop stone</h2><p>Repelente al agua</p></section><section><h2>Precauciones, transporte y seguridad:</h2><p>Producto clasificado como transporte no peligroso. El producto es inflamable y no explosivo.</p><p>Utilice EPI apropiado: guantes, botas impermeables, gafas de seguridad química;</p><p>No ingerir, evitar el contacto prolongado con la piel y ojos;</p><p>No beber, comer ni fumar durante la manipulación; Lávese las manos antes de un descanso y después del trabajo.</p></section><section><h2>Rendimiento del producto</h2><p>Se protegerán sus características, siempre que se conserve correctamente y se utilice de acuerdo con las instrucciones del fabricante. El rendimiento del producto que tienes en tus manos depende de las condiciones ideales de funcionamiento. preparación de la superficie donde se aplicará y factores externos fuera del control del fabricante: uniformidad, ausencia de grasa, humedad relativa del aire, temperatura y condiciones climáticas locales, conocimientos técnicos y aplicación práctica del aplicador y en otros casos excepcionales. Este boletín tiene únicamente fines orientativos y no debe considerado como garantía o especificación de calidad. El consumidor debe observar los procedimientos y normativa vigente en virtud del Código de Protección al Consumidor. Para obtener más información, consulte la MSDS del producto.</p><p>Repelentes al agua Camargo Química</p></section>
   </main>
   <footer class="foot">
     <div class="foot-grid">

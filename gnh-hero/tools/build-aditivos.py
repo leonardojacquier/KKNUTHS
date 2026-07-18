@@ -177,27 +177,27 @@ FICHA_TPL = """<!DOCTYPE html>
 <style>
 :root{{--navy:#14213D;--ink:#1e2733;--orange:#F26D21;--gold:#C9A961;--line:#D8DEE8;--hair:#E6EAF0;--fam:{color}}}
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'General Sans',system-ui,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}}
+body{{font-family:'General Sans','Liberation Sans','Helvetica Neue',Arial,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}}
 .sheet{{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 30px 80px -40px rgba(15,23,42,.3)}}
 .top{{background:#fff;padding:30px 46px 0}}
 .brand-row{{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:18px}}
 .brand-row img{{height:58px;width:auto}}
 .doc-tag{{text-align:right}}
-.doc-tag .dt{{display:block;font-family:'Satoshi',sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}}
+.doc-tag .dt{{display:block;font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}}
 .doc-tag .fam{{display:inline-flex;align-items:center;gap:7px;margin-top:7px;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#5B6472;border:1px solid var(--line);border-radius:3px;padding:3px 10px}}
 .doc-tag .fam::before{{content:'';width:8px;height:8px;border-radius:50%;background:var(--fam)}}
 .rule{{height:2px;background:var(--navy);position:relative}}
 .rule::after{{content:'';position:absolute;left:0;top:2px;height:1px;width:100%;background:var(--gold)}}
 .title-block{{padding:24px 0 20px;border-bottom:1px solid var(--line)}}
-h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}}
+h1{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}}
 .sub{{color:#5B6472;margin-top:6px;font-size:15.5px}}
 .actions{{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;padding-bottom:8px}}
-.btn{{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 20px;border-radius:6px;font-weight:700;font-size:13.5px;text-decoration:none;font-family:'Satoshi',sans-serif}}
+.btn{{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 20px;border-radius:6px;font-weight:700;font-size:13.5px;text-decoration:none;font-family:'Satoshi','Liberation Sans',Arial,sans-serif}}
 .btn-pdf{{background:var(--navy);color:#fff}}
 .btn-wa{{background:#22c15e;color:#fff}}
 .btn-back{{background:#fff;color:var(--navy);border:1.5px solid var(--line)}}
 .body{{padding:6px 46px 26px}}
-.body h2{{font-family:'Satoshi',sans-serif;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:10px}}
+.body h2{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:10px}}
 .body h2::before{{content:'';width:3px;height:13px;background:var(--navy);flex-shrink:0}}
 .body p{{font-size:13.2px;color:#3c4657;line-height:1.7;margin:0 0 10px}}
 .body .lead p{{font-size:14px;color:#2c3646;line-height:1.75}}
@@ -208,6 +208,11 @@ h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34
 .dr{{padding:6px 16px;font-size:12.8px;color:#3c4657;border-bottom:1px solid var(--hair)}}
 .dr:nth-child(odd){{background:#F7F9FB}}
 .dr:last-child{{border-bottom:0}}
+table.kv{{width:100%;border-collapse:collapse;border:1px solid var(--hair);border-top:2px solid var(--navy)}}
+.kv th{{width:31%;text-align:left;font-weight:600;color:var(--navy);background:#F4F6FA;padding:8px 18px;font-size:12.6px;border-bottom:1px solid var(--hair);border-right:1px solid var(--hair);vertical-align:top}}
+.kv td{{padding:8px 18px;font-size:12.8px;color:#3c4657;border-bottom:1px solid var(--hair)}}
+.kv tr:last-child th,.kv tr:last-child td{{border-bottom:0}}
+.kv-extra{{font-size:11.5px;color:#8a93a3;margin-top:6px;font-style:italic}}
 .meta{{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}}
 .meta b{{color:var(--navy);font-weight:600}}
 pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
@@ -215,7 +220,7 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
 .foot-grid{{display:flex;justify-content:space-between;align-items:center;gap:24px}}
 .f-left{{display:flex;align-items:center;gap:14px}}
 .f-left img{{height:30px;width:auto}}
-.f-left .excl{{font-family:'Satoshi',sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}}
+.f-left .excl{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}}
 .f-right{{display:flex;align-items:center;gap:10px;text-align:right;font-size:10.5px;line-height:1.45}}
 .f-right img{{height:22px;width:auto;margin:0;order:2}}
 .f-contact{{margin-top:12px;padding-top:9px;border-top:1px solid var(--hair);font-size:11.5px}}
@@ -230,7 +235,8 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
   .foot{{padding:14px 4px 0}}
   .body h2{{page-break-after:avoid}}
   .body li,.dr{{page-break-inside:avoid}}
-  .data{{page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .data,table.kv{{page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .kv th{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   .body h2::before,.body li::before{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 }}
 @media(max-width:640px){{ .top,.body,.foot{{padding-left:20px;padding-right:20px}} .brand-row img{{height:44px}} }}
@@ -339,13 +345,57 @@ def parse_sections(raw: str):
     flush()
     return sections, emis
 
+# atributos conocidos de las tablas técnicas (para reconstruir clave→valor del OCR)
+_KV_KEYS = ['base química', 'base quimica', 'punto de congelación', 'punto de congelacion',
+            'contenido de sólidos', 'contenido de solidos', 'función', 'funcion', 'aspecto',
+            'densidad', 'viscosidad', 'apariencia', 'olor', 'validez', 'caducidad', 'solubilidad',
+            'embalaje', 'envase', 'presentación', 'presentacion', 'rendimiento', 'dosificación',
+            'dosificacion', 'dosis', 'color', 'ph']
+
+def parse_kv(lines):
+    """reconstruye pares clave→valor: el OCR intercala las dos columnas de la tabla
+    original (fragmentos sueltos tipo 'Comercializado', 'sobre de 870 gramos')."""
+    pairs, extras = [], []
+    for raw in lines:
+        s = re.sub(r'\s+', ' ', raw).strip(' :;')
+        if not s: continue
+        ns = norm(s)
+        hit = next((k for k in sorted(_KV_KEYS, key=len, reverse=True) if ns.startswith(k)), None)
+        if hit:
+            key = s[:len(hit)]
+            val = s[len(hit):].strip(' :–—-')
+            if norm(key).startswith('funcion'):
+                val = re.sub(r'^(de |del )', '', val, flags=re.I)
+            if val: val = val[0].upper() + val[1:]
+            pairs.append([key if key[:1].isupper() else key.capitalize(), val])
+        else:
+            # fragmento suelto → al campo de embalaje si habla de envases; si no, al último vacío
+            target = None
+            if re.search(r'bombona|sobre|kg\b|litro|balde|tambor|granel|envase|comercializado|bolsa|caja|contenedor', ns):
+                target = next((p for p in pairs if norm(p[0]).startswith(('embalaje', 'envase', 'presentacion'))), None)
+            if target is None:
+                empties = [p for p in pairs if not p[1]]
+                target = empties[-1] if empties else (pairs[-1] if pairs else None)
+            if target is not None:
+                target[1] = (target[1] + ' ' + s).strip()
+                if target[1]: target[1] = target[1][0].upper() + target[1][1:]
+            else:
+                extras.append(s)
+    return [(k, v or '—') for k, v in pairs], extras
+
 def sections_html(sections) -> str:
     out = []
     for title, lines in sections:
         is_data = title and re.search(r'(?i)datos t[eé]cnicos', title)
         if is_data:
-            rows = ''.join(f'<div class="dr">{_esc(l)}</div>' for l in lines if l.strip())
-            out.append(f'<section><h2>{_esc(title)}</h2><div class="data">{rows}</div></section>')
+            pairs, extras = parse_kv(lines)
+            if len(pairs) >= 2:
+                rows = ''.join(f'<tr><th>{_esc(k)}</th><td>{_esc(v)}</td></tr>' for k, v in pairs)
+                extra_html = ''.join(f'<p class="kv-extra">{_esc(x)}</p>' for x in extras)
+                out.append(f'<section><h2>{_esc(title)}</h2><table class="kv"><tbody>{rows}</tbody></table>{extra_html}</section>')
+            else:
+                rows = ''.join(f'<div class="dr">{_esc(l)}</div>' for l in lines if l.strip())
+                out.append(f'<section><h2>{_esc(title)}</h2><div class="data">{rows}</div></section>')
             continue
         parts, para, ul = [], [], []
         def flush_para():
