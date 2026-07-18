@@ -227,14 +227,18 @@ def main():
             if slug in ('fica-tecnica-teste', 'catalogo-online', 'catalogo-online-1', 'ebook-camargo-cura-de-concreto'): continue
             raw = unescape_md(f.read_text(encoding='utf-8', errors='replace'))
             b = base_slug(slug)
-            g = groups.setdefault(b, {'ficha': None, 'pagina': None, 'extra': []})
-            is_ficha = 'ficha-tecnica' in slug or kind == 'ficha'
+            key = b.replace('-', '')       # funde variantes de grafía: micro-fiber ↔ microfiber
+            g = groups.setdefault(key, {'ficha': None, 'pagina': None, 'extra': [], 'slug': b})
             target = 'ficha' if 'ficha-tecnica' in slug else ('pagina' if kind == 'pagina' else 'ficha')
-            if g[target] is None: g[target] = raw
-            else: g['extra'].append(raw)
+            if g[target] is None:
+                g[target] = raw
+                if target == 'ficha': g['slug'] = b   # el slug canónico sigue a la ficha
+            else:
+                g['extra'].append(raw)
 
     products, pages_meta = [], []
-    for b, g in sorted(groups.items()):
+    for _key, g in sorted(groups.items()):
+        b = g['slug']
         src = g['ficha'] or g['pagina'] or (g['extra'][0] if g['extra'] else '')
         if not src: continue
         name = product_name(src, b)

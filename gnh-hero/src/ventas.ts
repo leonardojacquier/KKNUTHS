@@ -156,24 +156,66 @@ function aditivoCard(a: Aditivo): string {
     </article>`
 }
 
-/* ---------- buscador inteligente (client-side) ---------- */
+/* ---------- buscador inteligente (client-side, "tipo Google") ---------- */
 const deacc = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+// puentes ES↔EN/PT y de problema→producto (los nombres comerciales están en inglés)
+const ALIAS: Record<string, string[]> = {
+  fibra: ['fiber'], fibras: ['fiber'], fiber: ['fibra'],
+  hormigon: ['concreto'], concreto: ['hormigon'],
+  mortero: ['argamassa', 'stable'], argamassa: ['mortero'],
+  impermeabilizar: ['impermeabilizante', 'seal', 'admix'], impermeable: ['impermeabilizante', 'seal'],
+  sellar: ['seal', 'sellador'], sellado: ['seal', 'sellador'],
+  limpiar: ['removedor', 'bio', 'limpieza'], limpieza: ['removedor', 'bio'],
+  piso: ['hardfloor', 'siltop', 'floor', 'litio'], pisos: ['hardfloor', 'siltop', 'floor', 'litio'],
+  cura: ['curamix', 'curado'], curado: ['cura', 'curamix'], curar: ['cura', 'curamix'],
+  desmoldante: ['desform'], desmolde: ['desform'], encofrado: ['desform', 'desmoldante'],
+  acelerar: ['acelerador', 'accelera'], acelerador: ['accelera'], acelerante: ['accelera', 'acelerador'],
+  retardador: ['stabilizer', 'stable'], retardante: ['stabilizer', 'stable'],
+  plastificante: ['plast', 'flow'], superplastificante: ['superplast', 'flow'],
+  fluidez: ['flow', 'superplast'], bombear: ['bombeo', 'flow'],
+  color: ['pigmento', 'ferrox'], pintura: ['pigmento', 'color'], colorante: ['pigmento', 'ferrox'],
+  grieta: ['fibra', 'fiber', 'fisura'], grietas: ['fibra', 'fiber', 'fisura'],
+  rajadura: ['fisura', 'fibra', 'fiber'], fisura: ['fibra', 'fiber'], fisuras: ['fibra', 'fiber'],
+  bloque: ['vibroprensado', 'superplast', 'press'], bloques: ['vibroprensado', 'superplast', 'press'],
+  grua: ['araña'], excavadora: ['miniexcavadora'],
+}
+
+// expande un término con alias + radicales (plural/terminaciones) — estilo Google
+function variantsOf(t: string): string[] {
+  const out = new Set<string>([t])
+  for (const a of ALIAS[t] ?? []) out.add(a)
+  for (const w of [...out]) {
+    if (w.endsWith('s') && w.length >= 5) out.add(w.slice(0, -1))
+    if (w.length >= 6) out.add(w.slice(0, w.length - 2))   // impermeabilizar → impermeabiliz…
+    if (w.length >= 9) out.add(w.slice(0, w.length - 4))
+  }
+  return [...out].filter((v) => v.length >= 3 || v === t)
+}
+const termGroups = (q: string) => deacc(q).split(/\s+/).filter((t) => t.length >= 2).map(variantsOf)
+const hitIn = (hay: string, vars: string[]) => vars.some((v) => hay.includes(v))
+
 interface Hit { score: number; html: string; name: string }
 function searchAll(q: string): Hit[] {
-  const terms = deacc(q).split(/\s+/).filter((t) => t.length >= 2)
-  if (!terms.length) return []
+  const groups = termGroups(q)
+  if (!groups.length) return []
   const hits: Hit[] = []
   for (const a of ADITIVOS) {
-    let s = 0
+    let s = 0, matched = 0
     const name = deacc(a.name), fam = deacc(a.familyLabel), sub = deacc(a.sub), desc = deacc(a.desc)
-    for (const t of terms) {
-      if (name.includes(t)) s += 10
-      if (deacc(a.initials).includes(t)) s += 6
-      if (fam.includes(t)) s += 6
-      if (sub.includes(t)) s += 4
-      if (a.kw.some((k) => k.includes(t))) s += 3
-      if (desc.includes(t)) s += 1
+    const kwstr = a.kw.join(' ')
+    for (const vars of groups) {
+      let g = 0
+      if (hitIn(name, vars)) g += 10
+      if (hitIn(deacc(a.initials), vars)) g += 6
+      if (hitIn(fam, vars)) g += 6
+      if (hitIn(sub, vars)) g += 4
+      if (hitIn(kwstr, vars)) g += 3
+      if (hitIn(desc, vars)) g += 1
+      if (g > 0) matched++
+      s += g
     }
+    if (matched === groups.length) s += 6   // bonus: todos los términos presentes
     if (s > 0) hits.push({ score: s, html: aditivoCard(a), name: a.name })
   }
   for (const c of CATALOG) {
@@ -181,9 +223,9 @@ function searchAll(q: string): Hit[] {
       for (const p of g.products) {
         let s = 0
         const name = deacc(p.name), note = deacc(p.note ?? '')
-        for (const t of terms) {
-          if (name.includes(t)) s += 10
-          if (note.includes(t)) s += 2
+        for (const vars of groups) {
+          if (hitIn(name, vars)) s += 10
+          if (hitIn(note, vars)) s += 2
         }
         if (s > 0) hits.push({ score: s, html: productCard(p), name: p.name })
       }
@@ -394,14 +436,15 @@ function selectCategory(id: string, scroll = false): void {
   // filtro "liga/desliga": los que coinciden brillan, el resto se apaga
   const flt = document.getElementById('v-filter') as HTMLInputElement | null
   flt?.addEventListener('input', () => {
-    const terms = deacc(flt.value).split(/\s+/).filter((t) => t.length >= 2)
+    const groups = termGroups(flt.value)
     box.querySelectorAll<HTMLElement>('.v-card').forEach((c) => {
-      const on = terms.length > 0 && terms.every((t) => (c.dataset.s ?? '').includes(t))
+      const s = c.dataset.s ?? ''
+      const on = groups.length > 0 && groups.every((vars) => hitIn(s, vars))
       c.classList.toggle('is-on', on)
-      c.classList.toggle('is-off', terms.length > 0 && !on)
+      c.classList.toggle('is-off', groups.length > 0 && !on)
     })
     box.querySelectorAll<HTMLElement>('.v-subgroup').forEach((sg) => {
-      sg.classList.toggle('sg-off', terms.length > 0 && !sg.querySelector('.v-card:not(.is-off)'))
+      sg.classList.toggle('sg-off', groups.length > 0 && !sg.querySelector('.v-card:not(.is-off)'))
     })
   })
   box.classList.remove('revealing'); void box.offsetWidth; box.classList.add('revealing')
