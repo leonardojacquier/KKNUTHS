@@ -405,6 +405,15 @@ svg{display:block}
   .cat .t-vert{display:none}
   .cat h3{white-space:normal}
 }
+/* celular: cajas fijas apiladas — sin swipe ni expansión */
+@media(max-width:640px){
+  .cat-deck{display:grid;grid-template-columns:1fr;gap:12px;overflow:visible;scroll-snap-type:none;padding:0}
+  .cat{flex:none;max-width:none;min-height:0;padding:22px 20px;transition:none}
+  .cat:hover,.cat:focus-within{flex:none}
+  .cat .ic{margin-bottom:14px}
+  .cat .ghost{width:88px;height:88px;opacity:.06}
+  .cat .body p{max-width:none}
+}
 
 /* Banda showcase — vídeo da frota com a marca GNH */
 .showcase{
