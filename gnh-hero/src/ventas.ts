@@ -83,9 +83,14 @@ const CATALOG: Category[] = [
   },
   {
     id: 'fletes', title: 'Fletes', icon: 'truck',
-    blurb: 'Transporte y fletes de carga con cobertura regional.',
+    blurb: 'FletePar: la transportadora del Grupo GNH. Flota propia, cobertura nacional y conexión con Brasil.',
     products: [
-      { name: 'Transporte de Cargas', brand: 'FletePar', note: 'Fletes con cobertura regional y trazabilidad total, del origen al destino.' },
+      { name: 'Fletes de Carga General', brand: 'FletePar', note: 'Transporte de mercaderías en todo Paraguay con flota propia y trazabilidad total.',
+        tags: ['transporte', 'carga', 'camion', 'mudanza', 'mercaderia', 'envio', 'logistica', 'cde', 'asuncion'] },
+      { name: 'Cargas Voluminosas y Maquinaria', brand: 'FletePar', note: 'Traslado de equipos, maquinaria y cargas de gran volumen, del puerto o depósito a tu obra.',
+        tags: ['maquinaria', 'equipo pesado', 'volumen', 'obra', 'puerto', 'deposito', 'traslado'] },
+      { name: 'Distribución Regional', brand: 'FletePar', note: 'Eje Ciudad del Este – Asunción y conexión con la frontera con Brasil, con tiempos que se cumplen.',
+        tags: ['distribucion', 'regional', 'brasil', 'frontera', 'ruta', 'entrega'] },
     ],
   },
   {
@@ -413,6 +418,26 @@ function selectCategory(id: string, scroll = false): void {
   document.querySelectorAll<HTMLElement>('.v-chip').forEach((ch) =>
     ch.classList.toggle('is-active', ch.dataset.cat === id))
 
+  // FletePar: panel de presentación + enlaces (sitio, WhatsApp, contactos, descargas)
+  const FLETES_DOWNLOADS: { label: string; href: string }[] = [] // AGREGAR: brochure/presentación cuando estén los archivos
+  const fletesIntro = cat.id !== 'fletes' ? '' : `
+    <div class="fp-panel">
+      <div class="fp-text">
+        <span class="v-brand">FletePar · Grupo GNH</span>
+        <h3>La transportadora del Grupo</h3>
+        <p>FletePar es el brazo logístico de GNH: fletes y transporte de carga con <b>flota propia</b>, cobertura en todo Paraguay
+        (eje Ciudad del Este – Asunción) y conexión con la frontera con Brasil. La misma logística que respalda nuestras
+        importaciones, al servicio de tu carga: trazabilidad de punta a punta y tiempos que se cumplen.</p>
+      </div>
+      <div class="fp-links">
+        <a href="https://fletepar.com.py/" target="_blank" rel="noopener">🌐 Sitio oficial — fletepar.com.py</a>
+        <a href="${wa('Hola, quiero cotizar un flete con FletePar')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
+        <a href="tel:+595995360060">📞 +595 995 360060</a>
+        <a href="mailto:comercial@gnhorizons.com">✉️ comercial@gnhorizons.com</a>
+        ${FLETES_DOWNLOADS.map((d) => `<a href="${d.href}" download>⬇ ${d.label}</a>`).join('')}
+      </div>
+    </div>`
+
   let body: string
   if (cat.id === 'aditivos' && ADITIVOS.length) {
     // agrupa por familia
@@ -453,12 +478,12 @@ function selectCategory(id: string, scroll = false): void {
         <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Buscar en ${cat.title.toLowerCase()}…">
       </div>
     </div>
-    <div id="v-body">${body}</div>`
+    <div id="v-body">${fletesIntro}${body}</div>`
   // búsqueda DENTRO de la categoría: misma lógica que el buscador, pero solo con
   // los productos de esta categoría — muestra únicamente los que coinciden
   const flt = document.getElementById('v-filter') as HTMLInputElement | null
   const vbody = document.getElementById('v-body')!
-  const defaultBody = body
+  const defaultBody = fletesIntro + body
   flt?.addEventListener('input', () => {
     const groups = termGroups(flt.value)
     if (!groups.length) { vbody.innerHTML = defaultBody; return }

@@ -356,3 +356,30 @@
 
 /* contador del filtro por categoría (texto oscuro sobre fondo claro) */
 .v-count { color: #5B6472; }
+
+/* ===== FletePar: panel de presentación en la categoría Fletes ===== */
+.fp-panel {
+  display: grid; grid-template-columns: 1.4fr .9fr; gap: 26px; align-items: center;
+  background:
+    radial-gradient(420px 240px at 85% 0%, rgba(242,109,33,.16), transparent 60%),
+    linear-gradient(150deg, #13214a, #0F172A 65%, #0D1626);
+  border: 1px solid rgba(255,255,255,.09); border-radius: 20px;
+  padding: 28px 30px; margin-bottom: 26px; color: #fff; position: relative; overflow: hidden;
+}
+.fp-panel::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; padding: 1.5px; border-radius: inherit;
+  background: linear-gradient(135deg, #F7E7B4, #D4AF37 42%, #8C6A1D 78%, #E6C96A);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity: .5;
+}
+.fp-text h3 { font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 24px; margin: 6px 0 10px; }
+.fp-text p { color: rgba(255,255,255,.75); font-size: 15px; line-height: 1.65; max-width: 520px; }
+.fp-text b { color: #ff9a4d; }
+.fp-links { display: grid; gap: 4px; }
+.fp-links a {
+  display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 12px;
+  color: rgba(255,255,255,.88); text-decoration: none; font-size: 14.5px; border-radius: 10px;
+  transition: background .2s, color .2s;
+}
+.fp-links a:hover { background: rgba(255,255,255,.07); color: #ff9a4d; }
+@media (max-width: 760px) { .fp-panel { grid-template-columns: 1fr; padding: 22px 20px; } }
