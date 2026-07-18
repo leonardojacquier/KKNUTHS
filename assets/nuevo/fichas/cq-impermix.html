@@ -26,8 +26,19 @@ h1{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34p
 .btn-wa{background:#22c15e;color:#fff}
 .btn-back{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
 .body{padding:6px 46px 26px}
-.body h2{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
-.body h2::before{content:'';width:8px;height:8px;background:var(--orange)}
+.body h2{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:7px;border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:9px}
+.body h2::before{content:'';width:8px;height:8px;background:var(--orange);flex-shrink:0}
+.body p{font-size:13.6px;color:#3c4657;line-height:1.68;margin:0 0 10px}
+.body .lead p{font-size:14.6px;color:#2c3646;line-height:1.7}
+.body ul{list-style:none;margin:2px 0 12px;padding:0}
+.body li{position:relative;padding-left:18px;margin-bottom:7px;font-size:13.6px;color:#3c4657;line-height:1.55}
+.body li::before{content:'';position:absolute;left:0;top:7px;width:7px;height:7px;background:var(--orange)}
+.data{border:1px solid var(--line);border-top:2px solid var(--navy)}
+.dr{padding:7px 16px;font-size:13.2px;color:#3c4657;border-bottom:1px solid var(--line)}
+.dr:nth-child(odd){background:#F5F7FA}
+.dr:last-child{border-bottom:0}
+.meta{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}
+.meta b{color:var(--navy);font-weight:600}
 pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}
 .foot{padding:24px 46px 28px;border-top:2px solid var(--navy);font-size:13px;color:#5B6472}
 .foot-grid{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}
@@ -45,6 +56,10 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
   .doc-tag .fam{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   pre.raw{background:#fff;border:1px solid var(--line);border-left:3px solid var(--navy);font-size:12.6px}
   .foot{padding:14px 4px 0}
+  .body h2{page-break-after:avoid}
+  .body li,.dr{page-break-inside:avoid}
+  .data{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .body h2::before,.body li::before{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:640px){ .top,.body,.foot{padding-left:20px;padding-right:20px} .brand-row img{height:44px} }
 </style></head><body>
@@ -58,6 +73,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
     <div class="title-block">
       <h1>CQ Impermix</h1>
       
+      <div class="meta"><span><b>Origen:</b> Camargo Química — Brasil</span></div>
     </div>
     <div class="actions">
       <a class="btn btn-pdf" href="pdf/cq-impermix.pdf" download>⬇ Descargar PDF</a>
@@ -66,95 +82,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
     </div>
   </header>
   <main class="body">
-    <h2>Información del producto</h2>
-    <pre class="raw">CQ IMPERMIX  
-Impermeabilización con mortero  
-  
-  
-CQ IMPERMIX es un aditivo impermeabilizante para morteros y hormigones, que reacciona con el  
-cemento en el proceso de hidratación, bloqueando el sistema capilar.  
-  
-  
-PROPIEDADES Y VENTAJAS:  
-  
- Aplicación sencilla y fácil;  
- Aditivo de fraguado normal, no altera el tiempo de curado de morteros y hormigones;  
- Previene la eflorescencia;  
- Al añadirse a la masa tiene un efecto permanente;  
- No impide el paso del vapor de agua, permitiendo que el hormigón respire;  
-  
-  
-CAMPOS DE APLICACIÓN  
-  
-CQ IMPERMIX se recomienda para mortero u hormigón, donde los altos  
-impermeabilidad, tales como:  
- Depósitos y tuberías de agua;  
- Recubrimientos externos e internos;  
- Pisos y paredes en contacto directo con la humedad del suelo;  
- Colocación de ladrillos sobre los cimientos;  
- Hormigón impermeable.  
-  
-  
- Datos Técnicos  
- Función impermeabilizante para mortero Envases  
- Base química Sales inorgánicas vendidas:  
-  
- Aspecto Líquido blanco viscoso Botellas de 50 y  
- 200 kilogramos.  
- pH 10,0 – 12,0  
- Densidad 1,05 – 1,10 IMPERMEABILIZACIÓN  
-  
-  
-MÉTODO DE APLICACIÓN  
-  
-Disolver IMPERMIX en el agua de amasado, sin dejar grumos.  
-  
-  
-CONSUMO APROXIMADO  
-Mortero: 2 kg de IMPERMIX por cada 50 kg de cemento.  
-Hormigón: 500 ml de IMPERMIX por cada 50 kg de cemento.  
-  
-  
-ATENCIÓN: Se recomienda siempre homogeneizar el producto antes de su uso.  
-  
----  
-  
-CQ IMPERMIX  
-Impermeabilización con mortero  
-  
-  
-ALMACENAMIENTO Y CADUCIDAD:  
-Botes: Conservar en lugar seco, protegido de la intemperie, conservando el embalaje  
-Original intacto y siempre cerrado después de su uso.  
-Validez: Producto válido por 12 meses después de la fecha de fabricación.  
-  
-  
-PRECAUCIONES, TRANSPORTE Y SEGURIDAD:  
-Producto clasificado como transporte no peligroso.  
-Producto no inflamable y no explosivo.  
- Utilice EPI apropiado: guantes, botas impermeables, gafas de seguridad química;  
- No ingerir, evitar el contacto prolongado con la piel y ojos;  
- No beber, comer ni fumar durante la manipulación; lávese las manos antes y después de un descanso  
-trabajo.  
-  
-RENDIMIENTO DEL PRODUCTO:  
-Nota: La información contenida en esta ficha técnica está basada en pruebas de laboratorio.  
-cuidadosamente controlado. Pueden producirse posibles variaciones dentro de los límites estipulados.  
-Recomendamos realizar pruebas preliminares en sus condiciones específicas para posibles ajustes, si es necesario.  
-Si es necesario consulte con nuestro departamento técnico. El rendimiento del producto que tienes en  
-manos, depende de las condiciones ideales de uso, tales como: condiciones climáticas, conocimientos  
-aplicación técnica y práctica, etc. Este boletín tiene fines orientativos únicamente y no debe  
-considerado como garantía o especificación de calidad. El consumidor debe observar las  
-procedimientos y normas vigentes según el Código de Protección al Consumidor. Edición 12/2019 -  
-Esta ficha técnica sustituye a la anterior.  
-Para obtener más información, consulte la MSDS del producto.  
-  
-  
- IMPERMEABILIZACIÓN  
-  
-  
- R. Profesor Hermann Lange, 528 – Bairro Fidelis – Blumenau – SC  
- CEP 89060-300 – Tlf. 47 3334 2435 www.camargoquimica.com.br</pre>
+    <section><h2>Cq impermix</h2><p>Impermeabilización con mortero</p><p>CQ IMPERMIX es un aditivo impermeabilizante para morteros y hormigones, que reacciona con el cemento en el proceso de hidratación, bloqueando el sistema capilar.</p></section><section><h2>Propiedades y ventajas:</h2><p>Aplicación sencilla y fácil; Aditivo de fraguado normal, no altera el tiempo de curado de morteros y hormigones; Previene la eflorescencia; Al añadirse a la masa tiene un efecto permanente; No impide el paso del vapor de agua, permitiendo que el hormigón respire;</p></section><section><h2>Campos de aplicación</h2><p>CQ IMPERMIX se recomienda para mortero u hormigón, donde los altos impermeabilidad, tales como: Depósitos y tuberías de agua; Recubrimientos externos e internos; Pisos y paredes en contacto directo con la humedad del suelo; Colocación de ladrillos sobre los cimientos; Hormigón impermeable.</p></section><section><h2>Datos Técnicos</h2><div class="data"><div class="dr">Función impermeabilizante para mortero Envases</div><div class="dr">Base química Sales inorgánicas vendidas:</div><div class="dr">Aspecto Líquido blanco viscoso Botellas de 50 y</div><div class="dr">200 kilogramos.</div><div class="dr">pH 10,0 – 12,0</div><div class="dr">Densidad 1,05 – 1,10 IMPERMEABILIZACIÓN</div></div></section><section><h2>Método de aplicación</h2><p>Disolver IMPERMIX en el agua de amasado, sin dejar grumos.</p></section><section><h2>Consumo aproximado</h2><p>Mortero: 2 kg de IMPERMIX por cada 50 kg de cemento. Hormigón: 500 ml de IMPERMIX por cada 50 kg de cemento.</p><p>ATENCIÓN: Se recomienda siempre homogeneizar el producto antes de su uso.</p></section><section><h2>Cq impermix</h2><p>Impermeabilización con mortero</p></section><section><h2>Almacenamiento y caducidad:</h2><p>Botes: Conservar en lugar seco, protegido de la intemperie, conservando el embalaje Original intacto y siempre cerrado después de su uso. Validez: Producto válido por 12 meses después de la fecha de fabricación.</p></section><section><h2>Precauciones, transporte y seguridad:</h2><p>Producto clasificado como transporte no peligroso. Producto no inflamable y no explosivo. Utilice EPI apropiado: guantes, botas impermeables, gafas de seguridad química; No ingerir, evitar el contacto prolongado con la piel y ojos; No beber, comer ni fumar durante la manipulación; lávese las manos antes y después de un descanso trabajo.</p></section><section><h2>Rendimiento del producto:</h2><p>Nota: La información contenida en esta ficha técnica está basada en pruebas de laboratorio. cuidadosamente controlado. Pueden producirse posibles variaciones dentro de los límites estipulados. Recomendamos realizar pruebas preliminares en sus condiciones específicas para posibles ajustes, si es necesario. Si es necesario consulte con nuestro departamento técnico. El rendimiento del producto que tienes en manos, depende de las condiciones ideales de uso, tales como: condiciones climáticas, conocimientos aplicación técnica y práctica, etc. Este boletín tiene fines orientativos únicamente y no debe considerado como garantía o especificación de calidad. El consumidor debe observar las procedimientos y normas vigentes según el Código de Protección al Consumidor. Edición 12/2019 - Esta ficha técnica sustituye a la anterior. Para obtener más información, consulte la MSDS del producto.</p></section><section><h2>Impermeabilización</h2><p>R. Profesor Hermann Lange, 528 – Bairro Fidelis – Blumenau – SC CEP 89060-300 – Tlf. 47 3334 2435 www.camargoquimica.com.br</p></section>
   </main>
   <footer class="foot">
     <div class="foot-grid">

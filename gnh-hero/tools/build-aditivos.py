@@ -196,8 +196,19 @@ h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34
 .btn-wa{{background:#22c15e;color:#fff}}
 .btn-back{{background:#fff;color:var(--navy);border:1.5px solid var(--line)}}
 .body{{padding:6px 46px 26px}}
-.body h2{{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}}
-.body h2::before{{content:'';width:8px;height:8px;background:var(--orange)}}
+.body h2{{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:7px;border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:9px}}
+.body h2::before{{content:'';width:8px;height:8px;background:var(--orange);flex-shrink:0}}
+.body p{{font-size:13.6px;color:#3c4657;line-height:1.68;margin:0 0 10px}}
+.body .lead p{{font-size:14.6px;color:#2c3646;line-height:1.7}}
+.body ul{{list-style:none;margin:2px 0 12px;padding:0}}
+.body li{{position:relative;padding-left:18px;margin-bottom:7px;font-size:13.6px;color:#3c4657;line-height:1.55}}
+.body li::before{{content:'';position:absolute;left:0;top:7px;width:7px;height:7px;background:var(--orange)}}
+.data{{border:1px solid var(--line);border-top:2px solid var(--navy)}}
+.dr{{padding:7px 16px;font-size:13.2px;color:#3c4657;border-bottom:1px solid var(--line)}}
+.dr:nth-child(odd){{background:#F5F7FA}}
+.dr:last-child{{border-bottom:0}}
+.meta{{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}}
+.meta b{{color:var(--navy);font-weight:600}}
 pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
 .foot{{padding:24px 46px 28px;border-top:2px solid var(--navy);font-size:13px;color:#5B6472}}
 .foot-grid{{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}}
@@ -215,6 +226,10 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
   .doc-tag .fam{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   pre.raw{{background:#fff;border:1px solid var(--line);border-left:3px solid var(--navy);font-size:12.6px}}
   .foot{{padding:14px 4px 0}}
+  .body h2{{page-break-after:avoid}}
+  .body li,.dr{{page-break-inside:avoid}}
+  .data{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .body h2::before,.body li::before{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 }}
 @media(max-width:640px){{ .top,.body,.foot{{padding-left:20px;padding-right:20px}} .brand-row img{{height:44px}} }}
 </style></head><body>
@@ -228,6 +243,7 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
     <div class="title-block">
       <h1>{name}</h1>
       {sub_html}
+      {meta_html}
     </div>
     <div class="actions">
       <a class="btn btn-pdf" href="pdf/{slug}.pdf" download>⬇ Descargar PDF</a>
@@ -236,8 +252,7 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
     </div>
   </header>
   <main class="body">
-    <h2>Información del producto</h2>
-    <pre class="raw">{raw}</pre>
+    {body_html}
   </main>
   <footer class="foot">
     <div class="foot-grid">
@@ -284,6 +299,72 @@ def clean_raw(text: str) -> str:
     body = re.sub(r'\n{3,}', '\n\n', body).strip()
     return body.replace('&', '&amp;').replace('<', '&lt;')
 
+# ---------- parser estructural: del volcado OCR a secciones limpias ----------
+_esc = lambda s: s.replace('&', '&amp;').replace('<', '&lt;')
+_JUNK = [
+    re.compile(r'^FICHA T[EÉ]CNICA$', re.I),
+    re.compile(r'P[aá]gina:?\s*\d+\s*de\s*\d+', re.I),
+    re.compile(r'^[-–_]{2,}$'),
+    re.compile(r'^\*\*Fuente', re.I),
+    re.compile(r'^https?://', re.I),
+    re.compile(r'^#'),
+]
+
+def parse_sections(raw: str):
+    """divide el texto en (título, líneas) usando los encabezados en MAYÚSCULAS;
+    quita basura de paginación. Devuelve (secciones, fecha_emisión)."""
+    body = raw
+    fence = re.search(r'```(.*)```', raw, re.S)
+    if fence: body = fence.group(1)
+    sections, cur, cur_title, emis = [], [], None, None
+    def flush():
+        nonlocal cur
+        if any(l.strip() for l in cur): sections.append((cur_title, cur))
+        cur = []
+    for l in body.splitlines():
+        s = l.strip()
+        if not s: cur.append(''); continue
+        if any(rx.search(s) for rx in _JUNK): continue
+        m = re.search(r'(Emitido|Emisi[oó]n):\s*([0-9][0-9/.\-]+)', s)
+        if m: emis = emis or m.group(2)
+        if re.search(r'(Emitido|Emisi[oó]n|Edici[oó]n):', s) and len(s) < 100: continue
+        if re.fullmatch(r'(?i)datos\s+t[eé]cnicos:?', s):
+            flush(); cur_title = 'Datos Técnicos'; continue
+        if (s == s.upper() and 6 <= len(s) <= 64 and not s.startswith('•')
+                and re.fullmatch(r"[A-ZÁÉÍÓÚÑÜ0-9 ,.\-–/()':]+", s) and any(c.isalpha() for c in s)):
+            flush(); cur_title = s.capitalize(); continue
+        cur.append(s)
+    flush()
+    return sections, emis
+
+def sections_html(sections) -> str:
+    out = []
+    for title, lines in sections:
+        is_data = title and re.search(r'(?i)datos t[eé]cnicos', title)
+        if is_data:
+            rows = ''.join(f'<div class="dr">{_esc(l)}</div>' for l in lines if l.strip())
+            out.append(f'<section><h2>{_esc(title)}</h2><div class="data">{rows}</div></section>')
+            continue
+        parts, para, ul = [], [], []
+        def flush_para():
+            nonlocal para
+            if para: parts.append(f'<p>{_esc(" ".join(para))}</p>'); para = []
+        def flush_ul():
+            nonlocal ul
+            if ul: parts.append('<ul>' + ''.join(f'<li>{_esc(x)}</li>' for x in ul) + '</ul>'); ul = []
+        for l in lines:
+            s = l.strip()
+            if not s: flush_para(); continue
+            if s.startswith('•') or re.match(r'^[-–]\s+', s):
+                flush_para(); ul.append(re.sub(r'^[•\-–]\s*', '', s))
+            else:
+                flush_ul(); para.append(s)
+        flush_para(); flush_ul()
+        body_html = ''.join(parts)
+        if title: out.append(f'<section><h2>{_esc(title)}</h2>{body_html}</section>')
+        else: out.append(f'<section class="lead">{body_html}</section>')
+    return ''.join(out)
+
 def main():
     fichas_dir, paginas_dir = CONTENT / 'fichas', CONTENT / 'paginas'
     OUT_FICHAS.mkdir(parents=True, exist_ok=True)
@@ -324,12 +405,20 @@ def main():
         slug = b
         if has_ficha:
             wa = f'Hola, quiero consultar sobre {name}'
+            secs, emis = parse_sections(g['ficha'])
+            if len(secs) >= 2:
+                body_html = sections_html(secs)
+            else:  # respaldo: texto plano si el parser no encontró estructura
+                body_html = f'<h2>Información del producto</h2><pre class="raw">{clean_raw(g["ficha"])}</pre>'
+            meta_html = f'<div class="meta"><span><b>Emisión:</b> {emis}</span><span><b>Origen:</b> Camargo Química — Brasil</span></div>' if emis \
+                        else '<div class="meta"><span><b>Origen:</b> Camargo Química — Brasil</span></div>'
             html = FICHA_TPL.format(
                 name=name, meta=(desc or sub)[:150], color=color, family_label=fam_label,
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
+                meta_html=meta_html, body_html=body_html,
                 slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
                 logo_foot=logo_html().replace('height:58px', 'height:48px'),
-                camargo_html=camargo_html(), raw=clean_raw(g['ficha']))
+                camargo_html=camargo_html())
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
             'slug': slug, 'name': name, 'sub': sub, 'desc': desc[:260],

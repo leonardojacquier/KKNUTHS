@@ -26,8 +26,19 @@ h1{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34p
 .btn-wa{background:#22c15e;color:#fff}
 .btn-back{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
 .body{padding:6px 46px 26px}
-.body h2{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
-.body h2::before{content:'';width:8px;height:8px;background:var(--orange)}
+.body h2{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:7px;border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:9px}
+.body h2::before{content:'';width:8px;height:8px;background:var(--orange);flex-shrink:0}
+.body p{font-size:13.6px;color:#3c4657;line-height:1.68;margin:0 0 10px}
+.body .lead p{font-size:14.6px;color:#2c3646;line-height:1.7}
+.body ul{list-style:none;margin:2px 0 12px;padding:0}
+.body li{position:relative;padding-left:18px;margin-bottom:7px;font-size:13.6px;color:#3c4657;line-height:1.55}
+.body li::before{content:'';position:absolute;left:0;top:7px;width:7px;height:7px;background:var(--orange)}
+.data{border:1px solid var(--line);border-top:2px solid var(--navy)}
+.dr{padding:7px 16px;font-size:13.2px;color:#3c4657;border-bottom:1px solid var(--line)}
+.dr:nth-child(odd){background:#F5F7FA}
+.dr:last-child{border-bottom:0}
+.meta{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}
+.meta b{color:var(--navy);font-weight:600}
 pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}
 .foot{padding:24px 46px 28px;border-top:2px solid var(--navy);font-size:13px;color:#5B6472}
 .foot-grid{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}
@@ -45,6 +56,10 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
   .doc-tag .fam{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   pre.raw{background:#fff;border:1px solid var(--line);border-left:3px solid var(--navy);font-size:12.6px}
   .foot{padding:14px 4px 0}
+  .body h2{page-break-after:avoid}
+  .body li,.dr{page-break-inside:avoid}
+  .data{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .body h2::before,.body li::before{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:640px){ .top,.body,.foot{padding-left:20px;padding-right:20px} .brand-row img{height:44px} }
 </style></head><body>
@@ -58,6 +73,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
     <div class="title-block">
       <h1>CQ Stable C</h1>
       
+      <div class="meta"><span><b>Origen:</b> Camargo Química — Brasil</span></div>
     </div>
     <div class="actions">
       <a class="btn btn-pdf" href="pdf/cq-stable-c.pdf" download>⬇ Descargar PDF</a>
@@ -66,93 +82,7 @@ pre.raw{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3
     </div>
   </header>
   <main class="body">
-    <h2>Información del producto</h2>
-    <pre class="raw">CQ STABLE C Edición: 10/02/2025  
- Aditivo Plastificante y Estabilizante para Morteros Página: 1 de 2  
-  
-  
-CQ Stable C es un aditivo líquido, libre de cloruros, desarrollado para actuar como plastificante, retardante  
-y estabilizador en morteros. Además de aumentar la trabajabilidad del mortero, CQ Stable C  
-controla la hidratación del cemento hasta por 72 horas, facilitando las operaciones de aplicación y acabado,  
-proporcionando ahorro de material y agilidad en la obra. Cumple con los requisitos estándar  
-NBR 11768-1 brasileña, clasificada como CH (Controlador de hidratación).  
-  
-  
-PRINCIPALES VENTAJAS  
-• Mayor adherencia, cohesión, ausencia de grietas y menor exudación;  
-• Reduce la fricción entre las partículas de mortero, reduciendo el agua de amasado requerida;  
-• Produce un efecto plastificante y estabilizante del mortero, manteniendo la trabajabilidad por más tiempo;  
-• Mayor durabilidad de los morteros;  
-• Mayores resistencias finales;  
-• Reducción de la permeabilidad.  
-  
-  
-CAMPOS DE APLICACIÓN  
-CQ Stable C se recomienda para:  
-• Mortero de yeso interior y exterior;  
-• Colocación de mortero;  
-• Mortero de revestimiento.  
-  
-  
-Datos Técnicos  
- Función estabilizadora de mortero.  
- Embalaje  
- Aspecto líquido marrón  
- Comercializado  
- pH 5,5 – 8,5 Bidones de 58 y 232 kg,  
- Densidad 1,12 – 1,15 Contenedor de 1160 kg y  
- A granel.  
-  
-  
-MÉTODO DE APLICACIÓN  
-Agregue de 0,2 a 1,5% de CQ Stable C al peso del cemento. Por cada 50 kg de cemento,  
-100 a 800 gramos de CQ Stable C. Se puede agregar agua de amasado o al finalizar el mezclado  
-de todos los componentes del mortero. Nunca agregue a componentes de hormigón secos.  
-Recomendamos utilizar CQ Stable C, junto con CQ Calplast A – plastificante para  
-morteros.  
-Siempre es recomendable realizar pruebas de laboratorio en las mismas condiciones que el trabajo, para determinar  
-la dosis ideal a utilizar, que tiende a variar según el tiempo de estabilización deseado,  
-cantidad de agua a reducir, factor agua/cemento, cantidad de finos en la mezcla, entre otros.  
-  
----  
-
- CQ STABLE C Edición: 10/02/2025  
- Aditivo Plastificante y Estabilizante para Morteros Página: 2 de 2  
-  
-  
-ALMACENAMIENTO Y CADUCIDAD  
-Bidones y Contenedores: Almacenar en un lugar seco y protegido de la intemperie, manteniendo la  
-Embalaje original intacto y siempre cerrado después de su uso.  
-A granel: Debe estar sellado y contener una barrera de contención.  
-Validez: Producto válido por 12 meses después de la fecha de fabricación. Nota: En el caso de almacenamiento a granel,  
-Esta validez está sujeta a las condiciones de limpieza y conservación del depósito.  
-  
-OBSERVACIONES/LIMITACIONES:  
-Las dosis son orientativas y es imprescindible realizar pruebas de laboratorio o de campo.  
-La mejor dosificación puede variar según la temperatura ambiente, tipo de cemento, cantidad de  
-finos en la mezcla, relación agua/cemento, condiciones de mezcla, tipo de agregado utilizado, etc.  
-La temperatura en la mezcla y la temperatura ambiente influyen directamente en la trabajabilidad del producto.  
-hormigón. A altas temperaturas, el hormigón tiende a endurecerse más rápidamente, provocando esto  
-Problemas en la aplicación y acabado del hormigón.  
-  
-PRECAUCIONES, TRANSPORTE Y SEGURIDAD  
-Producto clasificado como transporte no peligroso.  
-Producto no inflamable y no explosivo.  
- • Utilice EPI apropiados: sólo para manipular hormigón;  
- • No ingerir, evitar el contacto prolongado con la piel y los ojos;  
- • No beber, comer ni fumar durante su manipulación. Lávese las manos antes de tomar un descanso y después  
- trabajo.  
-  
-RENDIMIENTO DEL PRODUCTO  
-Nota: La información contenida en esta ficha técnica está basada en pruebas de laboratorio.  
-cuidadosamente controlado. Pueden producirse posibles variaciones dentro de los límites estipulados.  
-Recomendamos realizar pruebas preliminares en sus condiciones específicas para posibles ajustes, si es necesario,  
-consulte con nuestro departamento técnico. El rendimiento del producto que tienes en tus manos depende  
-condiciones ideales de uso, tales como: condiciones climáticas, conocimientos técnicos y prácticos en  
-aplicación, etc. Este boletín tiene fines orientativos únicamente y no debe considerarse una garantía o  
-especificación de calidad. El consumidor deberá observar los procedimientos y normas vigentes antes  
-el Código de Protección al Consumidor. Edición 02/2026 - Esta ficha técnica sustituye a la anterior.  
-Para más información consultar la FDS del producto.</pre>
+    <section class="lead"><p>CQ Stable C es un aditivo líquido, libre de cloruros, desarrollado para actuar como plastificante, retardante y estabilizador en morteros. Además de aumentar la trabajabilidad del mortero, CQ Stable C controla la hidratación del cemento hasta por 72 horas, facilitando las operaciones de aplicación y acabado, proporcionando ahorro de material y agilidad en la obra. Cumple con los requisitos estándar NBR 11768-1 brasileña, clasificada como CH (Controlador de hidratación).</p></section><section><h2>Principales ventajas</h2><ul><li>Mayor adherencia, cohesión, ausencia de grietas y menor exudación;</li><li>Reduce la fricción entre las partículas de mortero, reduciendo el agua de amasado requerida;</li><li>Produce un efecto plastificante y estabilizante del mortero, manteniendo la trabajabilidad por más tiempo;</li><li>Mayor durabilidad de los morteros;</li><li>Mayores resistencias finales;</li><li>Reducción de la permeabilidad.</li></ul></section><section><h2>Campos de aplicación</h2><p>CQ Stable C se recomienda para:</p><ul><li>Mortero de yeso interior y exterior;</li><li>Colocación de mortero;</li><li>Mortero de revestimiento.</li></ul></section><section><h2>Datos Técnicos</h2><div class="data"><div class="dr">Función estabilizadora de mortero.</div><div class="dr">Embalaje</div><div class="dr">Aspecto líquido marrón</div><div class="dr">Comercializado</div><div class="dr">pH 5,5 – 8,5 Bidones de 58 y 232 kg,</div><div class="dr">Densidad 1,12 – 1,15 Contenedor de 1160 kg y</div><div class="dr">A granel.</div></div></section><section><h2>Método de aplicación</h2><p>Agregue de 0,2 a 1,5% de CQ Stable C al peso del cemento. Por cada 50 kg de cemento, 100 a 800 gramos de CQ Stable C. Se puede agregar agua de amasado o al finalizar el mezclado de todos los componentes del mortero. Nunca agregue a componentes de hormigón secos. Recomendamos utilizar CQ Stable C, junto con CQ Calplast A – plastificante para morteros. Siempre es recomendable realizar pruebas de laboratorio en las mismas condiciones que el trabajo, para determinar la dosis ideal a utilizar, que tiende a variar según el tiempo de estabilización deseado, cantidad de agua a reducir, factor agua/cemento, cantidad de finos en la mezcla, entre otros.</p></section><section><h2>Almacenamiento y caducidad</h2><p>Bidones y Contenedores: Almacenar en un lugar seco y protegido de la intemperie, manteniendo la Embalaje original intacto y siempre cerrado después de su uso. A granel: Debe estar sellado y contener una barrera de contención. Validez: Producto válido por 12 meses después de la fecha de fabricación. Nota: En el caso de almacenamiento a granel, Esta validez está sujeta a las condiciones de limpieza y conservación del depósito.</p></section><section><h2>Observaciones/limitaciones:</h2><p>Las dosis son orientativas y es imprescindible realizar pruebas de laboratorio o de campo. La mejor dosificación puede variar según la temperatura ambiente, tipo de cemento, cantidad de finos en la mezcla, relación agua/cemento, condiciones de mezcla, tipo de agregado utilizado, etc. La temperatura en la mezcla y la temperatura ambiente influyen directamente en la trabajabilidad del producto. hormigón. A altas temperaturas, el hormigón tiende a endurecerse más rápidamente, provocando esto Problemas en la aplicación y acabado del hormigón.</p></section><section><h2>Precauciones, transporte y seguridad</h2><p>Producto clasificado como transporte no peligroso. Producto no inflamable y no explosivo.</p><ul><li>Utilice EPI apropiados: sólo para manipular hormigón;</li><li>No ingerir, evitar el contacto prolongado con la piel y los ojos;</li><li>No beber, comer ni fumar durante su manipulación. Lávese las manos antes de tomar un descanso y después</li></ul><p>trabajo.</p></section><section><h2>Rendimiento del producto</h2><p>Nota: La información contenida en esta ficha técnica está basada en pruebas de laboratorio. cuidadosamente controlado. Pueden producirse posibles variaciones dentro de los límites estipulados. Recomendamos realizar pruebas preliminares en sus condiciones específicas para posibles ajustes, si es necesario, consulte con nuestro departamento técnico. El rendimiento del producto que tienes en tus manos depende condiciones ideales de uso, tales como: condiciones climáticas, conocimientos técnicos y prácticos en aplicación, etc. Este boletín tiene fines orientativos únicamente y no debe considerarse una garantía o especificación de calidad. El consumidor deberá observar los procedimientos y normas vigentes antes el Código de Protección al Consumidor. Edición 02/2026 - Esta ficha técnica sustituye a la anterior. Para más información consultar la FDS del producto.</p></section>
   </main>
   <footer class="foot">
     <div class="foot-grid">
