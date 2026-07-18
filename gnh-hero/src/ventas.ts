@@ -111,6 +111,7 @@ const FEATURED: Featured[] = [
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos', bleed: true },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central.jpg', cat: 'equipos', bleed: true },
   { name: 'Minibomba Eléctrica', tag: 'Bomba eléctrica compacta para el transporte de concreto en obra.', img: '../img/prod/minibomba.jpg', cat: 'equipos', bleed: true },
+  { name: 'Mezcladora de Mortero', tag: 'Ideal para la aplicación de AC-I y AC-III.', img: '../img/prod/mezcladora-mortero.jpg', cat: 'equipos', bleed: true },
   // Cuando lleguen las fotos 21:9 de ambiente, reemplazar img y poner bleed: true:
   // { name: 'BIO 360', tag: 'Solución BIO 360.', img: '../img/prod/bio360.jpg', cat: 'aditivos', bleed: true },
   // { name: 'Macro-fibras', tag: 'Refuerzo estructural del concreto con macro-fibras.', img: '../img/prod/macrofibras.jpg', cat: 'aditivos', bleed: true },
