@@ -175,7 +175,7 @@ FICHA_TPL = """<!DOCTYPE html>
 <meta name="description" content="{meta}">
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
 <style>
-:root{{--navy:#14213D;--ink:#1e2733;--orange:#F26D21;--gold:#D4AF37;--line:#D8DEE8;--fam:{color}}}
+:root{{--navy:#14213D;--ink:#1e2733;--orange:#F26D21;--gold:#C9A961;--line:#D8DEE8;--hair:#E6EAF0;--fam:{color}}}
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:'General Sans',system-ui,sans-serif;color:var(--ink);background:#EEF1F5;line-height:1.6}}
 .sheet{{max-width:860px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 30px 80px -40px rgba(15,23,42,.3)}}
@@ -184,9 +184,10 @@ body{{font-family:'General Sans',system-ui,sans-serif;color:var(--ink);backgroun
 .brand-row img{{height:58px;width:auto}}
 .doc-tag{{text-align:right}}
 .doc-tag .dt{{display:block;font-family:'Satoshi',sans-serif;font-weight:800;font-size:17px;letter-spacing:.24em;text-transform:uppercase;color:var(--navy)}}
-.doc-tag .fam{{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fam);border:1.5px solid var(--fam);border-radius:4px;padding:3px 10px}}
-.rule{{height:3px;background:var(--navy);position:relative}}
-.rule::after{{content:'';position:absolute;left:0;top:3px;height:2px;width:100%;background:linear-gradient(90deg,var(--orange),var(--gold))}}
+.doc-tag .fam{{display:inline-flex;align-items:center;gap:7px;margin-top:7px;font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#5B6472;border:1px solid var(--line);border-radius:3px;padding:3px 10px}}
+.doc-tag .fam::before{{content:'';width:8px;height:8px;border-radius:50%;background:var(--fam)}}
+.rule{{height:2px;background:var(--navy);position:relative}}
+.rule::after{{content:'';position:absolute;left:0;top:2px;height:1px;width:100%;background:var(--gold)}}
 .title-block{{padding:24px 0 20px;border-bottom:1px solid var(--line)}}
 h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34px);letter-spacing:-.01em;text-transform:uppercase;color:var(--navy);line-height:1.06}}
 .sub{{color:#5B6472;margin-top:6px;font-size:15.5px}}
@@ -196,28 +197,29 @@ h1{{font-family:'Satoshi',sans-serif;font-weight:800;font-size:clamp(24px,4vw,34
 .btn-wa{{background:#22c15e;color:#fff}}
 .btn-back{{background:#fff;color:var(--navy);border:1.5px solid var(--line)}}
 .body{{padding:6px 46px 26px}}
-.body h2{{font-family:'Satoshi',sans-serif;font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:7px;border-bottom:1.5px solid var(--line);display:flex;align-items:center;gap:9px}}
-.body h2::before{{content:'';width:8px;height:8px;background:var(--orange);flex-shrink:0}}
-.body p{{font-size:13.6px;color:#3c4657;line-height:1.68;margin:0 0 10px}}
-.body .lead p{{font-size:14.6px;color:#2c3646;line-height:1.7}}
+.body h2{{font-family:'Satoshi',sans-serif;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--navy);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:10px}}
+.body h2::before{{content:'';width:3px;height:13px;background:var(--navy);flex-shrink:0}}
+.body p{{font-size:13.2px;color:#3c4657;line-height:1.7;margin:0 0 10px}}
+.body .lead p{{font-size:14px;color:#2c3646;line-height:1.75}}
 .body ul{{list-style:none;margin:2px 0 12px;padding:0}}
-.body li{{position:relative;padding-left:18px;margin-bottom:7px;font-size:13.6px;color:#3c4657;line-height:1.55}}
-.body li::before{{content:'';position:absolute;left:0;top:7px;width:7px;height:7px;background:var(--orange)}}
-.data{{border:1px solid var(--line);border-top:2px solid var(--navy)}}
-.dr{{padding:7px 16px;font-size:13.2px;color:#3c4657;border-bottom:1px solid var(--line)}}
-.dr:nth-child(odd){{background:#F5F7FA}}
+.body li{{position:relative;padding-left:17px;margin-bottom:7px;font-size:13.2px;color:#3c4657;line-height:1.6}}
+.body li::before{{content:'';position:absolute;left:0;top:8px;width:5px;height:5px;background:var(--navy)}}
+.data{{border:1px solid var(--hair);border-top:2px solid var(--navy)}}
+.dr{{padding:6px 16px;font-size:12.8px;color:#3c4657;border-bottom:1px solid var(--hair)}}
+.dr:nth-child(odd){{background:#F7F9FB}}
 .dr:last-child{{border-bottom:0}}
 .meta{{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}}
 .meta b{{color:var(--navy);font-weight:600}}
 pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
-.foot{{padding:24px 46px 28px;border-top:2px solid var(--navy);font-size:13px;color:#5B6472}}
-.foot-grid{{display:flex;justify-content:space-between;align-items:flex-start;gap:28px}}
-.f-left img{{height:48px;width:auto}}
-.f-left .excl{{font-family:'Satoshi',sans-serif;font-weight:700;color:var(--navy);font-size:15px;line-height:1.35;margin-top:10px}}
-.f-right{{text-align:right;font-size:12.5px;line-height:1.5}}
-.f-right img{{height:36px;width:auto;margin-bottom:8px}}
-.f-contact{{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}}
-.foot .note{{font-style:italic;color:#8a93a3;font-size:12px;margin-top:6px}}
+.foot{{padding:16px 46px 20px;border-top:2px solid var(--navy);font-size:11.5px;color:#5B6472}}
+.foot-grid{{display:flex;justify-content:space-between;align-items:center;gap:24px}}
+.f-left{{display:flex;align-items:center;gap:14px}}
+.f-left img{{height:30px;width:auto}}
+.f-left .excl{{font-family:'Satoshi',sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}}
+.f-right{{display:flex;align-items:center;gap:10px;text-align:right;font-size:10.5px;line-height:1.45}}
+.f-right img{{height:22px;width:auto;margin:0;order:2}}
+.f-contact{{margin-top:12px;padding-top:9px;border-top:1px solid var(--hair);font-size:11.5px}}
+.foot .note{{font-style:italic;color:#8a93a3;font-size:10.5px;margin-top:5px}}
 .foot b{{color:var(--navy)}}
 @media print{{
   body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}}
@@ -228,7 +230,7 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
   .foot{{padding:14px 4px 0}}
   .body h2{{page-break-after:avoid}}
   .body li,.dr{{page-break-inside:avoid}}
-  .data{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .data{{page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   .body h2::before,.body li::before{{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 }}
 @media(max-width:640px){{ .top,.body,.foot{{padding-left:20px;padding-right:20px}} .brand-row img{{height:44px}} }}
@@ -261,8 +263,8 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
         <p class="excl">Distribuidores exclusivos de<br>Camargo Química en Paraguay</p>
       </div>
       <div class="f-right">
-        {camargo_html}
         <p>Información técnica proporcionada<br>por el fabricante — Camargo Química</p>
+        {camargo_html}
       </div>
     </div>
     <div class="f-contact">Av. República del Perú km 7, Ciudad del Este &nbsp;·&nbsp; Acceso Sur, Ñemby &nbsp;·&nbsp; WhatsApp <b>+595 995 360060</b> &nbsp;·&nbsp; comercial@gnhorizons.com</div>
@@ -417,7 +419,7 @@ def main():
                 sub_html=f'<p class="sub">{sub}</p>' if sub else '',
                 meta_html=meta_html, body_html=body_html,
                 slug=slug, wa=wa.replace(' ', '%20'), logo_html=logo_html(),
-                logo_foot=logo_html().replace('height:58px', 'height:48px'),
+                logo_foot=logo_html().replace('height:58px', 'height:30px'),
                 camargo_html=camargo_html())
             (OUT_FICHAS / f'{slug}.html').write_text(html, encoding='utf-8')
         products.append({
