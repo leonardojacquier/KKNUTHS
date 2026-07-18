@@ -216,15 +216,16 @@ table.kv{{width:100%;border-collapse:collapse;border:1px solid var(--hair);borde
 .meta{{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:#7c8698}}
 .meta b{{color:var(--navy);font-weight:600}}
 pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#3c4657;background:#FAFBFD;border:1px solid var(--line);border-left:3px solid var(--navy);padding:18px 22px}}
-.foot{{padding:16px 46px 20px;border-top:2px solid var(--navy);font-size:11.5px;color:#5B6472}}
-.foot-grid{{display:flex;justify-content:space-between;align-items:center;gap:24px}}
-.f-left{{display:flex;align-items:center;gap:14px}}
-.f-left img{{height:30px;width:auto}}
-.f-left .excl{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.4;margin:0}}
-.f-right{{display:flex;align-items:center;gap:10px;text-align:right;font-size:10.5px;line-height:1.45}}
-.f-right img{{height:22px;width:auto;margin:0;order:2}}
-.f-contact{{margin-top:12px;padding-top:9px;border-top:1px solid var(--hair);font-size:11.5px}}
-.foot .note{{font-style:italic;color:#8a93a3;font-size:10.5px;margin-top:5px}}
+.foot{{padding:18px 46px 22px;border-top:2px solid var(--navy);font-size:11.5px;color:#5B6472}}
+.foot-grid{{display:grid;grid-template-columns:1.1fr 1.3fr 1.1fr;gap:28px;align-items:start}}
+.f-col .f-label{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#9aa3b2;margin-bottom:7px}}
+.f-left img{{height:32px;width:auto}}
+.f-left .excl{{font-family:'Satoshi','Liberation Sans',Arial,sans-serif;font-weight:700;color:var(--navy);font-size:11.5px;line-height:1.45;margin-top:7px}}
+.f-mid{{font-size:11px;line-height:1.65}}
+.f-mid b{{color:var(--navy)}}
+.f-right{{text-align:right;font-size:10.5px;line-height:1.5}}
+.f-right img{{height:26px;width:auto;margin-bottom:7px}}
+.foot .note{{font-style:italic;color:#8a93a3;font-size:10.5px;margin-top:12px;padding-top:9px;border-top:1px solid var(--hair);text-align:center}}
 .foot b{{color:var(--navy)}}
 @media print{{
   body{{background:#fff}} .sheet{{box-shadow:none;max-width:none}} .actions{{display:none}}
@@ -264,16 +265,22 @@ pre.raw{{white-space:pre-wrap;font:13.2px/1.65 'General Sans',sans-serif;color:#
   </main>
   <footer class="foot">
     <div class="foot-grid">
-      <div class="f-left">
+      <div class="f-col f-left">
+        <p class="f-label">Distribuidor exclusivo</p>
         {logo_foot}
         <p class="excl">Distribuidores exclusivos de<br>Camargo Química en Paraguay</p>
       </div>
-      <div class="f-right">
-        <p>Información técnica proporcionada<br>por el fabricante — Camargo Química</p>
+      <div class="f-col f-mid">
+        <p class="f-label">Contacto</p>
+        <p>Av. República del Perú km 7, Ciudad del Este<br>Acceso Sur, Ñemby — Paraguay</p>
+        <p>WhatsApp <b>+595 995 360060</b><br>comercial@gnhorizons.com &nbsp;·&nbsp; gnhorizons.com</p>
+      </div>
+      <div class="f-col f-right">
+        <p class="f-label" style="text-align:right">Fabricante</p>
         {camargo_html}
+        <p>Información técnica proporcionada<br>por el fabricante — Camargo Química</p>
       </div>
     </div>
-    <div class="f-contact">Av. República del Perú km 7, Ciudad del Este &nbsp;·&nbsp; Acceso Sur, Ñemby &nbsp;·&nbsp; WhatsApp <b>+595 995 360060</b> &nbsp;·&nbsp; comercial@gnhorizons.com</div>
     <p class="note">Documento orientativo. Realice pruebas preliminares y consulte a nuestro equipo técnico antes de la aplicación.</p>
   </footer>
 </div>
