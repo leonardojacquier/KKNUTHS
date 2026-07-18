@@ -164,7 +164,7 @@
 .v-products { margin-top: 34px; scroll-margin-top: 80px; }
 .v-products.revealing { animation: vfade .5s cubic-bezier(.16,1,.3,1); }
 @keyframes vfade { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-.v-products-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.v-products-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .v-products-head h2 { font-family: 'Satoshi', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 24px; color: #0F172A; letter-spacing: -.02em; }
 .v-subgroup { margin-top: 22px; }
 .v-subtitle {
@@ -305,7 +305,24 @@
 .bsc-count { color: rgba(255, 255, 255, 0.65); font-size: 14px; margin-bottom: 12px; }
 .bsc-empty { color: rgba(255, 255, 255, 0.75); font-size: 15.5px; padding: 14px 4px; }
 .bsc-empty a { color: #ff9a4d; font-weight: 700; text-decoration: underline; }
-.bsc-results .v-card { flex: 0 0 250px; }
+/* resultados en grilla que envuelve — sin scroll lateral escondido */
+.bsc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.bsc-grid .v-card { flex: none; width: auto; }
+
+/* ===== filtro dentro de la categoría (liga/desliga) ===== */
+.v-filter-box { position: relative; margin-left: auto; flex: 0 1 340px; min-width: 230px; }
+.v-filter-ic { position: absolute; left: 15px; top: 50%; translate: 0 -50%; width: 18px; height: 18px; color: #D4AF37; pointer-events: none; }
+.v-filter {
+  width: 100%; min-height: 44px; padding: 9px 16px 9px 43px; border-radius: 100px;
+  font: inherit; font-size: 14.5px; color: #0F172A; background: #fff;
+  border: 1.5px solid rgba(20, 33, 61, 0.15); transition: border-color .25s, box-shadow .25s;
+}
+.v-filter:focus { outline: none; border-color: #D4AF37; box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.16); }
+.v-card { transition: opacity .35s ease, filter .35s ease, box-shadow .35s ease, transform .35s cubic-bezier(.16,1,.3,1); }
+.v-card.is-off { opacity: .14; filter: grayscale(1); }
+.v-card.is-on { box-shadow: 0 0 0 2px #D4AF37, 0 20px 44px -18px rgba(212, 175, 55, 0.5); }
+.v-subgroup.sg-off .v-subtitle { opacity: .25; }
+@media (max-width: 640px) { .v-filter-box { flex-basis: 100%; } }
 
 /* promoções */
 .v-promo-band { display: grid; gap: 14px; }

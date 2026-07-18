@@ -141,7 +141,7 @@ function aditivoIconSVG(a: Aditivo): string {
 function aditivoCard(a: Aditivo): string {
   const msg = `Hola, me interesa el aditivo ${a.name}`
   return `
-    <article class="v-card adi-card">
+    <article class="v-card adi-card" data-s="${deacc(`${a.name} ${a.familyLabel} ${a.sub} ${a.desc} ${a.kw.join(' ')}`)}">
       <div class="v-card-media adi-media" style="--fam:${a.color}">${aditivoIconSVG(a)}</div>
       <div class="v-card-body">
         <span class="v-brand" style="color:${a.color}">${a.familyLabel}</span>
@@ -189,7 +189,7 @@ function searchAll(q: string): Hit[] {
       }
     }
   }
-  return hits.sort((x, y) => y.score - x.score).slice(0, 12)
+  return hits.sort((x, y) => y.score - x.score).slice(0, 18)
 }
 
 function initBuscador(): void {
@@ -205,7 +205,7 @@ function initBuscador(): void {
       const hits = searchAll(q)
       out.classList.add('has')
       out.innerHTML = hits.length
-        ? `<p class="bsc-count">${hits.length} resultado${hits.length > 1 ? 's' : ''} para “${q}”</p><div class="v-rail">${hits.map((h) => h.html).join('')}</div>`
+        ? `<p class="bsc-count">${hits.length} resultado${hits.length > 1 ? 's' : ''} para “${q}”</p><div class="bsc-grid">${hits.map((h) => h.html).join('')}</div>`
         : `<p class="bsc-empty">No encontramos resultados para “${q}”. <a href="${wa('Hola, busco: ' + q)}" target="_blank" rel="noopener">Consultá por WhatsApp</a> — seguro podemos ayudarte.</p>`
     }, 160)
   })
@@ -315,7 +315,7 @@ function renderHeroCarousel(): void {
 function productCard(p: Product): string {
   const msg = `Hola, me interesa: ${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`
   return `
-    <article class="v-card">
+    <article class="v-card" data-s="${deacc(`${p.name} ${p.brand ?? ''} ${p.note ?? ''}`)}">
       <div class="v-card-media">${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy">` : `<span class="ph">${p.name}</span>`}</div>
       <div class="v-card-body">
         ${p.brand ? `<span class="v-brand">${p.brand}</span>` : ''}
@@ -383,8 +383,27 @@ function selectCategory(id: string, scroll = false): void {
 
   const box = document.getElementById('v-products')!
   box.innerHTML = `
-    <div class="v-products-head"><div class="v-cat-ic">${icon(cat.icon)}</div><h2>${cat.title}</h2></div>
+    <div class="v-products-head">
+      <div class="v-cat-ic">${icon(cat.icon)}</div><h2>${cat.title}</h2>
+      <div class="v-filter-box">
+        <svg viewBox="0 0 24 24" class="v-filter-ic" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Filtrar en ${cat.title.toLowerCase()}…">
+      </div>
+    </div>
     ${body}`
+  // filtro "liga/desliga": los que coinciden brillan, el resto se apaga
+  const flt = document.getElementById('v-filter') as HTMLInputElement | null
+  flt?.addEventListener('input', () => {
+    const terms = deacc(flt.value).split(/\s+/).filter((t) => t.length >= 2)
+    box.querySelectorAll<HTMLElement>('.v-card').forEach((c) => {
+      const on = terms.length > 0 && terms.every((t) => (c.dataset.s ?? '').includes(t))
+      c.classList.toggle('is-on', on)
+      c.classList.toggle('is-off', terms.length > 0 && !on)
+    })
+    box.querySelectorAll<HTMLElement>('.v-subgroup').forEach((sg) => {
+      sg.classList.toggle('sg-off', terms.length > 0 && !sg.querySelector('.v-card:not(.is-off)'))
+    })
+  })
   box.classList.remove('revealing'); void box.offsetWidth; box.classList.add('revealing')
   if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
