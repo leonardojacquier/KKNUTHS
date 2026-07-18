@@ -216,6 +216,7 @@ function searchAll(q: string): Hit[] {
   const groups = termGroups(q)
   if (!groups.length) return []
   const hits: Hit[] = []
+  const equipHits: Hit[] = []
   for (const a of ADITIVOS) {
     let s = 0, matched = 0
     const name = deacc(a.name), fam = deacc(a.familyLabel), sub = deacc(a.sub), desc = deacc(a.desc)
@@ -241,14 +242,17 @@ function searchAll(q: string): Hit[] {
         const name = deacc(p.name), note = deacc(p.note ?? ''), tags = deacc((p.tags ?? []).join(' '))
         for (const vars of groups) {
           if (hitIn(name, vars)) s += 10
-          if (hitIn(tags, vars)) s += 5
-          if (hitIn(note, vars)) s += 2
+          if (hitIn(tags, vars)) s += 8
+          if (hitIn(note, vars)) s += 3
         }
-        if (s > 0) hits.push({ score: s, html: productCard(p), name: p.name })
+        if (s > 0) equipHits.push({ score: s, html: productCard(p), name: p.name })
       }
     }
   }
-  return hits.sort((x, y) => y.score - x.score).slice(0, 18)
+  // cuota garantizada: los equipos que matchean SIEMPRE entran (hasta 8), no los tapan los aditivos
+  hits.sort((x, y) => y.score - x.score)
+  equipHits.sort((x, y) => y.score - x.score)
+  return [...equipHits.slice(0, 8), ...hits.slice(0, 16)].sort((x, y) => y.score - x.score).slice(0, 24)
 }
 
 function initBuscador(): void {
@@ -446,23 +450,50 @@ function selectCategory(id: string, scroll = false): void {
       <div class="v-cat-ic">${icon(cat.icon)}</div><h2>${cat.title}</h2>
       <div class="v-filter-box">
         <svg viewBox="0 0 24 24" class="v-filter-ic" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Filtrar en ${cat.title.toLowerCase()}…">
+        <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Buscar en ${cat.title.toLowerCase()}…">
       </div>
     </div>
-    ${body}`
-  // filtro "liga/desliga": los que coinciden brillan, el resto se apaga
+    <div id="v-body">${body}</div>`
+  // búsqueda DENTRO de la categoría: misma lógica que el buscador, pero solo con
+  // los productos de esta categoría — muestra únicamente los que coinciden
   const flt = document.getElementById('v-filter') as HTMLInputElement | null
+  const vbody = document.getElementById('v-body')!
+  const defaultBody = body
   flt?.addEventListener('input', () => {
     const groups = termGroups(flt.value)
-    box.querySelectorAll<HTMLElement>('.v-card').forEach((c) => {
-      const s = c.dataset.s ?? ''
-      const on = groups.length > 0 && groups.every((vars) => hitIn(s, vars))
-      c.classList.toggle('is-on', on)
-      c.classList.toggle('is-off', groups.length > 0 && !on)
-    })
-    box.querySelectorAll<HTMLElement>('.v-subgroup').forEach((sg) => {
-      sg.classList.toggle('sg-off', groups.length > 0 && !sg.querySelector('.v-card:not(.is-off)'))
-    })
+    if (!groups.length) { vbody.innerHTML = defaultBody; return }
+    const scored: { s: number; html: string }[] = []
+    if (cat.id === 'aditivos') {
+      for (const a of ADITIVOS) {
+        let s = 0
+        const name = deacc(a.name), fam = deacc(a.familyLabel), sub = deacc(a.sub), desc = deacc(a.desc)
+        const kwstr = a.kw.join(' ')
+        for (const vars of groups) {
+          if (hitIn(name, vars)) s += 10
+          if (hitIn(fam, vars)) s += 6
+          if (hitIn(sub, vars)) s += 4
+          if (hitIn(kwstr, vars)) s += 3
+          if (hitIn(desc, vars)) s += 1
+        }
+        if (s > 0) scored.push({ s, html: aditivoCard(a) })
+      }
+    } else {
+      const prods = cat.groups ? cat.groups.flatMap((g) => g.products) : (cat.products ?? [])
+      for (const p of prods) {
+        let s = 0
+        const name = deacc(p.name), note = deacc(p.note ?? ''), tags = deacc((p.tags ?? []).join(' '))
+        for (const vars of groups) {
+          if (hitIn(name, vars)) s += 10
+          if (hitIn(tags, vars)) s += 8
+          if (hitIn(note, vars)) s += 3
+        }
+        if (s > 0) scored.push({ s, html: productCard(p) })
+      }
+    }
+    scored.sort((x, y) => y.s - x.s)
+    vbody.innerHTML = scored.length
+      ? `<p class="bsc-count v-count">${scored.length} resultado${scored.length > 1 ? 's' : ''} en ${cat.title}</p><div class="bsc-grid">${scored.map((h) => h.html).join('')}</div>`
+      : `<div class="v-empty"><p>Sin resultados en ${cat.title} para “${flt.value.trim()}”.</p><a class="btn-empty" href="${wa('Hola, busco: ' + flt.value.trim())}" target="_blank" rel="noopener">Consultar por WhatsApp</a></div>`
   })
   box.classList.remove('revealing'); void box.offsetWidth; box.classList.add('revealing')
   if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' })

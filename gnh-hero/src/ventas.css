@@ -344,3 +344,6 @@
   outline: none; border-color: #F26D21; background: #fff;
   box-shadow: 0 0 0 4px rgba(232, 119, 34, 0.14);
 }
+
+/* contador del filtro por categoría (texto oscuro sobre fondo claro) */
+.v-count { color: #5B6472; }
