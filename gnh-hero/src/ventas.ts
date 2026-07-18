@@ -107,7 +107,7 @@ const icon = (k: string, cls = '') =>
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
 interface Featured { name: string; tag: string; img: string; cat: string; bleed?: boolean }
 const FEATURED: Featured[] = [
-  { name: 'Plataformas', tag: 'Plataformas de elevación de personal para trabajos en altura, seguras y versátiles.', img: '../img/prod/elevador.png', cat: 'equipos' },
+  { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', img: '../img/prod/grua-arana.png', cat: 'equipos', bleed: true },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/central-concreto.png', cat: 'equipos' },
   // Cuando lleguen las fotos 21:9 de ambiente, reemplazar img y poner bleed: true:
