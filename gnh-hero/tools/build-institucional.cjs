@@ -34,7 +34,8 @@ const LINEAS = [
   },
   {
     ic: 'i-flask', t: 'Aditivos',
-    s: 'Distribuimos aditivos y soluciones químicas de marcas líderes para cada etapa de la obra: impermeabilizantes, plastificantes, curadores y desmoldantes, con asesoría técnica especializada.',
+    logo: '<img class="deck-logo on-chip" src="../img/logo-camargo.png" alt="Camargo Química" loading="lazy" onerror="this.remove()">',
+    s: 'Distribuidores exclusivos de Camargo Química en Paraguay: aditivos y soluciones químicas para cada etapa de la obra — impermeabilizantes, plastificantes, curadores y desmoldantes, con asesoría técnica especializada.',
     cta: 'Ver productos', href: '../ventas/',
   },
   {
@@ -42,11 +43,8 @@ const LINEAS = [
     logo: '<img class="deck-logo" src="../img/fletepar-logo.png" alt="FletePar" loading="lazy" onerror="this.remove()">',
     s: 'Nuestra plataforma tecnológica de logística. FletePar es el marketplace de fletes #1 de Paraguay: conecta empresas con cargas y transportistas verificados, con rastreo GPS en tiempo real, pagos protegidos y seguro de carga de punta a punta.',
     links: [
-      ['i-globe', 'fletepar.com.py', 'https://fletepar.com.py/'],
-      ['i-handshake', 'WhatsApp +595 985 336 505', 'https://wa.me/595985336505?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20FletePar'],
-      ['i-arrow-r', 'App para Android', 'https://play.google.com/store/apps/details?id=com.everson.FleteParapp'],
-      ['i-arrow-r', 'App para iPhone', 'https://apps.apple.com/app/id6759286072'],
-      ['i-spark', 'Consulta de reputación', 'https://fletepar-consulta.web.app'],
+      ['i-android', 'App para Android — Google Play', 'https://play.google.com/store/apps/details?id=com.everson.FleteParapp'],
+      ['i-apple', 'App para iPhone — App Store', 'https://apps.apple.com/app/id6759286072'],
     ],
   },
   {
@@ -110,7 +108,7 @@ const NEW_DECK = `<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) =====
 .cat .fp-links a{display:flex;align-items:center;gap:9px;min-height:40px;color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;border-bottom:1px solid rgba(255,255,255,.09)}
 .cat .fp-links a:last-child{border-bottom:0}
 .cat .fp-links a:hover{color:var(--orange-soft)}
-.cat .fp-links svg{width:16px;height:16px;stroke:var(--orange-soft);flex-shrink:0}
+.cat .fp-links svg{width:18px;height:18px;stroke:var(--orange-soft);color:var(--orange-soft);flex-shrink:0}
 </style>
 <section class="fort-cine" id="frentes">
   <div class="wrap head reveal">
