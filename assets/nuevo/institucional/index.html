@@ -1398,7 +1398,7 @@ document.getElementById('year').textContent = new Date().getFullYear();
   const U = 'https://tqvrsusrbnyahpxhnwxe.supabase.co', K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdnJzdXNyYm55YWhweGhud3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2ODYxMzEsImV4cCI6MjA5MjI2MjEzMX0.EIWs1fTwRVT_C5nAjIThvEzZ-ZMMNK_QiYTeHMn-wZo';
   if (!U || !K) return;
   const sid = () => { try { let s = sessionStorage.getItem('gnh-sid'); if (!s) { s = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('gnh-sid', s); } return s; } catch { return 'anon'; } };
-  const track = (type, detail) => { try { fetch(U + '/rest/v1/events', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', apikey: K, Authorization: 'Bearer ' + K, Prefer: 'return=minimal' }, body: JSON.stringify({ type, detail: (detail || '').slice(0, 200), path: location.pathname.slice(0, 120), session_id: sid() }) }); } catch {} };
+  const track = (type, detail) => { try { fetch(U + '/rest/v1/events', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', apikey: K, Authorization: 'Bearer ' + K, Prefer: 'return=minimal' }, body: JSON.stringify({ type, detail: (detail || '').slice(0, 200), path: location.pathname.slice(0, 120), session_id: sid() }) }).catch(() => {}); } catch {} };
   document.addEventListener('click', (e) => {
     const el = e.target.closest && e.target.closest('a, button');
     if (!el) return;
