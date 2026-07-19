@@ -88,8 +88,21 @@ const CATALOG: Category[] = [
   },
   {
     id: 'morteros', title: 'Morteros', icon: 'grid',
-    blurb: 'Revoques y morteros industrializados.',
-    products: [],
+    blurb: 'Morteros industrializados Hormigomix: estructural, de proyección y adhesivos AC-1 / AC-3.',
+    products: [
+      { name: 'Mortero Estructural 30 kg', brand: 'Hormigomix', img: '../img/prod/mortero-estructural.png',
+        note: 'Asentamiento estructural de albañilería. Mortero industrializado de alta calidad — solo agregar agua.',
+        tags: ['asentamiento', 'ladrillo', 'ladrillos', 'bloque', 'bloques', 'mamposteria', 'albanileria', 'muro', 'pared', 'estructural', 'levantar pared'] },
+      { name: 'Mortero de Proyección 30 kg', brand: 'Hormigomix', img: '../img/prod/mortero-proyeccion.png',
+        note: 'Revoque de paredes de mampostería en áreas internas y externas. Aplicable con equipos de proyección.',
+        tags: ['revoque', 'revoco', 'proyeccion', 'proyectado', 'pared', 'muro', 'interior', 'exterior', 'maquina', 'revestir'] },
+      { name: 'Mortero Adhesivo AC-1 20 kg', brand: 'Hormigomix', img: '../img/prod/mortero-ac1.png',
+        note: 'Colocación de revestimientos y pisos cerámicos en interiores. Aplicación rápida.',
+        tags: ['adhesivo', 'pegamento', 'cola', 'ceramica', 'ceramico', 'azulejo', 'piso', 'pared', 'interior', 'ac1', 'pegar'] },
+      { name: 'Mortero Adhesivo AC-3 20 kg', brand: 'Hormigomix', img: '../img/prod/mortero-ac3.png',
+        note: 'Revestimientos, cerámicos y gres porcelánico en interiores y exteriores. Apto para placas de más de 60×60 cm.',
+        tags: ['adhesivo', 'pegamento', 'cola', 'porcelanato', 'gres', 'ceramica', 'ceramico', 'placa', 'exterior', 'interior', 'ac3', 'fachada', 'pegar'] },
+    ],
   },
   {
     id: 'intonaco', title: 'Intonaco', icon: 'spray',
