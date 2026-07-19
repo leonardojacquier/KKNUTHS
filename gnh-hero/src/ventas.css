@@ -422,3 +422,25 @@
 .fp-btn-solid { background: #F26D21; border-color: #F26D21; }
 .fp-btn-solid:hover { background: #ff813d; color: #fff; }
 @media (max-width: 760px) { .fp-dual { grid-template-columns: 1fr; } }
+
+/* ===== Intonaco: revoque proyectado — panel de presentación ===== */
+.in-logo {
+  display: inline-block; height: 52px; width: auto;
+  background: #fff; padding: 9px 14px; border-radius: 12px; margin-bottom: 14px;
+}
+.in-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.in-stat { background: #fff; border: 1px solid #E4E8F1; border-radius: 16px; padding: 20px 22px; }
+.in-stat b { display: block; font-family: 'Satoshi', sans-serif; font-weight: 800; font-size: 34px; line-height: 1; color: #F26D21; }
+.in-stat span { display: block; margin-top: 8px; font-size: 13.5px; line-height: 1.5; color: #5B6478; }
+.in-stat strong { color: #0F172A; }
+.in-pillars { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 20px; }
+.in-pillars span {
+  font-family: 'Satoshi', sans-serif; font-weight: 600; font-size: 12.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: #1E3A8A; background: rgba(30,58,138,.08);
+  border: 1px solid rgba(30,58,138,.18); border-radius: 100px; padding: 7px 15px;
+}
+.in-pillars p { font-size: 13.5px; color: #5B6478; margin-left: 4px; }
+.in-photo { border: 1px solid #E4E8F1; border-radius: 16px; overflow: hidden; margin: 0 0 26px; }
+.in-photo img { width: 100%; display: block; }
+.in-photo figcaption { padding: 12px 18px; font-size: 13.5px; color: #5B6478; font-style: italic; background: #fff; }
+@media (max-width: 760px) { .in-stats { grid-template-columns: 1fr; } }

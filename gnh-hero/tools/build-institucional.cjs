@@ -54,6 +54,11 @@ const LINEAS = [
     cta: 'Ver productos', href: '../ventas/',
   },
   {
+    ic: 'i-spray', t: 'Intonaco',
+    s: 'Sistemas constructivos Intonaco: revoque proyectado con método, equipamiento y personal entrenado. Hasta 5× más productividad que el revoque convencional, 1.000 m² en 5 a 7 días y consumo de material controlado — plazo, costo, calidad y satisfacción en cada obra.',
+    cta: 'Conocer el sistema', href: '../ventas/',
+  },
+  {
     ic: 'i-layers', t: 'Cementos',
     s: 'Cemento de alto desempeño para toda obra, con abastecimiento confiable y volúmenes a escala, respaldados por alianzas industriales de la región.',
     cta: 'Ver productos', href: '../ventas/',

@@ -92,6 +92,11 @@ const CATALOG: Category[] = [
     products: [],
   },
   {
+    id: 'intonaco', title: 'Intonaco', icon: 'spray',
+    blurb: 'Revoque proyectado con método: hasta 5× más productividad y plazo confiable. Sistemas constructivos Intonaco.',
+    products: [], // la categoría se renderiza con el panel Intonaco (ver selectCategory)
+  },
+  {
     id: 'cementos', title: 'Cementos', icon: 'layers',
     blurb: 'Cemento de alto desempeño para toda obra.',
     products: [],
@@ -110,6 +115,7 @@ const ICONS: Record<string, string> = {
   gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"/>',
   chevL: '<path d="M15 5l-7 7 7 7"/>',
   chevR: '<path d="M9 5l7 7-7 7"/>',
+  spray: '<path d="M3 9h7l2-2h3v6h-3l-2 -2H3z"/><path d="M7 11v6a2 2 0 0 0 2 2h2"/><path d="M18.5 5.2l1.8-1.2M19.6 8.5h2.2M18.5 11.8l1.8 1.2"/>',
 }
 const icon = (k: string, cls = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${ICONS[k] ?? ''}</svg>`
@@ -455,6 +461,38 @@ function selectCategory(id: string, scroll = false): void {
       </div>
     </div>`
 
+  // Intonaco: revoque proyectado — panel con los números que cambian la etapa
+  const intonacoIntro = cat.id !== 'intonaco' ? '' : `
+    <div class="fp-panel in-panel">
+      <div class="fp-text">
+        <img class="in-logo" src="../img/intonaco-logo.png" alt="Intonaco — Sistemas Constructivos"
+             onerror="this.remove()">
+        <h3>Revoque proyectado con método, plazo y estándar</h3>
+        <p>De cada 20 días de obra, <b>3 se van en el revoque</b> — el 15% del cronograma. Una etapa con ese
+        peso merece método, no improvisación. Intonaco ejecuta el revoque con <b>proyección mecanizada</b>,
+        proceso, equipo y personal entrenado: espesura controlada sin variación entre paños, ejecución
+        continua con menos juntas y una base correcta desde el inicio que evita retoques en el acabado.</p>
+      </div>
+      <div class="fp-links">
+        <a href="${wa('Hola, quiero más información sobre el revoque proyectado Intonaco')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
+        <a href="mailto:comercial@gnhorizons.com">✉️ comercial@gnhorizons.com</a>
+        <a href="tel:+595995360060">📞 +595 995 360060</a>
+      </div>
+    </div>
+    <div class="in-stats">
+      <div class="in-stat"><b>5×</b><span>más productividad: de 30 a <strong>150 m²/día</strong> en el mismo día de obra</span></div>
+      <div class="in-stat"><b>5–7 días</b><span>para 1.000 m² de pared — contra 35 a 40 días del revoque convencional</span></div>
+      <div class="in-stat"><b>−20%</b><span>de desperdicio evitado: consumo de material controlado y previsible</span></div>
+    </div>
+    <div class="in-pillars">
+      <span>Plazo</span><span>Costo</span><span>Calidad</span><span>Satisfacción</span>
+      <p>Los 4 pilares que Intonaco defiende en cada obra.</p>
+    </div>
+    <figure class="in-photo">
+      <img src="../img/intonaco-obra.jpg" alt="Pared antes y después del revoque proyectado Intonaco" loading="lazy" onerror="this.parentElement.remove()">
+      <figcaption>«Lo que está por debajo define lo que se ve al final.» — el revoque como etapa estratégica.</figcaption>
+    </figure>`
+
   let body: string
   if (cat.id === 'aditivos' && ADITIVOS.length) {
     // agrupa por familia
@@ -477,6 +515,8 @@ function selectCategory(id: string, scroll = false): void {
       </div>`).join('')
   } else if (cat.id === 'fletes') {
     body = '' // el panel FletePar (fletesIntro) es todo el contenido de la categoría
+  } else if (cat.id === 'intonaco') {
+    body = '' // el panel Intonaco (intonacoIntro) es todo el contenido de la categoría
   } else if (cat.products && cat.products.length) {
     body = `<div class="v-rail">${cat.products.map(productCard).join('')}</div>`
   } else {
@@ -497,12 +537,12 @@ function selectCategory(id: string, scroll = false): void {
         <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Buscar en ${cat.title.toLowerCase()}…">
       </div>
     </div>
-    <div id="v-body">${fletesIntro}${body}</div>`
+    <div id="v-body">${fletesIntro}${intonacoIntro}${body}</div>`
   // búsqueda DENTRO de la categoría: misma lógica que el buscador, pero solo con
   // los productos de esta categoría — muestra únicamente los que coinciden
   const flt = document.getElementById('v-filter') as HTMLInputElement | null
   const vbody = document.getElementById('v-body')!
-  const defaultBody = fletesIntro + body
+  const defaultBody = fletesIntro + intonacoIntro + body
   flt?.addEventListener('input', () => {
     const groups = termGroups(flt.value)
     if (!groups.length) { vbody.innerHTML = defaultBody; return }
