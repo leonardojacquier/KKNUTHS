@@ -1,3 +1,4 @@
+import { track } from './track'
 import gsap from 'gsap'
 
 /** Strings centralizadas — trocar ES→PT (Vendas/Institucional) é editar este objeto. */
@@ -65,6 +66,7 @@ export function initDoors(reduced: boolean): void {
 
     door.addEventListener('click', (e) => {
       e.preventDefault()
+      track('porta', side)
       const go = () => location.assign(door.href)
       if (reduced) { go(); return }
       sunFloat?.kill()

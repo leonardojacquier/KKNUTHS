@@ -2,6 +2,7 @@ import './style.css'
 import './ventas.css'
 import { mountFooter } from './footer'
 import { ADITIVOS, type Aditivo } from './aditivos-data'
+import { autoTrack, saveLead, track } from './track'
 
 const WA = '595995360060'
 const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}`
@@ -854,7 +855,15 @@ function initForm(): void {
       status.className = 'text-sm text-red-600'
       return
     }
-    // TODO Fase 6: gravar lead no Supabase antes de abrir o WhatsApp
+    // Fase 6C: guarda el lead (fire-and-forget) y registra el evento
+    void saveLead({
+      nombre,
+      whatsapp,
+      empresa: String(f.get('empresa') ?? ''),
+      producto: String(f.get('producto') ?? ''),
+      mensaje: String(f.get('mensaje') ?? ''),
+    })
+    track('lead', nombre)
     const msg = `Cotización GNH%0A`
       + `Nombre: ${nombre}%0A`
       + `Empresa: ${f.get('empresa') ?? ''}%0A`
@@ -872,4 +881,5 @@ renderCatalog()
 initBuscador()
 renderPromos()
 initForm()
+autoTrack()
 mountFooter()
