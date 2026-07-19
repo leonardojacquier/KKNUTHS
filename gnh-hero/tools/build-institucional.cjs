@@ -69,6 +69,12 @@ const LINEAS = [
     s: 'Cemento de alto desempeño para toda obra, con abastecimiento confiable y volúmenes a escala, respaldados por alianzas industriales de la región.',
     cta: 'Ver productos', href: '../ventas/',
   },
+  {
+    k: 'pisos', ic: 'i-floor', t: 'Pisos · Kasteller',
+    logo: '<img class="deck-logo" src="../img/kasteller-logo.png" alt="Kasteller Revestimientos" loading="lazy" onerror="this.remove()">',
+    s: 'Kasteller Revestimientos: pisos y revestimientos de alta gama para proyectos residenciales, comerciales y corporativos. Porcelanatos, mármoles y acabados premium que transforman cada ambiente en una declaración de estilo, con la curaduría del Grupo GNH.',
+    cta: 'Ver productos', href: '../ventas/',
+  },
 ]
 
 const scenes = FRENTES.map(([ic, title, desc], i) => `
@@ -163,6 +169,7 @@ pt: {
  'deck.morteros.t':'Argamassas','deck.morteros.s':'Revestimentos e argamassas industrializadas de desempenho consistente. Soluções prontas para uso que aceleram a obra e garantem qualidade uniforme em cada aplicação.',
  'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Sistemas construtivos Intonaco: reboco projetado com método, equipamento e equipe treinada. Até 5× mais produtividade que o reboco convencional, 1.000 m² em 5 a 7 dias e consumo de material controlado — prazo, custo, qualidade e satisfação em cada obra.',
  'deck.cementos.t':'Cimentos','deck.cementos.s':'Cimento de alto desempenho para toda obra, com abastecimento confiável e volumes em escala, respaldados por alianças industriais da região.',
+ 'deck.pisos.t':'Pisos · Kasteller','deck.pisos.s':'Kasteller Revestimientos: pisos e revestimentos de alto padrão para projetos residenciais, comerciais e corporativos. Porcelanatos, mármores e acabamentos premium que transformam cada ambiente em uma declaração de estilo, com a curadoria do Grupo GNH.',
  'cta.ver':'Ver produtos','cta.conocer':'Conhecer o sistema','fp.android':'App para Android — Google Play','fp.iphone':'App para iPhone — App Store'
 },
 en: {
@@ -178,6 +185,7 @@ en: {
  'deck.morteros.t':'Mortars','deck.morteros.s':'Industrialized renders and mortars with consistent performance. Ready-to-use solutions that speed up the job and guarantee uniform quality in every application.',
  'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Intonaco building systems: sprayed rendering with method, equipment and trained crews. Up to 5× the productivity of conventional rendering, 1,000 m² in 5–7 days and controlled material consumption — schedule, cost, quality and satisfaction on every job.',
  'deck.cementos.t':'Cements','deck.cementos.s':'High-performance cement for every job, with reliable supply and volumes at scale, backed by regional industrial alliances.',
+ 'deck.pisos.t':'Flooring · Kasteller','deck.pisos.s':'Kasteller Revestimientos: high-end floor and wall coverings for residential, commercial and corporate projects. Porcelain tiles, marbles and premium finishes that turn every space into a statement of style, curated by GNH Group.',
  'cta.ver':'See products','cta.conocer':'Discover the system','fp.android':'Android app — Google Play','fp.iphone':'iPhone app — App Store'
 },
 zh: {
@@ -193,6 +201,7 @@ zh: {
  'deck.morteros.t':'砂浆','deck.morteros.s':'性能稳定的工业化抹灰与砂浆。即取即用，加快施工进度，确保每次施工质量均一。',
  'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Intonaco建筑体系：以方法、设备与训练有素的团队实施机械喷涂抹灰。生产效率最高可达传统抹灰的5倍，1000平方米仅需5–7天，材料消耗可控——工期、成本、质量与满意度全面保障。',
  'deck.cementos.t':'水泥','deck.cementos.s':'适用于各类工程的高性能水泥，供应可靠、规模保障，依托区域工业联盟支持。',
+ 'deck.pisos.t':'地面装饰 · Kasteller','deck.pisos.s':'Kasteller Revestimientos：面向住宅、商业与企业项目的高端地面与墙面装饰材料。瓷砖、大理石与高级饰面，在GNH集团的甄选下，让每个空间都成为风格的宣言。',
  'cta.ver':'查看产品','cta.conocer':'了解系统','fp.android':'安卓应用 — Google Play','fp.iphone':'iPhone应用 — App Store'
 }
 };

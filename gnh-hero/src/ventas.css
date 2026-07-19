@@ -447,3 +447,7 @@
 
 /* logo FletePar en el panel de Fletes */
 .fp-logo { display: block; height: 42px; width: auto; margin-bottom: 10px; }
+
+/* ===== Kasteller: pisos y revestimientos ===== */
+.ks-logo { display: block; height: 40px; width: auto; margin-bottom: 12px; }
+.ks-photo img { max-height: 560px; object-fit: cover; object-position: center 35%; }

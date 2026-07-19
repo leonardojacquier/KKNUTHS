@@ -101,6 +101,11 @@ const CATALOG: Category[] = [
     blurb: 'Cemento de alto desempeño para toda obra.',
     products: [],
   },
+  {
+    id: 'pisos', title: 'Pisos', icon: 'floor',
+    blurb: 'Kasteller Revestimientos: pisos y revestimientos de alta gama que definen espacios.',
+    products: [], // la categoría se renderiza con el panel Kasteller (ver selectCategory)
+  },
 ]
 
 /* ---------- ícones ---------- */
@@ -116,6 +121,7 @@ const ICONS: Record<string, string> = {
   chevL: '<path d="M15 5l-7 7 7 7"/>',
   chevR: '<path d="M9 5l7 7-7 7"/>',
   spray: '<path d="M3 9h7l2-2h3v6h-3l-2 -2H3z"/><path d="M7 11v6a2 2 0 0 0 2 2h2"/><path d="M18.5 5.2l1.8-1.2M19.6 8.5h2.2M18.5 11.8l1.8 1.2"/>',
+  floor: '<rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 12h18M9 6v6M15 12v6"/>',
 }
 const icon = (k: string, cls = '') =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${ICONS[k] ?? ''}</svg>`
@@ -494,6 +500,28 @@ function selectCategory(id: string, scroll = false): void {
       <figcaption>«Lo que está por debajo define lo que se ve al final.» — el revoque como etapa estratégica.</figcaption>
     </figure>`
 
+  // Kasteller: pisos y revestimientos de alta gama
+  const kastellerIntro = cat.id !== 'pisos' ? '' : `
+    <div class="fp-panel">
+      <div class="fp-text">
+        <img class="ks-logo" src="../img/kasteller-logo.png" alt="Kasteller Revestimientos" onerror="this.remove()">
+        <h3>Revestimientos que definen espacios</h3>
+        <p>Pisos y revestimientos de alta gama para proyectos residenciales, comerciales y corporativos.
+        <b>Kasteller Revestimientos</b> reúne porcelanatos, mármoles y acabados premium seleccionados
+        para transformar cada ambiente en una declaración de estilo — con la curaduría y el respaldo
+        del Grupo GNH. Asesoramos tu proyecto desde la elección del material hasta la entrega en obra.</p>
+      </div>
+      <div class="fp-links">
+        <a href="https://www.instagram.com/kastellerrevestimientos" target="_blank" rel="noopener">📷 Instagram — @kastellerrevestimientos</a>
+        <a href="https://www.facebook.com/profile.php?id=100050328950600" target="_blank" rel="noopener">👍 Facebook — Kasteller Revestimientos</a>
+        <a href="${wa('Hola, quiero más información sobre los revestimientos Kasteller')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
+      </div>
+    </div>
+    <figure class="in-photo ks-photo">
+      <img src="../img/kasteller-ambiente.jpg" alt="Ambiente con revestimientos Kasteller: mármol, madera y diseño de autor" loading="lazy" onerror="this.parentElement.remove()">
+      <figcaption>Mármol, madera y luz: los revestimientos como protagonistas del proyecto.</figcaption>
+    </figure>`
+
   let body: string
   if (cat.id === 'aditivos' && ADITIVOS.length) {
     // agrupa por familia
@@ -518,6 +546,8 @@ function selectCategory(id: string, scroll = false): void {
     body = '' // el panel FletePar (fletesIntro) es todo el contenido de la categoría
   } else if (cat.id === 'intonaco') {
     body = '' // el panel Intonaco (intonacoIntro) es todo el contenido de la categoría
+  } else if (cat.id === 'pisos') {
+    body = '' // el panel Kasteller (kastellerIntro) es todo el contenido de la categoría
   } else if (cat.products && cat.products.length) {
     body = `<div class="v-rail">${cat.products.map(productCard).join('')}</div>`
   } else {
@@ -538,12 +568,12 @@ function selectCategory(id: string, scroll = false): void {
         <input class="v-filter" id="v-filter" type="search" autocomplete="off" placeholder="Buscar en ${cat.title.toLowerCase()}…">
       </div>
     </div>
-    <div id="v-body">${fletesIntro}${intonacoIntro}${body}</div>`
+    <div id="v-body">${fletesIntro}${intonacoIntro}${kastellerIntro}${body}</div>`
   // búsqueda DENTRO de la categoría: misma lógica que el buscador, pero solo con
   // los productos de esta categoría — muestra únicamente los que coinciden
   const flt = document.getElementById('v-filter') as HTMLInputElement | null
   const vbody = document.getElementById('v-body')!
-  const defaultBody = fletesIntro + intonacoIntro + body
+  const defaultBody = fletesIntro + intonacoIntro + kastellerIntro + body
   flt?.addEventListener('input', () => {
     const groups = termGroups(flt.value)
     if (!groups.length) { vbody.innerHTML = defaultBody; return }
