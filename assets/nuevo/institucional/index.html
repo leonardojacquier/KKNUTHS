@@ -248,13 +248,17 @@ svg{display:block}
   display:grid;place-items:center;
 }
 .about-visual .frame > *{grid-area:1/1}
+/* vídeo del grupo dentro del marco (entra con fade cuando está listo) */
+.about-video{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s;z-index:1}
+.frame.video-on .about-video{opacity:1}
+.frame.video-on .orbit,.frame.video-on .orbit2,.frame.video-on .logo-spin,.frame.video-on .fallback{opacity:0;transition:opacity .8s}
 /* logo real girando lentamente + anillos orbitales en contra-rotación */
 .logo-spin{width:46%;height:auto;animation:slow-spin 60s linear infinite;filter:drop-shadow(0 10px 40px rgba(6,10,24,.5))}
 .orbit{width:78%;height:auto;opacity:.5;animation:slow-spin-rev 45s linear infinite}
 .orbit2{width:92%;height:auto;opacity:.25;animation:slow-spin 70s linear infinite}
 .frame .fallback{width:46%;height:auto;display:none;animation:slow-spin 60s linear infinite}
 .about-visual .chip{
-  position:absolute;background:#fff;border-radius:16px;padding:14px 20px;
+  position:absolute;z-index:2;background:#fff;border-radius:16px;padding:14px 20px;
   box-shadow:0 20px 44px -16px rgba(20,24,33,.3);
   font-family:var(--font-head);font-weight:600;color:var(--navy);font-size:15px;
   display:flex;align-items:center;gap:10px;animation:float 6s ease-in-out infinite;
@@ -692,6 +696,11 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       </div>
       <div class="about-visual reveal d2">
         <div class="frame">
+          <!-- selección de vídeos del grupo (lazy); si falla, quedan los anillos + logo -->
+          <video class="about-video" muted loop playsinline preload="none" data-lazy aria-hidden="true">
+            <source data-src="/assets/video/about-gnh.webm" type="video/webm">
+            <source data-src="/assets/video/about-gnh.mp4" type="video/mp4">
+          </video>
           <!-- anillos orbitales -->
           <svg class="orbit2" viewBox="0 0 200 200" fill="none" aria-hidden="true">
             <circle cx="100" cy="100" r="96" stroke="rgba(255,255,255,.5)" stroke-width=".8" stroke-dasharray="2 7"/>
@@ -1167,7 +1176,7 @@ window.__io = io;
       vio.unobserve(v);
       v.querySelectorAll('source[data-src]').forEach(s => { s.src = s.dataset.src; });
       v.load();
-      const holder = v.closest('.showcase') || v.closest('.cat');
+      const holder = v.closest('.showcase') || v.closest('.cat') || v.closest('.frame');
       v.addEventListener('canplay', () => {
         holder && holder.classList.add('video-on');
         v.play().catch(() => {});
