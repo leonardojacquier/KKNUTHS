@@ -4,6 +4,9 @@ name: Baixar logos de clientes (gnhorizons.com)
 # para que el carrusel funcione sin depender del sitio viejo.
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
+    paths: ['.github/workflows/fetch-clients.yml']
 
 permissions:
   contents: write
