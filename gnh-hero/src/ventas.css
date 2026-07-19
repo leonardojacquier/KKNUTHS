@@ -456,3 +456,13 @@
 .ks-logo { display: block; height: 40px; width: auto; margin-bottom: 12px; }
 .ks-photo { max-width: 540px; margin-inline: auto; }
 .ks-photo img { width: 100%; height: auto; }
+
+/* ===== tablas de modelos dentro de las tarjetas de producto ===== */
+.v-specs { margin: 2px 0 10px; }
+.v-specs summary { cursor: pointer; color: #1E3A8A; font-weight: 600; font-size: 13.5px; min-height: 34px; display: flex; align-items: center; list-style-position: inside; }
+.v-specs summary:hover { color: #F26D21; }
+.v-specs-scroll { max-height: 220px; overflow: auto; border: 1px solid #E4E8F1; border-radius: 10px; margin-top: 6px; }
+.v-specs table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.v-specs th { position: sticky; top: 0; background: #0F172A; color: #fff; padding: 6px 9px; text-align: left; white-space: nowrap; font-weight: 600; }
+.v-specs td { padding: 5px 9px; border-top: 1px solid #EEF1F6; white-space: nowrap; color: #3c4250; }
+.v-specs tr:nth-child(even) td { background: #F7F9FC; }
