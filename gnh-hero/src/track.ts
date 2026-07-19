@@ -4,9 +4,9 @@
    están vacías (proyecto pausado), todo es un no-op inofensivo.
    ============================================================ */
 
-// AJUSTAR al restaurar el proyecto Supabase (Base de Dados Resultado - GNH)
-const SUPABASE_URL = ''
-const SUPABASE_KEY = ''
+// Proyecto Supabase: Base de Dados Resultado - GNH (clave anon: solo INSERT via RLS)
+const SUPABASE_URL = 'https://tqvrsusrbnyahpxhnwxe.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdnJzdXNyYm55YWhweGhud3hlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2ODYxMzEsImV4cCI6MjA5MjI2MjEzMX0.EIWs1fTwRVT_C5nAjIThvEzZ-ZMMNK_QiYTeHMn-wZo'
 
 function sid(): string {
   try {
