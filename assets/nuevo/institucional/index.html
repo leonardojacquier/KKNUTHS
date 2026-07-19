@@ -1147,7 +1147,8 @@ window.__io = io;
 /* ---------- Logos reales de clientes (hotlink al sitio actual) ---------- */
 (() => {
   const track = document.getElementById('clientMarquee');
-  const BASES = ['https://gnhorizons.com/assets/images/clients/','https://gnhorizons.com/assets/img/clients/'];
+  // Local primero (logos versionadas en el repo); hotlink al sitio viejo solo como respaldo.
+  const BASES = ['/assets/img/clients/','https://gnhorizons.com/assets/images/clients/','https://gnhorizons.com/assets/img/clients/'];
   // Marcas ocultas del carrusel (por número de client-N.png). Votorantim y Cauê: completar el nº.
   const SKIP = new Set([]);
   const makeImg = n => {
