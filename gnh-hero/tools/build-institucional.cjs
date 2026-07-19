@@ -18,6 +18,12 @@ lines = lines.map((l) =>
 
 let html = lines.join('\n')
 
+// 1b) logo del nav: vuelve a la página de apertura (gateway en ../), no al tope
+html = html.replace(
+  '<nav class="nav" id="nav" aria-label="Principal">\n  <a href="#hero" class="logo"',
+  '<nav class="nav" id="nav" aria-label="Principal">\n  <a href="../" class="logo"'
+)
+
 // 2) "Nuestras fortalezas" em formato CINEMATOGRÁFICO (cenas alternadas, big type, reveal)
 const FRENTES = [
   ['i-globe', 'Comercio Internacional', 'Importación y exportación estratégica. Conectamos marcas globales con Paraguay y Brasil, con procesos aduaneros ágiles y seguros.'],
