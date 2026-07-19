@@ -515,8 +515,12 @@ svg{display:block}
 
 /* Footer */
 footer{background:var(--navy-ink);color:rgba(255,255,255,.6);padding:60px 0 0}
-.foot-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:40px;padding-bottom:44px}
+.foot-grid{display:grid;grid-template-columns:1.4fr auto;gap:40px;padding-bottom:44px;align-items:start}
+.foot-grid>div:last-child{justify-self:end;text-align:left}
+.foot-name{font-family:var(--font-head);font-weight:700;font-size:19px;color:#fff;margin-top:16px}
+.foot-tagline{font-size:15px;color:rgba(255,255,255,.65);margin-top:4px}
 @media(max-width:800px){.foot-grid{grid-template-columns:1fr;text-align:center}
+  .foot-grid>div:last-child{justify-self:center;text-align:center}
   .foot-grid .logo{justify-content:center}.social{justify-content:center}}
 footer h4{color:#fff;font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
 footer p{font-size:15.5px;margin-bottom:8px}
@@ -967,8 +971,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <div class="foot-grid">
       <div>
         <a href="#hero" class="logo" aria-label="GNH — inicio">
-          <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH" style="height:48px;width:auto"
-               onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.style.display='none';this.parentElement.querySelector('svg').style.display='block'}">
+          <img src="/assets/nuevo/img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes" style="height:74px;width:auto"
+               onerror="this.style.display='none';this.parentElement.querySelector('svg').style.display='block'">
           <svg viewBox="0 0 230 80" style="height:48px;width:auto;display:none" role="img" aria-label="GNH">
             <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
             <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
@@ -979,27 +983,25 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
             <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
           </svg>
         </a>
-        <p style="margin-top:14px;max-width:300px">Generando Nuevos Horizontes — tu aliado estratégico para el crecimiento.</p>
-        <button class="link-cta" id="openCeoFoot" style="color:rgba(255,255,255,.85);border-color:var(--orange)">Carta del CEO</button>
-      </div>
-      <div>
-        <h4>Contacto</h4>
-        <p><a href="tel:+595995360060">+595 995 360060</a></p>
-        <p><a href="mailto:nuevosnegocios@gnhorizons.com">nuevosnegocios@gnhorizons.com</a></p>
-      </div>
-      <div>
-        <h4>Síguenos</h4>
+        <p class="foot-name">Generando Nuevos Horizontes</p>
+        <p class="foot-tagline">Tu aliado estratégico para el crecimiento.</p>
         <div class="social">
-          <a href="https://www.facebook.com/share/1BZWSKyvbK/" target="_blank" rel="noopener" aria-label="Facebook">
-            <svg viewBox="0 0 24 24"><use href="#i-fb"/></svg>
-          </a>
           <a href="https://www.instagram.com/gnhorizons" target="_blank" rel="noopener" aria-label="Instagram">
             <svg viewBox="0 0 24 24"><use href="#i-ig"/></svg>
+          </a>
+          <a href="https://www.facebook.com/share/1BZWSKyvbK/" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg viewBox="0 0 24 24"><use href="#i-fb"/></svg>
           </a>
           <a href="https://www.tiktok.com/@gnhorizons" target="_blank" rel="noopener" aria-label="TikTok">
             <svg viewBox="0 0 24 24"><use href="#i-tt"/></svg>
           </a>
         </div>
+      </div>
+      <div>
+        <h4>Contacto</h4>
+        <p><a href="tel:+595995360060">+595 995 360060</a></p>
+        <p><a href="mailto:nuevosnegocios@gnhorizons.com">nuevosnegocios@gnhorizons.com</a></p>
+        <p><a href="https://wa.me/595995360060?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n" target="_blank" rel="noopener">WhatsApp</a></p>
       </div>
     </div>
   </div>
@@ -1171,7 +1173,7 @@ document.querySelectorAll('[data-count]').forEach(el => countIO.observe(el));
 /* ---------- Modal Carta CEO ---------- */
 const ceoModal = document.getElementById('ceoModal');
 ['openCeo','openCeoFoot'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => ceoModal.showModal());
+  document.getElementById(id)?.addEventListener('click', () => ceoModal.showModal());
 });
 document.getElementById('closeCeo').addEventListener('click', () => ceoModal.close());
 ceoModal.addEventListener('click', e => { if (e.target === ceoModal) ceoModal.close(); });
