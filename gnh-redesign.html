@@ -723,7 +723,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="marquee rev" id="clientMarquee" aria-label="Marcas y socios de GNH"></div>
 
   <div class="stats">
-    <div class="stat reveal d1"><div class="num"><span data-count="14">0</span><span class="u">+</span></div><div class="lbl">Marcas representadas</div></div>
+    <div class="stat reveal d1"><div class="num"><span data-count="12">0</span><span class="u">+</span></div><div class="lbl">Marcas representadas</div></div>
     <div class="stat reveal d2"><div class="num"><span data-count="6">0</span></div><div class="lbl">Frentes de negocio</div></div>
     <div class="stat reveal d3"><div class="num"><span data-count="4">0</span></div><div class="lbl">Alianzas estratégicas</div></div>
   </div>
@@ -1085,8 +1085,8 @@ window.__io = io;
   const track = document.getElementById('clientMarquee');
   // Local primero (logos versionadas en el repo); hotlink al sitio viejo solo como respaldo.
   const BASES = ['assets/img/clients/','https://gnhorizons.com/assets/images/clients/','https://gnhorizons.com/assets/img/clients/'];
-  // Marcas ocultas del carrusel (por número de client-N.png). Votorantim y Cauê: completar el nº.
-  const SKIP = new Set([]);
+  // Marcas ocultas del carrusel: 2 = Votorantim (Votoran cimentos), 10 = Cauê.
+  const SKIP = new Set([2, 10]);
   const makeImg = n => {
     const img = new Image();
     img.className = 'm-logo'; img.alt = 'Marca aliada de GNH'; img.loading = 'lazy';
