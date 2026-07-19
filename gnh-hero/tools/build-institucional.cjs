@@ -150,6 +150,17 @@ if (start !== -1 && showcase !== -1 && showcase > start) {
   throw new Error('marcadores de catálogo não encontrados')
 }
 
+// 3b) quita la banda clara de Contacto (el pie oscuro ya trae contacto y redes);
+//     el ancla #contacto pasa al propio footer para que el menú siga funcionando
+const cStart = html.indexOf('<!-- ============ CONTACTO ============ -->')
+const cEnd = html.indexOf('<!-- ============ FOOTER ============ -->')
+if (cStart !== -1 && cEnd !== -1 && cEnd > cStart) {
+  html = html.slice(0, cStart) + html.slice(cEnd)
+  html = html.replace('<!-- ============ FOOTER ============ -->\n<footer>', '<!-- ============ FOOTER ============ -->\n<footer id="contacto">')
+} else {
+  throw new Error('marcadores de contacto não encontrados')
+}
+
 // 4) vídeos e logos de clientes: caminho absoluto (a página fica em /assets/nuevo/institucional/)
 html = html.replace(/(src|data-src)="assets\/video\//g, '$1="/assets/video/')
 html = html.replace(/'assets\/img\/clients\/'/g, "'/assets/img/clients/'")
@@ -166,6 +177,8 @@ for (const outDir of outDirs) {
 
 // sanity
 if (/id="catalogo"/.test(html)) throw new Error('catálogo ainda presente')
+if (/Contacta con nosotros/.test(html)) throw new Error('banda de contacto ainda presente')
+if (!/<footer id="contacto">/.test(html)) throw new Error('âncora #contacto não movida ao footer')
 if (!/id="frentes"/.test(html)) throw new Error('deck de frentes não injetado')
 if (!/id="flota"/.test(html)) throw new Error('showcase sumiu')
 if (!/<\/html>\s*$/.test(html)) throw new Error('HTML truncado')
