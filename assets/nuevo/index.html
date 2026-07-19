@@ -23,10 +23,10 @@
   <main id="gateway" class="relative flex h-[100svh] flex-col items-center justify-center overflow-hidden px-6">
 
     <!-- LOGO — oficial via hotlink (mesmo mecanismo do site em produção);
-         cai no SVG vetorial local se o gnhorizons.com estiver inacessível -->
+         logo local; cai no SVG vetorial se a imagem faltar -->
     <div class="gw-logo mb-10">
-      <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH" class="h-16 w-auto"
-           onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.onerror=null;this.src='./img/gnh-logo.svg'}">
+      <img src="./img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes" class="h-16 w-auto"
+           onerror="this.onerror=null;this.src='./img/gnh-logo.svg'">
     </div>
 
     <!-- HORIZONTE — linha assinatura + "sol" -->

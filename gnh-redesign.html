@@ -10,7 +10,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="GNH — Generando Nuevos Horizontes">
 <meta property="og:description" content="Comercio internacional, distribución y alianzas estratégicas que llevan tu negocio más lejos.">
-<meta property="og:image" content="https://gnhorizons.com/assets/images/logo300.png">
+<meta property="og:image" content="https://gnhorizons.com/assets/nuevo/img/logo-oficial.png">
 <meta property="og:locale" content="es_PY">
 <script type="application/ld+json">
 {
@@ -18,7 +18,7 @@
   "@type": "Organization",
   "name": "GNH — Generando Nuevos Horizontes",
   "url": "https://gnhorizons.com/",
-  "logo": "https://gnhorizons.com/assets/images/logo300.png",
+  "logo": "https://gnhorizons.com/assets/nuevo/img/logo-oficial.png",
   "description": "Grupo empresarial de comercio internacional: importación, exportación, distribución mayorista, logística y representación de marcas.",
   "email": "nuevosnegocios@gnhorizons.com",
   "telephone": "+595995360060",
@@ -626,8 +626,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <nav class="nav" id="nav" aria-label="Principal">
   <a href="#hero" class="logo" aria-label="GNH — inicio">
     <!-- Logo real del sitio (hotlink); si la ruta falla, entra el SVG de respaldo -->
-    <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH"
-         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.style.display='none';this.parentElement.querySelector('svg').style.display='block'}">
+    <img src="/assets/nuevo/img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes"
+         onerror="this.style.display='none';this.parentElement.querySelector('svg').style.display='block'">
     <svg viewBox="0 0 230 80" role="img" aria-label="GNH" style="display:none">
       <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
       <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
@@ -719,10 +719,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
             <circle cx="100" cy="10" r="4" fill="#F26D21"/>
             <circle cx="100" cy="190" r="2.6" fill="#3B82F6"/>
           </svg>
-          <!-- logo real girando (hotlink; respaldo SVG si la ruta cambia) -->
-          <img class="logo-spin" src="https://gnhorizons.com/assets/images/logo300.png" alt="Logo GNH"
-               onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo300.png'}else{this.style.display='none';this.parentElement.querySelector('.fallback').style.display='block'}">
-          <svg class="fallback" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+          <!-- logo vetorial local girando (autocontenida) -->
+          <svg class="fallback" viewBox="0 0 200 200" fill="none" aria-hidden="true" style="display:block">
             <circle cx="100" cy="100" r="82" stroke="rgba(255,255,255,.85)" stroke-width="3"/>
             <ellipse cx="100" cy="100" rx="45" ry="82" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
             <line x1="18" y1="100" x2="182" y2="100" stroke="rgba(255,255,255,.6)" stroke-width="1.6"/>
@@ -1106,7 +1104,7 @@ window.__io = io;
 (() => {
   const track = document.getElementById('clientMarquee');
   // Local primero (logos versionadas en el repo); hotlink al sitio viejo solo como respaldo.
-  const BASES = ['assets/img/clients/','https://gnhorizons.com/assets/images/clients/','https://gnhorizons.com/assets/img/clients/'];
+  const BASES = ['assets/img/clients/'];  // logos versionadas en el repo — sin dependencia del sitio viejo
   // Marcas ocultas del carrusel: 2 = Votorantim (Votoran cimentos), 10 = Cauê.
   const SKIP = new Set([2, 10]);
   const makeImg = n => {
