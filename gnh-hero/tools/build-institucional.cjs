@@ -12,8 +12,8 @@ let lines = src.split('\n')
 
 // 1) troca o item de menu "Catálogo" por "Grupo" -> #frentes
 lines = lines.map((l) =>
-  /<li><a href="#catalogo">Catálogo<\/a><\/li>/.test(l)
-    ? '          <li><a href="#frentes">Grupo</a></li>'
+  /<a href="#catalogo"/.test(l) && /Catálogo<\/a><\/li>/.test(l)
+    ? '          <li><a href="#frentes" data-i18n="nav.grupo">Grupo</a></li>'
     : l)
 
 let html = lines.join('\n')
@@ -28,18 +28,18 @@ const FRENTES = [
 // deck institucional: cada frente de negocio con su resumen (se revela al seleccionar)
 const LINEAS = [
   {
-    ic: 'i-gear', t: 'Equipos',
+    k: 'equipos', ic: 'i-gear', t: 'Equipos',
     s: 'Importamos y representamos equipos y maquinaria para la construcción y la industria: reglas láser, bombas, grúas araña, montacargas y generadores. Selección estratégica del mercado internacional, con respaldo y repuestos locales.',
     cta: 'Ver productos', href: '../ventas/',
   },
   {
-    ic: 'i-flask', t: 'Aditivos',
+    k: 'aditivos', ic: 'i-flask', t: 'Aditivos',
     logo: '<img class="deck-logo on-chip" src="../img/logo-camargo.png" alt="Camargo Química" loading="lazy" onerror="this.remove()">',
     s: 'Distribuidores exclusivos de Camargo Química en Paraguay: aditivos y soluciones químicas para cada etapa de la obra — impermeabilizantes, plastificantes, curadores y desmoldantes, con asesoría técnica especializada.',
     cta: 'Ver productos', href: '../ventas/',
   },
   {
-    ic: 'i-truck', t: 'Fletes · FletePar',
+    k: 'fletes', ic: 'i-truck', t: 'Fletes · FletePar',
     logo: '<img class="deck-logo" src="../img/fletepar-logo.png" alt="FletePar" loading="lazy" onerror="this.remove()">',
     s: 'Nuestra plataforma tecnológica de logística. FletePar es el marketplace de fletes #1 de Paraguay: conecta empresas con cargas y transportistas verificados, con rastreo GPS en tiempo real, pagos protegidos y seguro de carga de punta a punta.',
     links: [
@@ -48,18 +48,18 @@ const LINEAS = [
     ],
   },
   {
-    ic: 'i-tiles', t: 'Morteros',
+    k: 'morteros', ic: 'i-tiles', t: 'Morteros',
     s: 'Revoques y morteros industrializados de desempeño consistente. Soluciones listas para usar que aceleran la obra y garantizan calidad uniforme en cada aplicación.',
     cta: 'Ver productos', href: '../ventas/',
   },
   {
-    ic: 'i-spray', t: 'Intonaco',
+    k: 'intonaco', ic: 'i-spray', t: 'Intonaco',
     logo: '<img class="deck-logo on-chip" src="../img/intonaco-logo.png" alt="Intonaco — Sistemas Constructivos" loading="lazy" onerror="this.remove()">',
     s: 'Sistemas constructivos Intonaco: revoque proyectado con método, equipamiento y personal entrenado. Hasta 5× más productividad que el revoque convencional, 1.000 m² en 5 a 7 días y consumo de material controlado — plazo, costo, calidad y satisfacción en cada obra.',
-    cta: 'Conocer el sistema', href: '../ventas/',
+    cta: 'Conocer el sistema', ctaK: 'cta.conocer', href: '../ventas/',
   },
   {
-    ic: 'i-layers', t: 'Cementos',
+    k: 'cementos', ic: 'i-layers', t: 'Cementos',
     s: 'Cemento de alto desempeño para toda obra, con abastecimiento confiable y volúmenes a escala, respaldados por alianzas industriales de la región.',
     cta: 'Ver productos', href: '../ventas/',
   },
@@ -71,8 +71,8 @@ const scenes = FRENTES.map(([ic, title, desc], i) => `
         <div class="fort-num" aria-hidden="true">0${i + 1}</div>
         <div class="fort-text">
           <div class="fort-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#${ic}"/></svg></div>
-          <h3>${title}</h3>
-          <p>${desc}</p>
+          <h3 data-i18n="fort.${i + 1}t">${title}</h3>
+          <p data-i18n="fort.${i + 1}d">${desc}</p>
         </div>
         <div class="fort-ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><use href="#${ic}"/></svg></div>
       </div>
@@ -113,8 +113,8 @@ const NEW_DECK = `<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) =====
 <section class="fort-cine" id="frentes">
   <div class="wrap head reveal">
     <span class="tag">Grupo GNH</span>
-    <h2>Nuestras <span style="color:var(--orange)">fortalezas</span></h2>
-    <p>Cuatro pilares que trabajan como uno.</p>
+    <h2 data-i18n="fort.h2">Nuestras <span style="color:var(--orange)">fortalezas</span></h2>
+    <p data-i18n="fort.p">Cuatro pilares que trabajan como uno.</p>
   </div>
   ${scenes}
 </section>
@@ -122,25 +122,75 @@ const NEW_DECK = `<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) =====
 <!-- ============ NUESTROS NEGOCIOS (deck institucional) ============ -->
 <section class="section alt" id="lineas">
   <div class="wrap">
-    <h2 class="reveal d1">Nuestros <span style="color:var(--orange)">Negocios</span></h2>
+    <h2 class="reveal d1" data-i18n="negocios.h2">Nuestros <span style="color:var(--orange)">Negocios</span></h2>
     <div class="cat-deck reveal d2">${LINEAS.map((L) => `
       <article class="cat" tabindex="0">
         <div class="ghost"><svg viewBox="0 0 24 24" fill="none"><use href="#${L.ic}"/></svg></div>
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#${L.ic}"/></svg></div>
-        <span class="t-vert">${L.t}</span>
+        <span class="t-vert" data-i18n="deck.${L.k}.t">${L.t}</span>
         <div class="body">
-          ${L.logo ?? ''}<h3>${L.t}</h3>
-          <p>${L.s}</p>
+          ${L.logo ?? ''}<h3 data-i18n="deck.${L.k}.t">${L.t}</h3>
+          <p data-i18n="deck.${L.k}.s">${L.s}</p>
           ${L.links
             ? `<div class="fp-links">${L.links.map(([ic, label, href]) => `
-            <a href="${href}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#${ic}"/></svg> ${label}</a>`).join('')}
+            <a href="${href}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#${ic}"/></svg> <span data-i18n="fp.${ic === 'i-android' ? 'android' : 'iphone'}">${label}</span></a>`).join('')}
           </div>`
-            : `<a class="go" href="${L.href}">${L.cta} <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>`}
+            : `<a class="go" href="${L.href}"><span data-i18n="${L.ctaK ?? 'cta.ver'}">${L.cta}</span> <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>`}
         </div>
       </article>`).join('')}
     </div>
   </div>
 </section>
+
+<script>
+window.I18N_EXTRA = {
+pt: {
+ 'fort.h2':'Nossas <span style="color:var(--orange)">forças</span>','fort.p':'Quatro pilares que trabalham como um só.',
+ 'fort.1t':'Comércio Internacional','fort.1d':'Importação e exportação estratégicas. Conectamos marcas globais ao Paraguai e ao Brasil, com processos aduaneiros ágeis e seguros.',
+ 'fort.2t':'Logística — FletePar','fort.2d':'O marketplace de fretes nº 1 do Paraguai: conecta cargas a transportadores verificados, com rastreamento GPS e pagamentos seguros.',
+ 'fort.3t':'Representação de Marcas','fort.3d':'Representação exclusiva de marcas internacionais, com desenvolvimento comercial, posicionamento e suporte local.',
+ 'fort.4t':'Alianças Estratégicas','fort.4d':'Parceiros na China, no Brasil e no Paraguai que ampliam nosso alcance, nossa capacidade e nossos horizontes.',
+ 'negocios.h2':'Nossos <span style="color:var(--orange)">Negócios</span>',
+ 'deck.equipos.t':'Equipamentos','deck.equipos.s':'Importamos e representamos equipamentos e máquinas para a construção e a indústria: réguas a laser, bombas, guindastes-aranha, empilhadeiras e geradores. Seleção estratégica do mercado internacional, com suporte e peças locais.',
+ 'deck.aditivos.t':'Aditivos','deck.aditivos.s':'Distribuidores exclusivos da Camargo Química no Paraguai: aditivos e soluções químicas para cada etapa da obra — impermeabilizantes, plastificantes, curadores e desmoldantes, com assessoria técnica especializada.',
+ 'deck.fletes.t':'Fretes · FletePar','deck.fletes.s':'Nossa plataforma tecnológica de logística. O FletePar é o marketplace de fretes nº 1 do Paraguai: conecta empresas com cargas a transportadores verificados, com rastreamento GPS em tempo real, pagamentos protegidos e seguro de carga de ponta a ponta.',
+ 'deck.morteros.t':'Argamassas','deck.morteros.s':'Revestimentos e argamassas industrializadas de desempenho consistente. Soluções prontas para uso que aceleram a obra e garantem qualidade uniforme em cada aplicação.',
+ 'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Sistemas construtivos Intonaco: reboco projetado com método, equipamento e equipe treinada. Até 5× mais produtividade que o reboco convencional, 1.000 m² em 5 a 7 dias e consumo de material controlado — prazo, custo, qualidade e satisfação em cada obra.',
+ 'deck.cementos.t':'Cimentos','deck.cementos.s':'Cimento de alto desempenho para toda obra, com abastecimento confiável e volumes em escala, respaldados por alianças industriais da região.',
+ 'cta.ver':'Ver produtos','cta.conocer':'Conhecer o sistema','fp.android':'App para Android — Google Play','fp.iphone':'App para iPhone — App Store'
+},
+en: {
+ 'fort.h2':'Our <span style="color:var(--orange)">strengths</span>','fort.p':'Four pillars working as one.',
+ 'fort.1t':'International Trade','fort.1d':'Strategic import and export. We connect global brands with Paraguay and Brazil through fast, secure customs processes.',
+ 'fort.2t':'Logistics — FletePar','fort.2d':"Paraguay's #1 freight marketplace: connecting cargo with verified carriers, with GPS tracking and secure payments.",
+ 'fort.3t':'Brand Representation','fort.3d':'Exclusive representation of international brands, with commercial development, positioning and local support.',
+ 'fort.4t':'Strategic Alliances','fort.4d':'Partners in China, Brazil and Paraguay expanding our reach, capacity and horizons.',
+ 'negocios.h2':'Our <span style="color:var(--orange)">Businesses</span>',
+ 'deck.equipos.t':'Equipment','deck.equipos.s':'We import and represent equipment and machinery for construction and industry: laser screeds, pumps, spider cranes, forklifts and generators. Strategically sourced worldwide, with local support and spare parts.',
+ 'deck.aditivos.t':'Admixtures','deck.aditivos.s':'Exclusive distributors of Camargo Química in Paraguay: admixtures and chemical solutions for every stage of the job — waterproofing agents, plasticizers, curing compounds and release agents, with specialized technical advice.',
+ 'deck.fletes.t':'Freight · FletePar','deck.fletes.s':"Our logistics technology platform. FletePar is Paraguay's #1 freight marketplace: connecting companies with cargo to verified carriers, with real-time GPS tracking, protected payments and end-to-end cargo insurance.",
+ 'deck.morteros.t':'Mortars','deck.morteros.s':'Industrialized renders and mortars with consistent performance. Ready-to-use solutions that speed up the job and guarantee uniform quality in every application.',
+ 'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Intonaco building systems: sprayed rendering with method, equipment and trained crews. Up to 5× the productivity of conventional rendering, 1,000 m² in 5–7 days and controlled material consumption — schedule, cost, quality and satisfaction on every job.',
+ 'deck.cementos.t':'Cements','deck.cementos.s':'High-performance cement for every job, with reliable supply and volumes at scale, backed by regional industrial alliances.',
+ 'cta.ver':'See products','cta.conocer':'Discover the system','fp.android':'Android app — Google Play','fp.iphone':'iPhone app — App Store'
+},
+zh: {
+ 'fort.h2':'我们的<span style="color:var(--orange)">优势</span>','fort.p':'四大支柱，协同如一。',
+ 'fort.1t':'国际贸易','fort.1d':'战略性进出口业务。我们以快捷安全的清关流程，连接全球品牌与巴拉圭和巴西市场。',
+ 'fort.2t':'物流 — FletePar','fort.2d':'巴拉圭排名第一的货运平台：连接货主与认证承运人，提供GPS追踪与安全支付。',
+ 'fort.3t':'品牌代理','fort.3d':'国际品牌独家代理：商业开发、市场定位与本地支持。',
+ 'fort.4t':'战略联盟','fort.4d':'中国、巴西与巴拉圭的合作伙伴，不断拓展我们的覆盖、能力与视野。',
+ 'negocios.h2':'我们的<span style="color:var(--orange)">业务</span>',
+ 'deck.equipos.t':'设备','deck.equipos.s':'我们进口并代理建筑与工业设备机械：激光整平机、泵送设备、蜘蛛吊、叉车与发电机。全球战略选品，本地保障与备件供应。',
+ 'deck.aditivos.t':'外加剂','deck.aditivos.s':'Camargo Química在巴拉圭的独家经销商：覆盖施工各阶段的外加剂与化学解决方案——防水剂、减水剂、养护剂与脱模剂，并提供专业技术咨询。',
+ 'deck.fletes.t':'货运 · FletePar','deck.fletes.s':'我们的物流科技平台。FletePar是巴拉圭排名第一的货运平台：连接货主企业与认证承运人，提供实时GPS追踪、支付保障与全程货物保险。',
+ 'deck.morteros.t':'砂浆','deck.morteros.s':'性能稳定的工业化抹灰与砂浆。即取即用，加快施工进度，确保每次施工质量均一。',
+ 'deck.intonaco.t':'Intonaco','deck.intonaco.s':'Intonaco建筑体系：以方法、设备与训练有素的团队实施机械喷涂抹灰。生产效率最高可达传统抹灰的5倍，1000平方米仅需5–7天，材料消耗可控——工期、成本、质量与满意度全面保障。',
+ 'deck.cementos.t':'水泥','deck.cementos.s':'适用于各类工程的高性能水泥，供应可靠、规模保障，依托区域工业联盟支持。',
+ 'cta.ver':'查看产品','cta.conocer':'了解系统','fp.android':'安卓应用 — Google Play','fp.iphone':'iPhone应用 — App Store'
+}
+};
+</script>
 
 `
 

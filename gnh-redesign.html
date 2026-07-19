@@ -105,6 +105,11 @@ svg{display:block}
 .btn-ghost{background:rgba(6,10,24,.35);backdrop-filter:blur(6px);border:1.5px solid rgba(255,255,255,.45);box-shadow:none;color:#fff}
 .btn-ghost:hover{background:rgba(255,255,255,.12);box-shadow:none;border-color:rgba(255,255,255,.7)}
 .nav .btn{min-height:44px;padding:10px 22px;font-size:15px}
+.lang{display:flex;gap:4px}
+.lang button{font-family:var(--font-head);font-weight:600;font-size:11.5px;letter-spacing:.03em;color:rgba(255,255,255,.62);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 8px;min-height:30px;cursor:pointer;transition:color .25s,background .25s,border-color .25s}
+.lang button:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+.lang button.on{color:#fff;background:var(--orange);border-color:var(--orange)}
+@media(max-width:420px){.lang button{padding:4px 6px;font-size:10.5px}}
 .menu-toggle{display:none;background:none;border:0;cursor:pointer;padding:10px;min-width:44px;min-height:44px}
 .menu-toggle svg{stroke:#fff}
 @media(max-width:900px){
@@ -633,14 +638,17 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     </svg>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li><a href="#about">Acerca</a></li>
-    <li><a href="#alianzas">Alianzas</a></li>
-    <li><a href="#servicios">Servicios</a></li>
-    <li><a href="#catalogo">Catálogo</a></li>
-    <li><a href="#contacto">Contacto</a></li>
+    <li><a href="#about" data-i18n="nav.acerca">Acerca</a></li>
+    <li><a href="#alianzas" data-i18n="nav.alianzas">Alianzas</a></li>
+    <li><a href="#servicios" data-i18n="nav.servicios">Servicios</a></li>
+    <li><a href="#catalogo" data-i18n="nav.catalogo">Catálogo</a></li>
+    <li><a href="#contacto" data-i18n="nav.contacto">Contacto</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:8px">
-    <a class="btn" href="#contacto">Hablemos</a>
+    <div class="lang" id="langSwitch" aria-label="Idioma / Language">
+      <button type="button" data-lang="es" class="on">ES</button><button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="zh">中文</button>
+    </div>
+    <a class="btn" href="#contacto" data-i18n="nav.hablemos">Hablemos</a>
     <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú" aria-expanded="false">
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none"><use href="#i-menu"/></svg>
     </button>
@@ -665,10 +673,10 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg>
       Generando Nuevos Horizontes
     </span>
-    <h1 class="reveal in d1">Tu aliado estratégico<br>para el <span class="grad">crecimiento</span></h1>
-    <p class="sub reveal in d2">Integramos comercio internacional, distribución, logística y representación de marcas para llevar tu negocio más lejos.</p>
+    <h1 class="reveal in d1" data-i18n="hero.h1">Tu aliado estratégico<br>para el <span class="grad">crecimiento</span></h1>
+    <p class="sub reveal in d2" data-i18n="hero.sub">Integramos comercio internacional, distribución, logística y representación de marcas para llevar tu negocio más lejos.</p>
   </div>
-  <div class="scroll-cue" aria-hidden="true">Desliza<span class="dot"></span></div>
+  <div class="scroll-cue" aria-hidden="true"><span data-i18n="hero.cue">Desliza</span><span class="dot"></span></div>
   <button class="sound-btn" id="soundBtn" aria-label="Activar sonido del vídeo" aria-pressed="false">
     <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6"/></svg>
     <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
@@ -680,17 +688,17 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="wrap about">
     <div class="about-grid">
       <div>
-        <span class="tag reveal">Quiénes somos</span>
-        <h2 class="reveal d1">Conectamos marcas globales con mercados en crecimiento</h2>
-        <p class="lead reveal d2">GNH — Generando Nuevos Horizontes — es un grupo empresarial de comercio internacional. Nacimos en el sector de materiales de construcción y hoy integramos importación, exportación, distribución, logística y representación de marcas bajo una misma visión: generar valor real para nuestros socios.</p>
+        <span class="tag reveal" data-i18n="about.tag">Quiénes somos</span>
+        <h2 class="reveal d1" data-i18n="about.h2">Conectamos marcas globales con mercados en crecimiento</h2>
+        <p class="lead reveal d2" data-i18n="about.lead">GNH — Generando Nuevos Horizontes — es un grupo empresarial de comercio internacional. Nacimos en el sector de materiales de construcción y hoy integramos importación, exportación, distribución, logística y representación de marcas bajo una misma visión: generar valor real para nuestros socios.</p>
         <ul>
-          <li class="reveal d2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Visión global, ejecución local.</li>
-          <li class="reveal d3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Alianzas sólidas y de largo plazo.</li>
-          <li class="reveal d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> Innovación aplicada a cada operación.</li>
+          <li class="reveal d2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> <span data-i18n="about.li1">Visión global, ejecución local.</span></li>
+          <li class="reveal d3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> <span data-i18n="about.li2">Alianzas sólidas y de largo plazo.</span></li>
+          <li class="reveal d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-check"/></svg> <span data-i18n="about.li3">Innovación aplicada a cada operación.</span></li>
         </ul>
-        <p class="reveal d4" style="color:var(--muted);margin-bottom:24px">Del origen al punto de venta: seleccionamos productos estratégicos, desarrollamos canales comerciales y acompañamos a cada socio con procesos ágiles, transparentes y tecnología propia.</p>
+        <p class="reveal d4" style="color:var(--muted);margin-bottom:24px" data-i18n="about.p2">Del origen al punto de venta: seleccionamos productos estratégicos, desarrollamos canales comerciales y acompañamos a cada socio con procesos ágiles, transparentes y tecnología propia.</p>
         <button class="link-cta reveal d5" id="openCeo">
-          Carta del CEO – GNH
+          <span data-i18n="about.ceoBtn">Carta del CEO – GNH</span>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg>
         </button>
       </div>
@@ -720,8 +728,8 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
             <path d="M 32 40 Q 100 -4 168 40" stroke="#F26D21" stroke-width="9" stroke-linecap="round"/>
           </svg>
         </div>
-        <div class="chip c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg> Comercio global</div>
-        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg> Logística confiable</div>
+        <div class="chip c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg> <span data-i18n="about.chip1">Comercio global</span></div>
+        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg> <span data-i18n="about.chip2">Logística confiable</span></div>
       </div>
     </div>
   </div>
@@ -730,57 +738,57 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- ============ ALIANZAS ============ -->
 <section class="band" id="alianzas">
   <div class="wrap reveal">
-    <h2>Marcas y socios que confían en GNH</h2>
-    <p>Representamos y distribuimos marcas líderes de la región</p>
+    <h2 data-i18n="alianzas.h2">Marcas y socios que confían en GNH</h2>
+    <p data-i18n="alianzas.p">Representamos y distribuimos marcas líderes de la región</p>
   </div>
 
   <!-- Logos reales (hotlink del sitio actual; desaparecen con gracia si la ruta cambia) -->
   <div class="marquee rev" id="clientMarquee" aria-label="Marcas y socios de GNH"></div>
 
   <div class="stats">
-    <div class="stat reveal d1"><div class="num"><span data-count="14">0</span><span class="u">+</span></div><div class="lbl">Marcas representadas</div></div>
-    <div class="stat reveal d2"><div class="num"><span data-count="6">0</span></div><div class="lbl">Frentes de negocio</div></div>
-    <div class="stat reveal d3"><div class="num"><span data-count="4">0</span></div><div class="lbl">Alianzas estratégicas</div></div>
+    <div class="stat reveal d1"><div class="num"><span data-count="14">0</span><span class="u">+</span></div><div class="lbl" data-i18n="stats.marcas">Marcas representadas</div></div>
+    <div class="stat reveal d2"><div class="num"><span data-count="6">0</span></div><div class="lbl" data-i18n="stats.frentes">Frentes de negocio</div></div>
+    <div class="stat reveal d3"><div class="num"><span data-count="4">0</span></div><div class="lbl" data-i18n="stats.alianzas">Alianzas estratégicas</div></div>
   </div>
 </section>
 
 <!-- ============ SERVICIOS ============ -->
 <section class="section alt" id="servicios">
   <div class="wrap">
-    <span class="tag reveal">Servicios</span>
-    <h2 class="reveal d1">Soluciones integradas de comercio y distribución</h2>
-    <p class="lead reveal d2">Cinco frentes que funcionan como uno: del origen del producto al punto de venta.</p>
+    <span class="tag reveal" data-i18n="svc.tag">Servicios</span>
+    <h2 class="reveal d1" data-i18n="svc.h2">Soluciones integradas de comercio y distribución</h2>
+    <p class="lead reveal d2" data-i18n="svc.lead">Cinco frentes que funcionan como uno: del origen del producto al punto de venta.</p>
 
     <div class="svc-grid">
       <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-globe"/></svg></div>
-        <h3>Comercio Internacional</h3>
-        <p>Identificamos, importamos y nacionalizamos productos de alto potencial, con procesos aduaneros ágiles y seguros.</p>
+        <h3 data-i18n="svc.1t">Comercio Internacional</h3>
+        <p data-i18n="svc.1d">Identificamos, importamos y nacionalizamos productos de alto potencial, con procesos aduaneros ágiles y seguros.</p>
       </div>
       <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
-        <h3>Supply-Chain</h3>
-        <p>Red mayorista con cobertura regional: almacenamiento, transporte y entregas con trazabilidad total.</p>
+        <h3 data-i18n="svc.2t">Supply-Chain</h3>
+        <p data-i18n="svc.2d">Red mayorista con cobertura regional: almacenamiento, transporte y entregas con trazabilidad total.</p>
       </div>
       <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-handshake"/></svg></div>
-        <h3>Representación de Marcas</h3>
-        <p>Somos la cara local de marcas internacionales: desarrollo comercial, posicionamiento y soporte postventa.</p>
+        <h3 data-i18n="svc.3t">Representación de Marcas</h3>
+        <p data-i18n="svc.3d">Somos la cara local de marcas internacionales: desarrollo comercial, posicionamiento y soporte postventa.</p>
       </div>
       <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-market"/></svg></div>
-        <h3>Expansión de Mercados</h3>
-        <p>Abrimos canales nuevos para productos estratégicos y conectamos la oferta global con la demanda regional.</p>
+        <h3 data-i18n="svc.4t">Expansión de Mercados</h3>
+        <p data-i18n="svc.4d">Abrimos canales nuevos para productos estratégicos y conectamos la oferta global con la demanda regional.</p>
       </div>
       <div class="svc">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-gear"/></svg></div>
-        <h3>Tecnología y Automatización</h3>
-        <p>Procesos integrados y automatizados, con datos en tiempo real para decidir más rápido.</p>
+        <h3 data-i18n="svc.5t">Tecnología y Automatización</h3>
+        <p data-i18n="svc.5d">Procesos integrados y automatizados, con datos en tiempo real para decidir más rápido.</p>
       </div>
       <div class="svc" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;background:linear-gradient(150deg,var(--navy),var(--navy-2))">
-        <h3 style="color:#fff">¿Llevamos tu marca más lejos?</h3>
-        <p style="color:rgba(255,255,255,.7);margin-bottom:18px">Cuéntanos tu desafío y diseñamos la solución.</p>
-        <a class="btn" href="#contacto" style="min-height:44px;padding:10px 22px;font-size:15px">Conversemos</a>
+        <h3 style="color:#fff" data-i18n="svc.ctaT">¿Llevamos tu marca más lejos?</h3>
+        <p style="color:rgba(255,255,255,.7);margin-bottom:18px" data-i18n="svc.ctaP">Cuéntanos tu desafío y diseñamos la solución.</p>
+        <a class="btn" href="#contacto" style="min-height:44px;padding:10px 22px;font-size:15px" data-i18n="svc.ctaB">Conversemos</a>
       </div>
     </div>
   </div>
@@ -887,9 +895,9 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   </video>
   <div class="sc-veil" aria-hidden="true"></div>
   <div class="wrap sc-inner reveal">
-    <span class="tag">Seamos socios</span>
-    <h2>Generemos nuevos horizontes, juntos</h2>
-    <p>Cada gran operación empieza con una alianza. Sumate a las empresas que ya crecen con GNH y llevemos tu negocio más lejos.</p>
+    <span class="tag" data-i18n="showcase.tag">Seamos socios</span>
+    <h2 data-i18n="showcase.h2">Generemos nuevos horizontes, juntos</h2>
+    <p data-i18n="showcase.p">Cada gran operación empieza con una alianza. Sumate a las empresas que ya crecen con GNH y llevemos tu negocio más lejos.</p>
   </div>
 </section>
 
@@ -909,16 +917,16 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 </style>
 <section class="section alt" id="locales">
   <div class="wrap">
-    <span class="tag reveal">Presencia</span>
-    <h2 class="reveal d1">Nuestros locales</h2>
-    <p class="lead reveal d2">Estamos cerca de vos, en Paraguay. Visitanos o escribinos — te esperamos.</p>
+    <span class="tag reveal" data-i18n="locales.tag">Presencia</span>
+    <h2 class="reveal d1" data-i18n="locales.h2">Nuestros locales</h2>
+    <p class="lead reveal d2" data-i18n="locales.lead">Estamos cerca de vos, en Paraguay. Visitanos o escribinos — te esperamos.</p>
     <div class="locales-grid reveal d2">
       <article class="local-card">
         <iframe class="local-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa Ciudad del Este" src="https://www.google.com/maps?q=Av.%20Rep%C3%BAblica%20del%20Per%C3%BA%20km%207%2C%20Ciudad%20del%20Este%2C%20Paraguay&output=embed"></iframe>
         <div class="local-info">
           <h3>Ciudad del Este</h3>
           <p>Av. República del Perú km 7, CDE 100101<br>Tel: <a class="plain" href="tel:+595995360060">+595 995 360060</a></p>
-          <a class="llink" href="https://share.google/OAtbh8akZyeNATtUM" target="_blank" rel="noopener">Ver en Google Maps <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow-r"/></svg></a>
+          <a class="llink" href="https://share.google/OAtbh8akZyeNATtUM" target="_blank" rel="noopener"><span data-i18n="locales.maps">Ver en Google Maps</span> <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
       <article class="local-card">
@@ -926,7 +934,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         <div class="local-info">
           <h3>Asunción · Ñemby</h3>
           <p>Acceso Sur, Ñemby 111210</p>
-          <a class="llink" href="https://share.google/DB7b1OL7m1ISorPhY" target="_blank" rel="noopener">Ver en Google Maps <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow-r"/></svg></a>
+          <a class="llink" href="https://share.google/DB7b1OL7m1ISorPhY" target="_blank" rel="noopener"><span data-i18n="locales.maps">Ver en Google Maps</span> <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
     </div>
@@ -995,7 +1003,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
           </svg>
         </a>
         <p class="foot-name">Generando Nuevos Horizontes</p>
-        <p class="foot-tagline">Tu aliado estratégico para el crecimiento.</p>
+        <p class="foot-tagline" data-i18n="footer.tagline">Tu aliado estratégico para el crecimiento.</p>
         <div class="social">
           <a href="https://www.instagram.com/gnhorizons" target="_blank" rel="noopener" aria-label="Instagram">
             <svg viewBox="0 0 24 24"><use href="#i-ig"/></svg>
@@ -1009,25 +1017,25 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         </div>
       </div>
       <div>
-        <h4>Contacto</h4>
+        <h4 data-i18n="footer.contacto">Contacto</h4>
         <p><a href="tel:+595995360060">+595 995 360060</a></p>
         <p><a href="mailto:nuevosnegocios@gnhorizons.com">nuevosnegocios@gnhorizons.com</a></p>
         <p><a href="https://wa.me/595995360060?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n" target="_blank" rel="noopener">WhatsApp</a></p>
       </div>
     </div>
   </div>
-  <div class="copy">© <span id="year"></span> <strong style="color:#fff">GNH</strong> — Reservados todos los derechos</div>
+  <div class="copy">© <span id="year"></span> <strong style="color:#fff">GNH</strong> — <span data-i18n="footer.rights">Reservados todos los derechos</span></div>
 </footer>
 
 <!-- ============ MODAL CARTA CEO ============ -->
 <dialog id="ceoModal" aria-labelledby="ceoTitle">
   <div class="modal-head">
-    <h3 id="ceoTitle">Carta del CEO – GNH</h3>
+    <h3 id="ceoTitle" data-i18n="about.ceoBtn">Carta del CEO – GNH</h3>
     <button class="modal-close" id="closeCeo" aria-label="Cerrar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-close"/></svg>
     </button>
   </div>
-  <div class="modal-body">
+  <div class="modal-body" data-i18n="ceo.body">
     <p>Estimados colaboradores, socios y amigos de GNH,</p>
     <p>Es un gran honor dirigirme a todos ustedes en este momento tan importante de nuestra trayectoria.</p>
     <p>GNH nació con un propósito claro: <strong>Generar Nuevos Horizontes</strong>. No solo como una frase inspiradora, sino como una visión que guía cada paso que damos. Desde el inicio entendimos que nuestro compromiso no se limita al ámbito local; se extiende al mundo, porque creemos que los desafíos son globales y las oportunidades también.</p>
@@ -1188,6 +1196,114 @@ const ceoModal = document.getElementById('ceoModal');
 });
 document.getElementById('closeCeo').addEventListener('click', () => ceoModal.close());
 ceoModal.addEventListener('click', e => { if (e.target === ceoModal) ceoModal.close(); });
+
+
+/* ---------- i18n: ES (base en el HTML) + PT / EN / ZH ---------- */
+const I18N = {
+pt: {
+ '_title':'GNH | Comércio Internacional, Distribuição e Representação de Marcas — Generando Nuevos Horizontes',
+ '_desc':'A GNH conecta marcas globais a mercados em crescimento: comércio internacional, distribuição atacadista, logística e representação de marcas no Paraguai e na região.',
+ 'nav.acerca':'Sobre','nav.alianzas':'Alianças','nav.servicios':'Serviços','nav.catalogo':'Catálogo','nav.grupo':'Grupo','nav.contacto':'Contato','nav.hablemos':'Fale conosco',
+ 'hero.h1':'Seu aliado estratégico<br>para o <span class="grad">crescimento</span>',
+ 'hero.sub':'Integramos comércio internacional, distribuição, logística e representação de marcas para levar o seu negócio mais longe.',
+ 'hero.cue':'Deslize',
+ 'about.tag':'Quem somos','about.h2':'Conectamos marcas globais a mercados em crescimento',
+ 'about.lead':'GNH — Generando Nuevos Horizontes — é um grupo empresarial de comércio internacional. Nascemos no setor de materiais de construção e hoje integramos importação, exportação, distribuição, logística e representação de marcas sob uma mesma visão: gerar valor real para nossos parceiros.',
+ 'about.li1':'Visão global, execução local.','about.li2':'Alianças sólidas e de longo prazo.','about.li3':'Inovação aplicada a cada operação.',
+ 'about.p2':'Da origem ao ponto de venda: selecionamos produtos estratégicos, desenvolvemos canais comerciais e acompanhamos cada parceiro com processos ágeis, transparentes e tecnologia própria.',
+ 'about.ceoBtn':'Carta do CEO – GNH','about.chip1':'Comércio global','about.chip2':'Logística confiável',
+ 'alianzas.h2':'Marcas e parceiros que confiam na GNH','alianzas.p':'Representamos e distribuímos marcas líderes da região',
+ 'stats.marcas':'Marcas representadas','stats.frentes':'Frentes de negócio','stats.alianzas':'Alianças estratégicas',
+ 'svc.tag':'Serviços','svc.h2':'Soluções integradas de comércio e distribuição','svc.lead':'Cinco frentes que funcionam como um só: da origem do produto ao ponto de venda.',
+ 'svc.1t':'Comércio Internacional','svc.1d':'Identificamos, importamos e nacionalizamos produtos de alto potencial, com processos aduaneiros ágeis e seguros.',
+ 'svc.2t':'Supply-Chain','svc.2d':'Rede atacadista com cobertura regional: armazenamento, transporte e entregas com rastreabilidade total.',
+ 'svc.3t':'Representação de Marcas','svc.3d':'Somos o rosto local de marcas internacionais: desenvolvimento comercial, posicionamento e suporte pós-venda.',
+ 'svc.4t':'Expansão de Mercados','svc.4d':'Abrimos novos canais para produtos estratégicos e conectamos a oferta global à demanda regional.',
+ 'svc.5t':'Tecnologia e Automação','svc.5d':'Processos integrados e automatizados, com dados em tempo real para decidir mais rápido.',
+ 'svc.ctaT':'Vamos levar sua marca mais longe?','svc.ctaP':'Conte-nos seu desafio e desenharemos a solução.','svc.ctaB':'Vamos conversar',
+ 'showcase.tag':'Sejamos parceiros','showcase.h2':'Vamos gerar novos horizontes, juntos',
+ 'showcase.p':'Toda grande operação começa com uma aliança. Junte-se às empresas que já crescem com a GNH e vamos levar seu negócio mais longe.',
+ 'locales.tag':'Presença','locales.h2':'Nossas lojas','locales.lead':'Estamos perto de você, no Paraguai. Visite-nos ou escreva — esperamos por você.','locales.maps':'Ver no Google Maps',
+ 'footer.tagline':'Seu aliado estratégico para o crescimento.','footer.contacto':'Contato','footer.rights':'Todos os direitos reservados',
+ 'ceo.body':'<p>Estimados colaboradores, sócios e amigos da GNH,</p><p>É uma grande honra dirigir-me a todos vocês neste momento tão importante da nossa trajetória.</p><p>A GNH nasceu com um propósito claro: <strong>Gerar Novos Horizontes</strong>. Não apenas como uma frase inspiradora, mas como uma visão que guia cada passo que damos. Desde o início entendemos que nosso compromisso não se limita ao âmbito local; estende-se ao mundo, porque acreditamos que os desafios são globais — e as oportunidades também.</p><p>Hoje reafirmo nossa missão de transformar a GNH em uma referência internacional. Para isso precisamos de coragem, inovação e união. Coragem para enfrentar os desafios de um mercado cada vez mais competitivo. Inovação para criar soluções que gerem valor real. E união para que cada membro da nossa equipe, cada parceiro estratégico e cada cliente sinta que faz parte de algo maior.</p><p>Nossa visão está mais clara: levar a GNH a um nível global, expandindo fronteiras, construindo alianças sólidas e gerando impacto positivo nos mercados onde atuamos.</p><p>Agradeço a todos que acreditam neste projeto, trabalham com dedicação e compartilham nossa ambição de crescer. O futuro é promissor, e juntos temos a força necessária para conquistá-lo.</p><p>Que esta carta seja um convite a sonhar grande, trabalhar com paixão e avançar com determinação.</p><p class="sign">Com confiança e visão,<br><br>Edzon Camilo Mazzonetto<br>CEO – GNH</p>'
+},
+en: {
+ '_title':'GNH | International Trade, Distribution & Brand Representation — Generando Nuevos Horizontes',
+ '_desc':'GNH connects global brands with growing markets: international trade, wholesale distribution, logistics and brand representation in Paraguay and the region.',
+ 'nav.acerca':'About','nav.alianzas':'Partners','nav.servicios':'Services','nav.catalogo':'Catalog','nav.grupo':'Group','nav.contacto':'Contact','nav.hablemos':"Let's talk",
+ 'hero.h1':'Your strategic ally<br>for <span class="grad">growth</span>',
+ 'hero.sub':'We integrate international trade, distribution, logistics and brand representation to take your business further.',
+ 'hero.cue':'Scroll',
+ 'about.tag':'Who we are','about.h2':'We connect global brands with growing markets',
+ 'about.lead':'GNH — Generando Nuevos Horizontes — is an international trade business group. Born in the construction materials sector, today we integrate import, export, distribution, logistics and brand representation under one vision: creating real value for our partners.',
+ 'about.li1':'Global vision, local execution.','about.li2':'Solid, long-term partnerships.','about.li3':'Innovation applied to every operation.',
+ 'about.p2':'From origin to point of sale: we select strategic products, develop commercial channels and support every partner with agile, transparent processes and our own technology.',
+ 'about.ceoBtn':'Letter from the CEO – GNH','about.chip1':'Global trade','about.chip2':'Reliable logistics',
+ 'alianzas.h2':'Brands and partners that trust GNH','alianzas.p':'We represent and distribute leading brands across the region',
+ 'stats.marcas':'Brands represented','stats.frentes':'Business lines','stats.alianzas':'Strategic alliances',
+ 'svc.tag':'Services','svc.h2':'Integrated trade and distribution solutions','svc.lead':'Five fronts working as one: from product origin to point of sale.',
+ 'svc.1t':'International Trade','svc.1d':'We identify, import and clear high-potential products through fast, secure customs processes.',
+ 'svc.2t':'Supply Chain','svc.2d':'A wholesale network with regional coverage: warehousing, transport and fully traceable deliveries.',
+ 'svc.3t':'Brand Representation','svc.3d':'We are the local face of international brands: commercial development, positioning and after-sales support.',
+ 'svc.4t':'Market Expansion','svc.4d':'We open new channels for strategic products and connect global supply with regional demand.',
+ 'svc.5t':'Technology & Automation','svc.5d':'Integrated, automated processes with real-time data for faster decisions.',
+ 'svc.ctaT':'Shall we take your brand further?','svc.ctaP':"Tell us your challenge and we'll design the solution.",'svc.ctaB':"Let's talk",
+ 'showcase.tag':"Let's partner",'showcase.h2':"Let's create new horizons, together",
+ 'showcase.p':"Every great operation starts with a partnership. Join the companies already growing with GNH and let's take your business further.",
+ 'locales.tag':'Presence','locales.h2':'Our locations','locales.lead':"We're close to you in Paraguay. Visit us or write — we'll be waiting.",'locales.maps':'View on Google Maps',
+ 'footer.tagline':'Your strategic ally for growth.','footer.contacto':'Contact','footer.rights':'All rights reserved',
+ 'ceo.body':'<p>Dear collaborators, partners and friends of GNH,</p><p>It is a great honor to address you all at such an important moment in our journey.</p><p>GNH was born with a clear purpose: <strong>to Generate New Horizons</strong>. Not merely as an inspiring phrase, but as a vision guiding every step we take. From the beginning we understood that our commitment is not limited to the local sphere; it extends to the world, because we believe challenges are global — and so are opportunities.</p><p>Today I reaffirm our mission to turn GNH into an international reference. For that we need courage, innovation and unity. Courage to face the challenges of an increasingly competitive market. Innovation to create solutions that generate real value. And unity so that every member of our team, every strategic partner and every client feels part of something bigger.</p><p>Our vision is clearer than ever: to take GNH to a global level, expanding frontiers, building solid alliances and creating a positive impact in the markets where we operate.</p><p>I thank everyone who believes in this project, works with dedication and shares our ambition to grow. The future is promising, and together we have the strength to conquer it.</p><p>May this letter be an invitation to dream big, work with passion and move forward with determination.</p><p class="sign">With confidence and vision,<br><br>Edzon Camilo Mazzonetto<br>CEO – GNH</p>'
+},
+zh: {
+ '_title':'GNH | 国际贸易、分销与品牌代理 — Generando Nuevos Horizontes',
+ '_desc':'GNH连接全球品牌与增长型市场：在巴拉圭及周边地区提供国际贸易、批发分销、物流与品牌代理服务。',
+ 'nav.acerca':'关于我们','nav.alianzas':'合作伙伴','nav.servicios':'服务','nav.catalogo':'产品目录','nav.grupo':'集团','nav.contacto':'联系我们','nav.hablemos':'联系洽谈',
+ 'hero.h1':'助您<span class="grad">增长</span>的战略伙伴',
+ 'hero.sub':'我们整合国际贸易、分销、物流与品牌代理，助您的业务走得更远。',
+ 'hero.cue':'滑动',
+ 'about.tag':'关于我们','about.h2':'连接全球品牌与增长型市场',
+ 'about.lead':'GNH（Generando Nuevos Horizontes）是一家国际贸易企业集团。我们起步于建材行业，如今在同一愿景下整合进口、出口、分销、物流与品牌代理：为合作伙伴创造真正的价值。',
+ 'about.li1':'全球视野，本地执行。','about.li2':'稳固长久的合作关系。','about.li3':'创新贯穿每一次运营。',
+ 'about.p2':'从源头到销售终端：我们甄选战略产品、开拓商业渠道，并以敏捷透明的流程和自有技术陪伴每一位合作伙伴。',
+ 'about.ceoBtn':'CEO致辞 – GNH','about.chip1':'全球贸易','about.chip2':'可靠物流',
+ 'alianzas.h2':'信赖GNH的品牌与伙伴','alianzas.p':'我们代理并分销区域领先品牌',
+ 'stats.marcas':'代理品牌','stats.frentes':'业务板块','stats.alianzas':'战略联盟',
+ 'svc.tag':'服务','svc.h2':'一体化贸易与分销解决方案','svc.lead':'五大板块协同如一：从产品源头到销售终端。',
+ 'svc.1t':'国际贸易','svc.1d':'我们发掘、进口高潜力产品并完成清关，流程快捷安全。',
+ 'svc.2t':'供应链','svc.2d':'覆盖区域的批发网络：仓储、运输与全程可追溯交付。',
+ 'svc.3t':'品牌代理','svc.3d':'我们是国际品牌的本地代表：商业开发、市场定位与售后支持。',
+ 'svc.4t':'市场拓展','svc.4d':'我们为战略产品开辟新渠道，连接全球供给与区域需求。',
+ 'svc.5t':'技术与自动化','svc.5d':'集成自动化流程，实时数据助力快速决策。',
+ 'svc.ctaT':'让您的品牌走得更远？','svc.ctaP':'告诉我们您的挑战，我们来设计解决方案。','svc.ctaB':'联系我们',
+ 'showcase.tag':'携手合作','showcase.h2':'携手开创新的地平线',
+ 'showcase.p':'每一次伟大的合作都始于一个联盟。加入与GNH共同成长的企业行列，让您的业务更进一步。',
+ 'locales.tag':'网点分布','locales.h2':'我们的门店','locales.lead':'我们在巴拉圭恭候您。欢迎到店参观或来信联系。','locales.maps':'在谷歌地图查看',
+ 'footer.tagline':'助您增长的战略伙伴。','footer.contacto':'联系方式','footer.rights':'版权所有',
+ 'ceo.body':'<p>尊敬的GNH同事、合作伙伴与朋友们：</p><p>在我们发展历程中如此重要的时刻向大家致辞，我深感荣幸。</p><p>GNH的诞生源于一个清晰的使命：<strong>开创新的地平线</strong>。这不仅是一句激励人心的口号，更是指引我们每一步的愿景。从创立之初我们就明白，我们的承诺不止于本地，而是面向世界——因为我们相信，挑战是全球性的，机遇亦然。</p><p>今天，我重申我们的使命：让GNH成为国际标杆。为此我们需要勇气、创新与团结。以勇气直面竞争日益激烈的市场；以创新打造真正创造价值的解决方案；以团结让团队的每一位成员、每一个战略伙伴和每一位客户都感到自己是更宏大事业的一部分。</p><p>我们的愿景愈发清晰：让GNH走向全球，拓展疆界，构建稳固联盟，并在我们所在的市场创造积极影响。</p><p>感谢每一位相信这个项目、勤勉奉献并与我们共享成长抱负的人。未来充满希望，携手同行，我们必将赢得未来。</p><p>愿这封信成为一份邀请：敢于梦想，满怀热情，坚定前行。</p><p class="sign">怀着信心与远见，<br><br>Edzon Camilo Mazzonetto<br>CEO – GNH</p>'
+}
+};
+if (window.I18N_EXTRA) for (const l in I18N_EXTRA) Object.assign(I18N[l] = I18N[l] || {}, I18N_EXTRA[l]);
+const metaDesc = document.querySelector('meta[name="description"]');
+const baseTitle = document.title, baseDesc = metaDesc ? metaDesc.content : '';
+function applyLang(lang){
+  const dict = lang === 'es' ? null : I18N[lang];
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    if (el.dataset.i18nEs === undefined) el.dataset.i18nEs = el.innerHTML;
+    const v = dict ? dict[el.dataset.i18n] : undefined;
+    el.innerHTML = v !== undefined ? v : el.dataset.i18nEs;
+  });
+  document.title = (dict && dict['_title']) || baseTitle;
+  if (metaDesc) metaDesc.content = (dict && dict['_desc']) || baseDesc;
+  document.querySelectorAll('#langSwitch button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
+  try { localStorage.setItem('gnh-lang', lang); } catch {}
+}
+document.querySelectorAll('#langSwitch button').forEach(b =>
+  b.addEventListener('click', () => applyLang(b.dataset.lang)));
+try {
+  const saved = localStorage.getItem('gnh-lang');
+  if (saved && saved !== 'es' && I18N[saved]) applyLang(saved);
+} catch {}
 
 document.getElementById('year').textContent = new Date().getFullYear();
 </script>
