@@ -127,6 +127,10 @@
     linear-gradient(165deg, #152a63 0%, #1E3A8A 45%, #060A18 100%);
 }
 .v-cat-panel:hover, .v-cat-panel:focus-visible, .v-cat-panel.is-active { flex: 3; border-color: rgba(242,109,33,.5); }
+/* al pasar por otro panel, el activo cede su espacio — evita dos expandidos a la vez */
+.v-deck:hover .v-cat-panel.is-active:not(:hover) { flex: 1; }
+.v-deck:hover .v-cat-panel.is-active:not(:hover) .p-body { opacity: 0; }
+.v-deck:hover .v-cat-panel.is-active:not(:hover) .t-vert { opacity: 1; }
 .v-cat-panel:focus-visible { outline: 3px solid #F26D21; outline-offset: 3px; }
 .v-cat-panel .ghost { position: absolute; top: 18px; right: 16px; width: 120px; height: 120px; opacity: .08; pointer-events: none; }
 .v-cat-panel .ghost svg { width: 100%; height: 100%; stroke: #fff; fill: none; }
@@ -450,4 +454,5 @@
 
 /* ===== Kasteller: pisos y revestimientos ===== */
 .ks-logo { display: block; height: 40px; width: auto; margin-bottom: 12px; }
-.ks-photo img { max-height: 560px; object-fit: cover; object-position: center 35%; }
+.ks-photo { max-width: 540px; margin-inline: auto; }
+.ks-photo img { width: 100%; height: auto; }

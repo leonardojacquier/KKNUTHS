@@ -521,8 +521,8 @@ function selectCategory(id: string, scroll = false): void {
         <h3>Revestimientos que definen espacios</h3>
         <p>Pisos y revestimientos de alta gama para proyectos residenciales, comerciales y corporativos.
         <b>Kasteller Revestimientos</b> reúne porcelanatos, mármoles y acabados premium seleccionados
-        para transformar cada ambiente en una declaración de estilo — con la curaduría y el respaldo
-        del Grupo GNH. Asesoramos tu proyecto desde la elección del material hasta la entrega en obra.</p>
+        para transformar cada ambiente en una declaración de estilo. Asesoramos tu proyecto desde
+        la elección del material hasta la entrega en obra.</p>
       </div>
       <div class="fp-links">
         <a href="https://www.instagram.com/kastellerrevestimientos" target="_blank" rel="noopener">📷 Instagram — @kastellerrevestimientos</a>
