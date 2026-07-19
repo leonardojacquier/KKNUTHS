@@ -92,16 +92,16 @@ const CATALOG: Category[] = [
     products: [
       { name: 'Mortero Estructural 30 kg', brand: 'Hormigomix', img: '../img/prod/mortero-estructural.png',
         note: 'Asentamiento estructural de albañilería. Mortero industrializado de alta calidad — solo agregar agua.',
-        tags: ['asentamiento', 'ladrillo', 'ladrillos', 'bloque', 'bloques', 'mamposteria', 'albanileria', 'muro', 'pared', 'estructural', 'levantar pared'] },
+        tags: ['mortero', 'morteros', 'argamassa', 'hormigomix', 'asentamiento', 'ladrillo', 'ladrillos', 'bloque', 'bloques', 'mamposteria', 'albanileria', 'muro', 'pared', 'estructural', 'levantar pared'] },
       { name: 'Mortero de Proyección 30 kg', brand: 'Hormigomix', img: '../img/prod/mortero-proyeccion.png',
         note: 'Revoque de paredes de mampostería en áreas internas y externas. Aplicable con equipos de proyección.',
-        tags: ['revoque', 'revoco', 'proyeccion', 'proyectado', 'pared', 'muro', 'interior', 'exterior', 'maquina', 'revestir'] },
+        tags: ['mortero', 'morteros', 'argamassa', 'hormigomix', 'revoque', 'revoco', 'proyeccion', 'proyectado', 'pared', 'muro', 'interior', 'exterior', 'maquina', 'revestir'] },
       { name: 'Mortero Adhesivo AC-1 20 kg', brand: 'Hormigomix', img: '../img/prod/mortero-ac1.png',
         note: 'Colocación de revestimientos y pisos cerámicos en interiores. Aplicación rápida.',
-        tags: ['adhesivo', 'pegamento', 'cola', 'ceramica', 'ceramico', 'azulejo', 'piso', 'pared', 'interior', 'ac1', 'pegar'] },
+        tags: ['mortero', 'morteros', 'argamassa', 'hormigomix', 'adhesivo', 'pegamento', 'cola', 'ceramica', 'ceramico', 'azulejo', 'piso', 'pared', 'interior', 'ac1', 'pegar'] },
       { name: 'Mortero Adhesivo AC-3 20 kg', brand: 'Hormigomix', img: '../img/prod/mortero-ac3.png',
         note: 'Revestimientos, cerámicos y gres porcelánico en interiores y exteriores. Apto para placas de más de 60×60 cm.',
-        tags: ['adhesivo', 'pegamento', 'cola', 'porcelanato', 'gres', 'ceramica', 'ceramico', 'placa', 'exterior', 'interior', 'ac3', 'fachada', 'pegar'] },
+        tags: ['mortero', 'morteros', 'argamassa', 'hormigomix', 'adhesivo', 'pegamento', 'cola', 'porcelanato', 'gres', 'ceramica', 'ceramico', 'placa', 'exterior', 'interior', 'ac3', 'fachada', 'pegar'] },
     ],
   },
   {
@@ -259,17 +259,17 @@ function searchAll(q: string): Hit[] {
     if (s > 0) hits.push({ score: s, html: aditivoCard(a), name: a.name })
   }
   for (const c of CATALOG) {
-    for (const g of c.groups ?? []) {
-      for (const p of g.products) {
-        let s = 0
-        const name = deacc(p.name), note = deacc(p.note ?? ''), tags = deacc((p.tags ?? []).join(' '))
-        for (const vars of groups) {
-          if (hitIn(name, vars)) s += 10
-          if (hitIn(tags, vars)) s += 8
-          if (hitIn(note, vars)) s += 3
-        }
-        if (s > 0) equipHits.push({ score: s, html: productCard(p), name: p.name })
+    // productos con subgrupos (Equipos) Y productos directos (Morteros, etc.)
+    const prods = [...(c.groups ?? []).flatMap((g) => g.products), ...(c.products ?? [])]
+    for (const p of prods) {
+      let s = 0
+      const name = deacc(p.name), note = deacc(p.note ?? ''), tags = deacc((p.tags ?? []).join(' '))
+      for (const vars of groups) {
+        if (hitIn(name, vars)) s += 10
+        if (hitIn(tags, vars)) s += 8
+        if (hitIn(note, vars)) s += 3
       }
+      if (s > 0) equipHits.push({ score: s, html: productCard(p), name: p.name })
     }
   }
   // cuota garantizada: los equipos que matchean SIEMPRE entran (hasta 8), no los tapan los aditivos
