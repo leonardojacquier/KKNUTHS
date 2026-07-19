@@ -1266,22 +1266,27 @@ addEventListener('load', () => {
   window.__io && window.__io.disconnect();
   document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
 
-  /* Entrada del hero, coreografiada */
-  gsap.from('.hero .eyebrow, .hero h1, .hero .sub, .hero-cta', {
-    y: 46, opacity: 0, duration: 1, ease: 'power3.out', stagger: .12,
-  });
-  gsap.from('.pillar', {
-    y: 30, opacity: 0, scale: .94, duration: .6, ease: 'back.out(1.5)',
-    stagger: .07, delay: .5,
-  });
+  /* Entrada del hero, coreografiada — solo si estamos arriba. En un reload con
+     la página ya scrolleada, re-animar contenido visible lo hace "parpadear". */
+  if (scrollY < 120){
+    gsap.from('.hero .eyebrow, .hero h1, .hero .sub', {
+      y: 46, opacity: 0, duration: 1, ease: 'power3.out', stagger: .12,
+    });
+  }
 
-  /* Reveals por scroll, en lotes con stagger */
-  ScrollTrigger.batch('section .reveal, footer .reveal', {
-    start: 'top 88%', once: true,
-    onEnter: batch => gsap.from(batch, {
-      y: 44, opacity: 0, duration: .75, ease: 'power3.out', stagger: .09, overwrite: true,
-    }),
-  });
+  /* Reveals por scroll, en lotes con stagger — SOLO lo que aún no entró en
+     pantalla. Lo ya visible (reload a mitad de página, o visto antes de que
+     cargue el CDN) se queda quieto en vez de desaparecer y volver a entrar. */
+  const pendientes = [...document.querySelectorAll('section .reveal, footer .reveal')]
+    .filter((el) => el.getBoundingClientRect().top > innerHeight * .92);
+  if (pendientes.length){
+    ScrollTrigger.batch(pendientes, {
+      start: 'top 88%', once: true,
+      onEnter: batch => gsap.from(batch, {
+        y: 44, opacity: 0, duration: .75, ease: 'power3.out', stagger: .09, overwrite: true,
+      }),
+    });
+  }
 
   /* Parallax scrub del visual "Acerca" */
   gsap.to('.about-visual .frame', {
