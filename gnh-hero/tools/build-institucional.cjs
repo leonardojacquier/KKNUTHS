@@ -39,6 +39,7 @@ const LINEAS = [
   },
   {
     ic: 'i-truck', t: 'Fletes · FletePar',
+    logo: '<img class="deck-logo" src="../img/fletepar-logo.png" alt="FletePar" loading="lazy" onerror="this.remove()">',
     s: 'Nuestra plataforma tecnológica de logística. FletePar es el marketplace de fletes #1 de Paraguay: conecta empresas con cargas y transportistas verificados, con rastreo GPS en tiempo real, pagos protegidos y seguro de carga de punta a punta.',
     links: [
       ['i-globe', 'fletepar.com.py', 'https://fletepar.com.py/'],
@@ -55,6 +56,7 @@ const LINEAS = [
   },
   {
     ic: 'i-spray', t: 'Intonaco',
+    logo: '<img class="deck-logo on-chip" src="../img/intonaco-logo.png" alt="Intonaco — Sistemas Constructivos" loading="lazy" onerror="this.remove()">',
     s: 'Sistemas constructivos Intonaco: revoque proyectado con método, equipamiento y personal entrenado. Hasta 5× más productividad que el revoque convencional, 1.000 m² en 5 a 7 días y consumo de material controlado — plazo, costo, calidad y satisfacción en cada obra.',
     cta: 'Conocer el sistema', href: '../ventas/',
   },
@@ -100,6 +102,9 @@ const NEW_DECK = `<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) =====
   .fort-row,.fort-scene:nth-child(even) .fort-row{flex-direction:column;text-align:center;gap:6px}
   .fort-ic{margin-inline:auto}.fort-ghost{display:none}.fort-text p{margin-inline:auto}
 }
+/* logos de marca dentro de las cajas del deck */
+.cat .deck-logo{display:block;height:38px;width:auto;margin-bottom:12px}
+.cat .deck-logo.on-chip{background:#fff;padding:7px 12px;border-radius:10px;height:46px}
 /* enlaces FletePar dentro de la caja del deck */
 .cat .fp-links{display:flex;flex-direction:column;gap:2px;margin-top:4px}
 .cat .fp-links a{display:flex;align-items:center;gap:9px;min-height:40px;color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;border-bottom:1px solid rgba(255,255,255,.09)}
@@ -126,7 +131,7 @@ const NEW_DECK = `<!-- ============ NUESTRAS FORTALEZAS (cinematográfico) =====
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#${L.ic}"/></svg></div>
         <span class="t-vert">${L.t}</span>
         <div class="body">
-          <h3>${L.t}</h3>
+          ${L.logo ?? ''}<h3>${L.t}</h3>
           <p>${L.s}</p>
           ${L.links
             ? `<div class="fp-links">${L.links.map(([ic, label, href]) => `

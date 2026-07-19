@@ -423,6 +423,7 @@ function selectCategory(id: string, scroll = false): void {
   const fletesIntro = cat.id !== 'fletes' ? '' : `
     <div class="fp-panel">
       <div class="fp-text">
+        <img class="fp-logo" src="../img/fletepar-logo.png" alt="FletePar" onerror="this.remove()">
         <span class="v-brand">FletePar · Grupo GNH</span>
         <h3>La plataforma de fletes #1 de Paraguay</h3>
         <p>FletePar conecta <b>empresas con cargas</b> y <b>transportistas verificados</b> en tiempo real.

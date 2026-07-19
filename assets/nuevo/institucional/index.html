@@ -723,7 +723,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="marquee rev" id="clientMarquee" aria-label="Marcas y socios de GNH"></div>
 
   <div class="stats">
-    <div class="stat reveal d1"><div class="num"><span data-count="12">0</span><span class="u">+</span></div><div class="lbl">Marcas representadas</div></div>
+    <div class="stat reveal d1"><div class="num"><span data-count="13">0</span><span class="u">+</span></div><div class="lbl">Marcas representadas</div></div>
     <div class="stat reveal d2"><div class="num"><span data-count="6">0</span></div><div class="lbl">Frentes de negocio</div></div>
     <div class="stat reveal d3"><div class="num"><span data-count="4">0</span></div><div class="lbl">Alianzas estratégicas</div></div>
   </div>
@@ -793,6 +793,9 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   .fort-row,.fort-scene:nth-child(even) .fort-row{flex-direction:column;text-align:center;gap:6px}
   .fort-ic{margin-inline:auto}.fort-ghost{display:none}.fort-text p{margin-inline:auto}
 }
+/* logos de marca dentro de las cajas del deck */
+.cat .deck-logo{display:block;height:38px;width:auto;margin-bottom:12px}
+.cat .deck-logo.on-chip{background:#fff;padding:7px 12px;border-radius:10px;height:46px}
 /* enlaces FletePar dentro de la caja del deck */
 .cat .fp-links{display:flex;flex-direction:column;gap:2px;margin-top:4px}
 .cat .fp-links a{display:flex;align-items:center;gap:9px;min-height:40px;color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;border-bottom:1px solid rgba(255,255,255,.09)}
@@ -883,7 +886,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-truck"/></svg></div>
         <span class="t-vert">Fletes · FletePar</span>
         <div class="body">
-          <h3>Fletes · FletePar</h3>
+          <img class="deck-logo" src="../img/fletepar-logo.png" alt="FletePar" loading="lazy" onerror="this.remove()"><h3>Fletes · FletePar</h3>
           <p>Nuestra plataforma tecnológica de logística. FletePar es el marketplace de fletes #1 de Paraguay: conecta empresas con cargas y transportistas verificados, con rastreo GPS en tiempo real, pagos protegidos y seguro de carga de punta a punta.</p>
           <div class="fp-links">
             <a href="https://fletepar.com.py/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><use href="#i-globe"/></svg> fletepar.com.py</a>
@@ -909,7 +912,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-spray"/></svg></div>
         <span class="t-vert">Intonaco</span>
         <div class="body">
-          <h3>Intonaco</h3>
+          <img class="deck-logo on-chip" src="../img/intonaco-logo.png" alt="Intonaco — Sistemas Constructivos" loading="lazy" onerror="this.remove()"><h3>Intonaco</h3>
           <p>Sistemas constructivos Intonaco: revoque proyectado con método, equipamiento y personal entrenado. Hasta 5× más productividad que el revoque convencional, 1.000 m² en 5 a 7 días y consumo de material controlado — plazo, costo, calidad y satisfacción en cada obra.</p>
           <a class="go" href="../ventas/">Conocer el sistema <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"><use href="#i-arrow-r"/></svg></a>
         </div>
@@ -1121,7 +1124,7 @@ window.__io = io;
     return img;
   };
   for (let pass = 0; pass < 2; pass++)            // dos pistas para el loop continuo
-    for (let n = 1; n <= 14; n++) { if (SKIP.has(n)) continue; track.appendChild(makeImg(n)); }
+    for (let n = 1; n <= 15; n++) { if (SKIP.has(n)) continue; track.appendChild(makeImg(n)); }
   // si ninguna carga (p. ej. sin conexión al sitio), se oculta la pista
   setTimeout(() => { if (!track.querySelector('img')) track.style.display = 'none'; }, 6000);
 })();

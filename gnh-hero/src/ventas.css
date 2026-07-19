@@ -444,3 +444,6 @@
 .in-photo img { width: 100%; display: block; }
 .in-photo figcaption { padding: 12px 18px; font-size: 13.5px; color: #5B6478; font-style: italic; background: #fff; }
 @media (max-width: 760px) { .in-stats { grid-template-columns: 1fr; } }
+
+/* logo FletePar en el panel de Fletes */
+.fp-logo { display: block; height: 42px; width: auto; margin-bottom: 10px; }
