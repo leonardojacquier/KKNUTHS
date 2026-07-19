@@ -229,6 +229,13 @@ if (cStart !== -1 && cEnd !== -1 && cEnd > cStart) {
   throw new Error('marcadores de contacto não encontrados')
 }
 
+// 3c) SEO: la página institucional canoniza en /institucional/
+html = html
+  .replace('<link rel="canonical" href="https://gnhorizons.com/">', '<link rel="canonical" href="https://gnhorizons.com/institucional/">')
+  .replace('<link rel="alternate" hreflang="es" href="https://gnhorizons.com/">', '<link rel="alternate" hreflang="es" href="https://gnhorizons.com/institucional/">')
+  .replace('<link rel="alternate" hreflang="x-default" href="https://gnhorizons.com/">', '<link rel="alternate" hreflang="x-default" href="https://gnhorizons.com/institucional/">')
+  .replace('<meta property="og:url" content="https://gnhorizons.com/">', '<meta property="og:url" content="https://gnhorizons.com/institucional/">')
+
 // 4) vídeos e logos de clientes: caminho absoluto (a página fica em /assets/nuevo/institucional/)
 html = html.replace(/(src|data-src)="assets\/video\//g, '$1="/assets/video/')
 html = html.replace(/'assets\/img\/clients\/'/g, "'/assets/img/clients/'")

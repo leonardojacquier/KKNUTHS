@@ -1,0 +1,27 @@
+# ============================================================
+# MIGRAÇÃO — bloco do gnhorizons.com para o Caddyfile do VPS
+# Torna reais as URLs canônicas: /  /ventas/  /institucional/
+# SEMPRE: caddy validate ANTES de systemctl reload caddy
+# Pré-requisito: DNS de gnhorizons.com (e www) apontando pro VPS
+# ============================================================
+gnhorizons.com, www.gnhorizons.com {
+	# raiz do site novo = a pasta assets/nuevo do repo
+	root * /opt/gnh/assets/nuevo
+	encode gzip
+
+	# vídeos e logos do carrossel vivem fora de nuevo/ (caminhos /assets/... nas páginas)
+	handle /assets/video/* {
+		root * /opt/gnh
+		file_server
+	}
+	handle /assets/img/* {
+		root * /opt/gnh
+		file_server
+	}
+
+	# HTML sempre fresco; estáticos com cache
+	@html path / /index.html /ventas/ /institucional/ *.html
+	header @html Cache-Control "no-cache"
+
+	file_server
+}
