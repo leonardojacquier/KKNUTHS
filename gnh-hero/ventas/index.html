@@ -31,6 +31,9 @@
     ]
   }
   </script>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+  <link rel="preload" as="image" href="../img/prod/plataformas-o.webp" type="image/webp" fetchpriority="high">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
   <script defer src="https://stats.vortex369.com.br/script.js" data-website-id="12bb20da-6e8c-4f0a-8953-5c8c430396f1"></script>
 </head>
@@ -71,7 +74,22 @@
   </div>
 
   <!-- ============ SHOWCASE — carrusel cinematográfico full-width (render por JS) ============ -->
-  <section id="hero-carousel" aria-label="Líneas destacadas"></section>
+  <section id="hero-carousel" aria-label="Líneas destacadas" class="v-showcase" style="--vh-dur:5200ms">
+    <!-- primer slide estático: pinta antes del JS (LCP); el carrusel lo hidrata igual -->
+    <div class="vh-track">
+      <article class="vh-slide is-active is-bleed" data-i="0">
+        <div class="vh-media"><picture><source srcset="../img/prod/plataformas-o.webp" type="image/webp"><img class="vh-el" src="../img/prod/plataformas-o.jpg" alt="Plataformas" fetchpriority="high"></picture></div>
+        <div class="vh-inner">
+          <div class="vh-copy">
+            <span class="vh-eyebrow">Línea destacada</span>
+            <h2 class="vh-title">Plataformas</h2>
+            <p class="vh-desc">Plataforma electro-hidráulica de elevación de personal para trabajos en altura.</p>
+            <button class="vh-cta" data-cat="equipos">Ver productos <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="vh-cta-i"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
 
   <!-- ============ BUSCADOR INTELIGENTE ============ -->
   <section class="bg-navy pb-14 pt-12" id="buscar">
