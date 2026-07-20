@@ -8,6 +8,7 @@ ver `llm_summary()`. Mantendo a parte cara (LLM) opcional, todo o resto roda off
 from __future__ import annotations
 
 from app.analysis.equity import describe_hand as _describe
+from app.analysis.tools import fmt_chips as _fmt_chips
 from app.analysis.tools import pot_odds
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
@@ -107,8 +108,8 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "hero": hero,
         "hero_cards": hand.hero_cards,
         "position": _hero_position(hand),
-        "blinds": f"{hand.stakes.small_blind or 0:g}/{bb:g}"
-                  + (f" ante {hand.stakes.ante:g}" if hand.stakes.ante else ""),
+        "blinds": f"{_fmt_chips(hand.stakes.small_blind or 0)}/{_fmt_chips(bb)}"
+                  + (f" ante {_fmt_chips(hand.stakes.ante)}" if hand.stakes.ante else ""),
         "players": len(hand.players),
         "hero_stack_bb": hero_stack_bb,
         "effective_bb": effective_bb,

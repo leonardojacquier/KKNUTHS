@@ -905,6 +905,9 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 "cartas": sim["cards"],
                 "posicao": sim["position"],
                 "resultado_real_bb": sim["net_bb_real"],
+                # gabarito calculado — a conversa pós-sim não redescobre a
+                # mão de cabeça (board, showdown, mão feita por street)
+                **(sim.get("gabarito") or {}),
             },
         },
         "history": [],

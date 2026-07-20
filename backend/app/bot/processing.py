@@ -13,6 +13,7 @@ from app.agent.analyzer import select_key_hands
 from app.agent.embeddings import embed_text
 from app.agent.llm import coach
 from app.analysis import compute_player_stats
+from app.analysis.tools import fmt_chips as _fmt_chips
 from app.config import get_settings
 from app.db import get_repository
 from app.ingestion import ingest
@@ -1097,8 +1098,10 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
     bbv = best.stakes.big_blind or 1
     seat = best.hero_seat()
     stack_bb = round(seat.stack / bbv, 1) if seat else None
-    blinds = f"{best.stakes.small_blind:g}/{best.stakes.big_blind:g}" + (
-        f" (ante {best.stakes.ante:g})" if best.stakes.ante else "")
+    from app.analysis.tools import fmt_chips as _fc
+
+    blinds = f"{_fc(best.stakes.small_blind)}/{_fc(best.stakes.big_blind)}" + (
+        f" (ante {_fc(best.stakes.ante)})" if best.stakes.ante else "")
     pos_stack = {p.position: round(p.stack / bbv, 1)
                  for p in best.players if p.position}
     figures: dict[str, dict] = {}
@@ -1144,7 +1147,28 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
         "pos": 0,
         "results": [],
         "dead_end": dead_end,
+        # gabarito determinístico da mão (board, showdown, mão feita por
+        # street) — vai no payload do "e se" e no contexto de conversa para o
+        # coach NÃO improvisar leitura (fonte das alucinações já flagradas)
+        "gabarito": {
+            "board": a["final_board"],
+            "showdown_cards": a["showdown_cards"],
+            "hero_final_hand": a["hero_final_hand"],
+            "showdown_hands": a["showdown_hands"],
+            "hand_by_street": a["hand_by_street"],
+            "pot_winners": a["pot_winners"],
+        },
     }
+
+
+def _describe_safe(cards, board) -> str | None:
+    """describe_hand sem quebrar o fluxo (drill não pode morrer por leitura)."""
+    try:
+        from app.analysis.equity import describe_hand
+
+        return describe_hand(cards, board)
+    except Exception:
+        return None
 
 
 def _user_hands(telegram_id: int) -> list:
@@ -1194,11 +1218,17 @@ def film_bands(h) -> list[dict]:
             line += f" — {hero_desc}"
         result_lines.append(line)
     if result_lines or reveals:
-        bands.append({"name": "Resultado",
-                      "board": list(h.final_board or []),
-                      "lines": result_lines,
-                      "reveals": reveals,
-                      "pot_bb": round((h.total_pot or 0) / bb, 1) or None})
+        band = {"name": "Resultado",
+                "board": list(h.final_board or []),
+                "lines": result_lines,
+                "reveals": reveals,
+                "pot_bb": round((h.total_pot or 0) / bb, 1) or None}
+        # pote final menor que o da última street = aposta não paga devolvida
+        # (sem a nota, parece erro de conta — leitor compara os dois números)
+        prev = bands[-1].get("pot_bb") if bands else None
+        if prev and band["pot_bb"] and band["pot_bb"] < prev - 0.05:
+            band["note"] = "aposta não paga volta pro dono — por isso o pote final é menor"
+        bands.append(band)
     return bands
 
 
@@ -1212,8 +1242,10 @@ def hand_film_png(h) -> bytes | None:
         return None
     bb = h.stakes.big_blind or 1
     seat = h.hero_seat()
-    blinds = f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}" + (
-        f" (ante {h.stakes.ante:g})" if h.stakes.ante else "")
+    from app.analysis.tools import fmt_chips as _fc
+
+    blinds = f"{_fc(h.stakes.small_blind)}/{_fc(h.stakes.big_blind)}" + (
+        f" (ante {_fc(h.stakes.ante)})" if h.stakes.ante else "")
     spot = {
         "title": "Sua mão — o filme",  # sem emoji: PIL/DejaVu renderiza tofu
         "hero_cards": h.hero_cards,
@@ -1302,6 +1334,9 @@ def sim_whatif(sim: dict, telegram_id: int | None = None) -> str | None:
         "big_blind": sim["bb"],
         "resultado_real_bb": sim["net_bb_real"],
         "decisoes": sim["results"],
+        # gabarito calculado (board/showdown/mão feita por street): o veredito
+        # do "e se" fica ancorado — sem recontar mão de cabeça
+        **(sim.get("gabarito") or {}),
     }
     chart_specs: list = []
     out = evaluate_line(payload, collect_charts=chart_specs)
@@ -1690,13 +1725,16 @@ def build_drill(telegram_id: int) -> dict | None:
         "cards_pretty": _pretty_cards(h.hero_cards),
         "position": (seat.position if seat else None),
         "stack_bb": stack_bb,
-        "blinds": f"{h.stakes.small_blind:g}/{h.stakes.big_blind:g}"
-                  + (f" (ante {h.stakes.ante:g})" if h.stakes.ante else ""),
+        "blinds": f"{_fmt_chips(h.stakes.small_blind)}/{_fmt_chips(h.stakes.big_blind)}"
+                  + (f" (ante {_fmt_chips(h.stakes.ante)})" if h.stakes.ante else ""),
         "players": len(h.players),
         "format": h.format.value,
         "street": d["street"],
         "board": d["board"],
         "board_pretty": _pretty_cards(d["board"]),
+        # gabarito da mão feita NO MOMENTO da decisão — a conversa pós-quiz
+        # usa isto em vez do coach reler o board de cabeça
+        "mao_feita": _describe_safe(h.hero_cards, d["board"]),
         "pot_bb": d["pot_bb"],
         "to_call_bb": d["to_call_bb"],
         "required_eq": round(required, 3) if required is not None else None,

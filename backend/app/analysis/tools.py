@@ -39,6 +39,24 @@ def spr(effective_stack: float, pot: float) -> float:
     return effective_stack / pot
 
 
+def fmt_chips(v: float) -> str:
+    """Número de fichas legível: 125000 -> '125k', 1250000 -> '1.25M'.
+
+    Blinds de torneio de clube são gigantes ('blinds 125000/250000' ilegível
+    na imagem); abaixo de 10k mantém o número puro (cash/stakes baixos)."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    if abs(v) >= 1_000_000:
+        s = f"{v / 1_000_000:.2f}".rstrip("0").rstrip(".")
+        return f"{s}M"
+    if abs(v) >= 10_000:
+        s = f"{v / 1_000:.1f}".rstrip("0").rstrip(".")
+        return f"{s}k"
+    return f"{v:g}"
+
+
 def breakeven_bluff(bet: float, pot: float) -> float:
     """Frequência de fold necessária para um blefe de tamanho `bet` lucrar.
 
