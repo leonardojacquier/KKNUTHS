@@ -185,10 +185,12 @@ def test_dispatch_coerces_model_sloppiness():
 
 
 def test_solve_river_rejects_short_board():
+    # o solver agora aceita flop (3) e turn (4) — só board incompleto (<3)
+    # continua inválido
     from app.analysis.river_solver import solve_river
 
     with pytest.raises(ValueError):
-        solve_river(["Ah", "7c", "2d"], "AA", "QQ", pot=100, stack=100)
+        solve_river(["Ah", "7c"], "AA", "QQ", pot=100, stack=100)
 
 
 def test_norm_card_unicode():
