@@ -664,6 +664,8 @@ function selectCategory(id: string, scroll = false): void {
     </div>`
 
   // Intonaco: revoque proyectado — panel con los números que cambian la etapa
+  const IN_WA = '595993366650' // WhatsApp/teléfono Intonaco
+  const inwa = (msg: string) => `https://wa.me/${IN_WA}?text=${encodeURIComponent(msg)}`
   const intonacoIntro = cat.id !== 'intonaco' ? '' : `
     <div class="fp-panel in-panel">
       <div class="fp-text">
@@ -676,9 +678,9 @@ function selectCategory(id: string, scroll = false): void {
         continua con menos juntas y una base correcta desde el inicio que evita retoques en el acabado.</p>
       </div>
       <div class="fp-links">
-        <a href="${wa('Hola, quiero más información sobre el revoque proyectado Intonaco')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
-        <a href="mailto:comercial@gnhorizons.com">✉️ comercial@gnhorizons.com</a>
-        <a href="tel:+595995360060">📞 +595 995 360060</a>
+        <a href="${inwa('Hola, quiero más información sobre el revoque proyectado Intonaco')}" target="_blank" rel="noopener">💬 WhatsApp +595 993 366 650</a>
+        <a href="mailto:comercial@intonaco.com.py">✉️ comercial@intonaco.com.py</a>
+        <a href="tel:+595993366650">📞 +595 993 366 650</a>
       </div>
     </div>
     <div class="in-stats">
@@ -696,6 +698,8 @@ function selectCategory(id: string, scroll = false): void {
     </figure>`
 
   // Kasteller: pisos y revestimientos de alta gama
+  const KS_WA = '595985869600' // WhatsApp/teléfono Kasteller
+  const kswa = (msg: string) => `https://wa.me/${KS_WA}?text=${encodeURIComponent(msg)}`
   const kastellerIntro = cat.id !== 'pisos' ? '' : `
     <div class="fp-panel">
       <div class="fp-text">
@@ -709,7 +713,8 @@ function selectCategory(id: string, scroll = false): void {
       <div class="fp-links">
         <a href="https://www.instagram.com/kastellerrevestimientos" target="_blank" rel="noopener">📷 Instagram — @kastellerrevestimientos</a>
         <a href="https://www.facebook.com/profile.php?id=100050328950600" target="_blank" rel="noopener">👍 Facebook — Kasteller Revestimientos</a>
-        <a href="${wa('Hola, quiero más información sobre los revestimientos Kasteller')}" target="_blank" rel="noopener">💬 Cotizar por WhatsApp</a>
+        <a href="${kswa('Hola, quiero más información sobre los revestimientos Kasteller')}" target="_blank" rel="noopener">💬 WhatsApp +595 985 869 600</a>
+        <a href="tel:+595985869600">📞 +595 985 869 600</a>
       </div>
     </div>
     <figure class="in-photo ks-photo">
