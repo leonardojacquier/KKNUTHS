@@ -1324,6 +1324,14 @@ document.getElementById('year').textContent = new Date().getFullYear();
     else if (el.closest('#langSwitch')) track('idioma', el.dataset.lang || '');
     else if (el.closest('#lineas .cat')) track('negocio', (el.closest('.cat').querySelector('.t-vert') || {}).textContent || '');
   }, { capture: true, passive: true });
+  /* código de referencia en los mensajes de WhatsApp: permite cruzar la
+     conversación del cliente con su navegación (events.session_id) */
+  try {
+    const ref = ' (ref ' + sid().slice(0, 4).toUpperCase() + ')';
+    document.querySelectorAll('a[href*="wa.me"]').forEach((a) => {
+      if (a.href.includes('text=')) a.href += encodeURIComponent(ref);
+    });
+  } catch {}
 })();
 </script>
 

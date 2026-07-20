@@ -21,6 +21,13 @@ function sid(): string {
   }
 }
 
+/** Código corto de referencia (deriva de la sesión anónima): va al final del
+ *  mensaje de WhatsApp — cuando el cliente escribe, el código permite cruzar
+ *  su conversación con lo que navegó antes (events.session_id LIKE 'xxxx%'). */
+export function refCode(): string {
+  return sid().slice(0, 4).toUpperCase()
+}
+
 function post(table: string, row: Record<string, unknown>): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return Promise.resolve(false)
   return fetch(`${SUPABASE_URL}/rest/v1/${table}`, {

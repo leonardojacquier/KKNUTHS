@@ -2,10 +2,10 @@ import './style.css'
 import './ventas.css'
 import { mountFooter } from './footer'
 import { ADITIVOS, type Aditivo } from './aditivos-data'
-import { autoTrack, saveLead, track } from './track'
+import { autoTrack, refCode, saveLead, track } from './track'
 
 const WA = '595995360060'
-const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(msg)}`
+const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(`${msg} (ref ${refCode()})`)}`
 
 /* ============================================================
    CATÁLOGO — estrutura de dados. Preencher conforme as infos chegam.
@@ -665,7 +665,7 @@ function selectCategory(id: string, scroll = false): void {
 
   // Intonaco: revoque proyectado — panel con los números que cambian la etapa
   const IN_WA = '595993366650' // WhatsApp/teléfono Intonaco
-  const inwa = (msg: string) => `https://wa.me/${IN_WA}?text=${encodeURIComponent(msg)}`
+  const inwa = (msg: string) => `https://wa.me/${IN_WA}?text=${encodeURIComponent(`${msg} (ref ${refCode()})`)}`
   const intonacoIntro = cat.id !== 'intonaco' ? '' : `
     <div class="fp-panel in-panel">
       <div class="fp-text">
@@ -699,7 +699,7 @@ function selectCategory(id: string, scroll = false): void {
 
   // Kasteller: pisos y revestimientos de alta gama
   const KS_WA = '595985869600' // WhatsApp/teléfono Kasteller
-  const kswa = (msg: string) => `https://wa.me/${KS_WA}?text=${encodeURIComponent(msg)}`
+  const kswa = (msg: string) => `https://wa.me/${KS_WA}?text=${encodeURIComponent(`${msg} (ref ${refCode()})`)}`
   const kastellerIntro = cat.id !== 'pisos' ? '' : `
     <div class="fp-panel">
       <div class="fp-text">
@@ -882,7 +882,8 @@ function initForm(): void {
       + `Nombre: ${nombre}%0A`
       + `Empresa: ${f.get('empresa') ?? ''}%0A`
       + `Producto: ${f.get('producto') ?? ''}%0A`
-      + `Mensaje: ${f.get('mensaje') ?? ''}`
+      + `Mensaje: ${f.get('mensaje') ?? ''}%0A`
+      + `(ref ${refCode()})`
     window.open(`https://wa.me/${WA}?text=${msg}`, '_blank')
     status.textContent = '¡Gracias! Te redirigimos a WhatsApp.'
     status.className = 'text-sm text-green-600'
