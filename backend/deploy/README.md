@@ -5,6 +5,21 @@
 - Processo: **pm2** (`poker-bot`), como o bot do Jarvis/GNHFIN. App em `/opt/poker-bot`, venv próprio.
 - Banco: Supabase (nada de Postgres a instalar). Bot em **polling** (não precisa de porta/Caddy/DNS).
 
+## ⚠️ REGRA DURA — infraestrutura COMPARTILHADA do VPS
+
+O VPS hospeda VÁRIOS apps (Jarvis, GNHFIN, sites GNH/vortex369) atrás de um
+**Caddy multi-tenant**. `/etc/caddy/Caddyfile` é config GLOBAL da casa:
+
+- **NUNCA criar/sobrescrever o Caddyfile** (nem qualquer config global:
+  nginx, ufw, systemd de terceiros) em oneshot ou script deste repo.
+  Incidente real (2026-07-20): um oneshot deste repo fez `cat >
+  /etc/caddy/Caddyfile` e derrubou os sites dos outros apps.
+- Exposição pública do portal (uvicorn 127.0.0.1:8014) = **adicionar um
+  bloco** ao Caddyfile existente, coordenado com o dono do VPS — ex.:
+  `poker.vortex369.com.br { reverse_proxy 127.0.0.1:8014 }` + registro DNS.
+- Oneshots deste repo podem mexer APENAS em `/opt/poker-bot` e no banco
+  Supabase do poker. Fora disso, é território de outro app.
+
 ## Deploy — do PC do Leo (PowerShell; o repo é público, o VPS clona sozinho)
 
 ```powershell
