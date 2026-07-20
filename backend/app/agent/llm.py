@@ -149,10 +149,12 @@ TOOLS = [
     },
     {
         "name": "solve_river",
-        "description": "SOLVER de river (CFR+, equilíbrio real do sub-jogo): dado board de 5 "
-        "cartas, ranges OOP/IP (notação padrão), pote e stack efetivo, retorna a estratégia "
-        "de equilíbrio (frequência de check/bet/jam por range + exemplos de mãos). Use nos "
-        "spots de river importantes; ranges estreitos (<900 combos).",
+        "description": "SOLVER pós-flop (CFR+, equilíbrio do sub-jogo da street): dado board "
+        "de 3, 4 ou 5 cartas, ranges OOP/IP (notação padrão), pote e stack efetivo, retorna "
+        "a estratégia de equilíbrio (frequência de check/bet/jam por range + exemplos). "
+        "River = showdown exato; turn = equity realizada em todos os rivers; flop = equity "
+        "realizada em runouts amostrados (a nota do resultado declara a premissa — repita-a "
+        "ao aluno). Ranges estreitos (river <900 combos; flop/turn <420).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -409,8 +411,9 @@ _SYSTEM = {
         "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
         "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
-        "diga isso ao aluno). Em decisões de river relevantes, use solve_river (equilíbrio "
-        "CFR+ do sub-jogo). Para recomendar exploits, consulte population_tendencies. "
+        "diga isso ao aluno). Em decisões pós-flop relevantes (flop, turn ou river), use "
+        "solve_river — CFR+ da street: river exato; flop/turn com equity realizada (cite a "
+        "premissa da nota). Para recomendar exploits, consulte population_tendencies. "
         "Se o aluno pedir TABELA/GRÁFICO de range ou de EV, chame send_range_chart — "
         "nunca diga que não consegue enviar imagem. TABELA de spot de SHOVE (stack "
         "curto): o range do gráfico é o MESMO do push_fold — passe position + "

@@ -40,6 +40,40 @@ def test_river_rejects_huge_range():
                     pot=100, stack=100)
 
 
+# ------------------------ turn/flop (equity realizada) ------------------------
+def test_turn_solver_equity_realizada():
+    # turn: mesmo caso polarizado, mas o ar (33) ainda pode ser pago por um
+    # bluff-catcher que realiza equity nos rivers — a nota declara a premissa
+    r = solve_river(
+        board=["Kh", "8d", "5c", "2s"],
+        oop_range="AA, 33", ip_range="QQ",
+        pot=100, stack=100, player="oop", iterations=200,
+    )
+    assert "TURN" in r["nota"] and "equity realizada" in r["nota"]
+    freqs = {k: v["freq_pct"] for k, v in r["actions"].items()}
+    assert 99 <= sum(freqs.values()) <= 101          # distribuição fecha
+    # AA (nuts em quase todo runout) prefere apostar; agressão relevante
+    aggression = sum(v for k, v in freqs.items() if k != "check")
+    assert aggression >= 40, freqs
+    jam_ex = " ".join(r["actions"].get("jam", {}).get("exemplos", []))
+    bet_ex = " ".join(" ".join(v.get("exemplos", []))
+                      for k, v in r["actions"].items() if k.startswith("bet"))
+    assert "A" in (jam_ex + bet_ex)
+
+
+def test_flop_solver_smoke():
+    r = solve_river(
+        board=["Kh", "8d", "5c"],
+        oop_range="AA, QQ", ip_range="JJ, TT",
+        pot=60, stack=140, player="oop", iterations=120,
+    )
+    assert "FLOP" in r["nota"] and "runouts" in r["nota"]
+    assert r["actions"]                              # estratégia presente
+    # board de 2 cartas continua inválido
+    with pytest.raises(ValueError):
+        solve_river(["Kh", "8d"], "AA", "QQ", pot=10, stack=10)
+
+
 # --------------------------- população/exploit ---------------------------
 def test_population_tendencies_structure():
     hands = parse_text(PS.read_text())

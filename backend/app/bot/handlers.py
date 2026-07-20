@@ -834,12 +834,22 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         + "No final eu comparo a sua linha com a que aconteceu de verdade."
     )
     await _send_sim_step(update.message, sim, step, prefix=intro + "\n")
+    # persiste DEPOIS do advance (o pos gravado tem que casar com os botões):
+    # a sim sobrevive ao restart do auto-deploy, igual ao quiz
+    await asyncio.to_thread(get_repository().set_pending_sim, tg_id, sim)
 
 
 async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     sim = ctx.user_data.get("sim")
+    if not sim:
+        # bot reiniciado (auto-deploy)? restaura a sim do banco e segue o
+        # jogo — antes o clique morria com "expirada" no meio da mão
+        sim = await asyncio.to_thread(
+            get_repository().get_pending_sim, update.effective_user.id)
+        if sim:
+            ctx.user_data["sim"] = sim
     if not sim:
         # a pergunta da simulação agora é FOTO: não dá pra editar texto. Tira
         # os botões e responde — senão o clique morre em silêncio (bug real).
@@ -894,6 +904,9 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if step["decision"]:
             await _send_sim_step(query.message, sim, step,
                                  prefix=f"Você escolheu: *{choice}*\n")
+            # regrava o estado avançado — restart no meio não perde o passo
+            await asyncio.to_thread(
+                get_repository().set_pending_sim, update.effective_user.id, sim)
             return
 
     # fim: resumo + contexto para discutir em texto livre
@@ -915,6 +928,8 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "user_id": None,
     }
     ctx.user_data.pop("sim", None)
+    await asyncio.to_thread(
+        get_repository().delete_pending_sim, update.effective_user.id)
     await _log(update, "sim_done", decisoes=len(sim["results"]))
     await _safe_reply(query.message, summary)
 
@@ -1247,6 +1262,8 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
         # MESMO caminho do /simular: figura da mesa em cada decisão (o botão
         # usava um envio próprio só-texto — as imagens "sumiam" por aqui)
         await _send_sim_step(query.message, sim, step, prefix=intro + "\n")
+        # persiste DEPOIS do advance (pos gravado casa com os botões)
+        await asyncio.to_thread(get_repository().set_pending_sim, tg_user.id, sim)
         return
 
     if action == "share":

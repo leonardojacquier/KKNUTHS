@@ -392,6 +392,36 @@ class Repository:
         self.client.table("pending_drills").delete().eq("telegram_id", telegram_id).execute()
         return res.data[0]["drill"]
 
+    # ------------------------- simulação jogável -----------------------
+    @_safe(None)
+    def set_pending_sim(self, telegram_id: int, sim: dict) -> None:
+        """Estado da simulação em andamento — regravado a cada passo, pra
+        sobreviver ao restart do auto-deploy (o quiz já sobrevive; a sim
+        morria no meio da mão)."""
+        if not self._guard():
+            return None
+        self.client.table("pending_sims").upsert(
+            {"telegram_id": telegram_id, "sim": sim, "updated_at": "now()"},
+            on_conflict="telegram_id",
+        ).execute()
+
+    @_safe(None)
+    def get_pending_sim(self, telegram_id: int) -> Optional[dict]:
+        if not self._guard():
+            return None
+        res = (
+            self.client.table("pending_sims")
+            .select("sim").eq("telegram_id", telegram_id).execute()
+        )
+        return res.data[0]["sim"] if res.data else None
+
+    @_safe(None)
+    def delete_pending_sim(self, telegram_id: int) -> None:
+        if not self._guard():
+            return None
+        self.client.table("pending_sims").delete().eq(
+            "telegram_id", telegram_id).execute()
+
     @_safe(None)
     def get_player_stats(self, user_id: str) -> Optional[dict]:
         if not self._guard():
