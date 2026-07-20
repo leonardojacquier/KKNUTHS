@@ -239,6 +239,9 @@ html = html
 // 4) vídeos e logos de clientes: caminho absoluto (a página fica em /assets/nuevo/institucional/)
 html = html.replace(/(src|data-src)="assets\/video\//g, '$1="/assets/video/')
 html = html.replace(/'assets\/img\/clients\/'/g, "'/assets/img/clients/'")
+// logo do nav/footer: relativo, para funcionar tanto em gnh.vortex369.com.br
+// (/assets/nuevo/institucional/) quanto em gnhorizons.com (/institucional/)
+html = html.replace(/src="\/assets\/nuevo\/img\//g, 'src="../img/')
 
 // 5) grava en dist/ y en assets/nuevo/ (esta última es la copia versionada que se despliega)
 const outDirs = [
