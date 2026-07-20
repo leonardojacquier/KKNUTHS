@@ -366,6 +366,7 @@ def render_hand_strip(spot: dict) -> bytes:
     st_lines = []   # linhas já quebradas por street
     st_tops = []    # onde começam as ações (abaixo do board, se houver)
     st_heights = []
+    reveal_h = 66   # linha de showdown: mini-cartas do vilão + leitura
     for st in streets:
         wrapped = []
         for ln in (st.get("lines") or []):
@@ -374,6 +375,7 @@ def render_hand_strip(spot: dict) -> bytes:
         top = 72 if (st.get("board")) else 50
         st_tops.append(top)
         h = top + len(wrapped) * line_h + 14
+        h += len(st.get("reveals") or []) * reveal_h
         if st.get("note"):
             h += line_h
         st_heights.append(max(h, 104))
@@ -460,6 +462,17 @@ def render_hand_strip(spot: dict) -> bytes:
         if st.get("pot_bb") is not None:
             right(SW - pad, y + 15, f"pote {st['pot_bb']:g}bb", 18, CREAM)
         ly = y + st_tops[idx]
+        # showdown GRÁFICO primeiro (quem mostra o quê), depois o desfecho
+        for rv in (st.get("reveals") or []):
+            rx = line_x
+            for c in (rv.get("cards") or [])[:2]:
+                _mini_card(d, sc(rx), sc(ly + 2), c, sc(mw), sc(mh))
+                rx += mw + 7
+            txt = rv.get("who") or "?"
+            if rv.get("desc"):
+                txt += f" — {rv['desc']}"
+            left(rx + 10, ly + 16, txt, 21, CREAM)
+            ly += reveal_h
         for wl in st_lines[idx]:
             bold = any(k in wl.lower() for k in ("você", "voce", "herói", "heroi"))
             left(line_x, ly, "▸ " + wl, 22, CREAM if bold else (206, 220, 212),

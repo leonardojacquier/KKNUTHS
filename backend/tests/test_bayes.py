@@ -1169,12 +1169,14 @@ def test_simular_mao_foldada_pre_vira_filme():
     finally:
         proc.RECENT_HANDS.pop(tid, None)
 
-    # o filme termina com a banda "Resultado": showdown + quem levou o pote
+    # o filme termina com a banda "Resultado": showdown GRÁFICO (cartas do
+    # vilão desenhadas via reveals) + quem levou o pote
     bands = proc.film_bands(h)
     assert bands[-1]["name"] == "Resultado"
-    blob = " ".join(bands[-1]["lines"])
-    assert "vilaoA (BTN) mostra A♥ Q♦" in blob
-    assert "leva o pote (11bb)" in blob
+    rv = bands[-1]["reveals"][0]
+    assert rv["who"] == "vilaoA (BTN) mostra" and rv["cards"] == ["Ah", "Qd"]
+    assert rv["desc"] == "par de Q, kicker A"
+    assert "leva o pote (11bb)" in " ".join(bands[-1]["lines"])
     # pós-flop identifica o vilão por NOME (posição), não só posição
     flop_blob = " ".join(bands[1]["lines"])
     assert "vilaoA (BTN) aposta" in flop_blob
