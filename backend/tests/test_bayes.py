@@ -1208,6 +1208,19 @@ def test_leitura_deterministica_da_mao_feita():
     assert a["hero_final_hand"] == "dois pares (J e 10), kicker K"
     assert a["showdown_hands"]["vilao"] == "par de J, kicker A"
 
+    # QUANDO a mão ficou pronta (caso real: coach disse que o KJ 'fechou a
+    # sequência no river' quando a broadway estava pronta JÁ NO FLOP T-A-Q)
+    h2 = h.model_copy(update={
+        "hero_cards": ["Ah", "4d"],
+        "final_board": ["Tc", "Ad", "Qd", "Ts", "8c"],
+        "shown_cards": {"ImperadorJuju": ["Jd", "Kh"]},
+    })
+    bs = analyze_hand(h2)["hand_by_street"]
+    assert bs["ImperadorJuju"]["flop"] == "sequência até A"   # pronta no flop
+    assert bs["ImperadorJuju"]["river"] == "sequência até A"  # e segue no river
+    assert bs["heroi"]["flop"] == "par de A, kicker Q"
+    assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
+
 
 def test_figura_da_mesa_render():
     # figura da mesa: render deterministico (custo zero de LLM). Só garante

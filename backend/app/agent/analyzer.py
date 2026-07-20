@@ -129,9 +129,38 @@ def analyze_hand(hand: CanonicalHand) -> dict:
             for n, cs in (hand.shown_cards or {}).items()
             if _describe(cs, hand.final_board)
         },
+        # a MESMA leitura street a street: diz QUANDO cada mão ficou pronta
+        # (o coach narrou 'sequência fechou no river' quando fechou no flop)
+        "hand_by_street": _hands_by_street(hand),
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }
+
+
+def _hands_by_street(hand: CanonicalHand) -> dict:
+    """Mão feita por street (flop/turn/river) do herói e de quem mostrou.
+
+    Gabarito de QUANDO cada mão ficou pronta — a narração do coach usa isto
+    em vez de deduzir ('KJ no T-A-Q fechou a sequência NO FLOP')."""
+    fb = hand.final_board or []
+
+    def by_street(cards: list[str]) -> dict:
+        out = {}
+        for st, n in (("flop", 3), ("turn", 4), ("river", 5)):
+            if len(fb) >= n:
+                d = _describe(cards, fb[:n])
+                if d:
+                    out[st] = d
+        return out
+
+    result = {}
+    if hand.hero_cards:
+        result["heroi"] = by_street(hand.hero_cards)
+    for n, cs in (hand.shown_cards or {}).items():
+        b = by_street(cs)
+        if b:
+            result[n] = b
+    return result
 
 
 def analyze_tournament(hands: list[CanonicalHand]) -> dict:
