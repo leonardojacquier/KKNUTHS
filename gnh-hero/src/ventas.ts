@@ -445,6 +445,22 @@ function searchAll(q: string): Hit[] {
   return [...equipHits.slice(0, 8), ...hits.slice(0, 16)].sort((x, y) => y.score - x.score).slice(0, 24)
 }
 
+/* registra lo que la gente escribe en las búsquedas — cuando deja de tipear
+   (1,6s), no tecla por tecla. 'busqueda' = con resultados; 'busqueda-vacia' =
+   sin resultados (oro para saber qué falta en el catálogo). */
+let bqT = 0
+let bqLast = ''
+function trackSearch(q: string, hits: number, donde: string): void {
+  window.clearTimeout(bqT)
+  if (q.length < 3) return
+  bqT = window.setTimeout(() => {
+    const key = `${q}|${donde}`
+    if (key === bqLast) return
+    bqLast = key
+    track(hits ? 'busqueda' : 'busqueda-vacia', donde === 'general' ? q : `${q} [${donde}]`)
+  }, 1600)
+}
+
 function initBuscador(): void {
   const input = document.getElementById('buscador-input') as HTMLInputElement | null
   const out = document.getElementById('buscador-results')
@@ -456,6 +472,7 @@ function initBuscador(): void {
       const q = input.value.trim()
       if (q.length < 2) { out.innerHTML = ''; out.classList.remove('has'); return }
       const hits = searchAll(q)
+      trackSearch(q, hits.length, 'general')
       out.classList.add('has')
       out.innerHTML = hits.length
         ? `<p class="bsc-count">${hits.length} resultado${hits.length > 1 ? 's' : ''} para “${q}”</p><div class="bsc-grid">${hits.map((h) => h.html).join('')}</div>`
@@ -813,6 +830,7 @@ function selectCategory(id: string, scroll = false): void {
       }
     }
     scored.sort((x, y) => y.s - x.s)
+    trackSearch(flt.value.trim(), scored.length, cat.id)
     vbody.innerHTML = scored.length
       ? `<p class="bsc-count v-count">${scored.length} resultado${scored.length > 1 ? 's' : ''} en ${cat.title}</p><div class="bsc-grid">${scored.map((h) => h.html).join('')}</div>`
       : `<div class="v-empty"><p>Sin resultados en ${cat.title} para “${flt.value.trim()}”.</p><a class="btn-empty" href="${wa('Hola, busco: ' + flt.value.trim())}" target="_blank" rel="noopener">Consultar por WhatsApp</a></div>`
