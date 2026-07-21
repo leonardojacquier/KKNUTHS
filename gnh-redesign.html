@@ -464,7 +464,10 @@ svg{display:block}
   box-shadow:0 14px 32px -8px rgba(34,193,94,.65);
   transition:transform .3s var(--ease),box-shadow .3s;
 }
-.wa-float:hover{transform:scale(1.1);box-shadow:0 18px 40px -8px rgba(34,193,94,.75)}
+.wa-float{animation:wa-beat 2.8s var(--ease) infinite}
+@keyframes wa-beat{0%,32%,100%{transform:scale(1)}8%{transform:scale(1.12)}16%{transform:scale(1)}24%{transform:scale(1.08)}}
+.wa-float:hover{animation:none;transform:scale(1.1);box-shadow:0 18px 40px -8px rgba(34,193,94,.75)}
+@media(prefers-reduced-motion:reduce){.wa-float{animation:none}}
 .wa-float svg{width:30px;height:30px;fill:#fff}
 .wa-float::before{
   content:"";position:absolute;inset:0;border-radius:50%;

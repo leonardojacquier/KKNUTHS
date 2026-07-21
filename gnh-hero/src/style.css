@@ -153,9 +153,18 @@
   background: #22c15e; display: grid; place-items: center;
   box-shadow: 0 14px 32px -8px rgba(34, 193, 94, 0.6);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: wa-beat 2.8s ease-in-out infinite;
 }
-.wa-float:hover { transform: scale(1.1); }
+.wa-float:hover { animation: none; transform: scale(1.1); }
 .wa-float svg { width: 29px; height: 29px; }
+/* latido de corazón: tum-tum… pausa */
+@keyframes wa-beat {
+  0%, 32%, 100% { transform: scale(1); }
+  8% { transform: scale(1.12); }
+  16% { transform: scale(1); }
+  24% { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) { .wa-float { animation: none; } }
 
 /* ---------- prefers-reduced-motion: versão estática legível ---------- */
 @media (prefers-reduced-motion: reduce) {
