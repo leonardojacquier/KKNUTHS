@@ -73,6 +73,30 @@ display:flex;align-items:center;gap:16px;justify-content:space-between;flex-wrap
 padding:10px 22px;border-radius:10px;white-space:nowrap}
 .ctabar small{display:block;color:#BFD3C6;font-size:11.5px}
 .foot{color:var(--mut);font-size:10.5px;text-align:center}
+.sec{font-family:var(--serif);font-size:23px;margin:0;text-align:center}
+.sec em{color:var(--gold);font-style:normal}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;flex:1}
+.grp{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:9px 13px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.grp h4{margin:0 0 4px;font-size:12px;color:var(--felt);letter-spacing:.14em;
+text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+.grp ul{margin:0;padding-left:15px;font-size:11px;color:var(--mut);line-height:1.55}
+.grp li b{color:var(--ink)}
+.x{font-size:8.5px;font-weight:800;letter-spacing:.1em;color:#3A2C12;
+background:linear-gradient(160deg,#F1D9A7,#D9AC5F);border-radius:4px;
+padding:1px 6px;margin-left:5px;vertical-align:middle}
+.cmds{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:8px 13px;font-size:10.5px;color:var(--mut);text-align:center}
+.cmds code{font-family:'IBM Plex Mono',monospace;color:var(--felt);font-weight:600;
+background:#EFF2EB;border-radius:5px;padding:1px 6px;margin:0 2px;white-space:nowrap}
+.steps2{display:flex;gap:4mm}
+.step2{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:8px 12px;font-size:11px;color:var(--mut)}
+.step2 b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:2px}
+.step2 .n{display:inline-block;width:20px;height:20px;border-radius:50%;
+background:var(--gold);color:#fff;text-align:center;line-height:20px;
+font-weight:800;font-size:11px;margin-right:6px}
+
 """
 
 
@@ -153,6 +177,62 @@ def build_folder_html() -> str:
 
   <div class="foot">KKNuths ♠ t.me/KKNUts_BOT · análise pós-sessão sobre replays e
   arquivos exportados pela sala — sem conexão com sua conta, sem RTA.</div>
+</div>
+
+<div class="page">
+  <div class="brand"><img class="logo" src="{_img('logo_avatar.png')}" alt="KKNuths"><b>KKNuths</b> · tudo que ele faz por você</div>
+  <h1 class="sec" style="font-size:27px">O arsenal <em>completo</em></h1>
+  <p class="sub" style="font-size:11.5px">O selo dourado marca o que é
+  <b>exclusivo do KKNuths</b> — nenhum tracker ou chatbot do mercado faz.</p>
+
+  <div class="cols">
+    <div class="grp"><h4>📥 Análise</h4><ul>
+      <li><b>Link de replay (PPPoker)</b>: cola e a mão abre sozinha</li>
+      <li><b>O filme da mão</b> com showdown e vencedor<span class="x">EXCLUSIVO</span></li>
+      <li>Print, .txt (GG/Stars/Winamax/Party/888), texto colado, CSV, áudio e PDF</li>
+      <li><b>Relatório mão a mão</b> — selo de decisão ✅/❌ separado do resultado</li>
+      <li>Quadro do campeonato + resumo semanal com o leak da semana</li>
+    </ul></div>
+    <div class="grp"><h4>🎮 Treino</h4><ul>
+      <li><b>Quiz diário 19h</b> com AS SUAS mãos + streak 🔥</li>
+      <li><b>/treino</b> — um spot seu, o mais instrutivo, na hora</li>
+      <li><b>/simular</b> — rejogue com menu de sizings (3x/pote/all-in em bb)</li>
+      <li><b>/leitura</b> — adivinhe o que o vilão mostrou no showdown</li>
+      <li>Card de desafio pronto pro grupo do clube 📣</li>
+    </ul></div>
+    <div class="grp"><h4>🎯 Perfil &amp; Exploit</h4><ul>
+      <li><b>/vilao</b> — dossiê de cada reg com as SUAS mãos<span class="x">EXCLUSIVO</span></li>
+      <li><b>Timing tells</b> — o tempo das ações cruzado com showdowns<span class="x">EXCLUSIVO</span></li>
+      <li><b>KKN Tilt Detector</b> — o pote grande mudou seu jogo? Custo em bb<span class="x">EXCLUSIVO</span></li>
+      <li>Leaks precificados em bb/100, rankeados pelo que devolve mais</li>
+      <li>/evolucao, /estilo vs os grandes, /ask no seu histórico</li>
+    </ul></div>
+    <div class="grp"><h4>🧮 Matemática</h4><ul>
+      <li><b>Solver CFR+ flop→river</b> — apostas futuras modeladas</li>
+      <li><b>PKO/bounty</b> — o bounty desconta a equity do call<span class="x">EXCLUSIVO</span></li>
+      <li><b>ICM automático</b> — informe a premiação uma vez</li>
+      <li>Nash com ante, EV mão a mão, MDF, blockers, range advantage</li>
+      <li><b>/banca</b> — risco de ruína e downswing por Monte Carlo</li>
+    </ul></div>
+  </div>
+
+  <div class="cmds"><code>/treino</code><code>/simular</code><code>/leitura</code>
+  <code>/vilao</code><code>/range</code><code>/banca</code><code>/stats</code>
+  <code>/evolucao</code><code>/estilo</code><code>/torneio</code>
+  <code>/relatorio</code><code>/ask</code><code>/manual</code></div>
+
+  <div class="steps2">
+    <div class="step2"><b><span class="n">1</span>Abra o bot</b>t.me/KKNUts_BOT e toque em Iniciar — sem instalar nada.</div>
+    <div class="step2"><b><span class="n">2</span>Mande uma mão</b>Cole o link do replay (ou print/arquivo). 30 segundos.</div>
+    <div class="step2"><b><span class="n">3</span>Discuta com o coach</b>Discorde, pergunte, peça a tabela — ele recalcula.</div>
+  </div>
+
+  <div class="ctabar">
+    <div class="go">Grátis: <em>100 análises por mês</em>
+      <small>análise pós-sessão · sem conexão com sua conta · sem RTA</small></div>
+    <a class="link" href="{BOT_URL}">t.me/KKNUts_BOT →</a>
+  </div>
+  <div class="foot">KKNuths ♠ — pare de achar. Calcule.</div>
 </div>
 </body>
 </html>"""
