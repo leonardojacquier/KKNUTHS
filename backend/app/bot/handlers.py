@@ -446,36 +446,44 @@ async def cmd_range(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             bf = float(args[3].replace(",", "."))
         except ValueError:
             pass
-    result = await asyncio.to_thread(
-        chart_for_query, args[0], args[1] if len(args) > 1 else None, mode, bf
-    )
-    if result is None:
+    ok = await _send_range_charts(
+        update.message, args[0], args[1] if len(args) > 1 else None, mode, bf)
+    if not ok:
         await update.message.reply_text(
             "Não reconheci. Exemplos: /range btn · /range sb 10 · /range bb 8"
         )
-        return
-    png, caption = result
+
+
+async def _send_range_charts(message, pos: str, stack, mode, bf: float) -> bool:
+    """Envia o gráfico pedido e, num spot Nash de frequências, o EV por mão
+    como SEGUNDO gráfico (pedido do admin — valia só no caminho do coach;
+    o /range comando/botão mandava um só)."""
+    from app.analysis.range_chart import chart_for_query
+
     import io as _io
 
-    await update.message.reply_photo(photo=_io.BytesIO(png), caption=caption)
+    result = await asyncio.to_thread(chart_for_query, pos, stack, mode, bf)
+    if result is None:
+        return False
+    await message.reply_photo(photo=_io.BytesIO(result[0]), caption=result[1])
+    if stack and mode is None:  # spot Nash em frequências -> companhia de EV
+        ev = await asyncio.to_thread(chart_for_query, pos, stack, "ev", 1.0)
+        if ev:
+            await message.reply_photo(photo=_io.BytesIO(ev[0]),
+                                      caption=ev[1][:1000])
+    return True
 
 
 async def on_range_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Botões do /range: mesma consulta do comando, em 1 toque."""
     query = update.callback_query
     await query.answer("Montando o gráfico… 📊")
-    from app.analysis.range_chart import chart_for_query
-
     args = query.data.split(":", 1)[1].split()
     mode = args[2] if len(args) > 2 and args[2] in ("ev", "icm") else None
-    result = await asyncio.to_thread(
-        chart_for_query, args[0], args[1] if len(args) > 1 else None, mode, 1.5)
-    if result is None:
+    ok = await _send_range_charts(
+        query.message, args[0], args[1] if len(args) > 1 else None, mode, 1.5)
+    if not ok:
         await query.message.reply_text("Não consegui montar esse gráfico agora.")
-        return
-    import io as _io
-    await query.message.reply_photo(photo=_io.BytesIO(result[0]),
-                                    caption=result[1])
 
 
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
