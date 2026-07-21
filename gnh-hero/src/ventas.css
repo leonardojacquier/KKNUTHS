@@ -57,6 +57,10 @@
 }
 .vh-cta:hover { filter: brightness(1.08); gap: 13px; }
 .vh-cta-i { width: 17px; height: 17px; stroke: #fff; fill: none; }
+a.vh-cta { text-decoration: none; }
+.vh-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.vh-cta-ghost { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.4); box-shadow: none; }
+.vh-cta-ghost:hover { background: rgba(255,255,255,.16); filter: none; }
 
 .vh-arrow {
   position: absolute; top: 50%; translate: 0 -50%; z-index: 4;

@@ -356,7 +356,7 @@ function aditivoCard(a: Aditivo): string {
         <div class="adi-actions">
           ${a.ficha ? `<a class="adi-doc" href="../fichas/${a.slug}.html">Ficha técnica</a>
           <a class="adi-doc adi-pdf" href="../fichas/pdf/${a.slug}.pdf" download>PDF</a>` : ''}
-          <a class="v-cta" href="${wa(msg)}" target="_blank" rel="noopener">Consultar ${icon('arrow', 'v-cta-i')}</a>
+          <a class="v-cta" href="${wa(msg)}" target="_blank" rel="noopener" data-ev="product" data-detail="${a.name}">Consultar ${icon('arrow', 'v-cta-i')}</a>
         </div>
       </div>
     </article>`
@@ -499,7 +499,10 @@ function renderHeroCarousel(): void {
               <span class="vh-eyebrow">Línea destacada</span>
               <h2 class="vh-title">${f.name}</h2>
               <p class="vh-desc">${f.tag}</p>
-              <button class="vh-cta" data-cat="${f.cat}">Ver productos ${icon('arrow', 'vh-cta-i')}</button>
+              <div class="vh-btns">
+                <a class="vh-cta" href="${wa(`Hola, quiero cotizar: ${f.name}`)}" target="_blank" rel="noopener" data-ev="product" data-detail="${f.name}">Cotizar ${icon('arrow', 'vh-cta-i')}</a>
+                <button class="vh-cta vh-cta-ghost" data-cat="${f.cat}">Ver productos</button>
+              </div>
             </div>
           </div>
         </article>`
@@ -558,8 +561,12 @@ function renderHeroCarousel(): void {
   root.querySelector('.vh-next')!.addEventListener('click', next)
   root.querySelector('.vh-prev')!.addEventListener('click', prev)
   segs.forEach((s) => s.addEventListener('click', () => go(Number(s.dataset.i))))
-  root.querySelectorAll<HTMLElement>('.vh-cta').forEach((btn) =>
+  root.querySelectorAll<HTMLElement>('.vh-cta[data-cat]').forEach((btn) =>
     btn.addEventListener('click', () => selectCategory(btn.dataset.cat || 'equipos', true)))
+  // el slide estático trae el link de WhatsApp sin (ref): lo normaliza acá
+  root.querySelectorAll<HTMLAnchorElement>('a.vh-cta[data-detail]').forEach((a) => {
+    if (!decodeURIComponent(a.href).includes('(ref ')) a.href = wa(`Hola, quiero cotizar: ${a.dataset.detail}`)
+  })
 
   const track = root.querySelector<HTMLElement>('.vh-track')!
   let x0: number | null = null
