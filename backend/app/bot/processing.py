@@ -1229,6 +1229,45 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
     }
 
 
+def villain_report(telegram_id: int, name: str) -> str:
+    """/vilao <nome> — perfil de exploit de um oponente recorrente, montado
+    das mãos do próprio aluno (determinístico, custo zero de LLM)."""
+    hands = _user_hands(telegram_id)
+    if not hands:
+        return "Ainda não tenho mãos suas na base — envie um replay primeiro."
+    from app.analysis.villains import villain_profile
+
+    prof = villain_profile(hands, name)
+    if not prof:
+        nomes = sorted({p.name for h in hands for p in h.players
+                        if p.name and not p.is_hero
+                        and not p.name.startswith("seat")})[:12]
+        return (f"Não achei '{name}' nas suas mãos. Vilões que já vi: "
+                + ", ".join(nomes) if nomes else
+                f"Não achei '{name}' nas suas mãos.")
+
+    l = [f"🎯 *{prof['vilao']}* — {prof['maos_na_base']} mão(s) na sua base "
+         f"(amostra {prof['amostra']})"]
+    v, p = prof["vpip"], prof["pfr"]
+    l.append(f"VPIP *{v['media']:g}%* ({v['ic95'][0]:g}–{v['ic95'][1]:g}) · "
+             f"PFR *{p['media']:g}%* · AF *{prof['af']:g}*")
+    fq = prof.get("fold_quando_apostado")
+    if fq:
+        l.append(f"Folda quando apostado: *{fq['media']:g}%* "
+                 f"(amostra {fq['amostra']})")
+    if prof.get("showdowns_vistos"):
+        sd = ", ".join(f"{_pretty_cards(s['cartas'])}"
+                       for s in prof["showdowns_vistos"])
+        l.append(f"Showdowns já vistos: {sd}")
+    if prof.get("exploits"):
+        l.append("\n*Como explorar:*")
+        l += [f"• {e}" for e in prof["exploits"]]
+    if prof.get("aviso"):
+        l.append(f"\n⚠️ _{prof['aviso']}_")
+    l.append("\n💬 _Pergunta 'como jogo contra ele?' que o coach monta o plano._")
+    return "\n".join(l)
+
+
 def ensure_demo_material(telegram_id: int) -> bool:
     """Usuário ZERO (sem nenhuma mão): injeta uma mão-DEMO sintética na
     memória — nunca no banco — pra /treino e /simular funcionarem no

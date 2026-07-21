@@ -143,7 +143,10 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
             shown[name] = cs
         players.append(PlayerSeat(
             seat=int(seat) if seat is not None else 0, name=name,
-            stack=float(p.get("hand_chips") or 0), is_hero=is_hero))
+            stack=float(p.get("hand_chips") or 0), is_hero=is_hero,
+            # PKO/hunter: a recompensa na cabeça do jogador — muda a conta
+            # de todo call de all-in (regra da meia-pilha, app/analysis/pko)
+            bounty=float(p.get("hunter_bonus") or 0) or None))
 
     # posições: ordem horária começando no SB (quem postou o SB)
     _assign_positions(players, flow, seat_name)

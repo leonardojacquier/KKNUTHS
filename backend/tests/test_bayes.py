@@ -921,7 +921,8 @@ def _pppoker_fixture():
             "players": [
                 {"user_name": "RicoFarah", "seatid": 0, "hand_chips": 21305500,
                  "uid": 1, "isSelf": True},
-                {"user_name": "vilmots", "seatid": 1, "hand_chips": 6870800, "uid": 2},
+                {"user_name": "vilmots", "seatid": 1, "hand_chips": 6870800, "uid": 2,
+                 "hunter_bonus": 150},
                 {"user_name": "KKNUThS", "seatid": 2, "hand_chips": 6394900, "uid": 3},
                 {"user_name": "ImperadorJuju", "seatid": 3, "hand_chips": 44596700, "uid": 4},
                 {"user_name": "btn", "seatid": 4, "hand_chips": 4477000, "uid": 5},
@@ -1001,6 +1002,13 @@ def test_pppoker_replay_parser():
     # showdown: mão completa de flow.show_hands + carta única de show_cards
     assert h.shown_cards["ImperadorJuju"] == ["8c", "8s"]
     assert h.shown_cards["vilmots"] == ["3h"]
+
+    # PKO: bounty capturado do hunter_bonus e exposto pro coach
+    from app.agent.analyzer import analyze_hand
+    vilmots = next(p for p in h.players if p.name == "vilmots")
+    assert vilmots.bounty == 150
+    a = analyze_hand(h)
+    assert a["pko"] is True and 150 in a["bounties"].values()
 
 
 def test_replay_link_detection_routes_pppoker():
@@ -1511,6 +1519,61 @@ def test_veredito_stack_curto_jam_domina_call():
     # deep (60bb) o equilíbrio de shove NÃO se aplica — veredito segue a conta
     deep = dict(drill, stack_bb=60.0)
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
+
+
+def test_pko_bounty_desconta_equity():
+    # regra da meia-pilha: bounty de 2 bounties iniciais com stack inicial
+    # 10k = 10k fichas de dinheiro morto extra no call
+    import pytest as _pytest
+
+    from app.analysis.pko import bounty_em_fichas, pko_call
+
+    assert bounty_em_fichas(100, 50, 10_000) == 10_000
+    r = pko_call(12_000, 8_000, 100, 50, 10_000)
+    assert r["equity_necessaria_sem_bounty"] == 0.4      # 8k/(12k+8k)
+    assert r["equity_necessaria_com_bounty"] == round(8_000 / 30_000, 3)
+    assert r["desconto_pct"] > 10                        # o bounty muda a conta
+    assert "meia-pilha" in r["nota"].lower() or "MEIA-PILHA" in r["nota"]
+    with _pytest.raises(ValueError):
+        pko_call(10, 0, 1, 1, 100)
+
+
+def test_villain_profile_exploit_por_vilao():
+    from app.analysis.villains import villain_profile
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    def mao(i, acao_vilao):
+        pre = Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="Nit77", type=ActionType.POST, amount=2,
+                   post_type="bb"),
+            acao_vilao,
+            Action(actor="Hero", type=ActionType.RAISE, amount=6, to_amount=6),
+        ])
+        return CanonicalHand(
+            site="x", hand_id=f"m{i}", hero="Hero",
+            stakes=Stakes(small_blind=1, big_blind=2),
+            players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True),
+                     PlayerSeat(seat=2, name="Nit77", stack=200)],
+            hero_cards=["As", "Kd"], streets=[pre],
+            shown_cards={"Nit77": ["Qh", "Qd"]} if i == 0 else {})
+
+    # 20 mãos: vilão só joga 2 (call) e folda 18 -> nit
+    hands = ([mao(i, Action(actor="Nit77", type=ActionType.CALL, amount=2))
+              for i in range(2)]
+             + [mao(i + 2, Action(actor="Nit77", type=ActionType.FOLD))
+                for i in range(18)])
+    prof = villain_profile(hands, "nit77")          # case-insensitive
+    assert prof and prof["maos_na_base"] == 20
+    assert prof["vpip"]["media"] < 20               # shrinkage puxa mas é nit
+    assert prof["amostra"] == "média"
+    assert any("nit" in e for e in prof["exploits"])
+    assert prof["showdowns_vistos"][0]["cartas"] == ["Qh", "Qd"]
+    # vilão inexistente
+    assert villain_profile(hands, "fantasma") is None
+    # amostra pequena: SEM dicas (ruído não vira conselho)
+    poucos = villain_profile(hands[:5], "Nit77")
+    assert poucos["exploits"] == [] and "aviso" in poucos
 
 
 def test_graficos_sem_duplicata_e_com_ev_de_companhia():

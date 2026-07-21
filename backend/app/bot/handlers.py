@@ -486,6 +486,21 @@ async def on_range_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         await query.message.reply_text("Não consegui montar esse gráfico agora.")
 
 
+async def cmd_vilao(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/vilao <nome> — perfil de exploit de um oponente recorrente."""
+    from app.bot.processing import villain_report
+
+    name = " ".join(ctx.args or []).strip()
+    await _log(update, "vilao", name=name[:40])
+    if not name:
+        await update.message.reply_text(
+            "Me diz o nome: /vilao TabaVet (como aparece na mesa).")
+        return
+    text = await asyncio.to_thread(
+        villain_report, update.effective_user.id, name)
+    await _safe_reply(update.message, text)
+
+
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Drill: um spot real das suas mãos — o que você faria?"""
     await _log(update, "treino")
@@ -1414,6 +1429,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))
+    app.add_handler(CommandHandler("vilao", cmd_vilao))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))

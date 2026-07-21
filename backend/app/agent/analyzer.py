@@ -133,6 +133,11 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # a MESMA leitura street a street: diz QUANDO cada mão ficou pronta
         # (o coach narrou 'sequência fechou no river' quando fechou no flop)
         "hand_by_street": _hands_by_street(hand),
+        # PKO/bounty: recompensas na cabeça de cada jogador — presença disto
+        # OBRIGA a conta de all-in a usar pko_call (regra 4f)
+        "pko": any(p.bounty for p in hand.players),
+        "bounties": {(p.position or p.name[:12]): p.bounty
+                     for p in hand.players if p.bounty},
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }

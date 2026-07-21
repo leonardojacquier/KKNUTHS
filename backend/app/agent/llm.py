@@ -176,6 +176,41 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "pko_call",
+        "description": "PKO/BOUNTY: equity necessária pra pagar um all-in que pode "
+        "ELIMINAR um vilão em torneio hunter/PKO. O bounty entra como dinheiro morto "
+        "(regra da meia-pilha, premissa declarada na nota — repita-a ao aluno). Use em "
+        "TODO call de all-in quando o contexto tiver pko/bounties; se faltar "
+        "starting_stack ou starting_bounty, PERGUNTE ao aluno (não estime). Valores de "
+        "bounty na mesma unidade (R$/USD/pontos).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pot": {"type": "number"},
+                "to_call": {"type": "number"},
+                "villain_bounty": {"type": "number"},
+                "starting_bounty": {"type": "number"},
+                "starting_stack": {"type": "number"},
+            },
+            "required": ["pot", "to_call", "villain_bounty",
+                         "starting_bounty", "starting_stack"],
+        },
+    },
+    {
+        "name": "villain_profile",
+        "description": "EXPLOIT POR VILÃO: perfil de um oponente específico montado das "
+        "mãos do PRÓPRIO aluno (clube = mesmos regs sempre): VPIP/PFR/AF com intervalo "
+        "bayesiano, fold-quando-apostado, SHOWDOWNS já vistos dele e dicas de exploit "
+        "(travadas por amostra mínima). Use quando o aluno citar um vilão pelo nome ou "
+        "quando o spot envolver leitura de um oponente recorrente. SEMPRE cite o "
+        "tamanho da amostra ao usar.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    },
+    {
         "name": "search_hands",
         "description": "BUSCA no histórico de mãos do PRÓPRIO aluno por padrão de "
         "ação: use quando ele pedir 'analise todos os meus c-bets/folds/all-ins/"
@@ -423,6 +458,15 @@ _SYSTEM = {
         "curto): o range do gráfico é o MESMO do push_fold — passe position + "
         "stack_bb; NUNCA desenhe range de abertura deep para spot de "
         "shove (contradiz o veredito).\n"
+        "4e) PKO/BOUNTY: se o contexto traz pko=true ou bounties, o torneio é "
+        "hunter — TODO call de all-in que pode eliminar um vilão usa pko_call "
+        "(o bounty é dinheiro morto que desconta a equity necessária; premissa "
+        "da meia-pilha, cite-a). PROIBIDO analisar all-in de PKO como torneio "
+        "normal. Faltando starting_stack/starting_bounty, pergunte ao aluno.\n"
+        "4f) VILÃO RECORRENTE: clube = mesmos regs; se o aluno cita um vilão "
+        "pelo NOME (ou pergunta 'como jogo contra ele'), chame villain_profile "
+        "e ajuste o conselho pro exploit — citando SEMPRE a amostra ('em 23 "
+        "mãos, ele...'). Amostra baixa = impressão, não leitura; diga isso.\n"
         "4b) STACKS: use SEMPRE hero_stack_bb/effective_bb/stacks_bb do contexto — "
         "NUNCA estime o stack (o valor do big blind NÃO é o stack!). Em all-in, "
         "o que manda é o stack EFETIVO: min(seu stack, stack do vilão relevante). "
@@ -593,6 +637,25 @@ def _coerce_args(args: dict) -> dict:
 
 def _dispatch(name: str, args: dict):
     args = _coerce_args(args)
+    if name == "pko_call":
+        from app.analysis.pko import pko_call
+
+        return pko_call(
+            float(args["pot"]), float(args["to_call"]),
+            float(args["villain_bounty"]), float(args["starting_bounty"]),
+            float(args["starting_stack"]))
+    if name == "villain_profile":
+        from app.analysis.villains import villain_profile
+        from app.db import get_repository
+
+        user_id = _TOOL_USER.get()
+        repo = get_repository()
+        if not user_id or not repo.enabled:
+            return {"error": "histórico indisponível nesta conversa"}
+        hands = repo.get_all_hands(user_id, limit=500)
+        prof = villain_profile(hands, str(args.get("name") or ""))
+        return prof or {"error": f"nenhuma mão com '{args.get('name')}' na base "
+                                 "do aluno — confirme a grafia do nome"}
     if name == "search_hands":
         from app.analysis.handsearch import search_hands
         from app.db import get_repository
