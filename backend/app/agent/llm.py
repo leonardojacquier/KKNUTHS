@@ -176,6 +176,41 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "range_advantage",
+        "description": "RANGE/NUT ADVANTAGE: em um board (3-5 cartas), compara dois "
+        "ranges — equity média de cada um e fração de combos premium (nuts) — e dá o "
+        "veredito de c-bet (aposta pequena frequente / polarizar grande / chequar). "
+        "USE em toda análise de c-bet ou check no flop com os ranges plausíveis do "
+        "spot (agressor pré vs quem pagou). Ranges estreitos (<420 combos).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "board": {"type": "array", "items": {"type": "string"}},
+                "range_a": {"type": "string"},
+                "range_b": {"type": "string"},
+                "label_a": {"type": "string"},
+                "label_b": {"type": "string"},
+            },
+            "required": ["board", "range_a", "range_b"],
+        },
+    },
+    {
+        "name": "blockers",
+        "description": "BLOCKERS/card removal: quanto das mãos FORTES (dois pares+) do "
+        "range do vilão as cartas do herói bloqueiam, carta por carta. USE em decisão "
+        "de blefe ou call grande no turn/river e VERBALIZE o efeito ('seu A♠ bloqueia "
+        "o nut flush — blefe melhor do range'). Determinístico.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "hero_cards": {"type": "array", "items": {"type": "string"}},
+                "board": {"type": "array", "items": {"type": "string"}},
+                "villain_range": {"type": "string"},
+            },
+            "required": ["hero_cards", "board", "villain_range"],
+        },
+    },
+    {
         "name": "pko_call",
         "description": "PKO/BOUNTY: equity necessária pra pagar um all-in que pode "
         "ELIMINAR um vilão em torneio hunter/PKO. O bounty entra como dinheiro morto "
@@ -433,7 +468,11 @@ _SYSTEM = {
         "desde o flop'. Cite SÓ as streets que importam pro veredito — a "
         "regra de CLAREZA continua mandando.\n"
         "2) Pense em RANGES: use preflop_range + equity_vs_range (não equity vs aleatória) "
-        "sempre que a ação der contexto do range do vilão.\n"
+        "sempre que a ação der contexto do range do vilão. Em c-bet/check no "
+        "FLOP, chame range_advantage (quem é dono do board dita o plano — "
+        "cite equity média e nut advantage). Em blefe ou call GRANDE no "
+        "turn/river, chame blockers e verbalize o efeito ('seu A♠ bloqueia o "
+        "nut flush').\n"
         "2b) CONSISTÊNCIA DE VEREDITO: decisão preflop se ancora no range de "
         "referência — chame preflop_range e compare; NÃO decida de memória. "
         "Mesma mão + mesma posição + mesma ação = MESMO veredito, sempre; o "
@@ -637,6 +676,21 @@ def _coerce_args(args: dict) -> dict:
 
 def _dispatch(name: str, args: dict):
     args = _coerce_args(args)
+    if name == "range_advantage":
+        from app.analysis.range_advantage import range_advantage
+
+        return range_advantage(
+            [_norm_card(c) or c for c in args["board"]],
+            str(args["range_a"]), str(args["range_b"]),
+            str(args.get("label_a") or "agressor"),
+            str(args.get("label_b") or "defensor"))
+    if name == "blockers":
+        from app.analysis.blockers import blocker_effects
+
+        return blocker_effects(
+            [_norm_card(c) or c for c in args["hero_cards"]],
+            [_norm_card(c) or c for c in args["board"]],
+            str(args["villain_range"]))
     if name == "pko_call":
         from app.analysis.pko import pko_call
 

@@ -1521,6 +1521,44 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_range_advantage_no_flop():
+    from app.analysis.range_advantage import range_advantage
+
+    # A72 rainbow: range do agressor (pares altos + AK) esmaga quem defendeu
+    # com conectores baixos — c-bet pequeno e frequente
+    r = range_advantage(["Ah", "7d", "2c"], "AA, KK, QQ, AK", "76s, 65s")
+    assert r["equity_media"]["agressor"] > 60
+    assert "PEQUENO" in r["veredito"] or "pequeno" in r["veredito"]
+
+    # 765 two-tone: sets e duas pontas do defensor dominam overcards soltas
+    r2 = range_advantage(["7h", "6h", "5c"], "AK, AQ", "77, 66, 55",
+                         label_a="agressor", label_b="defensor")
+    assert r2["equity_media"]["defensor"] > 60
+    assert "chequar" in r2["veredito"] or "defensor" in r2["veredito"]
+
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        range_advantage(["Ah", "7d"], "AA", "KK")   # board curto
+
+
+def test_blockers_no_river():
+    from app.analysis.blockers import blocker_effects
+
+    # board K♠9♠4♠2♥7♦; vilão com AQ/99/88: fortes = 3 sets de 9 (sem o 9♠
+    # do board) + o flush A♠Q♠ = 4 combos. Herói com 9♦ bloqueia 2 (50%).
+    r = blocker_effects(["9d", "Th"], ["Ks", "9s", "4s", "2h", "7d"],
+                        "AQ, 99, 88")
+    assert r["combos_fortes"] == 4
+    assert r["por_carta"]["9d"]["combos_fortes_bloqueados"] == 2
+    assert r["fortes_bloqueados_pct"] == 50.0
+    assert "blefe" in r["leitura"]
+
+    # sem bloqueio relevante
+    r2 = blocker_effects(["Th", "8h"], ["Ks", "9s", "4s", "2h", "7d"],
+                         "AQ, 99")
+    assert r2["por_carta"]["Th"]["combos_fortes_bloqueados"] == 0
+
+
 def test_pko_bounty_desconta_equity():
     # regra da meia-pilha: bounty de 2 bounties iniciais com stack inicial
     # 10k = 10k fichas de dinheiro morto extra no call
