@@ -76,6 +76,10 @@ class Action(BaseModel):
     to_amount: float = 0       # total apostado na street (para raises)
     all_in: bool = False
     post_type: Optional[str] = None  # 'sb' | 'bb' | 'ante' (quando type == POST)
+    # tempo bruto da ação, quando a sala fornece (PPPoker: campo `time`).
+    # Semântica varia por sala (duração OU timestamp) — a análise de timing
+    # tells normaliza por diferenças dentro da mesma mão.
+    time_raw: Optional[float] = None
 
 
 class Street(BaseModel):

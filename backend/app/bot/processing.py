@@ -1235,6 +1235,66 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
     }
 
 
+# treino de leitura pendente por usuário (v1 em memória; um treino por vez)
+HR_PENDING: dict[int, dict] = {}
+
+
+def build_hand_reading(telegram_id: int) -> dict | None:
+    """Treino de LEITURA DE MÃOS (quiz invertido): uma mão real com showdown
+    de vilão; o aluno vê a história SEM as cartas dele e adivinha o que ele
+    mostrou entre 4 opções — a real + 3 iscas plausíveis espalhadas por
+    força (determinístico por mão). None sem material."""
+    import random as _r
+
+    from app.analysis.equity import describe_hand
+    from app.analysis.ranges import expand_combos, parse_range
+    from app.analysis.river_solver import _strengths
+
+    hands = _user_hands(telegram_id)
+    candidatas = []
+    for h in hands:
+        if not (h.hero and len(h.final_board or []) == 5):
+            continue
+        alvo = next((w for w, cs in (h.shown_cards or {}).items()
+                     if w != h.hero and len(cs) == 2), None)
+        if alvo:
+            candidatas.append((h, alvo))
+    if not candidatas:
+        return None
+    h, vilao = candidatas[0]
+    real = list(h.shown_cards[vilao])
+
+    dead = set(h.final_board) | set(h.hero_cards or []) | set(real)
+    pool = expand_combos(parse_range(
+        "22+, A2s+, A7o+, K9s+, KTo+, QTs+, JTs, T9s, 98s, 87s, 76s"), dead)
+    if len(pool) < 3:
+        return None
+    ranks = _strengths(pool, h.final_board)
+    ordenado = [c for _, c in sorted(zip(ranks.tolist(), pool),
+                                     key=lambda x: x[0])]
+    # iscas em três alturas: quase-nuts, miolo e fraca — o aluno compara a
+    # LINHA jogada com a força plausível
+    iscas = []
+    for q in (0.04, 0.5, 0.92):
+        c = ordenado[min(len(ordenado) - 1, int(len(ordenado) * q))]
+        if list(c) not in iscas:
+            iscas.append(list(c))
+    while len(iscas) < 3:
+        iscas.append(list(ordenado[_r.Random(len(iscas)).randrange(len(ordenado))]))
+
+    opts = [real] + iscas[:3]
+    _r.Random(h.hand_id).shuffle(opts)
+    lines, _ = _walk_hand(h)
+    return {
+        "hand_id": h.hand_id,
+        "vilao": vilao,
+        "story": "\n".join(lines)[:1600],
+        "options": opts,
+        "correct": opts.index(real),
+        "leitura": describe_hand(real, h.final_board) or "",
+    }
+
+
 def villain_report(telegram_id: int, name: str) -> str:
     """/vilao <nome> — perfil de exploit de um oponente recorrente, montado
     das mãos do próprio aluno (determinístico, custo zero de LLM)."""

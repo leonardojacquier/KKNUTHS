@@ -1521,6 +1521,92 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_timing_tells_snap_bet_forte():
+    # 7 mãos: vilão aposta RÁPIDO (2s) e mostra valor no showdown — o sinal
+    # "snap-bet = força" sai; com poucas ações com tempo, nada sai
+    from app.analysis.villains import timing_tells
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    def mao(i):
+        riv = Street(name=StreetName.RIVER,
+                     board=["Ks", "9h", "4d", "2c", "9s"], actions=[
+            Action(actor="Snap", type=ActionType.BET, amount=100, time_raw=2.0),
+            Action(actor="Snap", type=ActionType.CHECK, time_raw=3.0),
+        ])
+        return CanonicalHand(
+            site="x", hand_id=f"t{i}", hero="Hero",
+            stakes=Stakes(small_blind=1, big_blind=2),
+            players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True),
+                     PlayerSeat(seat=2, name="Snap", stack=100)],
+            hero_cards=["Ah", "Qd"],
+            final_board=["Ks", "9h", "4d", "2c", "9s"],
+            shown_cards={"Snap": ["9c", "9d"]},   # quadra: forte
+            streets=[riv])
+
+    hands = [mao(i) for i in range(7)]
+    tt = timing_tells(hands, "snap")
+    assert tt and tt["acoes_com_tempo"] == 14
+    assert tt["mediana_agressao_s"] == 2.0
+    assert any("força" in s for s in tt["sinais"])
+    assert timing_tells(hands[:2], "snap") is None      # amostra curta
+
+
+def test_risk_of_ruin_banca():
+    import pytest as _pytest
+
+    from app.analysis.bankroll import risk_of_ruin
+
+    # 100 BI em MTT NÃO é ultra-seguro (literatura: é o mínimo) — ~5% de
+    # ruína é o realismo do modelo; 250 BI derruba pra quase zero
+    folgado = risk_of_ruin(250, roi_pct=20)
+    assert folgado["risco_de_ruina_pct"] < 2
+    medio = risk_of_ruin(100, roi_pct=20)
+    apertado = risk_of_ruin(5, roi_pct=-20)
+    assert apertado["risco_de_ruina_pct"] > 60
+    assert (folgado["risco_de_ruina_pct"] < medio["risco_de_ruina_pct"]
+            < apertado["risco_de_ruina_pct"])
+    # determinístico: mesma pergunta, mesma resposta
+    assert risk_of_ruin(30, 10) == risk_of_ruin(30, 10)
+    assert "Monte Carlo" in folgado["nota"]
+    with _pytest.raises(ValueError):
+        risk_of_ruin(0.5)
+
+
+def test_treino_de_leitura_de_maos():
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilaoX", type=ActionType.RAISE, amount=6, to_amount=6),
+        Action(actor="Hero", type=ActionType.CALL, amount=6, to_amount=6),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="hr1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True),
+                 PlayerSeat(seat=2, name="vilaoX", stack=100)],
+        hero_cards=["Ah", "Qd"], streets=[pre],
+        final_board=["Ks", "9h", "4d", "2c", "7s"],
+        shown_cards={"vilaoX": ["Kd", "Jc"]})
+    tid = 555777
+    proc.RECENT_HANDS[tid] = [h]
+    try:
+        hr = proc.build_hand_reading(tid)
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+    assert hr and len(hr["options"]) == 4
+    assert hr["options"][hr["correct"]] == ["Kd", "Jc"]
+    assert hr["vilao"] == "vilaoX" and hr["story"]
+    assert "par de K" in hr["leitura"]
+    # iscas não colidem com board/herói/resposta
+    usadas = set(h.final_board) | {"Ah", "Qd", "Kd", "Jc"}
+    for i, o in enumerate(hr["options"]):
+        if i != hr["correct"]:
+            assert not set(o) & usadas
+
+
 def test_mdf_e_alpha():
     # gabarito clássico: aposta de POTE -> MDF 50% / alpha 50%;
     # meia-pote -> MDF 66.7% / alpha 33.3%

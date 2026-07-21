@@ -501,6 +501,83 @@ async def cmd_vilao(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, text)
 
 
+async def cmd_banca(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/banca <buy-ins> [roi%] — risco de ruína e downswing esperado."""
+    from app.analysis.bankroll import risk_of_ruin
+
+    args = ctx.args or []
+    await _log(update, "banca", args=" ".join(args)[:40])
+    try:
+        bi = float(args[0].replace(",", "."))
+        roi = float(args[1].replace(",", ".")) if len(args) > 1 else 10.0
+    except (IndexError, ValueError):
+        await update.message.reply_text(
+            "Uso: /banca 50  (banca em buy-ins)  ·  /banca 50 15  (com ROI %)")
+        return
+    try:
+        r = await asyncio.to_thread(risk_of_ruin, bi, roi)
+    except ValueError as exc:
+        await update.message.reply_text(str(exc))
+        return
+    risco = r["risco_de_ruina_pct"]
+    farol = "🟢" if risco < 2 else ("🟡" if risco < 10 else "🔴")
+    await _safe_reply(update.message, (
+        f"{farol} *Banca de {bi:g} buy-ins* (ROI assumido {roi:g}%)\n\n"
+        f"Risco de ruína: *{risco:g}%* em {r['horizonte_torneios']} torneios\n"
+        f"Downswing típico: *{r['downswing_tipico_bi']:g} buy-ins*\n"
+        f"Pior razoável (p95): *{r['downswing_p95_bi']:g} buy-ins*\n\n"
+        f"_{r['nota']}_"))
+
+
+async def cmd_leitura(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/leitura — treino de hand reading: adivinhe o que o vilão mostrou."""
+    from app.bot.processing import HR_PENDING, _pretty_cards, build_hand_reading
+
+    tg_id = update.effective_user.id
+    await _log(update, "leitura")
+    hr = await asyncio.to_thread(build_hand_reading, tg_id)
+    if not hr:
+        await update.message.reply_text(
+            "Preciso de uma mão sua com showdown do vilão pra montar o treino "
+            "de leitura — cola um link de replay que foi até o fim.")
+        return
+    ctx.user_data["hr"] = hr
+    HR_PENDING[tg_id] = hr
+    kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton(_pretty_cards(o), callback_data=f"hr:{i}")]
+        for i, o in enumerate(hr["options"])])
+    await update.message.reply_markdown(
+        "🔎 *Treino de leitura* — a mão abaixo foi até o showdown. "
+        f"Pelo jeito que *{hr['vilao']}* jogou, o que ele MOSTROU?\n\n"
+        + hr["story"], reply_markup=kb)
+
+
+async def on_hr_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    from app.bot.processing import HR_PENDING, _pretty_cards
+
+    query = update.callback_query
+    await query.answer()
+    tg_id = update.effective_user.id
+    hr = ctx.user_data.get("hr") or HR_PENDING.get(tg_id)
+    if not hr:
+        await _show_reveal(query, "Treino expirado. Use /leitura para outro.")
+        return
+    idx = int(query.data.split(":", 1)[1])
+    acertou = idx == hr["correct"]
+    await _log(update, "leitura_answer", acertou=acertou,
+               hand_id=hr.get("hand_id"))
+    ctx.user_data.pop("hr", None)
+    HR_PENDING.pop(tg_id, None)
+    real = _pretty_cards(hr["options"][hr["correct"]])
+    escolha = _pretty_cards(hr["options"][idx])
+    texto = (("🎯 *Leu certo!* " if acertou else
+              f"❌ Você chutou {escolha}. ")
+             + f"{hr['vilao']} mostrou *{real}* — {hr['leitura']}.\n\n"
+             "Releia a linha dele lá em cima com a resposta na mão: é assim "
+             "que se treina leitura. Outro? /leitura")
+    await _show_reveal(query, texto)
+
+
 async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Drill: um spot real das suas mãos — o que você faria?"""
     await _log(update, "treino")
@@ -1430,6 +1507,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))
     app.add_handler(CommandHandler("vilao", cmd_vilao))
+    app.add_handler(CommandHandler("leitura", cmd_leitura))
+    app.add_handler(CommandHandler("banca", cmd_banca))
+    app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))

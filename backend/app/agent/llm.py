@@ -189,6 +189,22 @@ TOOLS = [
         },
     },
     {
+        "name": "risk_of_ruin",
+        "description": "BANCA: risco de ruína e downswing esperado em MTT via Monte "
+        "Carlo (premiação top-heavy escalada pro ROI). USE em perguntas de bankroll "
+        "('minha banca aguenta?', 'quantos buy-ins preciso?') — cite risco, downswing "
+        "típico e p95, e a premissa do ROI.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "bankroll_buyins": {"type": "number"},
+                "roi_pct": {"type": "number"},
+                "itm_pct": {"type": "number"},
+            },
+            "required": ["bankroll_buyins"],
+        },
+    },
+    {
         "name": "save_tournament_payouts",
         "description": "Salva a PREMIAÇÃO do torneio atual do aluno (lista do 1º ao "
         "último prêmio, na moeda que ele disser). Chame SEMPRE que o aluno informar a "
@@ -713,6 +729,13 @@ def _dispatch(name: str, args: dict):
         from app.analysis.tools import mdf
 
         return mdf(float(args["pot"]), float(args["bet"]))
+    if name == "risk_of_ruin":
+        from app.analysis.bankroll import risk_of_ruin
+
+        return risk_of_ruin(
+            float(args["bankroll_buyins"]),
+            float(args.get("roi_pct") or 10.0),
+            float(args.get("itm_pct") or 15.0))
     if name == "save_tournament_payouts":
         from app.db import get_repository
 

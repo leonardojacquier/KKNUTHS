@@ -94,7 +94,87 @@ def villain_profile(hands: list[CanonicalHand], name: str) -> dict | None:
         perfil["aviso"] = (
             f"amostra BAIXA ({seen} mãos): números com intervalo largo — "
             "trate como impressão inicial, não como leitura firme.")
+    tt = timing_tells(hands, name)
+    if tt:
+        perfil["timing"] = tt
     return perfil
+
+
+def timing_tells(hands: list[CanonicalHand], name: str) -> dict | None:
+    """Timing tells do vilão — dado que NENHUM tracker do mercado usa.
+
+    O replay da PPPoker traz o tempo de cada ação (Action.time_raw). A
+    semântica varia (duração ou timestamp): normalizamos por DIFERENÇAS
+    dentro da mesma mão quando parece timestamp. Sinais só com amostra;
+    correlação com showdown (força real da mão mostrada) quando existir."""
+    alvo = (name or "").strip().lower()
+    dur_agg: list[float] = []     # tempo de bet/raise
+    dur_pass: list[float] = []    # tempo de call/check
+    sd_points: list[tuple[float, bool]] = []  # (tempo da agressão, forte?)
+
+    for h in hands:
+        p = next((x for x in h.players
+                  if x.name and x.name.strip().lower() == alvo), None)
+        if p is None:
+            continue
+        strong = None
+        if (len((h.shown_cards or {}).get(p.name) or []) == 2
+                and len(h.final_board or []) == 5):
+            from app.analysis.river_solver import _strengths
+            try:
+                strong = bool(_strengths(
+                    [tuple(h.shown_cards[p.name])], h.final_board)[0] <= 3325)
+            except Exception:
+                strong = None
+        for st in h.streets:
+            prev_t = None
+            for a in st.actions:
+                t = a.time_raw
+                if t is None:
+                    prev_t = None
+                    continue
+                # timestamp (número grande): a duração é a diferença
+                dur = (t - prev_t) if (t > 100_000 and prev_t
+                                       and t >= prev_t) else (
+                    t if t <= 120 else None)
+                prev_t = t
+                if a.actor != p.name or dur is None or dur < 0:
+                    continue
+                if a.type in (ActionType.BET, ActionType.RAISE):
+                    dur_agg.append(dur)
+                    if strong is not None:
+                        sd_points.append((dur, strong))
+                elif a.type in (ActionType.CALL, ActionType.CHECK):
+                    dur_pass.append(dur)
+
+    total = len(dur_agg) + len(dur_pass)
+    if total < 12:
+        return None
+
+    def med(v):
+        s = sorted(v)
+        return round(s[len(s) // 2], 1) if s else None
+
+    out = {"acoes_com_tempo": total,
+           "mediana_agressao_s": med(dur_agg),
+           "mediana_passiva_s": med(dur_pass),
+           "sinais": []}
+    m = med(dur_agg)
+    if m is not None and len(sd_points) >= 5:
+        rapidos = [forte for d, forte in sd_points if d <= m]
+        if len(rapidos) >= 4:
+            pct = sum(rapidos) / len(rapidos)
+            if pct >= 0.75:
+                out["sinais"].append(
+                    f"aposta RÁPIDA dele foi valor em {pct*100:.0f}% dos "
+                    f"showdowns vistos ({len(rapidos)}) — snap-bet = força")
+            elif pct <= 0.25:
+                out["sinais"].append(
+                    f"aposta rápida dele foi AR em {(1-pct)*100:.0f}% dos "
+                    f"showdowns vistos ({len(rapidos)}) — snap-bet = blefe")
+    out["nota"] = ("tells de tempo são TENDÊNCIA, não certeza; amostra de "
+                   f"{len(sd_points)} agressões com showdown")
+    return out
 
 
 def _hints(seen, vpip, pfr, af, fold_vs_bet, faced_bet) -> list[str]:

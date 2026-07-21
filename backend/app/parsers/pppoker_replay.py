@@ -193,9 +193,14 @@ def parse(data: dict, share_key: str = "") -> CanonicalHand | None:
                 continue  # tipo desconhecido: ignora com segurança
             if at in (ActionType.BET, ActionType.RAISE, ActionType.CALL):
                 committed[seat] = committed.get(seat, 0) + chips
+            try:
+                t_raw = float(a["time"]) if a.get("time") is not None else None
+            except (TypeError, ValueError):
+                t_raw = None
             acts.append(Action(
                 actor=actor, type=at, amount=chips,
                 to_amount=committed.get(seat, 0),
+                time_raw=t_raw,
                 all_in=bool(after == 0 and at in (
                     ActionType.BET, ActionType.RAISE, ActionType.CALL))))
         if acts or cards:
