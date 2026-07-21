@@ -20,6 +20,23 @@ O VPS hospeda VÁRIOS apps (Jarvis, GNHFIN, sites GNH/vortex369) atrás de um
 - Oneshots deste repo podem mexer APENAS em `/opt/poker-bot` e no banco
   Supabase do poker. Fora disso, é território de outro app.
 
+## E2E do Telegram (camada 3 da verificação) — ativar quando quiser
+
+A sonda `scripts/e2e_probe.py` DORME até existirem credenciais de uma
+conta-teste no `.env`. Para ativar (~10 min, uma vez):
+
+1. Crie uma conta de Telegram nova (chip/número separado — NÃO use a sua).
+2. Com ela, entre em https://my.telegram.org → API development tools →
+   crie um app → copie `api_id` e `api_hash`.
+3. Na VPS: `cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/e2e_login.py`
+   (pede api_id, api_hash, telefone e o código que chega no app).
+4. Cole as 3 linhas impressas (`E2E_API_ID/E2E_API_HASH/E2E_SESSION`) no
+   `/opt/poker-bot/.env`. Pronto: a cada deploy (e todo dia 7h30) a
+   conta-teste percorre /start → cola mão → /range → /treino (clica) →
+   /simular, e qualquer falha chega no SEU Telegram.
+
+A sessão fica só no `.env` da VPS — nunca no repositório.
+
 ## Deploy — do PC do Leo (PowerShell; o repo é público, o VPS clona sozinho)
 
 ```powershell
