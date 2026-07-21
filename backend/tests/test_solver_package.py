@@ -40,16 +40,16 @@ def test_river_rejects_huge_range():
                     pot=100, stack=100)
 
 
-# ------------------------ turn/flop (equity realizada) ------------------------
-def test_turn_solver_equity_realizada():
-    # turn: mesmo caso polarizado, mas o ar (33) ainda pode ser pago por um
-    # bluff-catcher que realiza equity nos rivers — a nota declara a premissa
+# ----------------- turn/flop (multi-street, chance amostrada) ----------------
+def test_turn_solver_modela_apostas_do_river():
+    # turn: quando a street fecha, um river é sorteado por iteração (MCCFR) e
+    # o jogo CONTINUA com apostas naquele river — não é mais só equity
     r = solve_river(
         board=["Kh", "8d", "5c", "2s"],
         oop_range="AA, 33", ip_range="QQ",
-        pot=100, stack=100, player="oop", iterations=200,
+        pot=100, stack=100, player="oop", iterations=600,
     )
-    assert "TURN" in r["nota"] and "equity realizada" in r["nota"]
+    assert "TURN" in r["nota"] and "APOSTAS do river" in r["nota"]
     freqs = {k: v["freq_pct"] for k, v in r["actions"].items()}
     assert 99 <= sum(freqs.values()) <= 101          # distribuição fecha
     # AA (nuts em quase todo runout) prefere apostar; agressão relevante
@@ -65,13 +65,22 @@ def test_flop_solver_smoke():
     r = solve_river(
         board=["Kh", "8d", "5c"],
         oop_range="AA, QQ", ip_range="JJ, TT",
-        pot=60, stack=140, player="oop", iterations=120,
+        pot=60, stack=140, player="oop", iterations=600,
     )
-    assert "FLOP" in r["nota"] and "runouts" in r["nota"]
+    assert "FLOP" in r["nota"] and "flop E turn" in r["nota"]
     assert r["actions"]                              # estratégia presente
     # board de 2 cartas continua inválido
     with pytest.raises(ValueError):
         solve_river(["Kh", "8d"], "AA", "QQ", pot=10, stack=10)
+
+
+def test_river_exato_preservado_pos_multistreet():
+    # âncora anti-regressão: o multi-street NÃO pode mudar o river exato —
+    # o caso da teoria (polarizado vs bluff-catcher) segue ~75% de agressão
+    r = solve_river(["Kh", "8d", "5c", "2s", "7h"], "AA, 33", "QQ",
+                    pot=100, stack=100, iterations=400)
+    agg = sum(v["freq_pct"] for k, v in r["actions"].items() if k != "check")
+    assert 66 <= agg <= 84, agg
 
 
 # --------------------------- população/exploit ---------------------------

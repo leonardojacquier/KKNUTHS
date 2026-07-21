@@ -1,18 +1,22 @@
-"""Solver pós-flop — CFR+ range-vs-range no sub-jogo de UMA street.
+"""Solver pós-flop — CFR+ range-vs-range MULTI-STREET (chance amostrada).
 
-River: não há cartas por vir — showdown determinístico, equilíbrio exato.
-Turn/Flop: a mesma árvore de apostas, com o showdown trocado pela EQUITY
-REALIZADA nos runouts (turn: todos os rivers, exato; flop: runouts
-amostrados com seed fixa). Premissa declarada: as apostas das streets
-seguintes não são modeladas — é o equilíbrio da street atual com as mãos
-indo até o showdown.
+River: showdown determinístico — equilíbrio exato do sub-jogo.
+Turn: modela as APOSTAS DO RIVER de verdade — quando a street fecha
+  (call sem all-in, ou check-check), uma carta de river é sorteada por
+  iteração (MCCFR com chance sampling) e o jogo continua com nova rodada
+  de apostas naquele river; cada river tem sua própria estratégia.
+Flop: idem para o turn (apostas do flop E do turn modeladas); o river do
+  flop é fechado por equity realizada (premissa declarada) — três níveis
+  de chance explodiriam o custo sem mudar o veredito da street atual.
+All-in antes do river: fecha por equity realizada nos runouts (correto —
+  não há mais apostas por vir).
 
-Árvore (uma raise no máximo — bet -> jam):
-  OOP: check | bet(frações do pote) | jam
-  IP após check: check(showdown) | bet | jam
+Árvore por street (uma raise por street — bet -> jam):
+  OOP: check | bet(frações do pote ATUAL) | jam
+  IP após check: check | bet | jam
   Contra bet: fold | call | jam        Contra jam: fold | call
 
-Convenção de EV: fichas ganhas em relação ao início da street (pot no meio).
+Convenção de EV: fichas ganhas em relação ao início do solve (pot0 no meio).
 """
 from __future__ import annotations
 
@@ -126,17 +130,18 @@ class RiverSolver:
 
         self.pot, self.stack = float(pot), float(stack)
         self.bet_fracs = bet_fracs
-        if len(board) == 5:
-            s_oop = _strengths(self.oop_combos, board)
-            s_ip = _strengths(self.ip_combos, board)
-            # R[i,j] = resultado do OOP i vs IP j (1 ganha, 0.5 empata, 0
-            # perde); treys: menor = mais forte
-            self.R = (s_oop[:, None] < s_ip[None, :]).astype(np.float64)
-            self.R += 0.5 * (s_oop[:, None] == s_ip[None, :])
-        else:
-            # turn/flop: showdown vira equity realizada nos runouts — a MESMA
-            # matriz R alimenta a árvore (fração do pote em vez de 0/0.5/1)
-            self.R = _equity_matrix(self.oop_combos, self.ip_combos, board)
+        self.board0 = tuple(board)
+        self._R_cache: dict[tuple, np.ndarray] = {}
+        self._rng = random.Random(20260721)
+        # máscaras de card removal por carta: combo NÃO contém a carta
+        self._free = {}
+        for side, combos in ((0, self.oop_combos), (1, self.ip_combos)):
+            for c in _DECK:
+                self._free[(side, c)] = np.array(
+                    [c not in combo for combo in combos], dtype=np.float64)
+        # R do board inicial (river usa direto; turn/flop usam nos terminais
+        # de all-in — equity realizada, pois não há mais apostas por vir)
+        self.R = self._R(self.board0)
         # M[i,j] = 1 se os combos não colidem em cartas
         self.M = np.array(
             [[0.0 if set(ci) & set(cj) else 1.0 for cj in self.ip_combos]
@@ -146,6 +151,24 @@ class RiverSolver:
         self._n = (len(self.oop_combos), len(self.ip_combos))
 
     # ------------------------------------------------------------------
+    def _R(self, board: tuple) -> np.ndarray:
+        """Matriz de resultado do showdown PARA UM BOARD (memoizada).
+
+        5 cartas: exato (1/0.5/0). 3-4 cartas: equity realizada nos runouts
+        — usada nos terminais de all-in e no fechamento do river do flop."""
+        cached = self._R_cache.get(board)
+        if cached is not None:
+            return cached
+        if len(board) == 5:
+            s_oop = _strengths(self.oop_combos, list(board))
+            s_ip = _strengths(self.ip_combos, list(board))
+            R = (s_oop[:, None] < s_ip[None, :]).astype(np.float64)
+            R += 0.5 * (s_oop[:, None] == s_ip[None, :])
+        else:
+            R = _equity_matrix(self.oop_combos, self.ip_combos, list(board))
+        self._R_cache[board] = R
+        return R
+
     def _node(self, key: str, actor: int, n_actions: int) -> _Node:
         node = self.nodes.get(key)
         if node is None:
@@ -153,18 +176,20 @@ class RiverSolver:
             self.nodes[key] = node
         return node
 
-    def _bets(self, to_call: float) -> list[float]:
-        """Tamanhos de aposta/raise disponíveis (sempre inclui jam se couber)."""
+    def _bets(self, to_call: float, cur_pot: float, invested: float) -> list[float]:
+        """Tamanhos de aposta disponíveis, fração do pote ATUAL do nó."""
         out = []
         for f in self.bet_fracs:
-            b = round(self.pot * f, 2)
-            if to_call == 0 and 0 < b < self.stack:
+            b = round(cur_pot * f, 2)
+            if to_call == 0 and 0 < b < self.stack - invested:
                 out.append(b)
         return out
 
-    def _showdown(self, inv: float, r_opp: np.ndarray, oop_view: bool) -> np.ndarray:
+    def _showdown(self, inv: float, r_opp: np.ndarray, oop_view: bool,
+                  board: tuple) -> np.ndarray:
         """EV de showdown com ambos investindo `inv`: net = R*(pot+inv) - (1-R)*inv."""
-        R = self.R if oop_view else (1.0 - self.R.T)
+        R0 = self._R(board)
+        R = R0 if oop_view else (1.0 - R0.T)
         M = self.M if oop_view else self.M.T
         win = self.pot + inv
         return (M * (R * win - (1.0 - R) * inv)) @ r_opp
@@ -178,10 +203,60 @@ class RiverSolver:
         return (M * (self.pot + opp_inv)) @ r_opp
 
     # ------------------------------------------------------------------
+    def _street_end(self, matched: float,
+                    reach_a: np.ndarray, r_opp: np.ndarray,
+                    oop_view: bool, board: tuple):
+        """Fecha a street com ambos igualados em `matched`.
+
+        - board de 5 (ou all-in, ou flop fechando o turn): showdown/equity
+        - senão: NÓ DE CHANCE — sorteia a próxima carta (MCCFR) e o jogo
+          continua com nova rodada de apostas naquele runout.
+        Retorna (u_me_col, u_opp_add)."""
+        all_in = matched >= self.stack - 1e-9
+        # o flop modela flop+turn; o river dele fecha por EQUITY (o 3º nível
+        # de chance custaria caro sem mudar o veredito da street atual)
+        flop_turn_done = len(self.board0) == 3 and len(board) == 4
+        if len(board) == 5 or all_in or flop_turn_done:
+            R0 = self._R(board)
+            R = R0 if oop_view else (1.0 - R0.T)
+            R_opp = (1.0 - R0.T) if oop_view else R0
+            M = self.M if oop_view else self.M.T
+            M_opp = self.M.T if oop_view else self.M
+            win = self.pot + matched
+            u_me = (M * (R * win - (1.0 - R) * matched)) @ r_opp
+            u_opp = (M_opp * (R_opp * win - (1.0 - R_opp) * matched)) @ reach_a
+            return u_me, u_opp
+
+        # chance amostrada: carta nova; combos que a seguram saem da jogada
+        left = [c for c in _DECK if c not in board]
+        card = self._rng.choice(left)
+        new_board = board + (card,)
+        me_side = 0 if oop_view else 1
+        free_me = self._free[(me_side, card)]
+        free_opp = self._free[(1 - me_side, card)]
+        if oop_view:
+            new_reaches = (reach_a * free_me, r_opp * free_opp)
+        else:
+            new_reaches = (r_opp * free_opp, reach_a * free_me)
+        # a chave carrega o pote igualado + o runout: streets alcançadas com
+        # potes diferentes são sub-jogos diferentes (não podem dividir nó)
+        child_key = f"|p{matched:g}" + "".join("|" + c for c in new_board)
+        u_oop_c, u_ip_c = self._cfr(
+            child_key, 0, 0.0, (matched, matched),
+            new_reaches, True, checked=False, board=new_board)
+        # combos que seguram a carta não participam deste runout
+        u_oop_c = u_oop_c * self._free[(0, card)]
+        u_ip_c = u_ip_c * self._free[(1, card)]
+        if oop_view:
+            return u_oop_c, u_ip_c
+        return u_ip_c, u_oop_c
+
     def _cfr(self, key: str, actor: int, to_call: float, inv: tuple[float, float],
              reaches: tuple[np.ndarray, np.ndarray], can_raise: bool,
-             checked: bool = False):
+             checked: bool = False, board: tuple | None = None):
         """Retorna (u_oop, u_ip) — utilidades contrafactuais por combo."""
+        board = board or self.board0
+        cur_pot = self.pot + inv[0] + inv[1]
         # ações disponíveis
         acts: list[tuple[str, float]] = []
         if to_call > 0:
@@ -191,9 +266,9 @@ class RiverSolver:
                 acts.append(("jam", self.stack - inv[actor]))
         else:
             acts.append(("check", 0.0))
-            acts += [("bet", b) for b in self._bets(0)]
-            if self.stack > 0:
-                acts.append(("jam", self.stack))
+            acts += [("bet", b) for b in self._bets(0, cur_pot, inv[actor])]
+            if self.stack - inv[actor] > 0:
+                acts.append(("jam", self.stack - inv[actor]))
 
         node = self._node(key, actor, len(acts))
         strat = node.strategy()
@@ -212,19 +287,20 @@ class RiverSolver:
                 u_opp = (M_opp * (self.pot + inv[actor])) @ reach_a
                 u_opp_total += u_opp
             elif name == "call" or (name == "check" and checked):
-                # terminal: showdown (call, ou check depois de check)
+                # street fechou (call, ou check depois de check): showdown,
+                # equity de all-in ou CHANCE da próxima street
                 matched = inv[actor] + (to_call if name == "call" else 0.0)
-                u_me[:, a_idx] = self._showdown(matched, r_opp, oop_view)
-                R_opp = (1.0 - self.R.T) if oop_view else self.R
-                M_opp = self.M.T if oop_view else self.M
-                win = self.pot + matched
-                u_opp_total += (M_opp * (R_opp * win - (1.0 - R_opp) * matched)) @ reach_a
+                u_col, u_opp = self._street_end(matched, reach_a, r_opp,
+                                               oop_view, board)
+                u_me[:, a_idx] = u_col
+                u_opp_total += u_opp
             else:
                 # nó interno: check (primeiro), bet ou jam
                 new_inv = list(inv)
                 new_to_call = 0.0
                 if name in ("bet", "jam"):
-                    new_inv[actor] = inv[actor] + amount if name == "bet" else self.stack
+                    new_inv[actor] = (inv[actor] + amount if name == "bet"
+                                      else self.stack)
                     new_to_call = new_inv[actor] - inv[1 - actor]
                 suffix = "x" if name == "check" else ("j" if name == "jam" else f"b{amount:g}")
                 child_key = key + suffix
@@ -235,7 +311,7 @@ class RiverSolver:
                 u_oop_c, u_ip_c = self._cfr(
                     child_key, 1 - actor, new_to_call, tuple(new_inv),
                     new_reaches, can_raise and name != "jam",
-                    checked=(name == "check"),
+                    checked=(name == "check"), board=board,
                 )
                 u_me[:, a_idx] = u_oop_c if oop_view else u_ip_c
                 u_opp_total += u_ip_c if oop_view else u_oop_c
@@ -250,6 +326,9 @@ class RiverSolver:
         return u_opp_total, ev_me
 
     def solve(self, iterations: int = 400) -> "RiverSolver":
+        # multi-street (chance amostrada): mais iterações pros nós fundos
+        if len(self.board0) < 5:
+            iterations = max(iterations, 600)
         r0 = np.ones(self._n[0])
         r1 = np.ones(self._n[1])
         for _ in range(iterations):
@@ -269,10 +348,8 @@ class RiverSolver:
             raise ValueError("nó raiz não resolvido")
         strat = node.avg_strategy()
 
-        if idx == 0:
-            acts = ["check"] + [f"bet {b:g}" for b in self._bets(0)] + ["jam"]
-        else:
-            acts = ["check"] + [f"bet {b:g}" for b in self._bets(0)] + ["jam"]
+        root_bets = self._bets(0, self.pot, 0.0)
+        acts = ["check"] + [f"bet {b:g}" for b in root_bets] + ["jam"]
 
         out = {"player": player, "pot": self.pot, "stack": self.stack, "actions": {}}
         weights = strat.mean(axis=0)
@@ -306,11 +383,10 @@ def solve_river(
     result = solver.summary(player)
     notas = {
         5: "equilíbrio CFR+ do sub-jogo de river (showdown exato)",
-        4: "equilíbrio CFR+ do TURN com equity realizada em todos os rivers "
-           "— apostas do river não modeladas (premissa declarada)",
-        3: "equilíbrio CFR+ do FLOP com equity realizada em runouts "
-           "amostrados — apostas de turn/river não modeladas (premissa "
-           "declarada)",
+        4: "equilíbrio CFR+ do TURN modelando as APOSTAS do river "
+           "(chance amostrada — cada river tem estratégia própria)",
+        3: "equilíbrio CFR+ do FLOP modelando as apostas de flop E turn; "
+           "o river fecha por equity realizada (premissa declarada)",
     }
     result["nota"] = (notas[len(board)]
                       + "; sizings 50%/100%/all-in, uma raise no máximo")
