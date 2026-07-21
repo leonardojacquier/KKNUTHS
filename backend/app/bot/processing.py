@@ -458,6 +458,7 @@ def _process_upload_inner(
         "image_b64": image_b64,
         "media": media,
     }
+    persist_conversation(telegram_id)
 
     header = f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"
     footer = "\n\n💬 _Discorda ou quer aprofundar? É só responder aqui._"
@@ -504,6 +505,36 @@ def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
         "vilões), declare a suposição em uma frase e FECHE perguntando o ÚNICO "
         "dado que mais refina a leitura."
     )
+    # leitura DUPLA do print (item 5 do roadmap-10): se as duas passadas
+    # divergiram, o coach ABRE confirmando o dado com o aluno — nunca chuta
+    try:
+        from app.agent.llm import LAST_VISION_CHECK
+
+        if LAST_VISION_CHECK and LAST_VISION_CHECK.get("divergencias"):
+            structured["leitura_dupla"] = LAST_VISION_CHECK
+            structured["instrucao_snapshot"] += (
+                " ATENÇÃO: a dupla leitura da imagem DIVERGIU (veja "
+                "leitura_dupla). ABRA a resposta confirmando o dado divergente "
+                "com o aluno ('li A♠K♦ — confere?') antes de qualquer conta."
+            )
+    except Exception:
+        pass
+
+
+def persist_conversation(telegram_id: int) -> None:
+    """Grava o estado da conversa no banco (sem a imagem — pesada demais).
+
+    Chamado a cada mudança de contexto/troca: restart do auto-deploy deixa
+    de apagar o fio da conversa (item 4 do roadmap-10)."""
+    ctx = LAST_ANALYSIS.get(telegram_id)
+    if not ctx:
+        return
+    try:
+        state = {k: v for k, v in ctx.items() if k not in ("image_b64", "media")}
+        state["history"] = (state.get("history") or [])[-_HISTORY_CAP:]
+        get_repository().set_conversation(telegram_id, state)
+    except Exception:
+        pass  # persistência é rede de segurança; nunca derruba a conversa
 
 
 def process_followup(telegram_id: int, username: str | None, question: str) -> str | None:
@@ -515,7 +546,14 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     """
     ctx = LAST_ANALYSIS.get(telegram_id)
     if not ctx:
-        # bot reiniciou? recupera a última análise do banco e retoma a conversa
+        # bot reiniciou? 1º: o estado COMPLETO da conversa (contexto rico +
+        # histórico) persistido no banco — retoma exatamente de onde parou
+        saved = get_repository().get_conversation(telegram_id)
+        if saved and saved.get("context"):
+            ctx = saved
+            LAST_ANALYSIS[telegram_id] = ctx
+    if not ctx:
+        # 2º (legado): reconstrói o mínimo a partir da última análise salva
         repo = get_repository()
         if repo.enabled:
             user = repo.get_or_create_user(telegram_id, username)
@@ -597,6 +635,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         )
 
     ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]
+    persist_conversation(telegram_id)
 
     if repo.enabled:
         # insight importante -> base de conhecimento (buscável via /ask)
@@ -1159,6 +1198,23 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
             "pot_winners": a["pot_winners"],
         },
     }
+
+
+def ensure_demo_material(telegram_id: int) -> bool:
+    """Usuário ZERO (sem nenhuma mão): injeta uma mão-DEMO sintética na
+    memória — nunca no banco — pra /treino e /simular funcionarem no
+    primeiro minuto (item 6 do roadmap-10). True se injetou."""
+    if RECENT_HANDS.get(telegram_id):
+        return False
+    repo = get_repository()
+    if repo.enabled:
+        user = repo.get_or_create_user(telegram_id, None)
+        if user and repo.get_all_hands(user["id"], limit=1):
+            return False
+    from app.api.site_assets import _demo_hand
+
+    RECENT_HANDS[telegram_id] = [_demo_hand()]
+    return True
 
 
 def _describe_safe(cards, board) -> str | None:

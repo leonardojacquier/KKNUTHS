@@ -488,6 +488,13 @@ async def _send_treino(message, tg_id: int, ctx) -> None:
     """Monta e envia um treino (usado pelo /treino e pelo botão do /start)."""
     drill = await asyncio.to_thread(build_drill, tg_id)
     if not drill:
+        # usuário zero: mão-DEMO na hora — o primeiro minuto é o produto,
+        # não um formulário pedindo arquivo (item 6 do roadmap-10)
+        from app.bot.processing import ensure_demo_material
+
+        if await asyncio.to_thread(ensure_demo_material, tg_id):
+            drill = await asyncio.to_thread(build_drill, tg_id)
+    if not drill:
         await message.reply_text(
             "Preciso de mãos suas para montar um treino. Envie um arquivo primeiro."
         )
@@ -502,7 +509,11 @@ async def _send_treino(message, tg_id: int, ctx) -> None:
          for b in row]
         for row in drill_buttons(drill)
     ])
-    text = drill_message(drill, title="🎯 *Treino* — mão real sua")
+    is_demo = str(drill.get("hand_id") or "").startswith("demo")
+    titulo = ("🎯 *Treino* — mão DEMO (responde e sente o produto; "
+              "depois manda uma mão SUA!)" if is_demo
+              else "🎯 *Treino* — mão real sua")
+    text = drill_message(drill, title=titulo)
     # figura da mesa: o spot lê melhor como imagem (custo zero de LLM). A
     # imagem mostra cartas/board/pote/preço; o caption fica só com a história.
     import io as _io2
@@ -516,7 +527,7 @@ async def _send_treino(message, tg_id: int, ctx) -> None:
         if fig:
             # MESMA lógica do quiz: história + "sua vez" com pote e preço. A
             # figura ilustra; o texto traz a pergunta completa.
-            cap = "🎯 *Treino* — mão real sua"
+            cap = titulo
             if drill.get("story"):
                 cap += "\n\n" + drill["story"]
             cap += f"\n\n👉 *Sua vez no {(drill.get('street') or '').upper()}* — " \
@@ -622,6 +633,8 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         "hand_row_id": None,
         "user_id": None,
     }
+    from app.bot.processing import persist_conversation
+    await asyncio.to_thread(persist_conversation, update.effective_user.id)
     await _show_reveal(query, text)
 
     # storyboard da revelação: o filme da mão até a decisão, com a matemática e
@@ -804,6 +817,9 @@ async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     preferred = (LAST_HAND_META.get(tg_id) or {}).get("hand_id")
     swapped = False
+    # usuário zero: a mão-demo também joga no /simular
+    from app.bot.processing import ensure_demo_material
+    await asyncio.to_thread(ensure_demo_material, tg_id)
     sim = await asyncio.to_thread(build_simulation, tg_id, preferred)
     # /simular = A MESMA mão do treino/quiz. NUNCA troca por outra só porque é
     # curta — o aluno quer jogar A MÃO QUE ele viu. Só cai na melhor se a mão
@@ -927,6 +943,8 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "hand_row_id": None,
         "user_id": None,
     }
+    from app.bot.processing import persist_conversation
+    await asyncio.to_thread(persist_conversation, update.effective_user.id)
     ctx.user_data.pop("sim", None)
     await asyncio.to_thread(
         get_repository().delete_pending_sim, update.effective_user.id)

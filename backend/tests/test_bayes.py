@@ -1513,6 +1513,79 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_usuario_zero_ganha_mao_demo():
+    # item 6 do roadmap-10: quem chega sem mãos recebe uma mão-DEMO sintética
+    # na memória (nunca no banco) — /treino e /simular funcionam no 1º minuto
+    from app.bot import processing as proc
+
+    tid = 888123
+    proc.RECENT_HANDS.pop(tid, None)
+    try:
+        assert proc.ensure_demo_material(tid) is True
+        drill = proc.build_drill(tid)
+        assert drill and str(drill["hand_id"]).startswith("demo")
+        sim = proc.build_simulation(tid, None)
+        assert sim and sim.get("cards") and not sim.get("dead_end")
+        # já tem material -> NÃO injeta de novo
+        assert proc.ensure_demo_material(tid) is False
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+
+
+def test_leitura_dupla_de_print_aplica_correcao():
+    # item 5 do roadmap-10: 2ª passada confere carta a carta; correções dos
+    # campos críticos valem e as divergências viajam pro coach confirmar
+    from app.agent.llm import _merge_vision_check
+
+    data = {"hero_name": "H", "hero_cards": ["As", "Kd"],
+            "board": ["Qs", "3c"], "players": [{"name": "H", "stack": 1000}]}
+    check = {"confere": False,
+             "divergencias": ["hero_cards: li A♠K♣, a 1ª leitura diz A♠K♦"],
+             "correcao": {"hero_cards": ["As", "Kc"], "hero_stack": 1200}}
+    merged, div = _merge_vision_check(data, check)
+    assert merged["hero_cards"] == ["As", "Kc"]          # correção aplicada
+    assert merged["players"][0]["stack"] == 1200
+    assert merged["board"] == ["Qs", "3c"]               # sem correção: mantém
+    assert div and "K♣" in div[0]
+
+    # conferiu tudo: nada muda, sem divergências
+    ok, div2 = _merge_vision_check(data, {"confere": True, "correcao": {}})
+    assert ok == data and div2 == []
+
+
+def test_conversa_persistida_sem_imagem_e_com_cap():
+    # item 4 do roadmap-10: a conversa sobrevive a restart. Persiste SEM a
+    # imagem (pesada) e com o histórico limitado; restaura no followup.
+    from app.bot import processing as proc
+
+    tid = 777001
+    proc.LAST_ANALYSIS[tid] = {
+        "context": {"analysis": {"hero_cards": ["As", "Kd"]}},
+        "history": [{"q": f"q{i}", "a": f"a{i}"} for i in range(30)],
+        "hand_row_id": None, "user_id": None,
+        "image_b64": "x" * 100_000, "media": "image/jpeg",
+    }
+    saved = {}
+
+    class _FakeRepo:
+        enabled = True
+
+        def set_conversation(self, t, state):
+            saved[t] = state
+
+    real = proc.get_repository
+    proc.get_repository = lambda: _FakeRepo()
+    try:
+        proc.persist_conversation(tid)
+    finally:
+        proc.get_repository = real
+        proc.LAST_ANALYSIS.pop(tid, None)
+    st = saved[tid]
+    assert "image_b64" not in st and "media" not in st
+    assert len(st["history"]) <= proc._HISTORY_CAP
+    assert st["context"]["analysis"]["hero_cards"] == ["As", "Kd"]
+
+
 def test_auditor_noturno_pega_mao_quebrada_e_contradicao():
     # o "Leo automático": sanidade estrutural + classe TT/15bb em mãos reais
     import scripts.nightly_coherence as nc

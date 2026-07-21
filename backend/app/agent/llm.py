@@ -1316,12 +1316,57 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
         return None
 
 
+_VISION_VERIFY_PROMPT = (
+    "Você fez uma PRIMEIRA leitura deste print de poker (JSON abaixo). Agora "
+    "CONFIRA carta por carta, olhando a imagem de novo, APENAS os campos "
+    "críticos: hero_cards, board (cartas comunitárias visíveis) e o stack do "
+    "herói. Responda APENAS JSON:\n"
+    '{"confere": true|false,\n'
+    ' "divergencias": ["hero_cards: li A♠K♣, a 1ª leitura diz A♠K♦", ...],\n'
+    ' "correcao": {"hero_cards": [...], "board": [...], "hero_stack": 0}}\n'
+    "Em 'correcao' inclua SÓ os campos em que a 1ª leitura errou (vazio se "
+    "conferiu). Se a imagem estiver ambígua num campo (carta coberta, "
+    "borrada), liste em divergencias com o texto 'AMBÍGUO: ...'.\n\n"
+    "1ª leitura:\n"
+)
+
+
+def _merge_vision_check(data: dict, check: dict) -> tuple[dict, list[str]]:
+    """Aplica a verificação da 2ª passada à 1ª leitura (função pura).
+
+    Correções da 2ª passada valem para os campos críticos; devolve também a
+    lista de divergências (vai pro coach confirmar com o aluno)."""
+    div = [str(d)[:160] for d in (check.get("divergencias") or [])][:6]
+    corr = check.get("correcao") or {}
+    if corr.get("hero_cards"):
+        data = {**data, "hero_cards": corr["hero_cards"]}
+    if corr.get("board"):
+        data = {**data, "board": corr["board"]}
+    if corr.get("hero_stack") and data.get("players"):
+        hero_name = data.get("hero_name")
+        players = [dict(p) for p in data["players"]]
+        for p in players:
+            if p.get("name") == hero_name:
+                p["stack"] = corr["hero_stack"]
+        data = {**data, "players": players}
+    return data, div
+
+
+# leitura dupla do último print: divergências vão pro contexto do coach —
+# ele CONFIRMA com o aluno em vez de chutar (item 5 do roadmap-10)
+LAST_VISION_CHECK: dict | None = None
+
+
 def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> CanonicalHand | None:
-    """Extrai um snapshot de mão de um print via visão do Claude.
+    """Extrai um snapshot de mão de um print via visão do Claude — em DUAS
+    passadas: extração + conferência carta a carta (tarefa diferente pega
+    erro de leitura melhor que repetir a extração). Divergências reduzem a
+    confiança e vão pro coach confirmar com o aluno.
 
     Retorna um `CanonicalHand` parcial com `confidence` < 1.0 (dado de visão é menos
     confiável que hand history nativa). Sem chave/lib ou em falha, retorna None.
     """
+    global LAST_VISION_CHECK
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -1333,26 +1378,52 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     try:
         client = Anthropic(api_key=settings.anthropic_api_key)
         b64 = base64.standard_b64encode(image_bytes).decode()
+        img_block = {
+            "type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": b64},
+        }
         resp = _create(client,
             model=settings.analysis_model,
             max_tokens=1024,
             temperature=0.0,  # extração: determinística
             messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {"type": "base64", "media_type": media_type, "data": b64},
-                        },
-                        {"type": "text", "text": _VISION_PROMPT},
-                    ],
-                }
+                {"role": "user",
+                 "content": [img_block, {"type": "text", "text": _VISION_PROMPT}]}
             ],
         )
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         data = json.loads(_strip_code_fence(text))
-        return _snapshot_to_canonical(data, fingerprint=_fingerprint(image_bytes))
+
+        # 2ª passada: conferência dos campos críticos
+        LAST_VISION_CHECK = None
+        divergencias: list[str] = []
+        try:
+            core = {k: data.get(k) for k in
+                    ("hero_cards", "board", "hero_name", "players")}
+            resp2 = _create(client,
+                model=settings.analysis_model,
+                max_tokens=500,
+                temperature=0.0,
+                messages=[
+                    {"role": "user",
+                     "content": [img_block,
+                                 {"type": "text",
+                                  "text": _VISION_VERIFY_PROMPT
+                                  + json.dumps(core, ensure_ascii=False)}]}
+                ],
+            )
+            t2 = "".join(b.text for b in resp2.content if b.type == "text")
+            check = json.loads(_strip_code_fence(t2))
+            data, divergencias = _merge_vision_check(data, check)
+        except Exception as exc:
+            logging.getLogger("llm").warning("verificação de visão falhou: %s", exc)
+        LAST_VISION_CHECK = {"divergencias": divergencias,
+                             "conferido": not divergencias}
+
+        hand = _snapshot_to_canonical(data, fingerprint=_fingerprint(image_bytes))
+        if hand is not None and divergencias:
+            hand.confidence = min(hand.confidence or 0.6, 0.5)
+        return hand
     except Exception as exc:
         # a exceção era ENGOLIDA: 'não consegui ler' sem nenhum rastro
         logging.getLogger("llm").warning("extract_from_image falhou: %s", exc)
