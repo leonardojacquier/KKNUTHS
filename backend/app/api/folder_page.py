@@ -9,20 +9,22 @@ from app.api.manual_page import BOT_URL, _img
 
 _CSS = """
 *{box-sizing:border-box}
-:root{--bg:#0F1512;--card:#161D18;--ink:#F0F4F0;--mut:#A9B5AC;--felt:#43A97C;
---felt2:#2E7D5B;--gold:#D2A55C;--line:#2B382F;
+:root{--bg:#FBFAF6;--card:#FFFFFF;--ink:#16211A;--mut:#5A665E;--felt:#124A30;
+--felt2:#2E7D5B;--gold:#B38D24;--line:#E2E6E0;
 --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif}
 @page{size:A4;margin:0}
-body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;
+body{margin:0;background:#fff;color:var(--ink);line-height:1.5;
 font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
 print-color-adjust:exact;-webkit-print-color-adjust:exact}
 .page{width:210mm;height:296mm;margin:0 auto;padding:8mm 12mm 6mm;overflow:hidden;
 display:flex;flex-direction:column;gap:3.5mm;
-background:radial-gradient(ellipse at top,#1A2620 0%,var(--bg) 62%)}
-.brand{display:flex;align-items:baseline;gap:10px;justify-content:center;
+background:radial-gradient(ellipse at top,#EEF3EC 0%,var(--bg) 62%)}
+.brand{display:flex;align-items:center;gap:10px;justify-content:center;
 color:var(--mut);font-size:13px;letter-spacing:.18em;text-transform:uppercase}
-.brand b{font-family:var(--serif);font-size:21px;color:var(--ink);
+.brand b{font-family:var(--serif);font-size:22px;color:var(--ink);
 letter-spacing:0;text-transform:none}
+.brand .logo{width:34px;height:34px;border-radius:50%;align-self:center;
+box-shadow:0 1px 4px rgba(0,0,0,.25)}
 h1{font-family:var(--serif);font-size:34px;margin:0;text-align:center;
 letter-spacing:-.01em;line-height:1.12}
 h1 em{color:var(--gold);font-style:normal}
@@ -30,21 +32,22 @@ h1 em{color:var(--gold);font-style:normal}
 .sub b{color:var(--ink)}
 .mid{display:grid;grid-template-columns:1.15fr .85fr;gap:6mm;align-items:stretch;flex:1}
 .feats{display:flex;flex-direction:column;gap:2.2mm;justify-content:space-between}
-.feat{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--felt2);
+.feat{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--felt);
+box-shadow:0 1px 3px rgba(0,0,0,.05);
 border-radius:10px;padding:5px 11px}
 .feat h3{margin:0 0 1px;font-size:13px}
 .feat h3 small{color:var(--gold);font-size:10px;letter-spacing:.12em;
 text-transform:uppercase;margin-left:6px}
 .feat p{margin:0;color:var(--mut);font-size:11px}
-.proof{background:#0B100D;border:1px solid var(--line);border-radius:12px;
+.proof{background:var(--card);border:1px solid var(--line);border-radius:12px;
 padding:10px;display:flex;flex-direction:column;gap:6px;justify-content:center}
 .proof img{width:100%;border-radius:8px;display:block}
 .proof figcaption{font-size:11px;color:var(--mut);text-align:center}
 .sci{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .nobel{display:flex;align-items:center;gap:12px;text-align:left;
-background:linear-gradient(135deg,#232D22,#161D18);
-border:1px solid #7A6136;border-radius:14px;padding:9px 18px 9px 10px;
-box-shadow:inset 0 1px 0 rgba(232,192,131,.14)}
+background:linear-gradient(135deg,#FDF9EE,#F6EFDD);
+border:1px solid #D9C489;border-radius:14px;padding:9px 18px 9px 10px;
+box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .medal{width:44px;height:44px;border-radius:50%;flex:none;
 background:radial-gradient(circle at 32% 28%,#F6E3B4,#D9AC5F 52%,#8C6B33 96%);
 border:1px solid #F1D9A7;box-shadow:0 2px 6px rgba(0,0,0,.45);
@@ -52,8 +55,8 @@ display:flex;flex-direction:column;align-items:center;justify-content:center;
 color:#3A2C12;line-height:1.05}
 .medal i{font-style:normal;font-size:7.5px;font-weight:800;letter-spacing:.08em}
 .medal b{font-family:var(--serif);font-size:15px;font-weight:700}
-.nobel .who{font-size:13.5px;font-weight:700;color:var(--ink)}
-.nobel .what{display:block;font-size:11.5px;color:var(--mut)}
+.nobel .who{font-size:13.5px;font-weight:700;color:#3A2C12}
+.nobel .what{display:block;font-size:11.5px;color:#7A6136}
 .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:3mm}
 .chip{display:flex;align-items:center;gap:7px;background:var(--card);
 border:1px solid var(--line);border-radius:99px;padding:4px 13px;font-size:11.5px;
@@ -61,14 +64,14 @@ color:var(--mut)}
 .chip b{color:var(--ink)}
 .scitit{color:var(--gold);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
 text-align:center;font-weight:700;margin-bottom:2mm}
-.ctabar{margin-top:auto;background:linear-gradient(120deg,#1B2A22,#16211B);
-border:1px solid var(--felt2);border-radius:14px;padding:9px 16px;
+.ctabar{margin-top:auto;background:linear-gradient(120deg,#124A30,#0D3A25);
+border:1px solid #0D3A25;color:#F3F7F2;border-radius:14px;padding:9px 16px;
 display:flex;align-items:center;gap:16px;justify-content:space-between;flex-wrap:wrap}
 .ctabar .go{font-family:var(--serif);font-size:19px}
-.ctabar .go em{color:var(--gold);font-style:normal}
-.ctabar .link{background:var(--felt);color:#08120D;font-weight:800;font-size:15px;
+.ctabar .go em{color:#F1D9A7;font-style:normal}
+.ctabar .link{background:#F1D9A7;color:#3A2C12;font-weight:800;font-size:15px;
 padding:10px 22px;border-radius:10px;white-space:nowrap}
-.ctabar small{display:block;color:var(--mut);font-size:11.5px}
+.ctabar small{display:block;color:#BFD3C6;font-size:11.5px}
 .foot{color:var(--mut);font-size:10.5px;text-align:center}
 """
 
@@ -84,7 +87,7 @@ def build_folder_html() -> str:
 </head>
 <body>
 <div class="page">
-  <div class="brand">♠ <b>KKNuths</b> · coach de poker com IA · no seu Telegram</div>
+  <div class="brand"><img class="logo" src="{_img('logo_avatar.png')}" alt="KKNuths"><b>KKNuths</b> · coach de poker com IA · no seu Telegram</div>
 
   <h1>Pare de achar.<br><em>Calcule.</em></h1>
   <p class="sub"><b>Cola o link do replay</b> (PPPoker) e a mão abre sozinha:
