@@ -2050,6 +2050,10 @@ def reveal_drill(drill: dict, choice: str) -> str:
                 f"\n⚖️ *Equilíbrio ({stack_bb:g}bb, {drill.get('position') or '?'}):* "
                 f"{pf['decision'].upper()} — sua mão está no top {pf['hand_top_pct']}% "
                 f"e o range de shove é ≈{pf['shove_range_pct']}%."
+                + ("\n_Mesmo o call sendo +EV, o JAM domina: nega fold equity "
+                   "e evita pós-flop curto._"
+                   if pf.get("decision") == "push" and drill.get("to_call_bb")
+                   else "")
             )
 
     lines.append("\n💬 _Discorda ou quer aprofundar? Responda aqui que o coach "
@@ -2145,7 +2149,39 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
             correct = "Depende da leitura"
             math_line = (f"Sua equity (~{eqp:.0f}%) bate quase exato os "
                          f"{needp:.0f}% que o pote pede — spot no fio.")
-        if rec == "mista":
+        # stack curto no pré: call vs fold NÃO basta — o jam pode dominar o
+        # call (caso real: imagem dizia "PAGAR" com TT/15bb, o certo é ALL-IN;
+        # o coach dizia jam e a imagem contradizia). Consulta o equilíbrio.
+        jam = None
+        stk = drill.get("stack_bb")
+        if (drill.get("street") == "preflop" and stk and stk <= 20
+                and drill.get("cards")
+                and drill.get("format") in ("tournament", "sng")):
+            try:
+                from app.analysis.pushfold import push_fold
+
+                pf = push_fold(drill["cards"], stk,
+                               drill.get("position") or "MP")
+                if pf.get("applicable") and pf.get("decision") == "push":
+                    jam = pf
+            except Exception:
+                jam = None
+
+        if jam and rec in ("call", "mista"):
+            rec = "raise"
+            correct = "ALL-IN (jam)"
+            aligned = ch == "raise"
+            verdict = "boa" if aligned else ("mista" if ch == "call" else "ruim")
+            verdict_text = (
+                f"Você respondeu {ch_lbl} — "
+                + ("certo: com esse stack a jogada é mandar tudo. " if aligned
+                   else f"com {stk:g}bb o certo é ALL-IN. ")
+                + math_line
+                + f" E o jam rende MAIS que o call: nega a fold equity e "
+                  f"evita pós-flop curto (sua mão está no top "
+                  f"{jam['hand_top_pct']}%; o shove de equilíbrio é "
+                  f"≈{jam['shove_range_pct']}%).")
+        elif rec == "mista":
             verdict = "mista"
             verdict_text = (f"Você respondeu {ch_lbl}. {math_line} Aqui não é "
                             "conta, é leitura: contra quem blefa, paga; contra "

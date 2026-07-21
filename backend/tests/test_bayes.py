@@ -1486,6 +1486,33 @@ def test_hand_storyboard_streets_e_spec():
     assert storyboard_spot_from_drill(drill, choice="call")["verdict"] == "ruim"
 
 
+def test_veredito_stack_curto_jam_domina_call():
+    # caso real: TT com 15bb no BTN — call era +EV e a imagem dizia "PAGAR",
+    # mas o JAM domina (o coach dizia shove e a imagem contradizia). O
+    # veredito agora consulta o equilíbrio de jam/fold no pré curto.
+    from app.bot.processing import storyboard_spot_from_drill
+
+    drill = {
+        "cards": ["Ts", "Th"], "position": "BTN", "stack_bb": 15.0,
+        "blinds": "1k/2k", "street": "preflop", "format": "tournament",
+        "board": [], "pot_bb": 7.0, "to_call_bb": 4.0,
+        "required_eq": 0.267, "actual": "call", "net_bb": 12.0,
+        "villains": [{"pos": "CO", "bet_bb": 4.0}],
+        "storyboard": [{"name": "Pré-flop", "board": [],
+                        "lines": ["CO abre 4bb"], "pot_bb": 7.0}],
+    }
+    call = storyboard_spot_from_drill(drill, choice="call")
+    assert call["correct"] == "ALL-IN (jam)"
+    assert call["verdict"] == "mista"            # +EV, mas não é o ótimo
+    assert "jam rende MAIS" in call["verdict_text"]
+    assert storyboard_spot_from_drill(drill, choice="allin")["verdict"] == "boa"
+    assert storyboard_spot_from_drill(drill, choice="fold")["verdict"] == "ruim"
+
+    # deep (60bb) o equilíbrio de shove NÃO se aplica — veredito segue a conta
+    deep = dict(drill, stack_bb=60.0)
+    assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
+
+
 def test_show_reveal_foto_vs_texto():
     # regressão: quiz enviado como FOTO não tem texto pra editar — o gabarito
     # não pode usar edit_text (Telegram: "no text in the message to edit").
