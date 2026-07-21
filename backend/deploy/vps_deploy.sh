@@ -94,8 +94,9 @@ fi
 CRON_WEEKLY="0 18 * * 0 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/weekly_report.py >> /var/log/poker-weekly.log 2>&1"
 CRON_QUIZ="0 19 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/daily_quiz.py >> /var/log/poker-quiz.log 2>&1"
 CRON_CALIB="0 5 * * 1 cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/calibrate_likelihood.py >> /var/log/poker-calibrate.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|weekly_report\|daily_quiz\|calibrate_likelihood" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ) | crontab -
+CRON_COHER="0 6 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/nightly_coherence.py >> /var/log/poker-coherence.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ) | crontab -
 
 echo "== OK: pm2 status =="
 pm2 status "$PM2_NAME"

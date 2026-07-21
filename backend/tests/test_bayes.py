@@ -1513,6 +1513,30 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_auditor_noturno_pega_mao_quebrada_e_contradicao():
+    # o "Leo automático": sanidade estrutural + classe TT/15bb em mãos reais
+    import scripts.nightly_coherence as nc
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    ok = CanonicalHand(
+        site="x", hand_id="ok1", hero="H",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="H", stack=100, is_hero=True)],
+        hero_cards=["As", "Kd"], final_board=["2h", "7c", "9d"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    assert nc.check_hand(ok) == []
+
+    ruim = ok.model_copy(update={
+        "hand_id": "bad1",
+        "final_board": ["2h", "2h", "9d"],          # carta duplicada
+        "shown_cards": {"vilao": ["Zz", "9d"]},     # carta inválida
+    })
+    probs = nc.check_hand(ruim)
+    assert any("board" in p for p in probs)
+    assert any("showdown" in p for p in probs)
+
+
 def test_canario_imagem_nunca_contradiz_solver():
     # CANÁRIO anti-contradição (lição do TT/15bb): varre uma bateria de spots
     # curtos e PROÍBE a imagem dizer "PAGAR" onde o equilíbrio manda JAM.
