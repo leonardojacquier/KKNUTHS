@@ -1513,6 +1513,37 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_canario_imagem_nunca_contradiz_solver():
+    # CANÁRIO anti-contradição (lição do TT/15bb): varre uma bateria de spots
+    # curtos e PROÍBE a imagem dizer "PAGAR" onde o equilíbrio manda JAM.
+    # Não testa um caso — testa a CLASSE do bug, antes de todo deploy.
+    from app.analysis.pushfold import push_fold
+    from app.bot.processing import storyboard_spot_from_drill
+
+    hands = [["Ts", "Th"], ["As", "Kd"], ["9c", "9d"], ["Ah", "Qs"],
+             ["Kh", "Js"], ["7s", "7d"], ["As", "5s"], ["Qd", "Jd"]]
+    contradicoes = []
+    for cards in hands:
+        for stack in (8.0, 12.0, 15.0, 18.0):
+            for pos in ("BTN", "CO", "SB"):
+                drill = {
+                    "cards": cards, "position": pos, "stack_bb": stack,
+                    "blinds": "1k/2k", "street": "preflop",
+                    "format": "tournament", "board": [],
+                    "pot_bb": 7.0, "to_call_bb": 4.0, "required_eq": 0.267,
+                    "actual": "call", "net_bb": 0.0,
+                    "villains": [{"pos": "MP", "bet_bb": 4.0}],
+                    "storyboard": [{"name": "Pré-flop", "board": [],
+                                    "lines": ["MP abre 4bb"], "pot_bb": 7.0}],
+                }
+                spec = storyboard_spot_from_drill(drill, choice="call")
+                pf = push_fold(cards, stack, pos)
+                if (pf.get("applicable") and pf.get("decision") == "push"
+                        and spec["correct"] == "PAGAR (call)"):
+                    contradicoes.append(f"{cards} {stack}bb {pos}")
+    assert not contradicoes, f"imagem diz PAGAR onde o solver manda JAM: {contradicoes}"
+
+
 def test_show_reveal_foto_vs_texto():
     # regressão: quiz enviado como FOTO não tem texto pra editar — o gabarito
     # não pode usar edit_text (Telegram: "no text in the message to edit").
