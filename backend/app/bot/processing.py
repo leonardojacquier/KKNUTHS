@@ -72,10 +72,39 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
     from app.analysis.range_chart import render_spec
 
     notes = [s for s in specs if s and s[0] == "note"]
-    chart_specs = []
-    for s in specs:  # dedupe preservando ordem: mesmo range 2x = 1 gráfico
-        if s and s[0] != "note" and s not in chart_specs:
+
+    def _key(s: tuple) -> tuple:
+        """Identidade SEMÂNTICA do gráfico: push_fold + send_range_chart do
+        MESMO spot geravam specs diferentes (nash vs nashmode) e o mesmo
+        gráfico saía DUAS vezes; range igual com título diferente idem."""
+        try:
+            if s[0] == "range":
+                return ("range", str(s[1]).replace(" ", "").lower())
+            if s[0] == "nash":
+                return ("nash", str(s[1]).upper(), round(float(s[2]), 1), "freq")
+            if s[0] == "nashmode":
+                mode = s[3] if len(s) > 3 else "freq"
+                return ("nash", str(s[1]).upper(), round(float(s[2]), 1), mode)
+        except Exception:
+            pass
+        return s
+
+    chart_specs, seen = [], set()
+    for s in specs:  # dedupe preservando ordem: mesmo conteúdo 2x = 1 gráfico
+        if s and s[0] != "note" and _key(s) not in seen:
+            seen.add(_key(s))
             chart_specs.append(s)
+
+    # pedido do admin: range Nash vem ACOMPANHADO do EV por mão como segundo
+    # gráfico — a frequência diz O QUE jogar; o EV diz QUANTO cada mão rende
+    for s in list(chart_specs):
+        k = _key(s)
+        if k[0] == "nash" and k[3] == "freq":
+            ev = ("nashmode", k[1], k[2], "ev", 1.0)
+            if _key(ev) not in seen:
+                seen.add(_key(ev))
+                chart_specs.insert(chart_specs.index(s) + 1, ev)
+            break
 
     if notes and user_id:
         repo = get_repository()

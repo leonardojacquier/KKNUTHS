@@ -102,9 +102,9 @@ def render_range_png(
             y = top + row * CELL
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=_blend(freq))
             text_col = PAPER if freq > 0.45 else (INK if freq > 0.005 else GREY_TEXT)
-            # frequência em TODAS as células jogadas (pedido dos regs) — 100%
-            # incluso; célula de fold fica só com a mão
-            has_pct = freq > 0.005
+            # % SÓ nas frequências mistas: "100%" em toda célula era ruído
+            # ("o que é o 100%?") — sempre-joga fica só com a cor cheia
+            has_pct = 0.005 < freq < 0.995
             hy = y + (10 if has_pct else (CELL - 16) // 2)
             w = d.textlength(hand, font=f_cell)
             d.text((x + (CELL - 2 - w) / 2, hy), hand, fill=text_col, font=f_cell)
@@ -119,8 +119,8 @@ def render_range_png(
            f"{pct:.1f}% dos combos no range", fill=MUTED, font=f_sub)
     # "como ler" — a âncora que faltava pra quem nunca viu a matriz
     d.text((MARGIN, top + size - MARGIN + 22),
-           "verde = joga (tom escuro = sempre; % = frequência) · cinza = fold · "
-           "s = mesmo naipe, o = naipes diferentes",
+           "verde cheio = joga sempre · % = mistura (joga essa fração das "
+           "vezes) · cinza = fold · s = mesmo naipe, o = naipes diferentes",
            fill=MUTED, font=_font(11, bold=False))
     from app.analysis.branding import draw_brand, paste_logo
 

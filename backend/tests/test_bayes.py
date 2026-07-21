@@ -1513,6 +1513,32 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_graficos_sem_duplicata_e_com_ev_de_companhia():
+    # feedback do admin: (1) o mesmo range saía DUAS vezes (push_fold +
+    # send_range_chart geravam specs diferentes do mesmo conteúdo);
+    # (2) o range Nash agora vem com o EV por mão como SEGUNDO gráfico
+    import pytest as _pytest
+
+    from app.bot import processing as proc
+
+    solver = _pytest.importorskip("app.analysis.jam_fold_solver")
+    if not solver.available():
+        _pytest.skip("matriz não gerada")
+
+    tid = 999321
+    proc._stash_charts(tid, [
+        ("nash", "SB", 10.0),                       # push_fold
+        ("nashmode", "SB", 10.0, "freq", 1.5),      # send_range_chart (igual!)
+        ("range", "AA, KK", "titulo A"),
+        ("range", "AA, KK", "titulo B"),            # mesmo range, outro título
+    ])
+    charts = proc.pop_charts(tid)
+    captions = [c for _, c in charts]
+    # 3 gráficos: nash-freq (1x), o EV de companhia, e o range (1x)
+    assert len(charts) == 3, captions
+    assert any("EV" in c or "chip" in c for c in captions), captions
+
+
 def test_usuario_zero_ganha_mao_demo():
     # item 6 do roadmap-10: quem chega sem mãos recebe uma mão-DEMO sintética
     # na memória (nunca no banco) — /treino e /simular funcionam no 1º minuto
