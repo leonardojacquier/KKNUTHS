@@ -392,6 +392,26 @@ class Repository:
         self.client.table("pending_drills").delete().eq("telegram_id", telegram_id).execute()
         return res.data[0]["drill"]
 
+    # -------------------------- metadados do usuário -------------------
+    @_safe(None)
+    def set_user_meta(self, user_id: str, key: str, value) -> None:
+        """Chave/valor por usuário (ex.: payouts do torneio atual)."""
+        if not self._guard():
+            return None
+        self.client.table("user_meta").upsert(
+            {"user_id": user_id, "key": key, "value": value,
+             "updated_at": "now()"},
+            on_conflict="user_id,key",
+        ).execute()
+
+    @_safe(None)
+    def get_user_meta(self, user_id: str, key: str):
+        if not self._guard():
+            return None
+        res = (self.client.table("user_meta").select("value")
+               .eq("user_id", user_id).eq("key", key).execute())
+        return res.data[0]["value"] if res.data else None
+
     # ----------------------- conversa com o coach ----------------------
     @_safe(None)
     def set_conversation(self, telegram_id: int, state: dict) -> None:

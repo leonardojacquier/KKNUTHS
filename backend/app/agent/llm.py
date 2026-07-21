@@ -176,6 +176,34 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "mdf",
+        "description": "MDF/ALPHA: enfrentando uma aposta, a fração MÍNIMA do range que "
+        "o aluno precisa defender (MDF) e quanto o vilão precisa de folds pro blefe "
+        "pagar (alpha). USE quando o aluno enfrenta barrels/sizing grande ('posso "
+        "foldar?') e quando avaliar se um blefe do aluno se paga. Mesma unidade em pot "
+        "e bet (bb ou fichas).",
+        "input_schema": {
+            "type": "object",
+            "properties": {"pot": {"type": "number"}, "bet": {"type": "number"}},
+            "required": ["pot", "bet"],
+        },
+    },
+    {
+        "name": "save_tournament_payouts",
+        "description": "Salva a PREMIAÇÃO do torneio atual do aluno (lista do 1º ao "
+        "último prêmio, na moeda que ele disser). Chame SEMPRE que o aluno informar a "
+        "estrutura de prêmios ('paga 500/300/200') — a partir daí o ICM sai AUTOMÁTICO "
+        "nas próximas mãos, sem pedir de novo.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "payouts": {"type": "array", "items": {"type": "number"}},
+                "moeda": {"type": "string"},
+            },
+            "required": ["payouts"],
+        },
+    },
+    {
         "name": "range_advantage",
         "description": "RANGE/NUT ADVANTAGE: em um board (3-5 cartas), compara dois "
         "ranges — equity média de cada um e fração de combos premium (nuts) — e dá o "
@@ -488,7 +516,12 @@ _SYSTEM = {
         "abaixo') para o aluno saber por que a imagem chegou.\n"
         "3) Aponte o(s) erro(s) concreto(s), explique a linha melhor e quantifique o impacto.\n"
         "4) Em torneio com stacks/payouts conhecidos, use icm/bubble_factor para a pressão "
-        "de ICM; em stack curto, push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
+        "de ICM. ICM AUTOMÁTICO: se o contexto traz payouts_salvos, use-os com os "
+        "stacks da mão SEM pedir a premiação de novo; quando o aluno INFORMAR a "
+        "premiação na conversa, chame save_tournament_payouts na hora. MDF: "
+        "enfrentando barrel/sizing grande, cite o piso de defesa (tool mdf) — "
+        "'contra pote você só pode foldar metade do range'. Em stack curto, "
+        "push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
         "diga isso ao aluno). Em decisões pós-flop relevantes (flop, turn ou river), use "
         "solve_river — CFR+ da street: river exato; flop/turn com equity realizada (cite a "
         "premissa da nota). Para recomendar exploits, consulte population_tendencies. "
@@ -676,6 +709,24 @@ def _coerce_args(args: dict) -> dict:
 
 def _dispatch(name: str, args: dict):
     args = _coerce_args(args)
+    if name == "mdf":
+        from app.analysis.tools import mdf
+
+        return mdf(float(args["pot"]), float(args["bet"]))
+    if name == "save_tournament_payouts":
+        from app.db import get_repository
+
+        user_id = _TOOL_USER.get()
+        repo = get_repository()
+        if not user_id or not repo.enabled:
+            return {"error": "não consegui salvar agora — tente de novo"}
+        payouts = [float(p) for p in (args.get("payouts") or []) if float(p) > 0]
+        if not payouts:
+            return {"error": "premiação vazia"}
+        repo.set_user_meta(user_id, "payouts", {
+            "valores": payouts, "moeda": str(args.get("moeda") or "")})
+        return {"ok": True, "salvos": payouts,
+                "nota": "ICM automático ativado para as próximas mãos"}
     if name == "range_advantage":
         from app.analysis.range_advantage import range_advantage
 

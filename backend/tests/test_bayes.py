@@ -1521,6 +1521,22 @@ def test_veredito_stack_curto_jam_domina_call():
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
 
+def test_mdf_e_alpha():
+    # gabarito clássico: aposta de POTE -> MDF 50% / alpha 50%;
+    # meia-pote -> MDF 66.7% / alpha 33.3%
+    import pytest as _pytest
+
+    from app.analysis.tools import mdf
+
+    r = mdf(pot=100, bet=100)
+    assert r["mdf_pct"] == 50.0 and r["alpha_pct"] == 50.0
+    r2 = mdf(pot=100, bet=50)
+    assert r2["mdf_pct"] == 66.7 and r2["alpha_pct"] == 33.3
+    assert "defender" in r2["leitura"]
+    with _pytest.raises(ValueError):
+        mdf(0, 10)
+
+
 def test_range_advantage_no_flop():
     from app.analysis.range_advantage import range_advantage
 

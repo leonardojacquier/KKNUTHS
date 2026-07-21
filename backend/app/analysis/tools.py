@@ -39,6 +39,28 @@ def spr(effective_stack: float, pot: float) -> float:
     return effective_stack / pot
 
 
+def mdf(pot: float, bet: float) -> dict:
+    """MDF (minimum defense frequency) e alpha, enfrentando `bet` num pote `pot`.
+
+    - MDF = pot/(pot+bet): fração MÍNIMA do range que você precisa defender
+      para o vilão não lucrar blefando qualquer duas cartas.
+    - alpha = bet/(pot+bet): quanto o VILÃO precisa que você folde para o
+      blefe dele ser lucrativo (breakeven do blefe puro).
+    """
+    if pot <= 0 or bet <= 0:
+        raise ValueError("pot e bet devem ser positivos")
+    a = bet / (pot + bet)
+    return {
+        "mdf_pct": round(100 * (1 - a), 1),
+        "alpha_pct": round(100 * a, 1),
+        "leitura": (
+            f"contra essa aposta você precisa defender ≥{100*(1-a):.0f}% do "
+            f"range (foldar mais que {100*a:.0f}% = o vilão lucra blefando "
+            "qualquer coisa); do lado dele, o blefe precisa que você folde "
+            f"{100*a:.0f}%+ pra pagar sozinho"),
+    }
+
+
 def fmt_chips(v: float) -> str:
     """Número de fichas legível: 125000 -> '125k', 1250000 -> '1.25M'.
 

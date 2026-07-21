@@ -367,6 +367,12 @@ def _process_upload_inner(
     from app.agent.llm import set_tool_user
 
     set_tool_user(user["id"] if user else None)  # habilita search_hands
+    # ICM automático: premiação salva pelo aluno entra no contexto — o coach
+    # calcula bubble factor com os stacks da mão sem pedir os payouts de novo
+    if user and structured.get("format") == "tournament":
+        saved = repo.get_user_meta(user["id"], "payouts")
+        if saved and saved.get("valores"):
+            structured["payouts_salvos"] = saved
     chart_specs: list = []
     coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs)
