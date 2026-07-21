@@ -2380,10 +2380,22 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
             aligned = (ch in ("call", "raise") and rec == "call") or \
                       (ch == "fold" and rec == "fold")
             verdict = "boa" if aligned else "ruim"
-            verdict_text = (
-                f"Você respondeu {ch_lbl} — "
-                + ("certo. " if aligned else f"o certo era {correct}. ")
-                + math_line)
+            if aligned and ch == "raise" and rec == "call":
+                # o aluno AUMENTOU num spot em que a conta prova o call:
+                # a imagem dizia "DECISÃO CERTA: PAGAR" por cima de um raise
+                # marcado como bom — contradição (caso real). A conta só
+                # avalia call vs fold; o rótulo certo é o PISO.
+                correct = "NÃO FOLDAR (call é o piso)"
+                verdict_text = (
+                    f"Você aumentou — certo no essencial: {math_line} "
+                    "Seu raise adiciona fold equity por cima do piso (a "
+                    "conta não avalia o raise); o único erro claro aqui "
+                    "era foldar.")
+            else:
+                verdict_text = (
+                    f"Você respondeu {ch_lbl} — "
+                    + ("certo. " if aligned else f"o certo era {correct}. ")
+                    + math_line)
         # reconcilia com o filme: se a mão real terminou diferente, avisa
         if actual and actual != rec and actual != ch:
             verdict_text += f" (Na mão real o herói {real_lbl}.)"

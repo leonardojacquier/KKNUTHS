@@ -1520,6 +1520,16 @@ def test_veredito_stack_curto_jam_domina_call():
     deep = dict(drill, stack_bb=60.0)
     assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
 
+    # caso real: aluno AUMENTOU num spot de call +EV — a imagem dizia
+    # "DECISÃO CERTA: PAGAR" por cima de um raise bom (contradição). Agora o
+    # rótulo é o PISO ("não foldar") e o texto explica a fold equity.
+    r = storyboard_spot_from_drill(deep, choice="raisepot")
+    assert r["verdict"] == "boa"
+    assert r["correct"] == "NÃO FOLDAR (call é o piso)"
+    assert "fold equity" in r["verdict_text"]
+    # quem FOLDOU segue vendo "PAGAR (call)" como o certo
+    assert storyboard_spot_from_drill(deep, choice="fold")["correct"] == "PAGAR (call)"
+
 
 def test_timing_tells_snap_bet_forte():
     # 7 mãos: vilão aposta RÁPIDO (2s) e mostra valor no showdown — o sinal
