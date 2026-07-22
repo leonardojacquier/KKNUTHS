@@ -385,12 +385,27 @@ const ALIAS: Record<string, string[]> = {
   rajadura: ['fisura', 'fibra', 'fiber'], fisura: ['fibra', 'fiber'], fisuras: ['fibra', 'fiber'],
   bloque: ['vibroprensado', 'superplast', 'press'], bloques: ['vibroprensado', 'superplast', 'press'],
   grua: ['araña'], excavadora: ['miniexcavadora'],
+  // PT→ES (clientes brasileños): máquinas por su nombre en portugués
+  escavadeira: ['excavadora'], retroescavadeira: ['retroexcavadora'],
+  empilhadeira: ['montacargas', 'apilador', 'transpaleta'], paleteira: ['transpaleta'],
+  guindaste: ['grua', 'araña'], betoneira: ['mezcladora', 'central'],
+  carregadeira: ['minicargadora'], pala: ['minicargadora', 'bulldozer'],
+  gerador: ['electrogeno'], generador: ['electrogeno'],
+  regua: ['regla'], alisadora: ['allanadora'], acabadora: ['allanadora'],
+  serra: ['cortadora'], caminhao: ['camion'], rolo: ['rodillo'],
+  estaca: ['pilotes', 'hincadora'], andaime: ['plataforma'],
 }
 
 // expande un término con alias + radicales (plural/terminaciones) — estilo Google
 function variantsOf(t: string): string[] {
   const out = new Set<string>([t])
   for (const a of ALIAS[t] ?? []) out.add(a)
+  // tipeo parcial: 'escav' ya activa la llave 'escavadeira' (y sus alias)
+  if (t.length >= 4) {
+    for (const k of Object.keys(ALIAS)) {
+      if (k.startsWith(t)) { out.add(k); for (const a of ALIAS[k]) out.add(a) }
+    }
+  }
   for (const w of [...out]) {
     if (w.endsWith('s') && w.length >= 5) out.add(w.slice(0, -1))
     if (w.length >= 6) out.add(w.slice(0, w.length - 2))   // impermeabilizar → impermeabiliz…
