@@ -357,7 +357,9 @@ def render_hand_strip(spot: dict) -> bytes:
 
     # probe 1x para medir quebras de linha (razão idêntica em qualquer escala)
     probe = ImageDraw.Draw(Image.new("RGB", (4, 4)))
-    f_line = _font(22, bold=False)      # ações — fonte GRANDE
+    # medir com NEGRITO (o pior caso): linhas com "você" desenham em bold,
+    # mais largo — medir em regular cortava o pré-flop na borda (caso real)
+    f_line = _font(22, bold=True)       # ações — fonte GRANDE
     f_foot = _font(21, bold=False)      # análise do coach
     line_x = pad + 12
     lines_w = SW - line_x - pad - 4

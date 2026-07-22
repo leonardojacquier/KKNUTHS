@@ -1438,7 +1438,7 @@ def film_bands(h) -> list[dict]:
     for who, amount in sorted((h.collected or {}).items(),
                               key=lambda kv: -kv[1]):
         # sem "►" aqui: o render já prefixa cada linha com a seta
-        line = f"{_label(who)} leva o pote ({amount / bb:g}bb)"
+        line = f"{_label(who)} leva o pote ({round(amount / bb, 1):g}bb)"
         if who == h.hero and hero_desc:
             line += f" — {hero_desc}"
         result_lines.append(line)
