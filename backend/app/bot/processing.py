@@ -2375,7 +2375,32 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
             verdict = "mista"
             verdict_text = (f"Você respondeu {ch_lbl}. {math_line} Aqui não é "
                             "conta, é leitura: contra quem blefa, paga; contra "
-                            "um pedra, descarta.")
+                            "um pedra, descarta."
+                            + (" Seu aumento vira semi-blefe de leitura — "
+                               "válido, sem gabarito de conta."
+                               if ch == "raise" else ""))
+        elif ch == "raise" and rec == "fold":
+            # ESPELHO do caso "raise sobre call +EV": aumentar onde pagar é
+            # -EV é BLEFE — e a conta (call vs fold) não julga blefe. Antes
+            # carimbava "RUIM — o certo era FOLDAR" por cima de um possível
+            # blefe legítimo. Vira misto, com o alpha do sizing citado.
+            verdict = "mista"
+            correct = "FOLDAR (pagar queimava)"
+            alpha_txt = ""
+            try:
+                amt = sizing_amounts(drill.get("pot_bb"), to_call,
+                                     drill.get("stack_bb")).get(
+                    (choice or "").lower())
+                if amt:
+                    alpha = amt / (amt + (drill.get("pot_bb") or 0))
+                    alpha_txt = (f" — precisa que o vilão folde "
+                                 f"~{alpha*100:.0f}% das vezes pra se pagar")
+            except Exception:
+                pass
+            verdict_text = (
+                f"{math_line} Você AUMENTOU: virou blefe puro"
+                f"{alpha_txt}. Blefe é leitura, não conta — contra quem "
+                "folda, funciona; contra estação, é caro.")
         else:
             aligned = (ch in ("call", "raise") and rec == "call") or \
                       (ch == "fold" and rec == "fold")

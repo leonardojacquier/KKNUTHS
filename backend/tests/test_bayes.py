@@ -1849,6 +1849,48 @@ def test_auditor_noturno_pega_mao_quebrada_e_contradicao():
     assert any("showdown" in p for p in probs)
 
 
+def test_canario_coerencia_veredito_vs_resposta():
+    # CANÁRIO da classe "carimbo contradiz a resposta do aluno": varre
+    # escolhas x tipos de spot e trava os invariantes de honestidade:
+    #  - a conta só julga call vs fold; blefe/raise nunca leva "ruim" por
+    #    uma conta que não o avaliou (vira misto com alpha)
+    #  - veredito "boa" nunca vem com correto nomeando OUTRA ação
+    from app.bot.processing import storyboard_spot_from_drill
+
+    base = {
+        "cards": ["Ah", "Kd"], "position": "BTN", "blinds": "1k/2k",
+        "board": [], "actual": "call", "net_bb": 0.0,
+        "villains": [{"pos": "CO", "bet_bb": 4.0}],
+        "storyboard": [{"name": "Pré-flop", "board": [], "lines": [],
+                        "pot_bb": 7.0}],
+    }
+    ev_pos = dict(base, stack_bb=60.0, street="preflop", format="tournament",
+                  pot_bb=7.0, to_call_bb=4.0, required_eq=0.267)
+    ev_neg = dict(base, cards=["7h", "2d"], stack_bb=60.0, street="preflop",
+                  format="tournament", pot_bb=7.0, to_call_bb=5.5,
+                  required_eq=0.44, actual="fold")
+
+    for spot in (ev_pos, ev_neg):
+        for ch in ("fold", "call", "raise3x", "raisepot", "allin"):
+            s = storyboard_spot_from_drill(spot, choice=ch)
+            aggro = ch.startswith("raise") or ch == "allin"
+            if aggro:
+                # blefe/aumento jamais é "ruim" pela conta de call...
+                assert s["verdict"] != "ruim", (spot["cards"], ch, s)
+                # ...e "boa" jamais carimba "PAGAR" por cima de um raise
+                if s["verdict"] == "boa":
+                    assert s["correct"] != "PAGAR (call)", (ch, s["correct"])
+
+    # os vereditos legítimos continuam duros: fold no +EV é ruim; call no
+    # -EV é ruim (essas a conta AVALIA de verdade)
+    assert storyboard_spot_from_drill(ev_pos, choice="fold")["verdict"] == "ruim"
+    assert storyboard_spot_from_drill(ev_neg, choice="call")["verdict"] == "ruim"
+    # e o blefe misto explica o preço (alpha do sizing)
+    blefe = storyboard_spot_from_drill(ev_neg, choice="raisepot")
+    assert "blefe" in blefe["verdict_text"].lower()
+    assert "folde" in blefe["verdict_text"]
+
+
 def test_canario_imagem_nunca_contradiz_solver():
     # CANÁRIO anti-contradição (lição do TT/15bb): varre uma bateria de spots
     # curtos e PROÍBE a imagem dizer "PAGAR" onde o equilíbrio manda JAM.
