@@ -7,7 +7,8 @@ ver `llm_summary()`. Mantendo a parte cara (LLM) opcional, todo o resto roda off
 """
 from __future__ import annotations
 
-from app.analysis.equity import describe_hand as _describe
+from app.analysis.equity import board_texture, describe_hand as _describe
+from app.analysis.equity import pretty_cards as _pretty
 from app.analysis.tools import fmt_chips as _fmt_chips
 from app.analysis.tools import pot_odds
 from app.models.canonical import ActionType, CanonicalHand, StreetName
@@ -121,6 +122,14 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # showdown REAL: cartas reveladas por jogador + quem levou o pote.
         # O coach só pode afirmar cartas de vilão que estejam AQUI.
         "showdown_cards": dict(hand.shown_cards or {}),
+        # cartas prontas pra citar no texto (rank + ícone do naipe) — o aluno
+        # pediu os ícones nas descrições; o coach copia daqui, não translitera
+        "cartas_texto": _cartas_texto(hand),
+        # textura calculada do board final: flush possível ou não — âncora
+        # anti-'QJ fechou flush' num board de duas copas (caso real; era
+        # sequência broadway)
+        "textura_do_board": (board_texture(hand.final_board)
+                             if hand.final_board else None),
         "pot_winners": dict(hand.collected or {}),
         # leitura DETERMINÍSTICA da mão feita (gabarito — o coach não pode
         # recontar de cabeça: já rendeu 'trinca de J' onde havia dois pares)
@@ -145,6 +154,20 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }
+
+
+def _cartas_texto(hand: CanonicalHand) -> dict:
+    """Cartas em texto de citação (rank + ícone ♠♥♦♣): herói, board e cada
+    showdown — prontas para o coach colar na resposta."""
+    out: dict = {}
+    if hand.hero_cards:
+        out["heroi"] = _pretty(hand.hero_cards)
+    if hand.final_board:
+        out["board"] = _pretty(hand.final_board)
+    sd = {n: _pretty(cs) for n, cs in (hand.shown_cards or {}).items()}
+    if sd:
+        out["showdown"] = sd
+    return out
 
 
 def _action_log(hand: CanonicalHand) -> dict:

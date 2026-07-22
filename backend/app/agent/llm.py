@@ -255,6 +255,27 @@ TOOLS = [
         },
     },
     {
+        "name": "leitura_de_mao",
+        "description": "LEITURA DE MÃO NO BOARD (determinística): o que UMA mão de 2 "
+        "cartas — do herói, de vilão mostrado ou HIPOTÉTICA ('e se ele tivesse QJ?') — "
+        "faz no board, street a street, mais a textura (flush possível ou não). USE "
+        "SEMPRE antes de afirmar que qualquer mão fora do gabarito 'fechou'/'tem' "
+        "algo. Cartas sem naipe ('QJ') são lidas como offsuit. PROIBIDO deduzir de "
+        "cabeça: 'QJ fechou flush' num board de duas copas (era sequência) é o erro "
+        "que esta ferramenta elimina.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "cards": {"type": "array", "items": {"type": "string"},
+                          "description": "as 2 cartas da mão (ex.: ['Qs','Jd']; "
+                          "sem naipe definido, só o rank: ['Q','J'])"},
+                "board": {"type": "array", "items": {"type": "string"},
+                          "description": "board com 3-5 cartas"},
+            },
+            "required": ["cards", "board"],
+        },
+    },
+    {
         "name": "pko_call",
         "description": "PKO/BOUNTY: equity necessária pra pagar um all-in que pode "
         "ELIMINAR um vilão em torneio hunter/PKO. O bounty entra como dinheiro morto "
@@ -517,6 +538,18 @@ _SYSTEM = {
         "'você virou dois pares no turn', 'o KJ dele já tinha a broadway "
         "desde o flop'. Cite SÓ as streets que importam pro veredito — a "
         "regra de CLAREZA continua mandando.\n"
+        "1f) MÃO HIPOTÉTICA: pra dizer o que uma mão FORA do gabarito faz no "
+        "board ('e se ele tivesse QJ?', 'o que do range dele te ganha?'), "
+        "chame leitura_de_mao ANTES de nomear qualquer coisa — e respeite a "
+        "textura retornada: sem 3 cartas do mesmo naipe no board NÃO existe "
+        "flush pra ninguém. 'QJ fechou flush' num board de duas copas foi "
+        "erro real flagrado pelo aluno (era sequência broadway) — a conta é "
+        "da ferramenta, nunca de cabeça.\n"
+        "1g) ÍCONES DE NAIPE: carta citada no texto leva o ícone — A♠, K♥, "
+        "10♦, J♣ — nunca 'As'/'Kh' nem 'ás de espadas' por extenso; "
+        "cartas_texto do contexto já traz herói, board e showdown prontos "
+        "pra colar. Mão hipotética sem naipe definido fica só no rank "
+        "('QJ'), e ranges seguem a notação AKs/AKo de sempre.\n"
         "2) Pense em RANGES: use preflop_range + equity_vs_range (não equity vs aleatória) "
         "sempre que a ação der contexto do range do vilão. Em c-bet/check no "
         "FLOP, chame range_advantage (quem é dono do board dita o plano — "
@@ -771,6 +804,20 @@ def _dispatch(name: str, args: dict):
             [_norm_card(c) or c for c in args["hero_cards"]],
             [_norm_card(c) or c for c in args["board"]],
             str(args["villain_range"]))
+    if name == "leitura_de_mao":
+        from app.analysis.equity import hand_on_board
+
+        cards = args.get("cards") or []
+        board = args.get("board") or []
+        # 'QJ' numa string só (dois ranks, sem naipe) -> ['Q', 'J']
+        if len(cards) == 1 and isinstance(cards[0], str):
+            t = cards[0].replace("10", "T").strip()
+            if len(t) == 2 and all(ch.upper() in "23456789TJQKA" for ch in t):
+                cards = [t[0], t[1]]
+        if len(cards) != 2 or not 3 <= len(board) <= 5:
+            return {"error": "preciso de exatamente 2 cartas e um board de "
+                             "3 a 5 cartas"}
+        return hand_on_board(cards, board)
     if name == "pko_call":
         from app.analysis.pko import pko_call
 

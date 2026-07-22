@@ -130,6 +130,97 @@ def describe_hand(hole: list[str], board: list[str]) -> str | None:
     return f"carta alta {rn(sc[1])}"
 
 
+_SUIT_ICON = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
+
+
+def pretty_card(card: str) -> str:
+    """'Th' -> '10♥' — rank de mesa + ícone do naipe (pedido do aluno: cartas
+    nas descrições sempre com o ícone, nunca 'Kh' nem 'K de copas')."""
+    if not card or len(card) < 2:
+        return card or ""
+    rank = "10" if card[0].upper() == "T" else card[0].upper()
+    return rank + _SUIT_ICON.get(card[1].lower(), card[1])
+
+
+def pretty_cards(cards: list[str]) -> str:
+    return " ".join(pretty_card(c) for c in (cards or []))
+
+
+def board_texture(board: list[str]) -> dict:
+    """Textura DETERMINÍSTICA do board: quantas cartas do mesmo naipe e se
+    flush é possível. Âncora anti-'fechou flush' em board de duas copas."""
+    suits: dict[str, int] = {}
+    for c in board or []:
+        if len(c) >= 2:
+            suits[c[1].lower()] = suits.get(c[1].lower(), 0) + 1
+    most = max(suits.values(), default=0)
+    naipe = max(suits, key=suits.get) if suits else ""
+    icon = _SUIT_ICON.get(naipe, naipe)
+    if most >= 3:
+        nota = f"flush POSSÍVEL em {icon} ({most} cartas de {icon} no board)"
+    else:
+        nota = (f"flush IMPOSSÍVEL neste board — só {most} carta(s) do mesmo "
+                f"naipe (ninguém tem flush aqui)")
+    return {"cartas_do_mesmo_naipe": most, "flush_possivel": most >= 3,
+            "nota": nota}
+
+
+def _fill_suits(hole: list[str], board: list[str]) -> tuple[list[str], str | None]:
+    """Completa naipes de cartas hipotéticas dadas só por rank ('QJ'): naipes
+    DIFERENTES entre si e raros no board — leitura OFFSUIT, sem inventar um
+    flush que o aluno não perguntou. Devolve (cartas completas, nota)."""
+    taken = {c for c in (board or []) if len(c) == 2}
+    on_board: dict[str, int] = {}
+    for c in board or []:
+        if len(c) >= 2:
+            on_board[c[1]] = on_board.get(c[1], 0) + 1
+    suit_pref = sorted(SUITS, key=lambda s: on_board.get(s, 0))
+    filled, used_suits, guessed = [], set(), False
+    for raw in hole or []:
+        c = (raw or "").strip().replace("10", "T")
+        if len(c) == 2:
+            filled.append(c[0].upper() + c[1].lower())
+            taken.add(filled[-1])
+            used_suits.add(c[1].lower())
+            continue
+        if len(c) != 1:
+            filled.append(c)
+            continue
+        guessed = True
+        rank = c.upper()
+        pick = next((s for s in suit_pref
+                     if rank + s not in taken and s not in used_suits),
+                    suit_pref[0])
+        filled.append(rank + pick)
+        taken.add(rank + pick)
+        used_suits.add(pick)
+    nota = ("naipes não informados — li a mão como OFFSUIT (sem flush); "
+            "para o combo suited, repita com os naipes") if guessed else None
+    return filled, nota
+
+
+def hand_on_board(hole: list[str], board: list[str]) -> dict:
+    """O que UMA mão (real ou hipotética) faz num board, street a street, mais
+    a textura. Leitura calculada — a resposta oficial para 'e se ele tivesse
+    QJ?' ('QJ fechou flush' num board de duas copas foi erro real; era
+    sequência)."""
+    hole, nota_naipes = _fill_suits(hole, board)
+    out: dict = {
+        "mao": pretty_cards(hole),
+        "board": pretty_cards(board),
+        "por_street": {},
+    }
+    if nota_naipes:
+        out["nota_naipes"] = nota_naipes
+    for st, n in (("flop", 3), ("turn", 4), ("river", 5)):
+        if len(board or []) >= n:
+            d = describe_hand(hole, board[:n])
+            if d:
+                out["por_street"][st] = d
+    out["textura_do_board"] = board_texture(board)
+    return out
+
+
 def _score5(cards: list[str]) -> tuple:
     ranks = sorted((_rank_value(c[0]) for c in cards), reverse=True)
     suits = [c[1] for c in cards]

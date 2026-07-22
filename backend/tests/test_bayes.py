@@ -1232,6 +1232,62 @@ def test_leitura_deterministica_da_mao_feita():
     assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
 
 
+def test_leitura_de_mao_hipotetica_e_textura():
+    # caso real: coach disse que "QJ fechou flush" no board 10♥8♦A♠5♣K♥ —
+    # flush é impossível ali (duas copas); QJ fecha a SEQUÊNCIA broadway no
+    # river. A leitura hipotética agora é da ferramenta, nunca de cabeça.
+    from app.agent.llm import _dispatch
+    from app.analysis.equity import (board_texture, hand_on_board,
+                                     pretty_card, pretty_cards)
+
+    board = ["Th", "8d", "As", "5c", "Kh"]  # a mão real do erro
+    r = hand_on_board(["Qs", "Jd"], board)
+    assert r["por_street"]["river"] == "sequência até A"
+    assert r["por_street"]["flop"] == "carta alta A"       # nada no flop
+    assert r["textura_do_board"]["flush_possivel"] is False
+    assert "IMPOSSÍVEL" in r["textura_do_board"]["nota"]
+
+    # sem naipes ('e se ele tivesse QJ?'): lê offsuit, nunca inventa flush
+    r2 = hand_on_board(["Q", "J"], ["Ac", "7c", "2c", "Kc", "3d"])
+    assert r2["por_street"]["river"] != "flush, maior carta A"
+    assert "OFFSUIT" in r2["nota_naipes"]
+    # com 3+ do naipe no board a textura avisa que flush existe
+    assert board_texture(["Ah", "7h", "2h", "Kd"])["flush_possivel"] is True
+
+    # dispatch aceita 'QJ' numa string só e cartas com ícone
+    d = _dispatch("leitura_de_mao", {"cards": "QJ", "board": board})
+    assert d["por_street"]["river"] == "sequência até A"
+    d2 = _dispatch("leitura_de_mao",
+                   {"cards": ["Q♠", "J♦"], "board": ["10♥", "8♦", "A♠"]})
+    assert d2["mao"] == "Q♠ J♦"
+    assert _dispatch("leitura_de_mao", {"cards": ["Qs"], "board": board})[
+        "error"].startswith("preciso")
+
+    # ícones nas descrições (pedido do aluno): 'Th' -> '10♥'
+    assert pretty_card("Th") == "10♥"
+    assert pretty_cards(["Kc", "9c"]) == "K♣ 9♣"
+
+
+def test_cartas_texto_no_gabarito():
+    # cartas prontas com ícone no contexto do coach (herói, board, showdown)
+    from app.agent.analyzer import analyze_hand
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    h = CanonicalHand(
+        site="x", hand_id="ct1", hero="Hero",
+        stakes=Stakes(small_blind=100, big_blind=200),
+        players=[PlayerSeat(seat=1, name="Hero", stack=10000, is_hero=True)],
+        hero_cards=["Ac", "9d"], final_board=["Th", "8d", "As", "5c", "Kh"],
+        shown_cards={"vilao": ["Kc", "9c"]},
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    a = analyze_hand(h)
+    assert a["cartas_texto"]["heroi"] == "A♣ 9♦"
+    assert a["cartas_texto"]["board"] == "10♥ 8♦ A♠ 5♣ K♥"
+    assert a["cartas_texto"]["showdown"]["vilao"] == "K♣ 9♣"
+    assert a["textura_do_board"]["flush_possivel"] is False
+
+
 def test_refresh_gabarito_de_conversa_fossilizada():
     # caso real: a conversa persistida atravessou o deploy do fix e seguiu
     # SEM linha_da_mao — repetindo o erro corrigido. O refresh recomputa os

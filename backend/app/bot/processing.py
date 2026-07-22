@@ -560,7 +560,7 @@ def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
 # os tiver, ela é de uma versão anterior e precisa de refresh
 _GABARITO_KEYS = ("linha_da_mao", "hand_by_street", "showdown_cards",
                   "showdown_hands", "hero_final_hand", "pot_winners",
-                  "pko", "bounties")
+                  "pko", "bounties", "cartas_texto", "textura_do_board")
 
 
 def _refresh_gabarito(ctx: dict, telegram_id: int) -> None:
@@ -1266,6 +1266,8 @@ def build_simulation(telegram_id: int, hand_id: str | None = None) -> dict | Non
             "showdown_hands": a["showdown_hands"],
             "hand_by_street": a["hand_by_street"],
             "pot_winners": a["pot_winners"],
+            "cartas_texto": a.get("cartas_texto"),
+            "textura_do_board": a.get("textura_do_board"),
         },
     }
 
