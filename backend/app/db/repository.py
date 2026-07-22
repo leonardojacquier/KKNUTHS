@@ -561,6 +561,18 @@ class Repository:
                 break
         return streak
 
+    @_safe([])
+    def drill_verdicts(self, telegram_id: int, limit: int = 60) -> list[dict]:
+        """Últimos vereditos de quiz/treino (detail de drill_verdict: verdict
+        boa/mista/ruim + cat) — combustível da repetição espaçada: o sorteio
+        do drill puxa as categorias em que o aluno mais erra."""
+        if not self._guard():
+            return []
+        rows = (self.client.table("bot_events").select("detail, created_at")
+                .eq("telegram_id", telegram_id).eq("event", "drill_verdict")
+                .order("created_at", desc=True).limit(limit).execute().data) or []
+        return [r["detail"] for r in rows if isinstance(r.get("detail"), dict)]
+
     # ------------------------- knowledge base (RAG) -------------------
     @_safe([])
     def search_analysis(

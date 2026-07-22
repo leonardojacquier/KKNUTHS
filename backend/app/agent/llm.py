@@ -1260,6 +1260,76 @@ def simplify(text: str) -> str | None:
         return None
 
 
+_NOTE_KINDS = ("leak", "progresso", "meta", "estilo")
+
+
+def _parse_notebook_notes(text: str) -> list[dict]:
+    """Valida o JSON do destilador de sessão: até 2 notas, kinds conhecidos,
+    texto não-vazio com teto — lixo do modelo não entra no caderno."""
+    try:
+        data = json.loads(_strip_code_fence(text or ""))
+    except Exception:
+        return []
+    out = []
+    for n in (data.get("notas") or []):
+        kind = str((n or {}).get("kind") or "").strip().lower()
+        note = str((n or {}).get("note") or "").strip()
+        if kind in _NOTE_KINDS and note:
+            out.append({"kind": kind, "note": note[:300]})
+        if len(out) == 2:      # teto DEPOIS de filtrar: inválida não gasta vaga
+            break
+    return out
+
+
+def session_notebook_notes(history: list[dict], resumo_mao: str,
+                           notas_existentes: list[str]) -> list[dict]:
+    """Destila uma conversa ENCERRADA em 0-2 observações novas pro caderno do
+    aluno (modelo barato, sem tools). O que a conversa revelou sobre COMO o
+    aluno pensa — dúvida recorrente, conceito mal calibrado, progresso — e que
+    ainda não esteja no caderno. Lista vazia se nada novo: melhor calar que
+    repetir."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    if not settings.anthropic_api_key or len(history or []) < 2:
+        return []
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        convo = "\n".join(
+            f"ALUNO: {t.get('q', '')}\nCOACH: {str(t.get('a', ''))[:600]}"
+            for t in history[-6:])
+        resp = _create(
+            client,
+            model=settings.cheap_model,
+            max_tokens=400,
+            temperature=0.2,
+            system=(
+                "Você mantém o caderno de um coach de poker sobre um aluno. "
+                "Da conversa abaixo (já encerrada), extraia NO MÁXIMO 2 "
+                "observações NOVAS sobre o aluno — como ele pensa, o que "
+                "calibra mal, dúvida que repete, progresso real. Não anote "
+                "fatos da mão em si, só o que ensina sobre o ALUNO. Não "
+                "repita nem parafraseie o que o caderno já tem. Cada nota: "
+                "1 frase, específica, em português. Responda SÓ com JSON: "
+                '{"notas": [{"kind": "leak|progresso|meta|estilo", '
+                '"note": "..."}]} — e {"notas": []} se a conversa não '
+                "revelou nada novo (o normal)."
+            ),
+            messages=[{"role": "user", "content":
+                       f"CADERNO ATUAL:\n- " + "\n- ".join(
+                           notas_existentes[:8] or ["(vazio)"])
+                       + f"\n\nMÃO DISCUTIDA: {(resumo_mao or '')[:400]}"
+                       + f"\n\nCONVERSA:\n{convo[:5000]}"}],
+        )
+        text = "".join(b.text for b in resp.content if b.type == "text")
+        return _parse_notebook_notes(text)
+    except Exception:
+        logging.getLogger("llm").debug("destilador de sessão falhou", exc_info=True)
+        return []
+
+
 def followup(
     context: dict,
     history: list[dict],

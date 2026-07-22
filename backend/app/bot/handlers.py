@@ -748,10 +748,14 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
 
         spec = await asyncio.to_thread(storyboard_spot_from_drill, drill, choice)
         if spec:
-            # placar semanal: registra o veredito da resposta (boa/ruim/mista)
+            # placar semanal + repetição espaçada: veredito (boa/ruim/mista)
+            # e a CATEGORIA do spot — o sorteio dos próximos treinos lê isto
+            # pra perseguir os tipos em que o aluno erra
+            from app.bot.processing import drill_category
             await _log(update, "drill_verdict",
                        verdict=spec.get("verdict"),
-                       hand_id=drill.get("hand_id"))
+                       hand_id=drill.get("hand_id"),
+                       cat=drill.get("cat") or drill_category(drill))
             png = await asyncio.to_thread(render_hand_strip, spec)
             import io as _io3
             await query.message.reply_photo(

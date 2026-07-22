@@ -481,6 +481,9 @@ def _process_upload_inner(
         if len(content) <= 3_700_000:  # base64 infla 4/3; limite da API ~5MB
             image_b64 = _b64.standard_b64encode(bytes(content)).decode()
             media = "image/png" if fmt in ("png",) else "image/jpeg"
+    # a conversa anterior ENCERROU aqui (mão nova = contexto novo): destila o
+    # que ela revelou sobre o aluno pro caderno do coach, em background
+    _notebook_from_session(LAST_ANALYSIS.get(telegram_id), telegram_id)
     LAST_ANALYSIS[telegram_id] = {
         "context": {
             "analysis": structured,
@@ -598,6 +601,46 @@ def persist_conversation(telegram_id: int) -> None:
         get_repository().set_conversation(telegram_id, state)
     except Exception:
         pass  # persistência é rede de segurança; nunca derruba a conversa
+
+
+def summarize_session_to_notebook(prev: dict | None, telegram_id: int) -> int:
+    """Conversa encerrada -> caderno do aluno: destila 0-2 observações NOVAS
+    (o que a conversa revelou sobre como o aluno pensa) e grava em
+    player_notes. Devolve quantas notas gravou. É o 'coach que te conhece':
+    a próxima análise já abre sabendo o que ficou da conversa anterior."""
+    try:
+        history = (prev or {}).get("history") or []
+        user_id = (prev or {}).get("user_id")
+        if len(history) < 2 or not user_id:
+            return 0
+        repo = get_repository()
+        if not repo.enabled:
+            return 0
+        existentes = [n.get("note", "") for n in repo.get_notes(user_id, limit=8)]
+        an = ((prev or {}).get("context") or {}).get("analysis") or {}
+        resumo = str(an.get("summary") or "")[:400] if isinstance(an, dict) else ""
+        from app.agent.llm import session_notebook_notes
+
+        notas = session_notebook_notes(history, resumo, existentes)
+        for n in notas:
+            repo.save_note(user_id, n["kind"], n["note"])
+        if notas:
+            repo.log_event(telegram_id, None, "caderno_auto",
+                           {"notas": len(notas)})
+        return len(notas)
+    except Exception:
+        logging.getLogger(__name__).debug("caderno_auto falhou", exc_info=True)
+        return 0
+
+
+def _notebook_from_session(prev: dict | None, telegram_id: int) -> None:
+    """Dispara o destilador em background — o upload novo não espera LLM."""
+    if not prev or len(prev.get("history") or []) < 2:
+        return
+    import threading
+
+    threading.Thread(target=summarize_session_to_notebook,
+                     args=(prev, telegram_id), daemon=True).start()
 
 
 def process_followup(telegram_id: int, username: str | None, question: str) -> str | None:
@@ -1817,6 +1860,65 @@ def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
     return bands
 
 
+def drill_category(drill: dict) -> str:
+    """Categoria de LEAK de um spot de treino — o eixo da repetição espaçada.
+
+    push_fold (pré-flop curto em torneio) é separado do pré-flop deep porque
+    o erro é de natureza diferente (Nash vs range de abertura)."""
+    st = (drill.get("street") or "preflop").lower()
+    if st != "preflop":
+        return st
+    stk = drill.get("stack_bb")
+    if stk and stk <= 20 and drill.get("format") in ("tournament", "sng"):
+        return "push_fold"
+    return "preflop"
+
+
+def leak_error_rates(verdicts: list[dict]) -> dict[str, dict]:
+    """Taxa de erro por categoria a partir dos eventos drill_verdict
+    (ruim=1, mista=0.5, boa=0), com suavização de Laplace — um erro isolado
+    não vira leak. Eventos antigos sem 'cat' são ignorados."""
+    peso = {"boa": 0.0, "mista": 0.5, "ruim": 1.0}
+    agg: dict[str, list[float]] = {}
+    for v in verdicts or []:
+        cat, verd = v.get("cat"), v.get("verdict")
+        if cat and verd in peso:
+            agg.setdefault(cat, []).append(peso[verd])
+    out: dict[str, dict] = {}
+    for cat, errs in agg.items():
+        n = len(errs)
+        out[cat] = {"n": n, "erros": round(sum(errs), 1),
+                    "taxa": round((sum(errs) + 1.0) / (n + 2.0), 3)}
+    return out
+
+
+def leak_boost(rates: dict[str, dict], cat: str) -> float:
+    """Multiplicador de peso no sorteio do drill: categorias em que o aluno
+    ERRA aparecem mais (até ~4x); sem histórico ou indo bem, fica em 1.
+    Conforme a taxa de acerto sobe, o boost cai sozinho — é a repetição
+    espaçada guiada por erro."""
+    r = rates.get(cat) or {}
+    if not r or r.get("n", 0) < 1:
+        return 1.0
+    return 1.0 + max(0.0, r["taxa"] - 0.4) * 6.0
+
+
+_CAT_NOMES = {"push_fold": "pré-flop de stack curto (push/fold)",
+              "preflop": "pré-flop", "flop": "flop", "turn": "turn",
+              "river": "river"}
+
+
+def _leak_note(rates: dict[str, dict], cat: str) -> str | None:
+    """Aviso de treino dirigido: só quando há amostra (3+) e erro sustentado —
+    o aluno precisa SENTIR que a ferramenta está perseguindo o leak dele."""
+    r = rates.get(cat) or {}
+    if r.get("n", 0) >= 3 and r.get("taxa", 0.0) >= 0.55:
+        return (f"🎯 _Spot na mira: você errou {r['erros']:g} dos últimos "
+                f"{r['n']} treinos de {_CAT_NOMES.get(cat, cat)} — esse tipo "
+                f"vai voltar até virar rotina._")
+    return None
+
+
 def build_drill(telegram_id: int) -> dict | None:
     """Monta um spot de treino PROFISSIONAL: escolhe a decisão mais interessante
     das mãos do usuário (preço a pagar, pós-flop, all-in, stack curto — nada de
@@ -1861,7 +1963,9 @@ def build_drill(telegram_id: int) -> dict | None:
                 score -= 3          # "o que fazer com AA sem ação"? trivial
             if d["street"] == "preflop" and d["to_call_bb"] <= 1 and d["actual"] == "fold":
                 score -= 2          # fold de lixo no pré sem raise = sem lição
-            scored.append((score, h, di, d["street"], h.hand_id))
+            cat = drill_category({"street": d["street"], "stack_bb": stack_bb,
+                                  "format": h.format.value})
+            scored.append((score, h, di, d["street"], h.hand_id, cat))
 
     if not scored:
         return None
@@ -1882,8 +1986,18 @@ def build_drill(telegram_id: int) -> dict | None:
     from collections import Counter
 
     st_counts = Counter(_RECENT_DRILL_STREETS.get(telegram_id, []))
-    weights = [max(t[0], 0.1) / (1 + 1.5 * st_counts.get(t[3], 0)) for t in pool]
-    _, h, di, chosen_street, chosen_hid = random.choices(pool, weights=weights, k=1)[0]
+    # REPETIÇÃO ESPAÇADA: categorias em que o aluno vem ERRANDO (vereditos
+    # dos últimos quizzes) pesam mais no sorteio — o treino persegue o leak
+    # até a taxa de acerto subir, quando o boost decai sozinho
+    try:
+        err_rates = leak_error_rates(repo.drill_verdicts(telegram_id)) \
+            if repo.enabled else {}
+    except Exception:
+        err_rates = {}
+    weights = [max(t[0], 0.1) * leak_boost(err_rates, t[5])
+               / (1 + 1.5 * st_counts.get(t[3], 0)) for t in pool]
+    _, h, di, chosen_street, chosen_hid, chosen_cat = \
+        random.choices(pool, weights=weights, k=1)[0]
 
     # atualiza as memórias anti-repetição (mãos e streets)
     mem = RECENT_DRILLS.setdefault(telegram_id, [])
@@ -1947,6 +2061,10 @@ def build_drill(telegram_id: int) -> dict | None:
 
     required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {
+        "cat": chosen_cat,
+        # transparência do treino dirigido: quando o spot foi escolhido de
+        # propósito por ser o tipo que o aluno mais erra, o quiz avisa
+        "leak_note": _leak_note(err_rates, chosen_cat),
         "hand_id": h.hand_id,
         "cards": h.hero_cards,
         "cards_pretty": _pretty_cards(h.hero_cards),
@@ -2097,7 +2215,8 @@ def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real su
              if drill.get("to_call_bb") else "")
     ask = (f"{mesa}\n👉 *Sua vez no {drill['street'].upper()}* — "
            f"pote: *{drill['pot_bb']:g}bb*{price}\n\nO que você faz?")
-    return head + body + ask
+    mira = f"\n\n{drill['leak_note']}" if drill.get("leak_note") else ""
+    return head + body + ask + mira
 
 
 # choice do botão -> (ação base p/ a lógica, rótulo legível p/ o gabarito)

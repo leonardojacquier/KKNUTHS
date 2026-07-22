@@ -1288,6 +1288,94 @@ def test_cartas_texto_no_gabarito():
     assert a["textura_do_board"]["flush_possivel"] is False
 
 
+def test_repeticao_espacada_do_treino():
+    # o quiz persegue o leak: categorias com erro sustentado pesam mais no
+    # sorteio; indo bem (ou sem histórico) o boost some sozinho
+    from app.bot.processing import (_leak_note, drill_category, leak_boost,
+                                    leak_error_rates)
+
+    assert drill_category({"street": "preflop", "stack_bb": 12,
+                           "format": "tournament"}) == "push_fold"
+    assert drill_category({"street": "preflop", "stack_bb": 60,
+                           "format": "tournament"}) == "preflop"
+    assert drill_category({"street": "preflop", "stack_bb": 12,
+                           "format": "cash"}) == "preflop"
+    assert drill_category({"street": "river"}) == "river"
+
+    verdicts = ([{"cat": "river", "verdict": "ruim"}] * 4
+                + [{"cat": "flop", "verdict": "boa"}] * 4
+                + [{"cat": "turn", "verdict": "mista"}] * 2
+                + [{"cat": None, "verdict": "ruim"},          # legado sem cat
+                   {"cat": "river", "verdict": "xyz"}])       # veredito inválido
+    rates = leak_error_rates(verdicts)
+    assert rates["river"]["n"] == 4 and rates["river"]["taxa"] > 0.7
+    assert rates["flop"]["taxa"] < 0.3
+    # erra river -> boost forte; acerta flop -> sem boost; sem dados -> neutro
+    assert leak_boost(rates, "river") > 2.5
+    assert leak_boost(rates, "flop") == 1.0
+    assert leak_boost(rates, "preflop") == 1.0
+    assert leak_boost({}, "river") == 1.0
+
+    # aviso "spot na mira" só com amostra (3+) e erro sustentado
+    assert "Spot na mira" in _leak_note(rates, "river")
+    assert _leak_note(rates, "flop") is None
+    assert _leak_note(rates, "turn") is None      # n=2: amostra curta
+    assert _leak_note({}, "river") is None
+
+    # o aviso aparece no texto do quiz
+    from app.bot.processing import drill_message
+    d = {"format": "tournament", "stack_bb": 20, "blinds": "100/200",
+         "players": 8, "cards_pretty": "A♠ K♥", "position": "BTN",
+         "street": "river", "pot_bb": 12.0, "story": "",
+         "leak_note": _leak_note(rates, "river")}
+    assert "Spot na mira" in drill_message(d)
+
+
+def test_caderno_automatico_de_sessao(monkeypatch):
+    # conversa encerrada vira 0-2 notas NOVAS no caderno do aluno
+    from app.agent.llm import _parse_notebook_notes
+    from app.bot import processing as proc
+
+    # parser: fence, kinds inválidos filtrados, teto de 2, nota vazia fora
+    ok = _parse_notebook_notes(
+        '```json\n{"notas": [{"kind": "leak", "note": "superestima draws"},'
+        '{"kind": "invalido", "note": "x"}, {"kind": "meta", "note": ""},'
+        '{"kind": "estilo", "note": "b"}, {"kind": "leak", "note": "c"}]}\n```')
+    assert ok == [{"kind": "leak", "note": "superestima draws"},
+                  {"kind": "estilo", "note": "b"}]
+    assert _parse_notebook_notes("não é json") == []
+    assert _parse_notebook_notes('{"notas": []}') == []
+
+    saved = []
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_notes(self, user_id, limit=8):
+            return [{"note": "já sabia disso"}]
+
+        def save_note(self, user_id, kind, note):
+            saved.append((kind, note))
+
+        def log_event(self, *a, **k):
+            pass
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _FakeRepo())
+    import app.agent.llm as llm_mod
+    monkeypatch.setattr(llm_mod, "session_notebook_notes",
+                        lambda h, r, e: [{"kind": "leak",
+                                          "note": "confunde equity com odds"}])
+    prev = {"history": [{"q": "a", "a": "b"}, {"q": "c", "a": "d"}],
+            "user_id": "u1",
+            "context": {"analysis": {"summary": "mão X"}}}
+    assert proc.summarize_session_to_notebook(prev, 1) == 1
+    assert saved == [("leak", "confunde equity com odds")]
+    # sem conversa de verdade (0-1 trocas) não gasta LLM nem grava nada
+    assert proc.summarize_session_to_notebook(
+        {"history": [{"q": "a", "a": "b"}], "user_id": "u1"}, 1) == 0
+    assert proc.summarize_session_to_notebook(None, 1) == 0
+
+
 def test_refresh_gabarito_de_conversa_fossilizada():
     # caso real: a conversa persistida atravessou o deploy do fix e seguiu
     # SEM linha_da_mao — repetindo o erro corrigido. O refresh recomputa os
