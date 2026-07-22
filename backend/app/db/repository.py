@@ -392,6 +392,21 @@ class Repository:
         self.client.table("pending_drills").delete().eq("telegram_id", telegram_id).execute()
         return res.data[0]["drill"]
 
+    @_safe(None)
+    def get_hand_canonical(self, hand_row_id: str) -> Optional[CanonicalHand]:
+        """Mão canônica por id de linha — usada pra re-derivar o gabarito
+        de conversas persistidas quando o analyzer evolui."""
+        if not self._guard():
+            return None
+        res = (self.client.table("hands").select("canonical")
+               .eq("id", hand_row_id).execute())
+        if not res.data:
+            return None
+        try:
+            return CanonicalHand.model_validate(res.data[0]["canonical"])
+        except Exception:
+            return None
+
     # -------------------------- metadados do usuário -------------------
     @_safe(None)
     def set_user_meta(self, user_id: str, key: str, value) -> None:

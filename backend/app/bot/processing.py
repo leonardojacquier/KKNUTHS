@@ -556,6 +556,34 @@ def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
         pass
 
 
+# campos-gabarito que o analyzer entrega hoje: se a conversa persistida não
+# os tiver, ela é de uma versão anterior e precisa de refresh
+_GABARITO_KEYS = ("linha_da_mao", "hand_by_street", "showdown_cards",
+                  "showdown_hands", "hero_final_hand", "pot_winners",
+                  "pko", "bounties")
+
+
+def _refresh_gabarito(ctx: dict, telegram_id: int) -> None:
+    """Recomputa os campos-gabarito da análise a partir da mão salva quando a
+    conversa persistida veio de uma versão anterior do analyzer."""
+    try:
+        an = (ctx.get("context") or {}).get("analysis")
+        if not (isinstance(an, dict) and ctx.get("hand_row_id")):
+            return
+        if all(k in an for k in _GABARITO_KEYS):
+            return
+        h = get_repository().get_hand_canonical(ctx["hand_row_id"])
+        if not h:
+            return
+        from app.agent.analyzer import analyze_hand
+
+        fresh = analyze_hand(h)
+        an.update({k: fresh[k] for k in _GABARITO_KEYS if k in fresh})
+        persist_conversation(telegram_id)
+    except Exception:
+        pass  # refresh é rede de segurança; nunca derruba a conversa
+
+
 def persist_conversation(telegram_id: int) -> None:
     """Grava o estado da conversa no banco (sem a imagem — pesada demais).
 
@@ -631,6 +659,13 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             "user_id": user["id"] if user else None,
         }
         LAST_ANALYSIS[telegram_id] = ctx
+
+    # GABARITO SEMPRE FRESCO: a conversa persistida atravessa deploys — e
+    # congelava a análise de ANTES de um upgrade do analyzer (caso real: o
+    # fix da linha_da_mao deployou e a conversa restaurada seguiu sem ela,
+    # repetindo o erro que o deploy corrigia). Se faltar campo-gabarito
+    # atual, recomputa da mão salva.
+    _refresh_gabarito(ctx, telegram_id)
 
     # memória de coach: as últimas notas do caderno entram no contexto — o
     # coach lembra dos leaks/metas do aluno entre sessões

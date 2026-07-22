@@ -1232,6 +1232,49 @@ def test_leitura_deterministica_da_mao_feita():
     assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
 
 
+def test_refresh_gabarito_de_conversa_fossilizada():
+    # caso real: a conversa persistida atravessou o deploy do fix e seguiu
+    # SEM linha_da_mao — repetindo o erro corrigido. O refresh recomputa os
+    # campos-gabarito da mão salva.
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilao", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="Hero", type=ActionType.RAISE, amount=16, to_amount=16),
+        Action(actor="vilao", type=ActionType.CALL, amount=11, to_amount=16),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="g1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="vilao", stack=200, position="CO")],
+        hero_cards=["As", "Kd"], streets=[pre])
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_hand_canonical(self, row_id):
+            return h
+
+        def set_conversation(self, t, s):
+            pass
+
+    ctx = {"context": {"analysis": {"hero_cards": ["As", "Kd"]}},  # fóssil
+           "history": [], "hand_row_id": "row1", "user_id": None}
+    real = proc.get_repository
+    proc.get_repository = lambda: _FakeRepo()
+    try:
+        proc._refresh_gabarito(ctx, 1)
+    finally:
+        proc.get_repository = real
+    an = ctx["context"]["analysis"]
+    assert "3-beta" in " ".join(an["linha_da_mao"]["preflop"])
+    assert "hero_final_hand" in an and "showdown_cards" in an
+
+
 def test_linha_da_mao_registra_3bet_pago():
     # caso real: aluno perguntou se o vilão jogou certo pagando o 3-BET dele
     # e o coach respondeu "ele só pagou seu open" — a sequência de ações não
