@@ -1232,6 +1232,37 @@ def test_leitura_deterministica_da_mao_feita():
     assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
 
 
+def test_linha_da_mao_registra_3bet_pago():
+    # caso real: aluno perguntou se o vilão jogou certo pagando o 3-BET dele
+    # e o coach respondeu "ele só pagou seu open" — a sequência de ações não
+    # chegava ao contexto. Agora linha_da_mao é o registro oficial.
+    from app.agent.analyzer import analyze_hand
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=1, post_type="sb"),
+        Action(actor="bb", type=ActionType.POST, amount=2, post_type="bb"),
+        Action(actor="vilaoCO", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="Hero", type=ActionType.RAISE, amount=16, to_amount=16),
+        Action(actor="sb", type=ActionType.FOLD),
+        Action(actor="bb", type=ActionType.FOLD),
+        Action(actor="vilaoCO", type=ActionType.CALL, amount=11, to_amount=16),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="l1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="vilaoCO", stack=200, position="CO"),
+                 PlayerSeat(seat=3, name="sb", stack=200, position="SB"),
+                 PlayerSeat(seat=4, name="bb", stack=200, position="BB")],
+        hero_cards=["As", "Kd"], streets=[pre])
+    linha = analyze_hand(h)["linha_da_mao"]["preflop"]
+    assert linha == ["CO abre 2.5bb", "HERÓI 3-beta 8bb", "SB folda",
+                     "BB folda", "CO paga 8bb"]
+
+
 def test_figura_da_mesa_render():
     # figura da mesa: render deterministico (custo zero de LLM). Só garante
     # que sai um PNG válido e não quebra sem board/vilões.

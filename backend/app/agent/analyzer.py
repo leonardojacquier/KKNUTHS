@@ -133,6 +133,10 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # a MESMA leitura street a street: diz QUANDO cada mão ficou pronta
         # (o coach narrou 'sequência fechou no river' quando fechou no flop)
         "hand_by_street": _hands_by_street(hand),
+        # registro CRONOLÓGICO oficial de TODAS as ações (herói E vilões) —
+        # sem isto o coach reconstruía a sequência de memória e disse "ele
+        # só pagou seu open" numa mão em que houve 3-bet pago (caso real)
+        "linha_da_mao": _action_log(hand),
         # PKO/bounty: recompensas na cabeça de cada jogador — presença disto
         # OBRIGA a conta de all-in a usar pko_call (regra 4f)
         "pko": any(p.bounty for p in hand.players),
@@ -141,6 +145,47 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }
+
+
+def _action_log(hand: CanonicalHand) -> dict:
+    """Linha cronológica de TODAS as ações, por street, em bb — o registro
+    oficial de quem fez o quê (herói marcado; raises do pré numerados:
+    abre/3-beta/4-beta). É a fonte da narração do coach, nunca a memória."""
+    bb = hand.stakes.big_blind or 1
+    pos = {p.name: (p.position or p.name[:10]) for p in hand.players}
+    out: dict = {}
+    for sname in _STREET_ORDER:
+        st = hand.street(sname)
+        if not st:
+            continue
+        raise_n = 0
+        lines = []
+        for a in st.actions:
+            if a.type == ActionType.POST:
+                continue
+            who = ("HERÓI" if a.actor == hand.hero else
+                   f"{pos.get(a.actor, a.actor[:10])}")
+            amt = round((a.to_amount or a.amount) / bb, 1)
+            if a.type == ActionType.RAISE:
+                raise_n += 1
+                verb = ({1: "abre", 2: "3-beta", 3: "4-beta"}.get(raise_n,
+                        f"{raise_n + 1}-beta") if sname == StreetName.PREFLOP
+                        else "aumenta p/")
+                lines.append(f"{who} {verb} {amt:g}bb"
+                             + (" (all-in)" if a.all_in else ""))
+            elif a.type == ActionType.BET:
+                lines.append(f"{who} aposta {amt:g}bb"
+                             + (" (all-in)" if a.all_in else ""))
+            elif a.type == ActionType.CALL:
+                lines.append(f"{who} paga {amt:g}bb"
+                             + (" (all-in)" if a.all_in else ""))
+            elif a.type == ActionType.CHECK:
+                lines.append(f"{who} dá check")
+            elif a.type == ActionType.FOLD:
+                lines.append(f"{who} folda")
+        if lines:
+            out[sname.value] = lines
+    return out
 
 
 def _hands_by_street(hand: CanonicalHand) -> dict:
