@@ -1388,9 +1388,10 @@ def test_analise_por_street_ancorada():
     assert flop["mao_feita"] == "par de Q, kicker J"   # mão feita ancorada
     assert flop["board"] == "Q♠ 10♥ 4♦"                # board com ícone
 
-    # A CONTA de cada decisão: equity real vs a mão do vilão + EV do call
-    assert r["equity_real_vs"] == "Rival do Clube"
-    assert r["equity_real_cartas"] == "A♥ K♣"
+    # A CONTA de cada decisão: equity real vs o campo do showdown + EV do call
+    assert r["equity_real_vs"] == ["Rival do Clube"]        # heads-up aqui
+    assert r["equity_real_cartas"] == {"Rival do Clube": "A♥ K♣"}
+    assert r["jogadores_no_showdown"] == 2
     # QJ vs A-high: pré ~40%, flop com par de Q ~69%, river decidido = 100%
     assert 35 <= r["decisoes_por_street"][0]["equity_real_pct"] <= 45
     river_call = [d for d in r["decisoes_por_street"]
@@ -1408,6 +1409,43 @@ def test_analise_por_street_ancorada():
                           ["Qs", "Th", "4d", "8c", "2s"]) == 0.0   # perde
     assert equity_vs_hand(["Kd", "Kc"], ["Ah", "As"], []) < 0.25   # KK vs AA
     assert equity_vs_hand(["Kd"], ["Ah", "As"], []) is None        # incompleta
+
+    # MULTIWAY (caso real: all-in a 3, trinca de 4 no flop 2-4-A vs 2 mãos):
+    # equity vs o CAMPO todo, não vs uma mão só — figura não fica "estranha"
+    from app.analysis.equity import equity_vs_hands
+    eq3 = equity_vs_hands(["4s", "4c"], [["Ts", "As"], ["Ah", "Jh"]],
+                          ["2c", "4h", "Ac"])
+    assert eq3 is not None and eq3 > 0.85           # set esmaga o campo
+    # 'pedia' (pot odds) NÃO aparece em raise/aposta, só em call
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+    from app.bot.processing import film_bands
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="V1", type=ActionType.RAISE, amount=2, to_amount=2),
+        Action(actor="Hero", type=ActionType.RAISE, amount=6, to_amount=6),
+        Action(actor="V1", type=ActionType.CALL, amount=4, to_amount=6),
+        Action(actor="V2", type=ActionType.CALL, amount=6, to_amount=6)])
+    flop = Street(name=StreetName.FLOP, board=["2c", "4h", "Ac"], actions=[
+        Action(actor="Hero", type=ActionType.BET, amount=8, to_amount=8,
+               all_in=True),
+        Action(actor="V1", type=ActionType.CALL, amount=8, to_amount=8),
+        Action(actor="V2", type=ActionType.CALL, amount=8, to_amount=8)])
+    h3 = CanonicalHand(
+        site="x", hand_id="mw", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True,
+                            position="UTG"),
+                 PlayerSeat(seat=2, name="V1", stack=100, position="BTN"),
+                 PlayerSeat(seat=3, name="V2", stack=100, position="BB")],
+        hero_cards=["4s", "4c"], final_board=["2c", "4h", "Ac", "Kh", "2d"],
+        shown_cards={"V1": ["Ts", "As"], "V2": ["Ah", "Jh"]},
+        streets=[pre, flop])
+    notas = {b["name"]: b.get("hero_note") for b in film_bands(h3)
+             if b.get("hero_note")}
+    assert "pedia" not in notas["Pré-flop"]["text"]        # raise: sem 'pedia'
+    assert "tinha" in notas["Pré-flop"]["text"]
+    assert "tinha 9" in notas["Flop"]["text"]              # ~93% com a trinca
+    assert notas["Flop"]["tag"] == "✔"
 
     # outro jogador: usa as cartas do showdown, sem inventar
     v = decisions_by_street(h, "Rival")

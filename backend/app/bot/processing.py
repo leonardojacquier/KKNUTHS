@@ -1650,7 +1650,10 @@ def _attach_hero_notes(h, bands: list[dict]) -> None:
         return
     if not isinstance(dbs, dict) or dbs.get("error"):
         return
-    tem_real = bool(dbs.get("equity_real_vs"))
+    # fração justa da equity num pote com N jogadores — referência pra marcar
+    # um lance AGRESSIVO como bom (estar acima da fração já é vantagem)
+    n_show = dbs.get("jogadores_no_showdown") or 2
+    fair = 100.0 / n_show
     por_street: dict[str, list[dict]] = {}
     for d in dbs.get("decisoes_por_street") or []:
         por_street.setdefault(d["street"], []).append(d)
@@ -1662,31 +1665,37 @@ def _attach_hero_notes(h, bands: list[dict]) -> None:
             continue
         # decisão representativa: a que botou dinheiro (pagar>0); senão a última
         d = next((x for x in ds if x.get("pagar_bb", 0) > 0), ds[-1])
+        tipo = d.get("acao_tipo")
         emin = d.get("equity_minima_pct")
         ereal = d.get("equity_real_pct")
         ev = d.get("ev_call_bb")
-        conta = ""
-        if emin is not None and ereal is not None:
-            conta = f" — pedia {emin}%, tinha {ereal}%"
+        if tipo == "call" and emin is not None:
+            # CALL: pot odds vs equity real -> veredito pelo EV
+            conta = f" — pedia {emin}%, tinha {ereal}%" if ereal is not None \
+                else f" — pedia {emin}%"
             if ev is not None:
                 conta += f" ({ev:+.1f}bb)"
-        elif emin is not None:
-            conta = f" — pedia {emin}%"
+            if ev is not None:
+                tag = "✔" if ev >= 0.5 else ("✘" if ev <= -0.5 else "≈")
+                kind = "ok" if ev >= 0.5 else ("bad" if ev <= -0.5 else "mix")
+            else:
+                tag, kind = "•", "info"
+        elif tipo in ("bet", "raise") and ereal is not None:
+            # AGRESSÃO: mostra a equity (sem 'pedia'); acima da fração justa
+            # do pote = vantagem -> ✔; senão ≈ (blefe/semi não vira ✘)
+            conta = f" — tinha {ereal}%"
+            if ereal >= fair + 5:
+                tag, kind = "✔", "ok"
+            else:
+                tag, kind = "≈", "mix"
         elif ereal is not None:
-            conta = f" — {ereal}% na frente"
-        if ev is not None:
-            tag = "✔" if ev >= 0.5 else ("✘" if ev <= -0.5 else "≈")
-            kind = "ok" if ev >= 0.5 else ("bad" if ev <= -0.5 else "mix")
-        else:
+            # CHECK / outros: informativo com a equity
+            conta = f" — {ereal}% na mão"
             tag, kind = "•", "info"
+        else:
+            conta, tag, kind = "", "•", "info"
         band["hero_note"] = {"tag": tag, "kind": kind,
                              "text": f"VOCÊ {d.get('acao', '')}{conta}"}
-    # legenda só quando há equity real (deixa claro que é o replay, hindsight)
-    if tem_real:
-        for band in bands:
-            if band.get("hero_note"):
-                band["hero_note"]["hindsight"] = True
-                break
 
 
 def hand_film_png(h) -> bytes | None:
@@ -1908,7 +1917,7 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
 
     É a matéria-prima da análise street a street do filme — o coach comenta
     cada jogada a partir DAQUI, sem recontar a mão de cabeça."""
-    from app.analysis.equity import equity_vs_hand
+    from app.analysis.equity import equity_vs_hands
     from app.analysis.equity import pretty_cards as _pc  # '10♥', ícones
     from app.analysis.tools import ev_call, pot_odds
     from app.models.canonical import ActionType, StreetName
@@ -1930,17 +1939,16 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
     pos = next((p.position for p in h.players if p.name == match), None)
     bb = h.stakes.big_blind or 1
 
-    # VILÃO DE REFERÊNCIA pra equity EXATA: um oponente com cartas conhecidas
-    # (showdown, ou o herói quando analisamos um vilão). Só heads-up — em
-    # multiway a equity vs UMA mão engana, então a gente avisa e não força.
+    # CAMPO de referência pra equity EXATA (all-in do replayer): TODOS os
+    # oponentes com cartas conhecidas (showdown, + o herói quando analisamos
+    # um vilão). Funciona multiway — equity vs o campo inteiro.
     conhecidos: dict[str, list[str]] = {}
     if match != h.hero and h.hero_cards:
         conhecidos[h.hero] = list(h.hero_cards)
     for nm, cs in (h.shown_cards or {}).items():
         if nm != match and cs and len(cs) == 2:
             conhecidos[nm] = list(cs)
-    ref_nome = next(iter(conhecidos)) if len(conhecidos) == 1 else None
-    ref_cards = conhecidos.get(ref_nome) if ref_nome else None
+    campo = list(conhecidos.values())
     verbs = {"fold": "foldou", "check": "deu check", "call": "pagou",
              "bet": "apostou", "raise": "aumentou p/"}
     order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
@@ -1970,6 +1978,7 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                 d = {
                     "street": sname.value,
                     "board": _pc(full_board) if full_board else "—",
+                    "acao_tipo": a.type.value,   # call/bet/raise/check/fold
                     "pote_antes_bb": pot_bb,
                     "pagar_bb": to_call_bb,
                     "acao": f"{verbs.get(a.type.value, a.type.value)}"
@@ -1978,7 +1987,9 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                                and (a.to_amount or a.amount) else "")
                             + (" (all-in)" if a.all_in else ""),
                 }
-                if to_call_bb > 0:
+                # 'pedia X%' (pot odds) só faz sentido num CALL — não num
+                # raise/aposta (aluno reclamou de 'pedia' aparecendo num raise)
+                if to_call_bb > 0 and a.type == ActionType.CALL:
                     d["equity_minima_pct"] = round(
                         pot_odds(pot_bb, to_call_bb) * 100)
                 if cards and len(full_board) >= 3:
@@ -1986,13 +1997,13 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                     if fh:
                         d["mao_feita"] = fh
                 # A CONTA de cada decisão (determinística, custo zero de IA):
-                # equity REAL vs a mão que o vilão tinha no showdown, naquela
-                # street, e o EV do call. É o número do replayer.
-                if cards and ref_cards:
-                    eq = equity_vs_hand(cards, ref_cards, full_board)
+                # equity REAL vs o CAMPO que apareceu no showdown (all-in do
+                # replayer, multiway inclusive), e o EV quando é call.
+                if cards and campo:
+                    eq = equity_vs_hands(cards, campo, full_board)
                     if eq is not None:
                         d["equity_real_pct"] = round(eq * 100)
-                        if to_call_bb > 0:
+                        if to_call_bb > 0 and a.type == ActionType.CALL:
                             d["ev_call_bb"] = round(
                                 ev_call(eq, pot_bb, to_call_bb), 1)
                 out.append(d)
@@ -2013,15 +2024,15 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
         "resultado_bb": round((h.collected or {}).get(match, 0) / bb, 1)
         if (h.collected or {}).get(match) else None,
     }
-    if ref_nome:
-        # equity_real_pct é EXATA contra ESTA mão (o replay), heads-up
-        result["equity_real_vs"] = (
-            "VOCÊ" if ref_nome == h.hero else ref_nome)
-        result["equity_real_cartas"] = _pc(ref_cards)
-    elif len(conhecidos) > 1:
-        result["nota_equity"] = ("mão multiway com vários showdowns — a "
-                                 "equity_real não foi calculada (vs uma mão só "
-                                 "engana); use equity_vs_range se precisar")
+    if conhecidos:
+        # equity_real_pct é EXATA contra o CAMPO conhecido (all-in do replay).
+        # Multiway: é a equity vs TODAS as mãos que apareceram, junto.
+        result["equity_real_vs"] = [
+            "VOCÊ" if nm == h.hero else nm for nm in conhecidos]
+        result["equity_real_cartas"] = {
+            ("VOCÊ" if nm == h.hero else nm): _pc(cs)
+            for nm, cs in conhecidos.items()}
+        result["jogadores_no_showdown"] = len(conhecidos) + 1
     return result
 
 
