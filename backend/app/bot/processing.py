@@ -1849,10 +1849,10 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
 
     É a matéria-prima da análise street a street do filme — o coach comenta
     cada jogada a partir DAQUI, sem recontar a mão de cabeça."""
-    from app.analysis.tools import pot_odds
-    from app.models.canonical import ActionType, StreetName
-
+    from app.analysis.equity import equity_vs_hand
     from app.analysis.equity import pretty_cards as _pc  # '10♥', ícones
+    from app.analysis.tools import ev_call, pot_odds
+    from app.models.canonical import ActionType, StreetName
 
     who = actor or h.hero
     if not who:
@@ -1870,6 +1870,18 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
              else list((h.shown_cards or {}).get(match) or []))
     pos = next((p.position for p in h.players if p.name == match), None)
     bb = h.stakes.big_blind or 1
+
+    # VILÃO DE REFERÊNCIA pra equity EXATA: um oponente com cartas conhecidas
+    # (showdown, ou o herói quando analisamos um vilão). Só heads-up — em
+    # multiway a equity vs UMA mão engana, então a gente avisa e não força.
+    conhecidos: dict[str, list[str]] = {}
+    if match != h.hero and h.hero_cards:
+        conhecidos[h.hero] = list(h.hero_cards)
+    for nm, cs in (h.shown_cards or {}).items():
+        if nm != match and cs and len(cs) == 2:
+            conhecidos[nm] = list(cs)
+    ref_nome = next(iter(conhecidos)) if len(conhecidos) == 1 else None
+    ref_cards = conhecidos.get(ref_nome) if ref_nome else None
     verbs = {"fold": "foldou", "check": "deu check", "call": "pagou",
              "bet": "apostou", "raise": "aumentou p/"}
     order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
@@ -1914,6 +1926,16 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                     fh = _describe_safe(cards, full_board)
                     if fh:
                         d["mao_feita"] = fh
+                # A CONTA de cada decisão (determinística, custo zero de IA):
+                # equity REAL vs a mão que o vilão tinha no showdown, naquela
+                # street, e o EV do call. É o número do replayer.
+                if cards and ref_cards:
+                    eq = equity_vs_hand(cards, ref_cards, full_board)
+                    if eq is not None:
+                        d["equity_real_pct"] = round(eq * 100)
+                        if to_call_bb > 0:
+                            d["ev_call_bb"] = round(
+                                ev_call(eq, pot_bb, to_call_bb), 1)
                 out.append(d)
             if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET,
                           ActionType.RAISE):
@@ -1921,7 +1943,7 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                 if a.type != ActionType.POST or a.post_type in ("sb", "bb"):
                     contrib[a.actor] = contrib.get(a.actor, 0.0) + add
 
-    return {
+    result = {
         "jogador": "VOCÊ" if match == h.hero else match,
         "posicao": pos,
         "cartas": _pc(cards) if cards else None,
@@ -1932,6 +1954,16 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
         "resultado_bb": round((h.collected or {}).get(match, 0) / bb, 1)
         if (h.collected or {}).get(match) else None,
     }
+    if ref_nome:
+        # equity_real_pct é EXATA contra ESTA mão (o replay), heads-up
+        result["equity_real_vs"] = (
+            "VOCÊ" if ref_nome == h.hero else ref_nome)
+        result["equity_real_cartas"] = _pc(ref_cards)
+    elif len(conhecidos) > 1:
+        result["nota_equity"] = ("mão multiway com vários showdowns — a "
+                                 "equity_real não foi calculada (vs uma mão só "
+                                 "engana); use equity_vs_range se precisar")
+    return result
 
 
 def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | None:

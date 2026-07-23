@@ -37,6 +37,70 @@ def equity_vs_random(
         return _equity_naive(hero_cards, board, num_opponents, iterations, rng)
 
 
+def equity_vs_hand(hero: list[str], villain: list[str],
+                   board: list[str] | None = None) -> float | None:
+    """Equity EXATA do herói contra UMA mão conhecida (do showdown), enumerando
+    as cartas que faltam no board. Determinística, barata (river=1 combo,
+    turn=45, flop≈990). None se faltar carta ou houver sobreposição.
+
+    É o número do replayer: 'no flop, contra a mão que ele tinha, você tinha
+    X%'. No river vira 100/50/0 — a mão está decidida."""
+    hero = [c for c in (hero or []) if c]
+    villain = [c for c in (villain or []) if c]
+    board = [c for c in (board or []) if c]
+    if len(hero) != 2 or len(villain) != 2:
+        return None
+    dead = hero + villain + board
+    if len(set(dead)) != len(dead):
+        return None
+    remaining = [c for c in _FULL_DECK if c not in dead]
+    need = 5 - len(board)
+    if need < 0:
+        return None
+
+    # comparador decidido UMA vez: treys (menor score = melhor) ou o avaliador
+    # interno (_best_hand_score: maior tupla = melhor)
+    try:
+        from treys import Card, Evaluator  # type: ignore
+
+        ev = Evaluator()
+        hc = [Card.new(c) for c in hero]
+        vc = [Card.new(c) for c in villain]
+
+        def hero_beats(full):
+            bc = [Card.new(c) for c in full]
+            hs, vs_ = ev.evaluate(bc, hc), ev.evaluate(bc, vc)
+            return (hs < vs_) - (hs > vs_)   # 1 herói, -1 vilão, 0 empate
+    except ImportError:
+        def hero_beats(full):
+            hs = _best_hand_score(hero + full)
+            vs_ = _best_hand_score(villain + full)
+            return (hs > vs_) - (hs < vs_)
+
+    # enumeração EXATA só quando é barato (pós-flop: need<=2 -> <=~1000 combos).
+    # com o board muito aberto (pré-flop: C(48,5)≈1,7M) cai em Monte Carlo
+    # seeded — rápido e preciso (±~0,7%), sem travar a análise.
+    import math as _math
+
+    total_combos = _math.comb(len(remaining), need) if need else 1
+    wins = ties = total = 0
+    if total_combos <= 2000:
+        for extra in itertools.combinations(remaining, need):
+            r = hero_beats(board + list(extra))
+            total += 1
+            wins += r > 0
+            ties += r == 0
+    else:
+        rng = random.Random(20240501)
+        for _ in range(6000):
+            extra = rng.sample(remaining, need)
+            r = hero_beats(board + extra)
+            total += 1
+            wins += r > 0
+            ties += r == 0
+    return (wins + ties / 2) / total if total else None
+
+
 def _equity_treys(hero, board, num_opponents, iterations, rng) -> float:
     from treys import Card, Evaluator  # type: ignore
 

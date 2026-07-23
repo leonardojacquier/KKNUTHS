@@ -1369,6 +1369,27 @@ def test_analise_por_street_ancorada():
     assert flop["mao_feita"] == "par de Q, kicker J"   # mão feita ancorada
     assert flop["board"] == "Q♠ 10♥ 4♦"                # board com ícone
 
+    # A CONTA de cada decisão: equity real vs a mão do vilão + EV do call
+    assert r["equity_real_vs"] == "Rival do Clube"
+    assert r["equity_real_cartas"] == "A♥ K♣"
+    # QJ vs A-high: pré ~40%, flop com par de Q ~69%, river decidido = 100%
+    assert 35 <= r["decisoes_por_street"][0]["equity_real_pct"] <= 45
+    river_call = [d for d in r["decisoes_por_street"]
+                  if d["street"] == "river" and d["pagar_bb"] > 0][0]
+    assert river_call["equity_real_pct"] == 100
+    assert river_call["ev_call_bb"] > 0        # pagou e ganhou -> EV+ (real)
+    # o call do flop tem preço E equity real -> as duas contas presentes
+    flop_call = [d for d in r["decisoes_por_street"]
+                 if d["street"] == "flop" and d["pagar_bb"] > 0][0]
+    assert flop_call["equity_minima_pct"] and flop_call["equity_real_pct"]
+
+    # equity EXATA vs uma mão conhecida (determinística, enumera o board)
+    from app.analysis.equity import equity_vs_hand
+    assert equity_vs_hand(["Ah", "Ks"], ["Qd", "Jc"],
+                          ["Qs", "Th", "4d", "8c", "2s"]) == 0.0   # perde
+    assert equity_vs_hand(["Kd", "Kc"], ["Ah", "As"], []) < 0.25   # KK vs AA
+    assert equity_vs_hand(["Kd"], ["Ah", "As"], []) is None        # incompleta
+
     # outro jogador: usa as cartas do showdown, sem inventar
     v = decisions_by_street(h, "Rival")
     assert v["jogador"] == "Rival do Clube" and v["cartas"] == "A♥ K♣"
