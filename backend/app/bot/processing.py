@@ -636,8 +636,28 @@ def redefine_hero(telegram_id: int, nome: str,
     if not match:
         return {"error": f"'{alvo}' não está na mesa; jogadores: "
                          + ", ".join(nomes)}
-    if cards and len(cards) == 2:
-        h.hero_cards = list(cards)
+
+    # CARTAS DO NOVO HERÓI — nunca chutar (bug real: mantínhamos as cartas
+    # que a visão deu ao herói ERRADO e colávamos no novo). Ordem de
+    # confiança: 1) as que o aluno disse; 2) as que ESSE jogador mostrou no
+    # showdown; senão ficam DESCONHECIDAS e o coach pergunta antes de opinar.
+    from app.agent.llm import _norm_cards
+
+    shown = (h.shown_cards or {}).get(match)
+    novas = _norm_cards(cards) if cards else []
+    aviso = None
+    if len(novas) == 2:
+        h.hero_cards = novas
+    elif shown and len(shown) == 2:
+        h.hero_cards = list(shown)
+        aviso = f"cartas de {match} vieram do showdown"
+    else:
+        # as cartas que estavam salvas eram do herói ANTIGO: descarta
+        h.hero_cards = []
+        aviso = ("NÃO SEI as cartas do aluno — as que estavam na análise "
+                 "eram do herói anterior. PERGUNTE 'quais eram suas cartas?' "
+                 "e só afirme a mão feita/veredito depois da resposta.")
+
     h.hero = match
     for p in h.players:
         p.is_hero = (p.name == match)
@@ -654,8 +674,8 @@ def redefine_hero(telegram_id: int, nome: str,
         ctx["context"]["analysis"] = fresh
         persist_conversation(telegram_id)
     return {"ok": True, "heroi": match,
-            "aviso": ("cartas do herói mantidas do print — se não forem as "
-                      "do aluno, pergunte quais eram" if not cards else None),
+            "cartas_conhecidas": bool(h.hero_cards),
+            "aviso": aviso,
             "analysis": {k: fresh.get(k) for k in
                          ("hero", "hero_cards", "position", "hero_stack_bb",
                           "net_bb", "hero_final_hand", "linha_da_mao",

@@ -1374,23 +1374,36 @@ def test_definir_heroi_refaz_a_analise(monkeypatch):
                                  "relato_do_usuario": "3-bet pequeno"}},
         "history": [], "hand_row_id": "row9", "user_id": None}
     try:
-        # nome aproximado ('dscholze') resolve por fuzzy match
+        # nome aproximado ('dscholze') SEM cartas: as KK eram do herói antigo,
+        # então NÃO viram cartas do novo — ficam desconhecidas (bug real: o
+        # aluno reclamou que trocou o herói mas colou as cartas erradas)
         r = proc.redefine_hero(999, "dscholze")
         assert r["ok"] and r["heroi"] == "dscholze1979"
+        assert r["cartas_conhecidas"] is False
+        assert "quais eram suas cartas" in r["aviso"].lower()
         assert updates == [("row9", "dscholze1979")]
         an = proc.LAST_ANALYSIS[999]["context"]["analysis"]
         assert an["hero"] == "dscholze1979" and an["position"] == "BB"
-        assert an["relato_do_usuario"] == "3-bet pequeno"   # relato preservado
-        # cartas explícitas do aluno têm prioridade
-        r2 = proc.redefine_hero(999, "dscholze1979", ["Ah", "Qh"])
+        assert an["hero_cards"] == []                        # não chutou nada
+        assert an["hero_final_hand"] is None                 # sem mão feita
+        assert an["relato_do_usuario"] == "3-bet pequeno"    # relato preservado
+        # cartas explícitas do aluno têm prioridade (aceita ícones/‘10’)
+        r2 = proc.redefine_hero(999, "dscholze1979", ["A♥", "Qh"])
+        assert r2["cartas_conhecidas"] is True
         assert r2["analysis"]["hero_cards"] == ["Ah", "Qh"]
+        # se o novo herói MOSTROU cartas no showdown, usa essas (não pergunta)
+        h.shown_cards = {"Guigacwb": ["Ts", "Td"]}
+        r3 = proc.redefine_hero(999, "Guiga")
+        assert r3["cartas_conhecidas"] is True
+        assert r3["analysis"]["hero_cards"] == ["Ts", "Td"]
+        assert "showdown" in (r3["aviso"] or "")
         # nome fora da mesa: erro claro com a lista de jogadores
         assert "não está na mesa" in proc.redefine_hero(999, "zzz")["error"]
 
         # o dispatch da tool cai no mesmo caminho (contextvar do chat)
         set_tool_chat(999)
-        d = _dispatch("definir_heroi", {"nome": "Guiga"})
-        assert d["ok"] and d["heroi"] == "Guigacwb"
+        d = _dispatch("definir_heroi", {"nome": "dscholze", "cards": ["Kd", "Kc"]})
+        assert d["ok"] and d["heroi"] == "dscholze1979"
         set_tool_chat(None)
         assert "error" in _dispatch("definir_heroi", {"nome": "x"})
     finally:
