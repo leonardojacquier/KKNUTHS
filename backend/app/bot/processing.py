@@ -395,7 +395,9 @@ def _process_upload_inner(
 
                 _ts, _lst = PENDING_CHARTS.get(telegram_id) or (0.0, [])
                 _lst.insert(0, (film, "🎬 O filme da mão — street a street, "
-                                      "lance a lance, do pré ao fim."))
+                                      "lance a lance, do pré ao fim. Quer que "
+                                      "eu COMENTE cada street? Peça 'analisa "
+                                      "minha jogada street a street'."))
                 PENDING_CHARTS[telegram_id] = (_time.time(), _lst)
         except Exception as exc:
             log.warning("filme da mão falhou: %s", exc)
@@ -680,6 +682,52 @@ def redefine_hero(telegram_id: int, nome: str,
                          ("hero", "hero_cards", "position", "hero_stack_bb",
                           "net_bb", "hero_final_hand", "linha_da_mao",
                           "cartas_texto", "summary")}}
+
+
+def conversation_hand(telegram_id: int) -> "CanonicalHand | None":
+    """A mão da conversa ativa: pela linha persistida (banco) ou pelo hand_id
+    guardado no contexto (acervo em memória). Base da análise street a street."""
+    ctx = LAST_ANALYSIS.get(telegram_id) or {}
+    row_id = ctx.get("hand_row_id")
+    if row_id:
+        h = get_repository().get_hand_canonical(row_id)
+        if h:
+            return h
+    context = ctx.get("context") if isinstance(ctx.get("context"), dict) else {}
+    hand_id = (context or {}).get("hand_id")
+    if hand_id:
+        for x in _user_hands(telegram_id):
+            if x.hand_id == hand_id and x.hero:
+                return x
+    return None
+
+
+def ensure_hand_context(telegram_id: int, hand_id: str | None) -> bool:
+    """Garante que a conversa aponte para ESTA mão (a do filme), pra análise
+    street a street achar os âncoras mesmo vindo de um botão. True se ok."""
+    ctx = LAST_ANALYSIS.get(telegram_id)
+    if ctx and ((ctx.get("context") or {}).get("hand_id") == hand_id
+                or (ctx.get("hand_row_id") and not hand_id)):
+        return True
+    hands = _user_hands(telegram_id)
+    h = next((x for x in hands if x.hand_id == hand_id and x.hero), None) \
+        if hand_id else next((x for x in hands if x.hero and x.hero_cards), None)
+    if not h:
+        return bool(ctx)
+    try:
+        structured = analyze_hand(h)
+    except Exception:
+        return bool(ctx)
+    repo = get_repository()
+    user = repo.get_or_create_user(telegram_id, None) if repo.enabled else None
+    LAST_ANALYSIS[telegram_id] = {
+        "context": {"analysis": structured, "hand_id": h.hand_id},
+        "history": [],
+        "hand_row_id": None,
+        "user_id": user["id"] if user else None,
+    }
+    persist_conversation(telegram_id)
+    return True
 
 
 def summarize_session_to_notebook(prev: dict | None, telegram_id: int) -> int:
@@ -1792,6 +1840,98 @@ def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
                 if counts:
                     contrib[a.actor] = contrib.get(a.actor, 0.0) + add
     return lines, decisions
+
+
+def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
+    """Decisões de UM jogador (herói por padrão) street a street, com o
+    contexto ANCORADO de cada uma: pote antes, preço a pagar, equity mínima,
+    ação real e a mão feita naquele ponto (se as cartas dele são conhecidas).
+
+    É a matéria-prima da análise street a street do filme — o coach comenta
+    cada jogada a partir DAQUI, sem recontar a mão de cabeça."""
+    from app.analysis.tools import pot_odds
+    from app.models.canonical import ActionType, StreetName
+
+    from app.analysis.equity import pretty_cards as _pc  # '10♥', ícones
+
+    who = actor or h.hero
+    if not who:
+        return {"error": "sem herói definido nesta mão"}
+    match = next((p.name for p in h.players
+                  if p.name.lower() == who.lower()), None) \
+        or next((p.name for p in h.players
+                 if who.lower() in p.name.lower()), None)
+    if not match:
+        nomes = ", ".join(p.name for p in h.players)
+        return {"error": f"'{who}' não está na mesa; jogadores: {nomes}"}
+
+    # cartas conhecidas do jogador: herói -> hero_cards; senão -> showdown
+    cards = (list(h.hero_cards) if match == h.hero and h.hero_cards
+             else list((h.shown_cards or {}).get(match) or []))
+    pos = next((p.position for p in h.players if p.name == match), None)
+    bb = h.stakes.big_blind or 1
+    verbs = {"fold": "foldou", "check": "deu check", "call": "pagou",
+             "bet": "apostou", "raise": "aumentou p/"}
+    order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
+             StreetName.RIVER]
+    full_board: list[str] = []
+    out: list[dict] = []
+    pot = 0.0
+    for sname in order:
+        st = h.street(sname)
+        if not st:
+            continue
+        sb = list(st.board)
+        if len(sb) >= len(full_board):
+            full_board = sb
+        else:
+            full_board = full_board + [c for c in sb if c not in full_board]
+        contrib: dict[str, float] = {}
+        for a in st.actions:
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - contrib.get(a.actor, 0.0)
+            outstanding = max(contrib.values(), default=0.0)
+            if a.actor == match and a.type != ActionType.POST:
+                to_call = max(0.0, outstanding - contrib.get(match, 0.0))
+                to_call_bb = round(to_call / bb, 1)
+                pot_bb = round(pot / bb, 1)
+                d = {
+                    "street": sname.value,
+                    "board": _pc(full_board) if full_board else "—",
+                    "pote_antes_bb": pot_bb,
+                    "pagar_bb": to_call_bb,
+                    "acao": f"{verbs.get(a.type.value, a.type.value)}"
+                            + (f" {round((a.to_amount or a.amount)/bb,1):g}bb"
+                               if a.type.value in ("bet", "raise", "call")
+                               and (a.to_amount or a.amount) else "")
+                            + (" (all-in)" if a.all_in else ""),
+                }
+                if to_call_bb > 0:
+                    d["equity_minima_pct"] = round(
+                        pot_odds(pot_bb, to_call_bb) * 100)
+                if cards and len(full_board) >= 3:
+                    fh = _describe_safe(cards, full_board)
+                    if fh:
+                        d["mao_feita"] = fh
+                out.append(d)
+            if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET,
+                          ActionType.RAISE):
+                pot += add
+                if a.type != ActionType.POST or a.post_type in ("sb", "bb"):
+                    contrib[a.actor] = contrib.get(a.actor, 0.0) + add
+
+    return {
+        "jogador": "VOCÊ" if match == h.hero else match,
+        "posicao": pos,
+        "cartas": _pc(cards) if cards else None,
+        "cartas_conhecidas": bool(cards),
+        "decisoes_por_street": out,
+        "showdown": {n: _pc(cs)
+                     for n, cs in (h.shown_cards or {}).items()} or None,
+        "resultado_bb": round((h.collected or {}).get(match, 0) / bb, 1)
+        if (h.collected or {}).get(match) else None,
+    }
 
 
 def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | None:

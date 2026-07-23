@@ -255,6 +255,24 @@ TOOLS = [
         },
     },
     {
+        "name": "analise_por_street",
+        "description": "ANÁLISE STREET A STREET do filme: devolve, para UM jogador "
+        "(o herói por padrão, ou o nick que o aluno pedir), cada decisão dele em cada "
+        "street com o contexto ANCORADO — pote, preço, equity mínima, ação real e a "
+        "mão feita naquele ponto. USE quando o aluno pedir pra comentar a mão street a "
+        "street / 'analisa cada jogada' / 'como joguei em cada street' / 'analisa a "
+        "jogada do X'. Depois, dê um veredito CURTO por street (1-2 frases) a partir "
+        "desses fatos — sem recontar de cabeça.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "nome": {"type": "string",
+                         "description": "nick do jogador a analisar; vazio = o herói "
+                         "(o aluno)"},
+            },
+        },
+    },
+    {
         "name": "definir_heroi",
         "description": "TROCAR O HERÓI DA MÃO: quando o aluno disser que a análise "
         "atribuiu a mão à pessoa errada ('eu sou o dscholze1979', 'analise do ponto "
@@ -590,6 +608,18 @@ _SYSTEM = {
         "cite equity média e nut advantage). Em blefe ou call GRANDE no "
         "turn/river, chame blockers e verbalize o efeito ('seu A♠ bloqueia o "
         "nut flush').\n"
+        "2a2) STREET A STREET (o filme comentado): quando o aluno pedir pra "
+        "analisar a mão street a street ('comenta cada jogada', 'como joguei "
+        "em cada street', 'analisa a jogada do X'), chame analise_por_street "
+        "(nome do X, ou vazio pro próprio aluno) e comente CADA street que "
+        "ele agiu, na ordem — pré, flop, turn, river — em 1-2 frases por "
+        "street: o que a jogada foi e se foi boa/ruim/no fio, ancorado no "
+        "pote/preço/mão feita que a ferramenta traz. Formato de lista, uma "
+        "linha por street (ex.: '*Flop* K♥7♦2♣ — seu check-call com A♠K♠ "
+        "está ótimo: top par, sem motivo pra inflar contra o range dele'). "
+        "Se as cartas do jogador forem desconhecidas, comente a LINHA (sizing, "
+        "agressão) sem afirmar a mão feita. Fecha com 1 frase de veredito "
+        "geral. A regra de CLAREZA continua: nada de parágrafo por street.\n"
         "2b) CONSISTÊNCIA DE VEREDITO: decisão preflop se ancora no range de "
         "referência — chame preflop_range e compare; NÃO decida de memória. "
         "Mesma mão + mesma posição + mesma ação = MESMO veredito, sempre; o "
@@ -849,6 +879,15 @@ def _dispatch(name: str, args: dict):
             [_norm_card(c) or c for c in args["hero_cards"]],
             [_norm_card(c) or c for c in args["board"]],
             str(args["villain_range"]))
+    if name == "analise_por_street":
+        from app.bot.processing import (conversation_hand,
+                                        decisions_by_street)
+
+        tg = _TOOL_CHAT.get()
+        h = conversation_hand(tg) if tg else None
+        if not h:
+            return {"error": "não achei a mão desta conversa para analisar"}
+        return decisions_by_street(h, str(args.get("nome") or "") or None)
     if name == "definir_heroi":
         from app.bot.processing import redefine_hero
 

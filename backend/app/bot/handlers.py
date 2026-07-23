@@ -894,24 +894,59 @@ async def _send_sim_step(msg, sim: dict, step: dict, prefix: str = "") -> None:
         await msg.reply_text(text, reply_markup=kb)
 
 
+def _film_kb(hand_id) -> InlineKeyboardMarkup | None:
+    """Botão pra pedir a análise street a street logo abaixo do filme."""
+    hid = (hand_id or "")[:48]
+    return InlineKeyboardMarkup([[InlineKeyboardButton(
+        "📖 Analisar cada street (sua jogada)",
+        callback_data=f"film:street:{hid}")]])
+
+
 async def _send_hand_film(msg, telegram_id: int, hand_id, lead: str) -> None:
     """Mostra o FILME da mão inteira (fallback pra mão sem decisão jogável, ex.:
     herói foldou o pré). Cai pra texto se não der pra renderizar."""
     from app.bot.processing import hand_film
 
     png = await asyncio.to_thread(hand_film, telegram_id, hand_id)
+    lead = (lead + "\n\n_Quer o comentário street a street? Toque abaixo — "
+            "ou peça 'analisa a jogada do FULANO' pra ver a de outro jogador._")
+    kb = _film_kb(hand_id)
     if not png:
         await msg.reply_text(lead)
         return
     import io as _io
     try:
         await msg.reply_photo(photo=_io.BytesIO(png), caption=lead[:1000],
-                              parse_mode="Markdown")
+                              parse_mode="Markdown", reply_markup=kb)
     except Exception:
         try:
             await msg.reply_markdown(lead)
         except Exception:
             await msg.reply_text(lead)
+
+
+async def on_film_street(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botão do filme: análise street a street da jogada do herói. Reaproveita
+    o pipeline de follow-up (com todos os âncoras) via pergunta sintética."""
+    query = update.callback_query
+    await query.answer()
+    hand_id = query.data.split(":", 2)[2] if query.data.count(":") >= 2 else None
+    tg_id = update.effective_user.id
+    from app.bot.processing import ensure_hand_context, process_followup
+
+    await asyncio.to_thread(ensure_hand_context, tg_id, hand_id or None)
+    uname = update.effective_user.username
+    answer = await asyncio.to_thread(
+        process_followup, tg_id, uname,
+        "Comente a MINHA jogada street a street, uma street por vez.")
+    if not answer:
+        answer = ("Não consegui abrir a análise agora — me pede aqui "
+                  "'analisa minha jogada street a street' que eu faço. 🙏")
+    try:
+        await query.message.reply_markdown(answer)
+    except Exception:
+        await query.message.reply_text(answer)
+    await _send_pending_charts(query.message, tg_id)
 
 
 async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1524,6 +1559,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
+    app.add_handler(CallbackQueryHandler(on_film_street, pattern=r"^film:street"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))

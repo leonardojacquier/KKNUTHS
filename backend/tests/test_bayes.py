@@ -1331,6 +1331,49 @@ def test_repeticao_espacada_do_treino():
     assert "Spot na mira" in drill_message(d)
 
 
+def test_analise_por_street_ancorada():
+    # o filme comentado: decisões de um jogador street a street com pote,
+    # preço, equity mínima e mão feita — a matéria-prima do coach
+    from app.api.site_assets import _demo_hand
+    from app.bot.processing import decisions_by_street
+
+    h = _demo_hand()
+    r = decisions_by_street(h)                      # herói por padrão
+    assert r["jogador"] == "VOCÊ" and r["cartas_conhecidas"] is True
+    sts = [d["street"] for d in r["decisoes_por_street"]]
+    assert sts[0] == "preflop" and "river" in sts   # cobre pré->river
+    pre = r["decisoes_por_street"][0]
+    assert pre["equity_minima_pct"] == 27 and "pagou" in pre["acao"]
+    flop = next(d for d in r["decisoes_por_street"] if d["street"] == "flop")
+    assert flop["mao_feita"] == "par de Q, kicker J"   # mão feita ancorada
+    assert flop["board"] == "Q♠ 10♥ 4♦"                # board com ícone
+
+    # outro jogador: usa as cartas do showdown, sem inventar
+    v = decisions_by_street(h, "Rival")
+    assert v["jogador"] == "Rival do Clube" and v["cartas"] == "A♥ K♣"
+    assert v["decisoes_por_street"][0]["acao"].startswith("aumentou")
+    # jogador fora da mesa: erro claro
+    assert "não está na mesa" in decisions_by_street(h, "zzz")["error"]
+
+    # a tool cai no mesmo caminho, pela mão da conversa
+    from app.agent.llm import _dispatch, set_tool_chat
+    from app.bot import processing as proc
+    proc.LAST_ANALYSIS[777] = {
+        "context": {"analysis": {}, "hand_id": h.hand_id},
+        "history": [], "hand_row_id": None, "user_id": None}
+    proc.RECENT_HANDS[777] = [h]
+    set_tool_chat(777)
+    try:
+        d = _dispatch("analise_por_street", {})
+        assert d["jogador"] == "VOCÊ" and d["decisoes_por_street"]
+        d2 = _dispatch("analise_por_street", {"nome": "Rival"})
+        assert d2["cartas"] == "A♥ K♣"
+    finally:
+        set_tool_chat(None)
+        proc.LAST_ANALYSIS.pop(777, None)
+        proc.RECENT_HANDS.pop(777, None)
+
+
 def test_definir_heroi_refaz_a_analise(monkeypatch):
     # caso real: print com 5 jogadores, a visão escolheu "Guigacwb" como
     # herói; o aluno explicou que era o dscholze1979 e o coach só recusou.
