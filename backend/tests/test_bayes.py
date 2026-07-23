@@ -1331,6 +1331,25 @@ def test_repeticao_espacada_do_treino():
     assert "Spot na mira" in drill_message(d)
 
 
+def test_filme_comenta_cada_street_na_figura():
+    # o pedido do aluno: os comentários NA figura do filme. film_bands anexa
+    # a cada street o veredito do herói com a conta (números determinísticos).
+    from app.api.site_assets import _demo_hand
+    from app.bot.processing import film_bands, hand_film_png
+
+    h = _demo_hand()                       # QJ vs A-high, herói ganha sempre
+    bands = film_bands(h)
+    notas = {b["name"]: b.get("hero_note") for b in bands if b.get("hero_note")}
+    assert {"Pré-flop", "Flop", "Turn", "River"} <= set(notas)
+    flop = notas["Flop"]
+    assert flop["tag"] == "✔" and flop["kind"] == "ok"       # +EV -> verde
+    assert "pedia 28%" in flop["text"] and "tinha 69%" in flop["text"]
+    assert "Resultado" not in notas                          # sem decisão lá
+    # a figura renderiza sem quebrar, maior que a versão sem notas
+    png = hand_film_png(h)
+    assert png and len(png) > 5000
+
+
 def test_prompt_exige_selo_e_placar():
     # canário do FORMATO da saída: o aluno reclamou que não sabia se jogou
     # certo ou errado. O prompt tem que exigir o selo de veredito na 1ª linha

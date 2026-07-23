@@ -394,10 +394,11 @@ def _process_upload_inner(
                 import time as _time
 
                 _ts, _lst = PENDING_CHARTS.get(telegram_id) or (0.0, [])
-                _lst.insert(0, (film, "🎬 O filme da mão — street a street, "
-                                      "lance a lance, do pré ao fim. Quer que "
-                                      "eu COMENTE cada street? Peça 'analisa "
-                                      "minha jogada street a street'."))
+                _lst.insert(0, (film, "🎬 O filme da mão — cada street com o "
+                                      "veredito e a conta na figura (✔/≈/✘ = "
+                                      "como o lance saiu contra a mão que ele "
+                                      "tinha). Quer o porquê estratégico? Peça "
+                                      "'analisa minha jogada street a street'."))
                 PENDING_CHARTS[telegram_id] = (_time.time(), _lst)
         except Exception as exc:
             log.warning("filme da mão falhou: %s", exc)
@@ -1627,7 +1628,65 @@ def film_bands(h) -> list[dict]:
         if prev and band["pot_bb"] and band["pot_bb"] < prev - 0.05:
             band["note"] = "aposta não paga volta pro dono — por isso o pote final é menor"
         bands.append(band)
+
+    # COMENTÁRIO NA FIGURA: veredito do herói por street, com a conta (números
+    # determinísticos de decisions_by_street). Custo zero de IA.
+    _attach_hero_notes(h, bands)
     return bands
+
+
+# mapeia o nome da banda (render) -> chave de street (decisions_by_street)
+_BAND_STREET = {"pré-flop": "preflop", "pre-flop": "preflop",
+                "flop": "flop", "turn": "turn", "river": "river"}
+
+
+def _attach_hero_notes(h, bands: list[dict]) -> None:
+    """Anexa a cada banda de street o veredito do herói COM a conta — o
+    replayer comentado na própria figura. Marca ✔/≈/✘ pelo EV (contra a mão
+    real do vilão, quando houve showdown) ou • quando é só informativo."""
+    try:
+        dbs = decisions_by_street(h)
+    except Exception:
+        return
+    if not isinstance(dbs, dict) or dbs.get("error"):
+        return
+    tem_real = bool(dbs.get("equity_real_vs"))
+    por_street: dict[str, list[dict]] = {}
+    for d in dbs.get("decisoes_por_street") or []:
+        por_street.setdefault(d["street"], []).append(d)
+
+    for band in bands:
+        key = _BAND_STREET.get((band.get("name") or "").strip().lower())
+        ds = por_street.get(key or "")
+        if not ds:
+            continue
+        # decisão representativa: a que botou dinheiro (pagar>0); senão a última
+        d = next((x for x in ds if x.get("pagar_bb", 0) > 0), ds[-1])
+        emin = d.get("equity_minima_pct")
+        ereal = d.get("equity_real_pct")
+        ev = d.get("ev_call_bb")
+        conta = ""
+        if emin is not None and ereal is not None:
+            conta = f" — pedia {emin}%, tinha {ereal}%"
+            if ev is not None:
+                conta += f" ({ev:+.1f}bb)"
+        elif emin is not None:
+            conta = f" — pedia {emin}%"
+        elif ereal is not None:
+            conta = f" — {ereal}% na frente"
+        if ev is not None:
+            tag = "✔" if ev >= 0.5 else ("✘" if ev <= -0.5 else "≈")
+            kind = "ok" if ev >= 0.5 else ("bad" if ev <= -0.5 else "mix")
+        else:
+            tag, kind = "•", "info"
+        band["hero_note"] = {"tag": tag, "kind": kind,
+                             "text": f"VOCÊ {d.get('acao', '')}{conta}"}
+    # legenda só quando há equity real (deixa claro que é o replay, hindsight)
+    if tem_real:
+        for band in bands:
+            if band.get("hero_note"):
+                band["hero_note"]["hindsight"] = True
+                break
 
 
 def hand_film_png(h) -> bytes | None:

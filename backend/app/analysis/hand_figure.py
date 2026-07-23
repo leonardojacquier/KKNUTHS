@@ -380,6 +380,13 @@ def render_hand_strip(spot: dict) -> bytes:
         h += len(st.get("reveals") or []) * reveal_h
         if st.get("note"):
             h += line_h
+        # comentário do herói na figura (veredito + conta): mede as linhas
+        hn = st.get("hero_note")
+        if hn:
+            hn_wrapped = _wrap(probe, hn.get("text") or "",
+                               _font(20, bold=True), lines_w - 34)
+            st.setdefault("_hn_lines", hn_wrapped)
+            h += 12 + len(hn_wrapped) * 28 + 6
         st_heights.append(max(h, 104))
 
     math_h = 160 if has_math else 0
@@ -483,6 +490,19 @@ def render_hand_strip(spot: dict) -> bytes:
         if st.get("note"):
             left(line_x, ly, "↳ " + st["note"], 17, MUTED, bold=False)
             ly += line_h
+        # comentário do herói na figura: pílula colorida com tag + a conta
+        hn = st.get("hero_note")
+        if hn:
+            col = {"ok": OK, "bad": BAD, "mix": MIX}.get(hn.get("kind"), GOLD)
+            hn_lines = st.get("_hn_lines") or [hn.get("text") or ""]
+            ly += 6
+            # marcador ✔/≈/✘/• na cor do veredito
+            left(line_x, ly, hn.get("tag") or "•", 22, col)
+            tx0 = line_x + 30
+            for i, wl in enumerate(hn_lines):
+                left(tx0, ly, wl, 20, col if i == 0 else CREAM, bold=True)
+                ly += 28
+            ly += 4
         y += h
 
     # ---------- MATEMÁTICA ----------
