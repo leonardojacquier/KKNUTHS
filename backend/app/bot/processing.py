@@ -364,9 +364,10 @@ def _process_upload_inner(
                                    net_bb=structured.get("net_bb"))
 
     # ---- coaching (Claude com tools; fallback determinístico) ----
-    from app.agent.llm import set_tool_user
+    from app.agent.llm import set_tool_chat, set_tool_user
 
     set_tool_user(user["id"] if user else None)  # habilita search_hands
+    set_tool_chat(telegram_id)
     # ICM automático: premiação salva pelo aluno entra no contexto — o coach
     # calcula bubble factor com os stacks da mão sem pedir os payouts de novo
     if user and structured.get("format") == "tournament":
@@ -603,6 +604,64 @@ def persist_conversation(telegram_id: int) -> None:
         pass  # persistência é rede de segurança; nunca derruba a conversa
 
 
+def redefine_hero(telegram_id: int, nome: str,
+                  cards: list[str] | None = None) -> dict:
+    """O aluno disse quem ELE é na mão ('eu sou o dscholze1979') — refaz a
+    análise inteira do ponto de vista certo. Caso real: print com 5
+    jogadores, a visão escolheu o herói errado, o aluno explicou e o coach
+    não tinha como corrigir.
+
+    Troca o herói no canonical (fuzzy match no nome), move as cartas
+    conhecidas pra ele (num print, as cartas abertas são as do aluno; um
+    par explícito em `cards` tem prioridade), regrava a mão no banco e
+    substitui a análise da conversa. Devolve a análise nova (resumida) ou
+    {'error': ...}."""
+    import difflib
+
+    ctx = LAST_ANALYSIS.get(telegram_id) or {}
+    row_id = ctx.get("hand_row_id")
+    repo = get_repository()
+    h = repo.get_hand_canonical(row_id) if row_id else None
+    if not h:
+        return {"error": "não achei a mão desta conversa no banco — peça pro "
+                         "aluno reenviar o print/link"}
+    alvo = (nome or "").strip()
+    nomes = [p.name for p in h.players]
+    match = next((n for n in nomes if n.lower() == alvo.lower()), None)
+    if not match:
+        match = next((n for n in nomes if alvo.lower() in n.lower()), None)
+    if not match:
+        close = difflib.get_close_matches(alvo, nomes, n=1, cutoff=0.6)
+        match = close[0] if close else None
+    if not match:
+        return {"error": f"'{alvo}' não está na mesa; jogadores: "
+                         + ", ".join(nomes)}
+    if cards and len(cards) == 2:
+        h.hero_cards = list(cards)
+    h.hero = match
+    for p in h.players:
+        p.is_hero = (p.name == match)
+    repo.update_hand_canonical(row_id, h)
+
+    fresh = analyze_hand(h)
+    an = (ctx.get("context") or {}).get("analysis")
+    if isinstance(ctx.get("context"), dict):
+        # preserva o que o aluno relatou; o resto é recalculado do zero
+        relato = (an or {}).get("relato_do_usuario") if isinstance(an, dict) \
+            else None
+        if relato:
+            fresh["relato_do_usuario"] = relato
+        ctx["context"]["analysis"] = fresh
+        persist_conversation(telegram_id)
+    return {"ok": True, "heroi": match,
+            "aviso": ("cartas do herói mantidas do print — se não forem as "
+                      "do aluno, pergunte quais eram" if not cards else None),
+            "analysis": {k: fresh.get(k) for k in
+                         ("hero", "hero_cards", "position", "hero_stack_bb",
+                          "net_bb", "hero_final_hand", "linha_da_mao",
+                          "cartas_texto", "summary")}}
+
+
 def summarize_session_to_notebook(prev: dict | None, telegram_id: int) -> int:
     """Conversa encerrada -> caderno do aluno: destila 0-2 observações NOVAS
     (o que a conversa revelou sobre como o aluno pensa) e grava em
@@ -726,9 +785,10 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     if repo.enabled:
         repo.log_event(telegram_id, username, "followup", {"q": question[:300]})
 
-    from app.agent.llm import followup, set_tool_user
+    from app.agent.llm import followup, set_tool_chat, set_tool_user
 
     set_tool_user(ctx.get("user_id"))  # habilita search_hands na conversa
+    set_tool_chat(telegram_id)         # habilita definir_heroi (troca de herói)
     chart_specs: list = []
     answer = followup(
         ctx["context"],

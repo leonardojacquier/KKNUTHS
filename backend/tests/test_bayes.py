@@ -1331,6 +1331,73 @@ def test_repeticao_espacada_do_treino():
     assert "Spot na mira" in drill_message(d)
 
 
+def test_definir_heroi_refaz_a_analise(monkeypatch):
+    # caso real: print com 5 jogadores, a visão escolheu "Guigacwb" como
+    # herói; o aluno explicou que era o dscholze1979 e o coach só recusou.
+    # Agora o coach chama definir_heroi e a análise refaz do ponto certo.
+    from app.agent.llm import _dispatch, set_tool_chat
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Guigacwb", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="dscholze1979", type=ActionType.CALL, amount=5,
+               to_amount=5),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="dh1", hero="Guigacwb",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Guigacwb", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="dscholze1979", stack=180,
+                            position="BB")],
+        hero_cards=["Kd", "Kc"], streets=[pre])
+
+    updates = []
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_hand_canonical(self, row_id):
+            return h
+
+        def update_hand_canonical(self, row_id, hand):
+            updates.append((row_id, hand.hero))
+
+        def set_conversation(self, t, s):
+            pass
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _FakeRepo())
+    proc.LAST_ANALYSIS[999] = {
+        "context": {"analysis": {"hero": "Guigacwb",
+                                 "relato_do_usuario": "3-bet pequeno"}},
+        "history": [], "hand_row_id": "row9", "user_id": None}
+    try:
+        # nome aproximado ('dscholze') resolve por fuzzy match
+        r = proc.redefine_hero(999, "dscholze")
+        assert r["ok"] and r["heroi"] == "dscholze1979"
+        assert updates == [("row9", "dscholze1979")]
+        an = proc.LAST_ANALYSIS[999]["context"]["analysis"]
+        assert an["hero"] == "dscholze1979" and an["position"] == "BB"
+        assert an["relato_do_usuario"] == "3-bet pequeno"   # relato preservado
+        # cartas explícitas do aluno têm prioridade
+        r2 = proc.redefine_hero(999, "dscholze1979", ["Ah", "Qh"])
+        assert r2["analysis"]["hero_cards"] == ["Ah", "Qh"]
+        # nome fora da mesa: erro claro com a lista de jogadores
+        assert "não está na mesa" in proc.redefine_hero(999, "zzz")["error"]
+
+        # o dispatch da tool cai no mesmo caminho (contextvar do chat)
+        set_tool_chat(999)
+        d = _dispatch("definir_heroi", {"nome": "Guiga"})
+        assert d["ok"] and d["heroi"] == "Guigacwb"
+        set_tool_chat(None)
+        assert "error" in _dispatch("definir_heroi", {"nome": "x"})
+    finally:
+        proc.LAST_ANALYSIS.pop(999, None)
+        set_tool_chat(None)
+
+
 def test_caderno_automatico_de_sessao(monkeypatch):
     # conversa encerrada vira 0-2 notas NOVAS no caderno do aluno
     from app.agent.llm import _parse_notebook_notes

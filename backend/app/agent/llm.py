@@ -255,6 +255,26 @@ TOOLS = [
         },
     },
     {
+        "name": "definir_heroi",
+        "description": "TROCAR O HERÓI DA MÃO: quando o aluno disser que a análise "
+        "atribuiu a mão à pessoa errada ('eu sou o dscholze1979', 'analise do ponto "
+        "de vista do X', 'as cartas eram minhas'), chame ISTO na hora — refaz a "
+        "análise inteira (posição, stack, linha, mão feita, resultado) do ponto de "
+        "vista do jogador certo e corrige a mão salva. NUNCA recuse nem discuta: o "
+        "aluno sabe quem ele é. `cards` opcional se ele disser as cartas dele.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "nome": {"type": "string",
+                         "description": "nome (ou pedaço do nome) do jogador que "
+                         "é o aluno"},
+                "cards": {"type": "array", "items": {"type": "string"},
+                          "description": "as 2 cartas do aluno, se ele informou"},
+            },
+            "required": ["nome"],
+        },
+    },
+    {
         "name": "leitura_de_mao",
         "description": "LEITURA DE MÃO NO BOARD (determinística): o que UMA mão de 2 "
         "cartas — do herói, de vilão mostrado ou HIPOTÉTICA ('e se ele tivesse QJ?') — "
@@ -550,6 +570,14 @@ _SYSTEM = {
         "cartas_texto do contexto já traz herói, board e showdown prontos "
         "pra colar. Mão hipotética sem naipe definido fica só no rank "
         "('QJ'), e ranges seguem a notação AKs/AKo de sempre.\n"
+        "1h) QUEM É O ALUNO NA MÃO: num print/link com vários jogadores a "
+        "leitura pode atribuir a mão à pessoa errada. Se o aluno indicar "
+        "quem ele é ('eu sou o dscholze1979', 'analise como X', 'as cartas "
+        "eram minhas'), chame definir_heroi IMEDIATAMENTE e responda já do "
+        "ponto de vista novo — PROIBIDO recusar, discutir ('X é um vilão') "
+        "ou seguir analisando pelo herói antigo: o aluno sabe quem ele é. "
+        "Na dúvida sobre quem é o aluno, PERGUNTE ('qual desses nicks é "
+        "você?') em vez de assumir.\n"
         "2) Pense em RANGES: use preflop_range + equity_vs_range (não equity vs aleatória) "
         "sempre que a ação der contexto do range do vilão. Em c-bet/check no "
         "FLOP, chame range_advantage (quem é dono do board dita o plano — "
@@ -671,6 +699,17 @@ _TOOL_USER: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 
 def set_tool_user(user_id: str | None) -> None:
     _TOOL_USER.set(user_id)
+
+
+# telegram_id da conversa atual — tools que mexem no CONTEXTO da conversa
+# (definir_heroi) precisam achar o LAST_ANALYSIS certo
+_TOOL_CHAT: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "_TOOL_CHAT", default=None
+)
+
+
+def set_tool_chat(telegram_id: int | None) -> None:
+    _TOOL_CHAT.set(telegram_id)
 
 
 # modelos que REJEITAM o parâmetro temperature (400 'temperature is
@@ -804,6 +843,14 @@ def _dispatch(name: str, args: dict):
             [_norm_card(c) or c for c in args["hero_cards"]],
             [_norm_card(c) or c for c in args["board"]],
             str(args["villain_range"]))
+    if name == "definir_heroi":
+        from app.bot.processing import redefine_hero
+
+        tg = _TOOL_CHAT.get()
+        if not tg:
+            return {"error": "sem conversa ativa para corrigir"}
+        return redefine_hero(tg, str(args.get("nome") or ""),
+                             args.get("cards") or None)
     if name == "leitura_de_mao":
         from app.analysis.equity import hand_on_board
 

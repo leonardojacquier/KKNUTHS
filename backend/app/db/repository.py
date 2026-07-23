@@ -407,6 +407,17 @@ class Repository:
         except Exception:
             return None
 
+    @_safe(None)
+    def update_hand_canonical(self, hand_row_id: str, hand: CanonicalHand) -> None:
+        """Regrava o canonical de uma mão — correção de herói dita pelo
+        aluno ('eu sou o dscholze1979'): stats, drills e relatórios passam
+        a ler a mão do ponto de vista certo."""
+        if not self._guard():
+            return None
+        self.client.table("hands").update(
+            {"canonical": _scrub_nul(hand.model_dump(mode="json"))}
+        ).eq("id", hand_row_id).execute()
+
     # -------------------------- metadados do usuário -------------------
     @_safe(None)
     def set_user_meta(self, user_id: str, key: str, value) -> None:
