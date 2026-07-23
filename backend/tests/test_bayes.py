@@ -1331,6 +1331,27 @@ def test_repeticao_espacada_do_treino():
     assert "Spot na mira" in drill_message(d)
 
 
+def test_prompt_exige_selo_e_placar():
+    # canário do FORMATO da saída: o aluno reclamou que não sabia se jogou
+    # certo ou errado. O prompt tem que exigir o selo de veredito na 1ª linha
+    # + placar street a street — guard contra remoção acidental no futuro.
+    from app.agent.llm import _SYSTEM
+
+    s = _SYSTEM["pt"]
+    assert "SELO NA 1ª LINHA" in s
+    assert "PLACAR STREET A STREET" in s
+    for selo in ("✅ Você jogou bem", "🟡 Dava pra jogar melhor",
+                 "❌ Jogada cara"):
+        assert selo in s
+    # o placar é o PADRÃO, não opt-in atrás de pedido
+    assert "é o PADRÃO" in s
+    # a instrução da análise de mão também cobra o selo
+    from app.agent import llm as _llm
+    import inspect
+    src = inspect.getsource(_llm.coach)
+    assert "SELO de veredito" in src and "PLACAR street a" in src
+
+
 def test_analise_por_street_ancorada():
     # o filme comentado: decisões de um jogador street a street com pote,
     # preço, equity mínima e mão feita — a matéria-prima do coach
