@@ -908,9 +908,10 @@ async def _send_hand_film(msg, telegram_id: int, hand_id, lead: str) -> None:
     from app.bot.processing import hand_film
 
     png = await asyncio.to_thread(hand_film, telegram_id, hand_id)
-    lead = (lead + "\n\n_Cada street traz o veredito e a conta na figura "
-            "(✔/≈/✘). Quer o porquê estratégico? Toque abaixo — ou peça "
-            "'analisa a jogada do FULANO' pra ver a de outro jogador._")
+    lead = (lead + "\n\n_Na figura, ▲/▼ = à frente/atrás da mão que ele "
+            "mostrou (o confronto do replay). O veredito da JOGADA (vs o "
+            "range) vem no texto — toque abaixo, ou peça 'analisa a jogada "
+            "do FULANO' pra ver a de outro jogador._")
     kb = _film_kb(hand_id)
     if not png:
         await msg.reply_text(lead)

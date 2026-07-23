@@ -1342,8 +1342,10 @@ def test_filme_comenta_cada_street_na_figura():
     notas = {b["name"]: b.get("hero_note") for b in bands if b.get("hero_note")}
     assert {"Pré-flop", "Flop", "Turn", "River"} <= set(notas)
     flop = notas["Flop"]
-    assert flop["tag"] == "✔" and flop["kind"] == "ok"       # +EV -> verde
-    assert "pedia 28%" in flop["text"] and "tinha 69%" in flop["text"]
+    # figura = FATO do replay (à frente/atrás da mão dele), tom NEUTRO —
+    # o veredito bom/ruim é do texto, pra não se contradizerem
+    assert flop["tag"] in ("▲", "≈", "▼") and flop["kind"] == "info"
+    assert "pedia 28%" in flop["text"] and "69% vs a mão dele" in flop["text"]
     assert "Resultado" not in notas                          # sem decisão lá
     # a figura renderiza sem quebrar, maior que a versão sem notas
     png = hand_film_png(h)
@@ -1443,9 +1445,10 @@ def test_analise_por_street_ancorada():
     notas = {b["name"]: b.get("hero_note") for b in film_bands(h3)
              if b.get("hero_note")}
     assert "pedia" not in notas["Pré-flop"]["text"]        # raise: sem 'pedia'
-    assert "tinha" in notas["Pré-flop"]["text"]
-    assert "tinha 9" in notas["Flop"]["text"]              # ~93% com a trinca
-    assert notas["Flop"]["tag"] == "✔"
+    assert "vs o campo" in notas["Pré-flop"]["text"]       # multiway
+    assert "93% vs o campo" in notas["Flop"]["text"]       # ~93% com a trinca
+    assert notas["Flop"]["tag"] == "▲"                     # à frente (neutro)
+    assert notas["Flop"]["kind"] == "info"                 # cor neutra, sem ✔
 
     # outro jogador: usa as cartas do showdown, sem inventar
     v = decisions_by_street(h, "Rival")

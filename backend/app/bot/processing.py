@@ -394,11 +394,11 @@ def _process_upload_inner(
                 import time as _time
 
                 _ts, _lst = PENDING_CHARTS.get(telegram_id) or (0.0, [])
-                _lst.insert(0, (film, "🎬 O filme da mão — cada street com o "
-                                      "veredito e a conta na figura (✔/≈/✘ = "
-                                      "como o lance saiu contra a mão que ele "
-                                      "tinha). Quer o porquê estratégico? Peça "
-                                      "'analisa minha jogada street a street'."))
+                _lst.insert(0, (film, "🎬 O filme da mão — cada street com a "
+                                      "conta na figura (▲/▼ = à frente/atrás "
+                                      "da mão que ele mostrou, o confronto do "
+                                      "replay). O veredito da JOGADA (boa/ruim "
+                                      "vs o range) está na análise em texto."))
                 PENDING_CHARTS[telegram_id] = (_time.time(), _lst)
         except Exception as exc:
             log.warning("filme da mão falhou: %s", exc)
@@ -1668,33 +1668,25 @@ def _attach_hero_notes(h, bands: list[dict]) -> None:
         tipo = d.get("acao_tipo")
         emin = d.get("equity_minima_pct")
         ereal = d.get("equity_real_pct")
-        ev = d.get("ev_call_bb")
-        if tipo == "call" and emin is not None:
-            # CALL: pot odds vs equity real -> veredito pelo EV
-            conta = f" — pedia {emin}%, tinha {ereal}%" if ereal is not None \
-                else f" — pedia {emin}%"
-            if ev is not None:
-                conta += f" ({ev:+.1f}bb)"
-            if ev is not None:
-                tag = "✔" if ev >= 0.5 else ("✘" if ev <= -0.5 else "≈")
-                kind = "ok" if ev >= 0.5 else ("bad" if ev <= -0.5 else "mix")
-            else:
-                tag, kind = "•", "info"
-        elif tipo in ("bet", "raise") and ereal is not None:
-            # AGRESSÃO: mostra a equity (sem 'pedia'); acima da fração justa
-            # do pote = vantagem -> ✔; senão ≈ (blefe/semi não vira ✘)
-            conta = f" — tinha {ereal}%"
-            if ereal >= fair + 5:
-                tag, kind = "✔", "ok"
-            else:
-                tag, kind = "≈", "mix"
-        elif ereal is not None:
-            # CHECK / outros: informativo com a equity
-            conta = f" — {ereal}% na mão"
-            tag, kind = "•", "info"
+        # A figura mostra o FATO DO REPLAY (à frente/atrás da mão que ele
+        # mostrou), NÃO o veredito de bom/ruim — esse é do texto (contra o
+        # RANGE). Sem isso a figura dizia ✔ 'jogou bem' num all-in que o texto
+        # chamava de ❌ (você era 59% vs a mão dele, mas ~28% vs o range).
+        alvo = "vs a mão dele" if n_show <= 2 else "vs o campo"
+        preco = f"pedia {emin}% · " if (tipo == "call" and emin is not None) \
+            else ""
+        if ereal is not None:
+            conta = f" — {preco}{ereal}% {alvo}"
+            # seta NEUTRA de confronto: acima/abaixo da fração justa do pote
+            tag = "▲" if ereal >= fair + 5 else ("▼" if ereal <= fair - 5
+                                                 else "≈")
+        elif preco:
+            conta, tag = f" — pedia {emin}%", "•"
         else:
-            conta, tag, kind = "", "•", "info"
-        band["hero_note"] = {"tag": tag, "kind": kind,
+            conta, tag = "", "•"
+        # kind 'info' -> cor neutra (dourado) no render: sem verde/vermelho de
+        # veredito, pra não brigar com o selo do texto
+        band["hero_note"] = {"tag": tag, "kind": "info",
                              "text": f"VOCÊ {d.get('acao', '')}{conta}"}
 
 
