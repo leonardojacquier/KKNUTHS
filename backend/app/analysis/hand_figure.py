@@ -387,6 +387,12 @@ def render_hand_strip(spot: dict) -> bytes:
                                _font(20, bold=True), lines_w - 34)
             st.setdefault("_hn_lines", hn_wrapped)
             h += 12 + len(hn_wrapped) * 28 + 6
+        # evolução de equity do all-in (run-out): mede as linhas
+        eql = st.get("equity_line")
+        if eql:
+            eq_wrapped = _wrap(probe, eql, _font(19, bold=True), lines_w - 34)
+            st.setdefault("_eq_lines", eq_wrapped)
+            h += 10 + len(eq_wrapped) * 26 + 4
         st_heights.append(max(h, 104))
 
     math_h = 160 if has_math else 0
@@ -503,6 +509,17 @@ def render_hand_strip(spot: dict) -> bytes:
                 left(tx0, ly, wl, 20, col if i == 0 else CREAM, bold=True)
                 ly += 28
             ly += 4
+        # evolução de equity do all-in (run-out): faixa dourada por street
+        eql = st.get("equity_line")
+        if eql:
+            eq_lines = st.get("_eq_lines") or [eql]
+            ly += 4
+            left(line_x, ly, "▸", 19, GOLD)
+            for i, wl in enumerate(eq_lines):
+                left(line_x + 26, ly, wl, 19, GOLD if i == 0 else CREAM,
+                     bold=True)
+                ly += 26
+            ly += 2
         y += h
 
     # ---------- MATEMÁTICA ----------

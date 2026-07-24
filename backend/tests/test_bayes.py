@@ -1387,6 +1387,53 @@ def test_filme_comenta_cada_street_na_figura():
     assert png and len(png) > 5000
 
 
+def test_filme_allin_multiway_mostra_evolucao_de_equity():
+    # aluno: mão de all-in a 3 no pré 'confusa de ler' — as streets do
+    # run-out ficavam vazias. Agora cada street mostra a equity de cada mão
+    # conhecida evoluindo, como o replayer da sala.
+    from app.bot.processing import film_bands
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="V1", type=ActionType.RAISE, amount=40, to_amount=40,
+               all_in=True),
+        Action(actor="Hero", type=ActionType.RAISE, amount=72, to_amount=72,
+               all_in=True),
+        Action(actor="V1", type=ActionType.CALL, amount=32, to_amount=72)])
+    flop = Street(name=StreetName.FLOP, board=["Js", "2d", "9s"], actions=[])
+    turn = Street(name=StreetName.TURN, board=["7h"], actions=[])
+    riv = Street(name=StreetName.RIVER, board=["2s"], actions=[])
+    h = CanonicalHand(
+        site="x", hand_id="mwallin", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=72, is_hero=True,
+                            position="BB"),
+                 PlayerSeat(seat=2, name="V1", stack=72, position="BTN"),
+                 PlayerSeat(seat=3, name="V2", stack=72, position="SB")],
+        hero_cards=["Ks", "Jh"], final_board=["Js", "2d", "9s", "7h", "2s"],
+        shown_cards={"V1": ["Kd", "Kc"], "V2": ["Qh", "4h"]},
+        collected={"V1": 216}, streets=[pre, flop, turn, riv])
+    bands = {b["name"]: b for b in film_bands(h)}
+    # cada street do run-out tem a linha de equity, herói primeiro
+    for st in ("Flop", "Turn", "River"):
+        el = bands[st].get("equity_line")
+        assert el and el.startswith("equity: VOCÊ")
+        assert "V1" in el and "V2" in el
+    # a corrida faz sentido: KK domina, herói cai até 0 no river
+    assert "VOCÊ 0%" in bands["River"]["equity_line"]
+    assert "100%" in bands["River"]["equity_line"]           # KK fecha
+    # sem all-in, NÃO mostra a evolução (alguém ainda podia foldar)
+    h2 = h.model_copy(update={"streets": [
+        Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="V1", type=ActionType.RAISE, amount=3, to_amount=3),
+            Action(actor="Hero", type=ActionType.CALL, amount=3, to_amount=3),
+            Action(actor="V2", type=ActionType.CALL, amount=3, to_amount=3)]),
+        flop, turn, riv]})
+    assert film_bands(h2) and not any(
+        b.get("equity_line") for b in film_bands(h2))
+
+
 def test_prompt_exige_selo_e_placar():
     # canário do FORMATO da saída: o aluno reclamou que não sabia se jogou
     # certo ou errado. O prompt tem que exigir o selo de veredito na 1ª linha

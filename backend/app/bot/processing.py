@@ -1632,12 +1632,76 @@ def film_bands(h) -> list[dict]:
     # COMENTÁRIO NA FIGURA: veredito do herói por street, com a conta (números
     # determinísticos de decisions_by_street). Custo zero de IA.
     _attach_hero_notes(h, bands)
+    # ALL-IN: nas streets do run-out (sem mais ação), a equity de cada mão
+    # conhecida evoluindo — como o replayer da sala (era o buraco que fazia
+    # a mão de all-in "confusa de ler": bandas vazias sem contar nada)
+    _attach_allin_equity(h, bands)
     return bands
 
 
 # mapeia o nome da banda (render) -> chave de street (decisions_by_street)
 _BAND_STREET = {"pré-flop": "preflop", "pre-flop": "preflop",
                 "flop": "flop", "turn": "turn", "river": "river"}
+
+
+def _attach_allin_equity(h, bands: list[dict]) -> None:
+    """Nas streets de RUN-OUT de um all-in (sem mais aposta), anexa a equity
+    de cada mão conhecida naquele board — a evolução que o replayer da sala
+    mostra. É o que faltava pra mão de all-in não ficar 'confusa de ler':
+    em vez de bandas vazias, cada street conta como a corrida estava."""
+    from app.analysis.equity import equity_vs_hands
+    from app.analysis.equity import pretty_cards as _pc
+    from app.models.canonical import ActionType, StreetName
+
+    # mãos conhecidas que foram ao showdown (herói + quem mostrou)
+    conhecidas: dict[str, list[str]] = {}
+    if h.hero and h.hero_cards:
+        conhecidas[h.hero] = list(h.hero_cards)
+    for nm, cs in (h.shown_cards or {}).items():
+        if cs and len(cs) == 2:
+            conhecidas[nm] = list(cs)
+    if len(conhecidas) < 2:
+        return
+    # só vale a evolução se houve all-in (senão alguém ainda podia foldar e a
+    # equity "crua" enganaria)
+    if not any(a.all_in for st in h.streets for a in st.actions):
+        return
+
+    pos = {p.name: p.position for p in h.players}
+
+    def _quem(nm: str) -> str:
+        if nm == h.hero:
+            return "VOCÊ"
+        p = pos.get(nm)
+        return f"{nm[:12]} ({p})" if p else nm[:12]
+
+    _map = {StreetName.FLOP: "Flop", StreetName.TURN: "Turn",
+            StreetName.RIVER: "River"}
+    by_name = {b.get("name"): b for b in bands}
+    for sname, label in _map.items():
+        st = h.street(sname)
+        band = by_name.get(label)
+        if not st or not band:
+            continue
+        # RUN-OUT: a street não teve aposta/aumento/pagamento (só correu carta)
+        if any(a.type in (ActionType.BET, ActionType.RAISE, ActionType.CALL)
+               for a in st.actions):
+            continue
+        board = band.get("board") or []
+        if len(board) < 3:
+            continue
+        partes = []
+        for nm, cs in conhecidas.items():
+            eq = equity_vs_hands(cs, [o for k, o in conhecidas.items()
+                                      if k != nm], board)
+            if eq is not None:
+                partes.append((nm, round(eq * 100)))
+        if not partes:
+            continue
+        # herói primeiro, resto por equity desc
+        partes.sort(key=lambda x: (x[0] != h.hero, -x[1]))
+        band["equity_line"] = "equity: " + " · ".join(
+            f"{_quem(nm)} {pct}%" for nm, pct in partes)
 
 
 def _attach_hero_notes(h, bands: list[dict]) -> None:
