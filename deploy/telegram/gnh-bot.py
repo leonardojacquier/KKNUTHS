@@ -100,12 +100,14 @@ def main():
     bot = env['BOT_TOKEN']
     rtoken = env['RESUMEN_TOKEN']
     allowed = {c.strip() for c in env.get('ALLOWED_CHATS', '').split(',') if c.strip()}
-    # registra o menu de comandos (o botão "/" no Telegram)
-    try:
-        api(bot, 'setMyCommands', {'commands': COMMANDS})
-        print('menu de comandos registrado')
-    except Exception as e:
-        print('setMyCommands falhou:', e)
+    # SET_MENU=1 só quando é um bot DEDICADO. Se for o token do Century
+    # (que já tem seu próprio menu), deixe 0 para NÃO sobrescrever o menu dele.
+    if env.get('SET_MENU', '0') == '1':
+        try:
+            api(bot, 'setMyCommands', {'commands': COMMANDS})
+            print('menu de comandos registrado')
+        except Exception as e:
+            print('setMyCommands falhou:', e)
     offset = 0
     print('bot ativo, aguardando comandos…')
     while True:
@@ -122,7 +124,15 @@ def main():
                     continue
                 handle(bot, rtoken, chat, msg['text'])
         except urllib.error.HTTPError as e:
-            print('HTTP', e.code, e.read().decode()[:200]); time.sleep(5)
+            detail = e.read().decode()[:300]
+            if e.code == 409:
+                # outro processo (o próprio Century?) já escuta este token.
+                # não brigar pelo polling — sair para não atrapalhar o Century.
+                print('CONFLITO 409: outro escutador já usa este token '
+                      '(provavelmente o Century). O /resumo precisa ser '
+                      'integrado no código do Century, não rodado aqui.')
+                sys.exit(3)
+            print('HTTP', e.code, detail); time.sleep(5)
         except Exception as e:
             print('loop erro:', e); time.sleep(5)
 
