@@ -1433,6 +1433,30 @@ def test_filme_allin_multiway_mostra_evolucao_de_equity():
     assert film_bands(h2) and not any(
         b.get("equity_line") for b in film_bands(h2))
 
+def test_prompt_sem_regras_duplicadas():
+    # auditoria achou DUAS regras '4e)' e DUAS '4f)' com conteúdos diferentes
+    # (o prompt cresceu por remendo). Rótulo repetido confunde o modelo e
+    # degrada a saída — este canário trava a regressão.
+    import collections
+    import re
+
+    from app.agent.llm import _SYSTEM
+
+    for lang, texto in _SYSTEM.items():
+        labels = re.findall(r'(?:^|\n)(\d+[a-z]?)\) ', texto)
+        dups = [k for k, v in collections.Counter(labels).items() if v > 1]
+        assert not dups, f"[{lang}] rótulos duplicados no prompt: {dups}"
+
+    # e a numeração tem que ler em ORDEM (1, 1b, 1c... 4b, 4c...): fora de
+    # ordem foi o rastro de regra enfiada no meio sem revisar o bloco
+    labels = re.findall(r'(?:^|\n)(\d+[a-z]?)\) ', _SYSTEM["pt"])
+    por_bloco: dict[str, list[str]] = {}
+    for lb in labels:
+        por_bloco.setdefault(lb[0], []).append(lb[1:] or "a")
+    for bloco, sufixos in por_bloco.items():
+        assert sufixos == sorted(sufixos), (
+            f"bloco {bloco} fora de ordem: {sufixos}")
+
 
 def test_prompt_exige_selo_e_placar():
     # canário do FORMATO da saída: o aluno reclamou que não sabia se jogou
