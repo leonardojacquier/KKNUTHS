@@ -50,7 +50,7 @@ def build_msg(d):
     if d.get('error'):
         return f"⚠️ Resumo GNH: {d['error']}"
     L = []
-    L.append(f"📊 *GNH · gnhorizons.com*")
+    L.append(f"📊 GNH · gnhorizons.com")
     L.append(f"Resumo de {d['fecha']}")
     L.append('')
     L.append(f"👥 {d['visitantes']} visitantes · {d['eventos']} ações")
@@ -72,19 +72,23 @@ def build_msg(d):
     L.append('')
     L.append(f"💬 WhatsApp: {d['whatsapp']} cliques · 📥 Leads: {d['leads']}")
     if d['whatsapp'] == 0 and d['leads'] == 0:
-        L.append("_(navegação sem contato hoje)_")
+        L.append("(navegação sem contato hoje)")
     return '\n'.join(L)
 
 def send(bot, chat, text):
+    if not bot or not chat:
+        sys.exit('TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID vazio no .env')
     body = json.dumps({'chat_id': chat, 'text': text,
-                       'parse_mode': 'Markdown',
                        'disable_web_page_preview': True}).encode()
     req = urllib.request.Request(
         f'https://api.telegram.org/bot{bot}/sendMessage',
         data=body, method='POST',
         headers={'Content-Type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=25) as r:
-        return r.status
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        sys.exit(f'Telegram respondeu {e.code}: {e.read().decode()}')
 
 def main():
     offset = int(sys.argv[1]) if len(sys.argv) > 1 else 0
