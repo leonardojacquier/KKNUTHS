@@ -65,8 +65,11 @@ PowerShell: separar comandos com `;` (não `&`). Para atualizar versão:
 repetir os passos 1 e 3.
 
 O script faz: git de segurança (sem `.bak`), venv próprio, dependências,
-**roda os 42 testes como gate** (aborta se falharem), sobe/reinicia no pm2 e
-instala o cron do relatório semanal (domingo 18h).
+**roda os testes como gate** (aborta se falharem), sobe/reinicia no pm2 e
+instala os crons do produto: relatório semanal (dom 18h), quiz diário (19h),
+calibração (seg 5h), auditor de coerência (6h), sonda E2E (7h30) e o
+**resumo diário de uso pro admin** (`daily_usage.py`, 23h UTC / 20h BRT —
+"entrou gente nova?", ativos do dia, mãos/perguntas/quiz).
 
 ## Verificação pós-deploy
 

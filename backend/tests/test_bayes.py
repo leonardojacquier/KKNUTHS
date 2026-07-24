@@ -1288,6 +1288,41 @@ def test_cartas_texto_no_gabarito():
     assert a["textura_do_board"]["flush_possivel"] is False
 
 
+def test_resumo_diario_de_uso():
+    # resumo diário pro admin: 1ª linha responde 'entrou gente nova?';
+    # sistema (telegram_id 0) filtrado; ativos/sumidos corretos
+    import sys
+    from datetime import datetime, timedelta, timezone
+    sys.path.insert(0, "scripts")
+    from daily_usage import build_summary
+
+    now = datetime(2026, 7, 23, 23, 0, tzinfo=timezone.utc)
+    day_ago = (now - timedelta(hours=24)).isoformat()
+    reais = [
+        {"telegram_id": 111, "username": "Leo", "created_at": "2026-07-09"},
+        {"telegram_id": 222, "username": "Ricardo", "created_at": "2026-07-13"},
+        {"telegram_id": 333, "username": "sumido", "created_at": "2026-07-01"},
+    ]
+    ev = ([{"telegram_id": 111, "event": "followup"}] * 3
+          + [{"telegram_id": 111, "event": "photo"}] * 2
+          + [{"telegram_id": 222, "event": "drill_answer"}] * 2
+          + [{"telegram_id": 0, "event": "deploy"}] * 5)   # sistema: some
+
+    txt, m = build_summary(now, reais, ev, day_ago)
+    assert "Nenhum usuário novo hoje" in txt
+    assert m == {"novos": 0, "ativos": 2, "base": 3, "maos": 2,
+                 "perguntas": 3, "quiz": 2}
+    assert "sumido" in txt.split("Sem aparecer hoje")[1]     # retenção
+    assert "Leo — 5 ações" in txt                            # ranking
+
+    # usuário novo hoje -> 1ª métrica muda e o cabeçalho grita
+    novo = {"telegram_id": 999, "username": "NovoDoClube",
+            "created_at": now.isoformat()}
+    txt2, m2 = build_summary(now, reais + [novo], ev, day_ago)
+    assert m2["novos"] == 1 and m2["base"] == 4
+    assert "NovoDoClube" in txt2 and "novo(s) hoje" in txt2
+
+
 def test_repeticao_espacada_do_treino():
     # o quiz persegue o leak: categorias com erro sustentado pesam mais no
     # sorteio; indo bem (ou sem histórico) o boost some sozinho
