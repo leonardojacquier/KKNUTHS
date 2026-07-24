@@ -75,9 +75,7 @@ def build_msg(d):
         L.append("(navegação sem contato hoje)")
     return '\n'.join(L)
 
-def send(bot, chat, text):
-    if not bot or not chat:
-        sys.exit('TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID vazio no .env')
+def send_one(bot, chat, text):
     body = json.dumps({'chat_id': chat, 'text': text,
                        'disable_web_page_preview': True}).encode()
     req = urllib.request.Request(
@@ -86,16 +84,26 @@ def send(bot, chat, text):
         headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=25) as r:
-            return r.status
+            print(f'  {chat}: enviado ({r.status})')
+            return True
     except urllib.error.HTTPError as e:
-        sys.exit(f'Telegram respondeu {e.code}: {e.read().decode()}')
+        print(f'  {chat}: FALHOU {e.code} {e.read().decode()}')
+        return False
+
+def send(bot, chats, text):
+    # TELEGRAM_CHAT_ID pode ter vários IDs separados por vírgula
+    ids = [c.strip() for c in str(chats).split(',') if c.strip()]
+    if not bot or not ids:
+        sys.exit('TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID vazio no .env')
+    return sum(send_one(bot, c, text) for c in ids)
 
 def main():
     offset = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     env = load_env()
     data = fetch(env['RESUMEN_TOKEN'], offset)
     msg = build_msg(data)
-    send(env['TELEGRAM_BOT_TOKEN'], env['TELEGRAM_CHAT_ID'], msg)
+    n = send(env['TELEGRAM_BOT_TOKEN'], env['TELEGRAM_CHAT_ID'], msg)
+    print(f'{data.get("fecha")} — enviado para {n} destinatário(s)')
     print('enviado:', data.get('fecha'))
 
 if __name__ == '__main__':
