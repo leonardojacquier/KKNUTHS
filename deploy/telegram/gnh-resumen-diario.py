@@ -56,7 +56,9 @@ def build_msg(d):
     L.append(f"👥 {d['visitantes']} visitantes · {d['eventos']} ações")
     portas = {p['k']: p['n'] for p in d['portas']}
     L.append(f"🚪 Ventas {portas.get('ventas',0)} · Institucional {portas.get('institucional',0)}")
-    if d['idiomas']:
+    if d.get('origenes'):
+        L.append(f"📍 Origem: {top(d['origenes'])}")
+    if d.get('idiomas'):
         L.append(f"🌐 Idiomas: {top(d['idiomas'])}")
     L.append('')
     if d['productos']:
@@ -73,6 +75,14 @@ def build_msg(d):
     L.append(f"💬 WhatsApp: {d['whatsapp']} cliques · 📥 Leads: {d['leads']}")
     if d['whatsapp'] == 0 and d['leads'] == 0:
         L.append("(navegação sem contato hoje)")
+    jt = d.get('jornadas_top') or []
+    if jt:
+        L.append('')
+        L.append('🧭 Jornadas do dia:')
+        for j in jt[:3]:
+            marca = '✅ ' if j.get('contacto') else ''
+            ruta = j['ruta'] if len(j['ruta']) <= 220 else j['ruta'][:217] + '…'
+            L.append(f"{marca}{ruta}")
     return '\n'.join(L)
 
 def send_one(bot, chat, text):
