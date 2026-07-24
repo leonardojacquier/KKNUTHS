@@ -2,7 +2,7 @@ import './style.css'
 import './ventas.css'
 import { mountFooter } from './footer'
 import { ADITIVOS, type Aditivo } from './aditivos-data'
-import { autoTrack, refCode, saveLead, track } from './track'
+import { autoTrack, refCode, saveLead, track, trackLanding } from './track'
 
 const WA = '595995360060'
 const wa = (msg: string) => `https://wa.me/${WA}?text=${encodeURIComponent(`${msg} (ref ${refCode()})`)}`
@@ -937,4 +937,5 @@ initBuscador()
 renderPromos()
 initForm()
 autoTrack()
+trackLanding()
 mountFooter()

@@ -66,6 +66,22 @@ export function saveLead(l: { nombre: string; empresa?: string; whatsapp: string
   })
 }
 
+/** Primer contacto de la sesión (first touch): zona horaria + idioma del
+ *  navegador como señal de origen — sin IP y sin llamada externa. Se dispara
+ *  una sola vez por sesión, en la página donde el visitante entra. */
+export function trackLanding(): void {
+  try {
+    if (sessionStorage.getItem('gnh-landed')) return
+    sessionStorage.setItem('gnh-landed', '1')
+  } catch { /* sin storage: igual registramos, una vez por carga */ }
+  let tz = ''
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { /* noop */ }
+  const lang = (navigator.language || '').slice(0, 5)
+  const entry = location.pathname.includes('/ventas') ? 'ventas'
+    : location.pathname.includes('/institucional') ? 'institucional' : 'gateway'
+  track('landing', `${tz}|${lang}|${entry}`)
+}
+
 /** Delegación global: [data-ev], clics a WhatsApp y descargas de fichas. */
 export function autoTrack(): void {
   document.addEventListener('click', (e) => {

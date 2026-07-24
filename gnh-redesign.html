@@ -1327,6 +1327,15 @@ document.getElementById('year').textContent = new Date().getFullYear();
     else if (el.closest('#langSwitch')) track('idioma', el.dataset.lang || '');
     else if (el.closest('#lineas .cat')) track('negocio', (el.closest('.cat').querySelector('.t-vert') || {}).textContent || '');
   }, { capture: true, passive: true });
+  /* first touch: zona horaria + idioma como señal de origen (sin IP), una vez por sesión */
+  try {
+    if (!sessionStorage.getItem('gnh-landed')) {
+      sessionStorage.setItem('gnh-landed', '1');
+      let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch {}
+      const entry = location.pathname.includes('/institucional') ? 'institucional' : 'gateway';
+      track('landing', tz + '|' + (navigator.language || '').slice(0, 5) + '|' + entry);
+    }
+  } catch {}
   /* código de referencia en los mensajes de WhatsApp: permite cruzar la
      conversación del cliente con su navegación (events.session_id) */
   try {
