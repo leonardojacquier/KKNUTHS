@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-ZOOM = 0.865   # 0.88 estourava pra 8ª página após os cards de aprendizado
+ZOOM = 0.845   # 0.865 estourou pra 8ª página após o card de procedência
 FIX = ("<style>@page{size:210mm 297mm;margin:9mm 11mm}"
        f"html{{zoom:{ZOOM}}}</style>")
 

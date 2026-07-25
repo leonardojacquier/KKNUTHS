@@ -11,6 +11,9 @@ Ele controla, ele vê, não depende da minha palavra.
 
 CLASSES verificadas (cada uma nasceu de um defeito real):
   A. parser        — cartas/board/showdown válidos e sem repetição
+  A2. leitura      — o que foi LIDO é internamente possível (carta em dois
+                     lugares, stack absurdo, board grande) — a camada de
+                     input, onde nasceram os piores defeitos
   B. contas        — pote fecha, coletado <= pote, net coerente
   C. gabarito      — a mão feita que o coach cita bate com o board
   D. veredito      — imagem do spot não contradiz o solver (caso TT/15bb)
@@ -150,8 +153,21 @@ def _check_motor() -> list[str]:
     return p
 
 
+def _check_leitura(h: CanonicalHand) -> list[str]:
+    """Camada de INPUT: o que foi lido é internamente possível? Print mal
+    lido produz sintomas típicos (mesma carta em dois lugares, stack
+    absurdo) que dá pra pegar sem saber a verdade."""
+    try:
+        from app.analysis.procedencia import checar_leitura
+
+        return checar_leitura(h)
+    except Exception as exc:
+        return [f"checagem de leitura quebrou: {type(exc).__name__}"]
+
+
 _CLASSES = (
     ("parser", _check_parser),
+    ("leitura", _check_leitura),
     ("contas", _check_contas),
     ("gabarito", _check_gabarito),
     ("filme", _check_filme),

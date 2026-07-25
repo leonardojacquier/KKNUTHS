@@ -516,11 +516,28 @@ def _process_upload_inner(
     }
     persist_conversation(telegram_id)
 
+    # PROCEDÊNCIA: fonte incerta (print/foto) abre declarando o que foi lido
+    # e avisa quando as duas leituras discordaram. Sem isso, análise de print
+    # chegava com a MESMA cara de análise de replay exato — e o aluno não
+    # tinha como saber quando duvidar.
+    from app.analysis.procedencia import bloco_leitura, selo_procedencia
+
+    leitura = ""
+    try:
+        divs = (structured.get("leitura_dupla") or {}).get("divergencias")
+        leitura = bloco_leitura(hands[0] if hands else None,
+                                result.source_format, result.confidence, divs)
+        if leitura:
+            leitura += "\n\n"
+    except Exception:
+        leitura = ""
+
     header = f"📊 *{len(hands)} mão(s)* lidas de {result.site}.\n"
-    footer = "\n\n💬 _Discorda ou quer aprofundar? É só responder aqui._"
+    footer = ("\n\n" + selo_procedencia(result.source_format, result.confidence)
+              + "\n💬 _Discorda ou quer aprofundar? É só responder aqui._")
     if quota_after.remaining >= 0:
         footer += f"\n_Análises restantes no mês: {quota_after.remaining}_"
-    return header + "\n" + coaching + footer
+    return header + "\n" + leitura + coaching + footer
 
 
 def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:

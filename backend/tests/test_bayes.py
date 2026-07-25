@@ -3016,3 +3016,59 @@ def test_show_reveal_foto_vs_texto():
     pm = Msg(text=None)
     asyncio.run(_show_reveal(Q(pm), "gabarito"))
     assert [c[0] for c in pm.calls] == ["clear_markup", "reply_text"]
+
+
+def test_procedencia_declara_de_onde_veio_a_leitura():
+    # aluno: "e na parte da leitura dos inputs?". Os piores defeitos (naipe
+    # errado, KK virando AK, herói errado) nasceram na LEITURA de print — e
+    # a análise saía com a mesma segurança de um replay exato. Agora a fonte
+    # incerta abre declarando o que foi lido; a exata não vira ruído.
+    from app.analysis.procedencia import (bloco_leitura, checar_leitura,
+                                          fonte_exata, selo_procedencia)
+    from app.api.site_assets import _demo_hand
+
+    h = _demo_hand()
+
+    # fonte EXATA: nada de bloco, e o selo diz que não houve visão
+    assert fonte_exata("pppoker_replay") and not fonte_exata("image")
+    assert bloco_leitura(h, "pppoker_replay", 0.4) == ""
+    assert "sem leitura por imagem" in selo_procedencia("pppoker_replay")
+
+    # PRINT: abre mostrando cartas/posição/stack pro aluno conferir
+    b = bloco_leitura(h, "image", 0.95)
+    assert "Foi isto que eu li" in b and "print/foto da mesa" in b
+    assert "Você:" in b and "Board:" in b
+    assert "refaço a análise" in b
+
+    # confiança baixa vira AVISO visível (antes só ficava no banco)
+    baixa = bloco_leitura(h, "image", 0.62)
+    assert "62%" in baixa and "⚠️" in baixa
+    assert "62%" in selo_procedencia("image", 0.62)
+    assert "⚠️" not in b  # confiança alta não alarma à toa
+
+    # divergência entre as duas passadas de leitura chega ao ALUNO, não só
+    # ao contexto do coach (que podia esquecer de mencionar)
+    div = bloco_leitura(h, "image", 0.95,
+                        divergencias=["cartas do herói: QdJd x QdJh"])
+    assert "não bateram" in div and "QdJd" in div
+
+    # classe de INPUT da prova real: sintomas típicos de print mal lido
+    assert checar_leitura(h) == []
+    dup = _demo_hand()
+    dup.final_board = list(dup.hero_cards) + list(dup.final_board or [])[:3]
+    assert any("dois lugares" in p for p in checar_leitura(dup))
+    sem_bb = _demo_hand()
+    sem_bb.stakes.big_blind = 0
+    assert any("big blind" in p for p in checar_leitura(sem_bb))
+    assert checar_leitura(None)
+
+    # e a prova real passou a ter a classe "leitura"
+    from app.analysis.selfcheck import _CLASSES
+    assert "leitura" in dict(_CLASSES)
+
+    # a resposta do upload carrega bloco + selo
+    import inspect
+
+    from app.bot import processing
+    src = inspect.getsource(processing._process_upload_inner)
+    assert "bloco_leitura" in src and "selo_procedencia" in src
