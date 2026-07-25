@@ -111,6 +111,11 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
             ev = ("nashmode", k[1], k[2], "ev", 1.0)
         elif k[0] == "spot" and k[4] == "freq":
             ev = ("spot", s[1], s[2], s[3], "ev", s[5], s[6], s[7])
+        elif s[0] == "posflop" and s[7] == "ev":
+            # pós-flop: o VALOR de cada mão sozinho não diz o que fazer com
+            # ela — a frequência de agressão vem junto, do MESMO equilíbrio
+            # (o solve fica em cache, o segundo gráfico é de graça)
+            ev = ("posflop", s[1], s[2], s[3], s[4], s[5], s[6], None)
         elif k[0] == "pos" and k[3] == "freq":
             # open-shove de mesa cheia: o EV por mão agora existe (solver
             # multiway) — vem junto, igual ao par de SB vs BB

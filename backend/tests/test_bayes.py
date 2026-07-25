@@ -3191,3 +3191,81 @@ def test_schema_sql_cobre_as_tabelas_que_o_codigo_usa():
     faltando = [t for t in usadas
                 if f"create table if not exists {t}" not in schema]
     assert not faltando, f"tabelas usadas no código e fora do schema.sql: {faltando}"
+
+
+def test_grafico_ev_posflop_sai_sem_interrogatorio(monkeypatch):
+    # defeito relatado pelo aluno: "não gera a merda dos gráficos de EV,
+    # somente de all-in". O motor pós-flop existia; faltava a PORTA — a tool
+    # exigia board/ranges/pote/stack e o coach, sem esses valores, PERGUNTAVA
+    # ("qual dos dois?") em vez de entregar. Duas vezes ele respondeu e o
+    # gráfico não veio. Agora a mão da conversa vira o spot sozinha.
+    from app.analysis.postflop_spot import spot_da_mao
+    from app.api.site_assets import _demo_hand
+
+    h = _demo_hand()
+    s = spot_da_mao(h)                      # SEM argumento nenhum
+    assert not s.get("error"), s
+    assert s["street"] == "river" and len(s["board"]) == 5
+    assert s["pot"] > 0 and s["stack"] > 0
+    assert s["player"] in ("oop", "ip")
+    # quem age primeiro no pós-flop está fora de posição — por definição
+    assert s["oop"] == h.street(_st("FLOP")).actions[0].actor
+    assert len(s["premissas"]) == 3         # premissa não declarada = chute
+    assert "bb" in s["premissas"][0]
+
+    # street explícita e pote crescendo com a mão
+    flop = spot_da_mao(h, "flop")
+    turn = spot_da_mao(h, "turn")
+    assert flop["pot"] < turn["pot"] < s["pot"]
+    assert len(flop["board"]) == 3 and len(turn["board"]) == 4
+
+    # os ranges cabem no teto do solver (senão o gráfico simplesmente não sai)
+    from app.analysis.ranges import expand_combos, parse_range
+    for lado in ("oop_range", "ip_range"):
+        assert len(expand_combos(parse_range(flop[lado]))) <= 300
+
+    # erros HONESTOS, não silêncio
+    from app.models.canonical import CanonicalHand, PlayerSeat, Stakes
+    seca = CanonicalHand(site="x", hand_id="s1", hero="Hero",
+                         stakes=Stakes(small_blind=0.5, big_blind=1),
+                         players=[PlayerSeat(seat=1, name="Hero", stack=100,
+                                             is_hero=True, position="BB")],
+                         streets=[])
+    assert "flop" in spot_da_mao(seca)["error"]
+    assert "conversa" in spot_da_mao(None)["error"]
+
+    multi = _demo_hand()
+    multi.street(_st("RIVER")).actions.append(
+        _acao("Terceiro"))
+    assert "heads-up" in spot_da_mao(multi, "river")["error"]
+
+    # a spec do gráfico sai da tool e vira DOIS gráficos (valor + frequência)
+    from app.agent.llm import charts_from_tool_call
+    res = {**s, "ev_medio": 1.0}
+    spec = charts_from_tool_call("grafico_ev_da_mao", {}, res)
+    assert spec[0] == "posflop" and spec[7] == "ev"
+
+    import app.bot.processing as P
+    monkeypatch.setattr("app.analysis.range_chart.render_spec",
+                        lambda sp: (b"PNG", f"legenda {sp[7]}"))
+    P._stash_charts(4242, [spec], None)
+    charts = P.pop_charts(4242)
+    assert len(charts) == 2, "o par valor+frequência não saiu"
+    assert {c[1].split()[-1] for c in charts} == {"ev", "None"}
+
+    # a tool existe e o prompt PROÍBE perguntar antes de chamar
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "grafico_ev_da_mao" for t in TOOLS)
+    assert not TOOLS[[t["name"] for t in TOOLS].index(
+        "grafico_ev_da_mao")]["input_schema"].get("required")
+    assert "C11" in _SYSTEM["pt"] and "PROIBIDO perguntar" in _SYSTEM["pt"]
+
+
+def _st(nome):
+    from app.models.canonical import StreetName
+    return getattr(StreetName, nome)
+
+
+def _acao(quem):
+    from app.models.canonical import Action, ActionType
+    return Action(actor=quem, type=ActionType.CHECK)

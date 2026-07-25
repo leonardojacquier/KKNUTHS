@@ -7,6 +7,7 @@ offsuit abaixo. Cor = frequência da ação (verde-feltro; cinza = fora do range
 from __future__ import annotations
 
 import io
+from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -176,26 +177,36 @@ def render_ev_range_png(
     for row in range(13):
         for col in range(13):
             hand = _cell_hand(row, col)
-            ev = float(evs.get(hand, fold_ev))
+            crua = evs.get(hand)
+            fora = crua is None          # mão que nem está no range
+            ev = float(fold_ev if fora else crua)
             x = MARGIN + col * CELL
             y = top + row * CELL
             delta = ev - fold_ev
             # célula NEUTRA quando é empate na prática: some o "+0.0 vs -0.0"
-            neutral = abs(delta) < 0.05
+            neutral = fora or abs(delta) < 0.05
             color = GREY if neutral else _ev_color(ev, fold_ev, scale)
             d.rectangle([x, y, x + CELL - 2, y + CELL - 2], fill=color)
             luminous = sum(color) / 3
             text_col = PAPER if luminous < 140 else INK
             w = d.textlength(hand, font=f_cell)
             d.text((x + (CELL - 2 - w) / 2, y + 9), hand, fill=text_col, font=f_cell)
-            t = "0.0" if neutral else f"{delta:+.1f}"
-            w = d.textlength(t, font=f_ev)
-            d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
-                   fill=text_col, font=f_ev)
+            t = "" if fora else ("0.0" if neutral else f"{delta:+.1f}")
+            if t:
+                w = d.textlength(t, font=f_ev)
+                d.text((x + (CELL - 2 - w) / 2, y + CELL - 22), t,
+                       fill=text_col, font=f_ev)
 
-    d.text((MARGIN, top + size - MARGIN + 6),
-           legend or ("célula = EV da ação MENOS o EV do fold, em BB "
-                      "(verde: agir; vermelho: foldar; cinza: tanto faz)"),
+    texto_legenda = legend or ("célula = EV da ação MENOS o EV do fold, em BB "
+                               "(verde: agir; vermelho: foldar; cinza: tanto "
+                               "faz)")
+    # a legenda longa do pós-flop batia na marca do canto: corta no espaço
+    # que sobra ANTES da assinatura, em vez de escrever por cima dela
+    limite = size - MARGIN * 2 - 150
+    while (d.textlength(texto_legenda, font=f_sub) > limite
+           and " " in texto_legenda):
+        texto_legenda = texto_legenda.rsplit(" ", 1)[0]
+    d.text((MARGIN, top + size - MARGIN + 6), texto_legenda,
            fill=MUTED, font=f_sub)
     if premises:
         d.text((MARGIN, top + size - MARGIN + 24), premises,
@@ -418,6 +429,23 @@ def chart_allin_spot(kind: str, hero: str, stack: float,
         f"resolvido ({sol['acao_pct']:g}% das mãos).")
 
 
+@lru_cache(maxsize=4)
+def _solve_posflop(board: tuple, oop_range: str, ip_range: str,
+                   pot: float, stack: float):
+    """Um spot pós-flop resolvido UMA vez. O par de gráficos (valor por mão +
+    frequência de agressão) sai do MESMO equilíbrio — sem o cache, pedir os
+    dois pagava o CFR+ duas vezes (no flop isso é ~35s cada)."""
+    from app.analysis.river_solver import RiverSolver
+
+    return RiverSolver(list(board), oop_range, ip_range, pot, stack).solve()
+
+
+def _valores_posflop(board: tuple, oop_range: str, ip_range: str,
+                     pot: float, stack: float, player: str):
+    return _solve_posflop(board, oop_range, ip_range, pot,
+                          stack).hand_values(player)
+
+
 def chart_postflop(board: list[str], oop_range: str, ip_range: str,
                    pot: float, stack: float, player: str = "oop",
                    mode: str | None = None) -> tuple[bytes, str] | None:
@@ -427,18 +455,18 @@ def chart_postflop(board: list[str], oop_range: str, ip_range: str,
     No equilíbrio as ações do suporte valem o mesmo, então mostrar
     'EV(aposta) − EV(check)' daria ~0 em tudo — o que informa é o VALOR da
     mão e a frequência, igual à range view dos solvers."""
-    from app.analysis.river_solver import RiverSolver
-
     try:
-        solver = RiverSolver(board, oop_range, ip_range, pot, stack).solve()
-        hv = solver.hand_values(player)
+        hv = _valores_posflop(tuple(board), oop_range, ip_range,
+                              float(pot), float(stack), player)
     except Exception:
         return None
     if not hv:
         return None
 
+    from app.analysis.equity import pretty_cards
+
     quem = "você" if player == "oop" else "o vilão"
-    cartas = " ".join(c[0].replace("T", "10") + c[1] for c in board)
+    cartas = pretty_cards(list(board))
     street = {3: "FLOP", 4: "TURN", 5: "RIVER"}.get(len(board), "spot")
     prem = (f"premissas: CFR+ range vs range · pote {pot:g} · stack {stack:g} · "
             f"sizings 50%/100%/all-in, uma raise por street"
@@ -449,9 +477,8 @@ def chart_postflop(board: list[str], oop_range: str, ip_range: str,
             f"Valor de cada mão — {street} {cartas}",
             f"em fichas · média do range {hv['ev_medio']:+.1f} · {quem} age",
             premises=prem,
-            legend=("célula = valor da mão MENOS a média do range, em fichas "
-                    "(verde: acima da média; vermelho: abaixo; cinza: fora "
-                    "do range)"))
+            legend=("verde = acima da média do range · vermelho = abaixo · "
+                    "célula vazia = mão fora do range"))
         return png, (
             f"\u2660 Quanto cada mão do seu range VALE neste {street.lower()} "
             f"({cartas}), em fichas. Verde = acima da média do range "

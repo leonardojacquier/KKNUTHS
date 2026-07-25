@@ -490,6 +490,26 @@ TOOLS = [
         },
     },
     {
+        "name": "grafico_ev_da_mao",
+        "description": "GRÁFICO DE EV DA MÃO QUE ESTÁ NA CONVERSA (pós-flop) — a "
+        "porta padrão quando o aluno pede 'o gráfico de EV', 'o range de EV dessa "
+        "mão', 'a tabela desse flop'. NÃO precisa de nenhum argumento: o board, o "
+        "pote, o stack efetivo, quem está fora de posição e o range de cada um saem "
+        "da PRÓPRIA mão. Devolve os valores + manda DOIS gráficos (valor de cada mão "
+        "em fichas e frequência de agressão). PROIBIDO perguntar board/pote/range ao "
+        "aluno antes de chamar isto — chame, e só então relate as premissas que "
+        "vierem no resultado. Use range_view_posflop apenas para spot HIPOTÉTICO "
+        "(que não é a mão da conversa).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "street": {"type": "string", "enum": ["flop", "turn", "river"],
+                           "description": "street a resolver; vazio = a mais "
+                           "profunda que a mão alcançou"},
+            },
+        },
+    },
+    {
         "name": "range_view_posflop",
         "description": "RANGE VIEW PÓS-FLOP (gráfico): quanto cada mão do range VALE "
         "naquele flop/turn/river em fichas (grafico='ev'), ou com que frequência ela "
@@ -747,6 +767,17 @@ _SYSTEM = {
         "automático (o aluno não precisa pedir). Quando push_fold devolver "
         "ev_bb, CITE o número ('empurrar esse AQo rende +1.9bb contra "
         "foldar') — é a conta que decide o spot.\n"
+        "C11 GRÁFICO DE EV NÃO É SÓ DE ALL-IN. Pedido de 'gráfico de EV' / "
+        "'range de EV dessa mão' / 'tabela desse flop' sobre a mão que está "
+        "na conversa e que passou do pré-flop → grafico_ev_da_mao, SEM "
+        "argumento nenhum. É PROIBIDO perguntar board, pote, stack, range do "
+        "vilão ou 'qual dos dois gráficos você quer' antes de chamar: tudo "
+        "isso sai da própria mão, e perguntar em vez de entregar é o defeito "
+        "que o aluno reclamou. Chame primeiro; depois relate as premissas que "
+        "voltarem (pote, stack efetivo, quem está fora de posição) e diga que "
+        "os ranges são de REFERÊNCIA pela posição, não os ranges reais. Só "
+        "quando a ferramenta devolver 'error' você explica o motivo dela "
+        "(multiway, mão sem flop) — nunca invente que não consegue.\n"
 
         "\n== V) VOZ: como escrever ==\n"
         "V1 CARTAS levam o ícone do naipe: A♠, K♥, 10♦, J♣ — nunca 'As'/'Kh' "
@@ -967,6 +998,40 @@ def _dispatch(name: str, args: dict):
             return {"error": "sem conversa ativa para corrigir"}
         return redefine_hero(tg, str(args.get("nome") or ""),
                              args.get("cards") or None)
+    if name == "grafico_ev_da_mao":
+        from app.analysis.postflop_spot import spot_da_mao
+        from app.bot.processing import conversation_hand
+
+        tg = _TOOL_CHAT.get()
+        h = conversation_hand(tg) if tg else None
+        spot = spot_da_mao(h, args.get("street"))
+        if spot.get("error"):
+            return spot
+        try:
+            from app.analysis.range_chart import _valores_posflop
+
+            hv = _valores_posflop(tuple(spot["board"]), spot["oop_range"],
+                                  spot["ip_range"], float(spot["pot"]),
+                                  float(spot["stack"]), spot["player"])
+        except Exception as exc:
+            return {"error": f"o equilíbrio não resolveu: {str(exc)[:100]}"}
+        if not hv:
+            return {"error": "não consegui extrair os valores desse spot"}
+        return {**{k: spot[k] for k in
+                   ("street", "board", "pot", "stack", "player", "oop", "ip",
+                    "oop_pos", "ip_pos", "combos", "premissas",
+                    "oop_range", "ip_range")},
+                "ev_medio": hv["ev_medio"],
+                "melhores": dict(sorted(hv["ev"].items(),
+                                        key=lambda kv: -kv[1])[:10]),
+                "piores": dict(sorted(hv["ev"].items(),
+                                      key=lambda kv: kv[1])[:6]),
+                "agride_mais": dict(sorted(hv["freq"].items(),
+                                           key=lambda kv: -kv[1])[:8]),
+                "graficos": "2 (valor por mão + frequência) já a caminho",
+                "nota": ("os ranges são de REFERÊNCIA pela posição/ação "
+                         "pré-flop, não os ranges reais dos jogadores — diga "
+                         "isso ao aluno junto do resultado")}
     if name == "range_view_posflop":
         from app.analysis.river_solver import RiverSolver
 
@@ -1278,6 +1343,11 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                     return ("range", f"top {round(pct * 100)}%",
                             f"Shove {pos} ~{stk:g}bb (aprox. Nash)")
             return None
+        if (name == "grafico_ev_da_mao" and isinstance(result, dict)
+                and result.get("board") and not result.get("error")):
+            return ("posflop", tuple(result["board"]), result["oop_range"],
+                    result["ip_range"], float(result["pot"]),
+                    float(result["stack"]), result["player"], "ev")
         if (name == "range_view_posflop" and isinstance(result, dict)
                 and result.get("board")):
             return ("posflop", tuple(result["board"]), args["oop_range"],
