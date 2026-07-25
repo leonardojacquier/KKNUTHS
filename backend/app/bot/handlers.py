@@ -93,6 +93,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("relatorio", "Relatório mão a mão 📋"),
             BotCommand("preparar", "Preparação pré-torneio 🎯"),
             BotCommand("spot", "EV de all-in: equilíbrio do spot ⚖️"),
+        BotCommand("prova", "Auditar a ferramenta nas suas mãos 🔬"),
         BotCommand("simular", "Rejogue uma mão sua 🎮"),
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("leitura", "Adivinhe a mão do vilão 🔎"),
@@ -1033,6 +1034,16 @@ async def _responder_spot(message, texto: str) -> None:
                                       caption=r[1][:1000])
 
 
+async def cmd_prova(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/prova — autoteste sobre as mãos do próprio aluno."""
+    await _log(update, "prova_cmd")
+    await update.message.reply_text("🔬 Auditando a ferramenta nas SUAS mãos…")
+    from app.bot.processing import prova_real_reply
+
+    txt = await asyncio.to_thread(prova_real_reply, update.effective_user.id)
+    await update.message.reply_markdown(txt)
+
+
 async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
     tg_id = update.effective_user.id
@@ -1636,6 +1647,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("leitura", cmd_leitura))
     app.add_handler(CommandHandler("banca", cmd_banca))
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
+    app.add_handler(CommandHandler("prova", cmd_prova))
     app.add_handler(CommandHandler("spot", cmd_spot))
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
     app.add_handler(CallbackQueryHandler(on_spot_stack, pattern=r"^spotstk:"))

@@ -1921,6 +1921,18 @@ def spot_reply(texto: str) -> tuple[str, list[tuple]] | None:
     return "\n".join(linhas), specs
 
 
+def prova_real_reply(telegram_id: int) -> str:
+    """/prova — a ferramenta se auditando nas mãos DO ALUNO.
+
+    Nasceu de "não estou confiando que a ferramenta esteja confiável". Em vez
+    de pedir confiança, entrega verificação que ele controla e vê — com a
+    ressalva de honestidade junto (uma prova limpa não prova tudo)."""
+    from app.analysis.selfcheck import prova_real, texto_prova
+
+    hands = _user_hands(telegram_id)
+    return texto_prova(prova_real(hands))
+
+
 def sim_advance(sim: dict) -> dict:
     """Avança a simulação: narra ações dos vilões até a próxima decisão do herói.
 

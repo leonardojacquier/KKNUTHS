@@ -1553,6 +1553,55 @@ def test_portas_do_motor_spot_e_auditoria():
     assert '"spot"' in src
 
 
+def test_prova_real_encontra_defeito_e_e_honesta():
+    # "não estou confiando que a ferramenta esteja confiável" — a resposta
+    # não é pedir confiança, é entregar verificação que o aluno roda e vê.
+    # O canário exige que a prova (a) ache defeito plantado e (b) NUNCA
+    # afirme que está tudo certo.
+    from app.analysis.selfcheck import prova_real, texto_prova
+    from app.api.site_assets import _demo_hand
+
+    sadia = prova_real([_demo_hand()])
+    assert sadia["maos"] == 1 and sadia["classes"] >= 6
+    assert sadia["problemas"] == 0, sadia["achados"]
+
+    # a ressalva de honestidade vai SEMPRE junto, mesmo na prova limpa
+    txt_ok = texto_prova(sadia)
+    assert "NÃO prova que está tudo certo" in txt_ok
+    assert "continua invisível" in txt_ok
+
+    # defeito plantado: carta duplicada + showdown inválido
+    h = _demo_hand()
+    h.final_board = ["Qs", "Th", "4d", "8c", "Qs"]
+    h.shown_cards = {"Rival do Clube": ["Zz", "K9"]}
+    ruim = prova_real([h])
+    assert ruim["problemas"] >= 2
+    classes = {a["classe"] for a in ruim["achados"]}
+    assert "parser" in classes
+    blob = " ".join(a["problema"] for a in ruim["achados"])
+    assert "duas vezes" in blob or "inválido" in blob
+    assert "problema(s)" in texto_prova(ruim)
+
+    # gabarito: 'flush' impossível no board é pego
+    from app.analysis.selfcheck import _check_gabarito
+    h2 = _demo_hand()
+    h2.final_board = ["Qh", "Th", "4h", "8h", "2h"]   # 5 copas: flush existe
+    assert _check_gabarito(h2) == []                  # aqui NÃO deve acusar
+
+    # motor: a checagem independente de mão responde
+    from app.analysis.selfcheck import _check_motor
+    assert _check_motor() == [], "o motor de equilíbrio falhou a autochecagem"
+
+    # sem mãos, não inventa placar
+    assert "Não achei mãos suas" in texto_prova(prova_real([]))
+
+    # e /prova está no menu
+    import inspect
+
+    from app.bot import handlers
+    assert '"prova"' in inspect.getsource(handlers._set_bot_menu)
+
+
 def test_auditoria_cobre_todo_tipo_de_jogada():
     # aluno: "quero análise de todo tipo de jogada, não só all-in". A
     # auditoria passa a ter TRÊS níveis, cada um rotulado pelo rigor.
