@@ -678,7 +678,12 @@ _SYSTEM = {
         "send_range_chart — nunca diga que não consegue mandar imagem. Em spot "
         "de SHOVE o range do gráfico é o MESMO do push_fold (passe position + "
         "stack_bb); NUNCA desenhe range de abertura deep pra spot de shove, "
-        "contradiz o veredito.\n"
+        "contradiz o veredito. EV POR MÃO: só existe em jam/fold heads-up "
+        "SB vs BB (role='SB'/'BB' + stack_bb + mode='ev'/'icm') — lá o "
+        "gráfico de EV vem junto do de frequência, automático. Em open-shove "
+        "de UTG/MP/CO/BTN o EV por mão NÃO existe (exigiria solver multiway): "
+        "mande o range de shove e diga que o EV por mão é do spot de "
+        "SB vs BB — PROIBIDO prometer um gráfico de EV que não vai chegar.\n"
 
         "\n== V) VOZ: como escrever ==\n"
         "V1 CARTAS levam o ícone do naipe: A♠, K♥, 10♦, J♣ — nunca 'As'/'Kh' "
@@ -1169,6 +1174,12 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                     stk = float(args.get("stack_bb"))
                 except (TypeError, ValueError):
                     stk = None
+                # SB de stack curto é jam/fold heads-up de verdade: manda a
+                # spec do SOLVER, que puxa o gráfico de EV por mão como
+                # companhia. Nas outras posições só existe o range (o EV por
+                # mão exigiria solver multiway — não fingimos que temos).
+                if pos == "SB" and stk:
+                    return ("nashmode", "SB", float(stk), "freq", 1.0)
                 pct = shove_threshold(pos, stk) if stk else None
                 if pct:
                     # título CURTO: o render corta na borda (medido)

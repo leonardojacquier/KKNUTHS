@@ -1476,6 +1476,48 @@ def test_range_deep_nao_vale_para_stack_curto():
     assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
 
 
+def test_ev_acompanha_o_range_onde_existe(monkeypatch):
+    # aluno: "os EVs não estão aparecendo". O EV por mão existe SÓ no
+    # jam/fold heads-up SB vs BB (solver real). Ali ele tem que vir junto do
+    # gráfico de frequência; fora dali é proibido prometer (não há solver
+    # multiway — não fingimos ter).
+    from app.agent.llm import _SYSTEM, _dispatch, charts_from_tool_call
+    from app.bot import processing as proc
+
+    class _Repo:
+        enabled = False
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _Repo())
+
+    def _charts(spec):
+        proc.PENDING_CHARTS.clear()
+        proc._stash_charts(4242, [spec], None)
+        return proc.PENDING_CHARTS.get(4242, (0, []))[1]
+
+    # SB com stack curto -> frequência + EV (dois gráficos)
+    sb = {"position": "SB", "action": "open", "stack_bb": 10}
+    spec_sb = charts_from_tool_call("preflop_range", sb,
+                                    _dispatch("preflop_range", sb))
+    assert spec_sb[0] == "nashmode" and spec_sb[1] == "SB"
+    caps = [c for _p, c in _charts(spec_sb)]
+    assert len(caps) == 2, "EV não acompanhou o range do SB"
+    assert any("EV de cada mão" in c for c in caps)
+
+    # push_fold do SB (o outro caminho) também puxa o EV
+    caps2 = [c for _p, c in _charts(("nash", "SB", 10.0))]
+    assert len(caps2) == 2 and any("EV de cada mão" in c for c in caps2)
+
+    # posição de mesa cheia: manda o range de shove, SEM EV falso
+    mp = {"position": "MP", "action": "open", "stack_bb": 10}
+    caps3 = [c for _p, c in _charts(
+        charts_from_tool_call("preflop_range", mp, _dispatch("preflop_range", mp)))]
+    assert len(caps3) == 1 and "Shove MP" in caps3[0]
+    assert not any("EV de cada mão" in c for c in caps3)
+
+    # e o prompt proíbe prometer EV onde ele não existe
+    assert "PROIBIDO prometer um gráfico de EV que não vai chegar" in _SYSTEM["pt"]
+
+
 def test_juiz_da_saida():
     # os canários checavam a MATEMÁTICA; quem descobria texto ruim era o
     # aluno. O juiz audita as respostas reais contra o contrato do prompt.
