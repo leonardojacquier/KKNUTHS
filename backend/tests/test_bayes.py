@@ -1481,6 +1481,78 @@ def test_range_deep_nao_vale_para_stack_curto():
     assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
 
 
+def test_portas_do_motor_spot_e_auditoria():
+    # o motor existia mas não tinha porta: nenhum comando/botão chegava nele
+    # ("temos as ferramentas mas eu não estou testando isso"). Agora tem
+    # /spot (acesso direto) e a auditoria de all-ins no relatório.
+    from app.analysis.allin_audit import (_spot_do_heroi, auditar_allins,
+                                          resumo_auditoria)
+    from app.bot.processing import spot_reply
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # --- /spot entende linguagem de mesa e devolve os DOIS gráficos ---
+    for texto, kind, pct_min in (("reshove btn 12 co", "reshove", 5),
+                                 ("open mp 10", "open_shove", 5),
+                                 ("squeeze bb 15 mp", "squeeze", 5),
+                                 ("call_shove btn 12 mp", "call_shove", 1)):
+        out = spot_reply(texto)
+        assert out, f"/spot não entendeu: {texto}"
+        txt, specs = out
+        assert len(specs) == 2 and specs[0][4] == "freq" and specs[1][4] == "ev"
+        assert specs[0][1] == kind
+        assert "Equilíbrio: joga" in txt and "Melhores" in txt
+    assert spot_reply("banana") is None          # entrada ruim não inventa
+
+    # --- auditoria: a MÃO REAL do aluno (A4o de BB all-in vs open+call) ---
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=1, post_type="sb"),
+        Action(actor="Hero", type=ActionType.POST, amount=2, post_type="bb"),
+        Action(actor="UTG1", type=ActionType.RAISE, amount=2, to_amount=2),
+        Action(actor="Juju", type=ActionType.CALL, amount=2, to_amount=2),
+        Action(actor="Hero", type=ActionType.RAISE, amount=18, to_amount=20,
+               all_in=True)])
+    h = CanonicalHand(
+        site="x", hand_id="a4o", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2, ante=0.25),
+        players=[PlayerSeat(seat=1, name="Hero", stack=40, is_hero=True,
+                            position="BB"),
+                 PlayerSeat(seat=2, name="UTG1", stack=80, position="UTG+1"),
+                 PlayerSeat(seat=3, name="Juju", stack=200, position="CO")],
+        hero_cards=["Ah", "4d"], streets=[pre])
+
+    spot = _spot_do_heroi(h)
+    assert spot["spot"] == "squeeze" and spot["pagaram"] == 1
+    linhas = auditar_allins([h])
+    assert len(linhas) == 1
+    l = linhas[0]
+    assert l["mao"] == "A4o" and l["voce_fez"] == "all-in"
+    assert l["equilibrio"] == "fold" and l["acertou"] is False
+    assert l["custo_bb"] > 0        # o erro tem preço em bb
+    r = resumo_auditoria(linhas)
+    assert r["total"] == 1 and r["erros"] == 1 and r["custo_total_bb"] > 0
+
+    # mão deep NÃO entra na auditoria (push/fold não é o framework)
+    deep = h.model_copy(update={"players": [
+        PlayerSeat(seat=1, name="Hero", stack=400, is_hero=True, position="BB"),
+        PlayerSeat(seat=2, name="UTG1", stack=800, position="UTG+1"),
+        PlayerSeat(seat=3, name="Juju", stack=800, position="CO")]})
+    assert auditar_allins([deep]) == []
+
+    # a seção HTML do relatório sai com a conta
+    from app.analysis.handreport import _tabela_auditoria
+    html = _tabela_auditoria(linhas)
+    assert "Auditoria de all-ins" in html and "A4o" in html and "bb" in html
+    assert _tabela_auditoria([]) == ""
+
+    # e /spot está no menu do Telegram (senão continua sem porta)
+    import inspect
+
+    from app.bot import handlers
+    src = inspect.getsource(handlers._set_bot_menu)
+    assert '"spot"' in src
+
+
 def test_range_view_posflop():
     # o CFR+ já calculava valor por combo; faltava expor como matriz 13×13.
     # No equilíbrio as ações do suporte valem o MESMO, então o gráfico útil

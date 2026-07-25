@@ -943,15 +943,38 @@ def report_doc_for_user(telegram_id: int,
         pass
     played = [h for h in hands if _played(h)]
     per_hand = per_hand_analysis_llm(played) if len(played) <= 40 else {}
-    html = build_report_html(hands, "", board_png, per_hand_analysis=per_hand)
+    # AUDITORIA DE ALL-INS: o motor de equilíbrio roda em cada decisão de
+    # all-in/fold de stack curto do torneio — determinístico, custo zero de
+    # IA. Era o que faltava pra "análise completa de torneio" ter a conta.
+    from app.analysis.allin_audit import auditar_allins, resumo_auditoria
+
+    auditoria = auditar_allins(hands)
+    resumo = resumo_auditoria(auditoria)
+    html = build_report_html(hands, "", board_png, per_hand_analysis=per_hand,
+                             auditoria=auditoria)
     repo.log_event(telegram_id, username, "relatorio",
-                   {"tournament": latest.tournament_id, "hands": len(hands)})
+                   {"tournament": latest.tournament_id, "hands": len(hands),
+                    "allins_auditados": resumo.get("total", 0),
+                    "erros": resumo.get("erros", 0)})
+    cap = ("📋 Relatório mão a mão do seu último torneio — cada mão com "
+           "análise e a versão 🎈 mais simples.")
+    if resumo:
+        cap += (f"\n\n⚖️ *Auditoria de all-ins*: {resumo['total']} decisões "
+                f"de stack curto · {resumo['certos']} certas")
+        if resumo["erros"]:
+            cap += (f" · {resumo['erros']} fora do equilíbrio, custando "
+                    f"{resumo['custo_total_bb']:g}bb")
+            pior = resumo.get("pior")
+            if pior:
+                cap += (f"\nA mais cara: {pior['mao']} no {pior['posicao']} "
+                        f"({pior['stack_bb']:g}bb) — você {pior['voce_fez']}, "
+                        f"o equilíbrio manda {pior['equilibrio']} "
+                        f"({pior['custo_bb']:g}bb).")
+    cap += "\n\nQuer abrir alguma? Me manda o Nº ou as cartas aqui no chat."
     return (
         html.encode("utf-8"),
         f"KKNuths-MaoAMao-{latest.tournament_id or 'torneio'}.html",
-        "📋 Relatório mão a mão do seu último torneio — cada mão com análise "
-        "e a versão 🎈 mais simples. Quer abrir alguma? Me manda o Nº ou as "
-        "cartas aqui no chat.",
+        cap,
     )
 
 
@@ -1811,6 +1834,77 @@ def hand_film(telegram_id: int, hand_id: str | None = None) -> bytes | None:
     if h is None:
         return None
     return hand_film_png(h)
+
+
+_SPOT_ALIASES = {"open": "open_shove", "open_shove": "open_shove",
+                 "shove": "open_shove", "reshove": "reshove",
+                 "3bet": "reshove", "squeeze": "squeeze",
+                 "call": "call_shove", "call_shove": "call_shove",
+                 "pagar": "call_shove", "overcall": "overcall"}
+_SPOT_NOME_PT = {"open_shove": "abrir de all-in", "reshove": "re-shove sobre o open",
+                 "squeeze": "squeeze all-in", "call_shove": "pagar o all-in",
+                 "overcall": "overcall do all-in"}
+
+
+def spot_reply(texto: str) -> tuple[str, list[tuple]] | None:
+    """/spot — resolve um spot de all-in escrito em linguagem de mesa.
+
+    Aceita "reshove btn 12 co", "open mp 10", "squeeze bb 15 mp 1".
+    Devolve (texto do veredito, [specs de gráfico]) ou None se não entendeu.
+    """
+    from app.analysis.allin_engine import available, solve_spot
+
+    if not available():
+        return None
+    toks = [t for t in (texto or "").lower().replace(",", " ").split() if t]
+    if not toks:
+        return None
+    kind = _SPOT_ALIASES.get(toks[0])
+    if not kind:
+        return None
+    posicoes, stack, pagaram = [], None, 0
+    for t in toks[1:]:
+        limpo = t.replace("bb", "")
+        if limpo.replace(".", "", 1).isdigit():
+            v = float(limpo)
+            if stack is None and v > 3:
+                stack = v
+            else:
+                pagaram = int(v)
+        else:
+            posicoes.append(t.upper())
+    if stack is None:
+        return None
+    hero = posicoes[0] if posicoes else "MP"
+    vil = posicoes[1] if len(posicoes) > 1 else None
+    if kind in ("reshove", "squeeze", "call_shove", "overcall") and not vil:
+        vil = {"reshove": "CO", "squeeze": "MP",
+               "call_shove": "MP", "overcall": "CO"}[kind]
+    if kind in ("squeeze", "overcall") and not pagaram:
+        pagaram = 1
+
+    sol = solve_spot(kind, hero, round(float(stack), 1), 0.125, 1.0,
+                     vil, 2.2, pagaram)
+    if not sol:
+        return None
+    vs = f" contra o {sol['vilao_pos']}" if sol.get("vilao_pos") else ""
+    top = sorted(sol["ev"].items(), key=lambda kv: -kv[1])
+    fronteira = [h for h, v in top if 0 <= v <= 0.4][:6]
+    linhas = [
+        f"⚖️ *{_SPOT_NOME_PT[kind].capitalize()}* — {hero}{vs} · "
+        f"{stack:g}bb",
+        f"\nEquilíbrio: joga *{sol['acao_pct']:g}%* das mãos · "
+        f"pote morto {sol['dead']:g}bb",
+        f"\n*Melhores:* " + ", ".join(f"{h} ({v:+.1f})" for h, v in top[:5]),
+    ]
+    if fronteira:
+        linhas.append("*Na fronteira* (quase indiferente): "
+                      + ", ".join(fronteira))
+    linhas.append("\n_Os dois gráficos abaixo: o range do equilíbrio e o EV "
+                  "de cada mão em bb (verde = melhor que foldar)._")
+    specs = [("spot", kind, hero, float(stack), "freq", vil, 2.2, pagaram),
+             ("spot", kind, hero, float(stack), "ev", vil, 2.2, pagaram)]
+    return "\n".join(linhas), specs
 
 
 def sim_advance(sim: dict) -> dict:

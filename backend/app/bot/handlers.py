@@ -92,7 +92,8 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("torneio", "Quadro do último torneio"),
             BotCommand("relatorio", "Relatório mão a mão 📋"),
             BotCommand("preparar", "Preparação pré-torneio 🎯"),
-            BotCommand("simular", "Rejogue uma mão sua 🎮"),
+            BotCommand("spot", "EV de all-in: equilíbrio do spot ⚖️"),
+        BotCommand("simular", "Rejogue uma mão sua 🎮"),
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("leitura", "Adivinhe a mão do vilão 🔎"),
             BotCommand("vilao", "Dossiê de um oponente 🎯"),
@@ -951,6 +952,87 @@ async def on_film_street(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
     await _send_pending_charts(query.message, tg_id)
 
 
+_SPOT_BOTOES = [
+    [{"text": "🃏 Abrir de all-in", "callback_data": "spot:open_shove"},
+     {"text": "🔁 Re-shove sobre open", "callback_data": "spot:reshove"}],
+    [{"text": "🎯 Squeeze (open+call)", "callback_data": "spot:squeeze"},
+     {"text": "📞 Pagar um all-in", "callback_data": "spot:call_shove"}],
+]
+_SPOT_STACKS = [[{"text": f"{b}bb", "callback_data": f"spotstk:{{k}}:{b}"}
+                 for b in (8, 10, 12)],
+                [{"text": f"{b}bb", "callback_data": f"spotstk:{{k}}:{b}"}
+                 for b in (15, 20, 25)]]
+
+
+async def cmd_spot(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/spot — porta direta do motor de EV de all-in pré-flop.
+
+    O motor existia mas só era alcançado se o coach resolvesse chamá-lo no
+    meio de uma conversa: o aluno não tinha como testar ("temos as
+    ferramentas mas eu não estou testando isso")."""
+    await _log(update, "spot_cmd")
+    texto = " ".join(ctx.args or []).strip()
+    if texto:                      # ex.: "/spot reshove btn 12 co"
+        await _responder_spot(update.message, texto)
+        return
+    await update.message.reply_text(
+        "⚖️ *Motor de all-in* — o equilíbrio de qualquer spot de stack "
+        "curto, com o EV de cada mão.\n\nQual é a situação?\n\n"
+        "_Ou digite direto: `/spot reshove btn 12 co`_",
+        parse_mode="Markdown", reply_markup=_kb(_SPOT_BOTOES))
+
+
+async def on_spot_kind(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Escolheu o tipo de spot: pergunta o stack."""
+    query = update.callback_query
+    await query.answer()
+    kind = query.data.split(":", 1)[1]
+    rows = [[{**b, "callback_data": b["callback_data"].format(k=kind)}
+             for b in row] for row in _SPOT_STACKS]
+    nomes = {"open_shove": "abrir de all-in", "reshove": "re-shove sobre open",
+             "squeeze": "squeeze", "call_shove": "pagar um all-in"}
+    await query.message.reply_text(
+        f"*{nomes.get(kind, kind).capitalize()}* — com quanto de stack?",
+        parse_mode="Markdown", reply_markup=_kb(rows))
+
+
+async def on_spot_stack(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Escolheu o stack: resolve o spot com posições padrão e manda os
+    gráficos (frequência + EV)."""
+    query = update.callback_query
+    await query.answer("Resolvendo o equilíbrio… ⚖️")
+    _, kind, stack = query.data.split(":")
+    padrao = {"open_shove": ("MP", None), "reshove": ("BTN", "CO"),
+              "squeeze": ("BB", "MP"), "call_shove": ("BTN", "MP")}
+    hero, vil = padrao.get(kind, ("MP", None))
+    await _responder_spot(query.message,
+                          f"{kind} {hero} {stack}" + (f" {vil}" if vil else ""))
+
+
+async def _responder_spot(message, texto: str) -> None:
+    """Resolve e envia: veredito em texto + os dois gráficos."""
+    from app.bot.processing import spot_reply
+
+    out = await asyncio.to_thread(spot_reply, texto)
+    if not out:
+        await message.reply_text(
+            "Não entendi o spot. Exemplos:\n"
+            "`/spot open_shove mp 12`\n`/spot reshove btn 12 co`\n"
+            "`/spot squeeze bb 15 mp`\n`/spot call_shove btn 12 mp`",
+            parse_mode="Markdown")
+        return
+    texto_out, specs = out
+    await message.reply_markdown(texto_out)
+    import io as _io
+
+    from app.analysis.range_chart import render_spec
+    for spec in specs:
+        r = await asyncio.to_thread(render_spec, spec)
+        if r:
+            await message.reply_photo(photo=_io.BytesIO(r[0]),
+                                      caption=r[1][:1000])
+
+
 async def cmd_simular(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Simulação jogável: replay de uma mão real sua, decisão a decisão."""
     tg_id = update.effective_user.id
@@ -1554,6 +1636,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("leitura", cmd_leitura))
     app.add_handler(CommandHandler("banca", cmd_banca))
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
+    app.add_handler(CommandHandler("spot", cmd_spot))
+    app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
+    app.add_handler(CallbackQueryHandler(on_spot_stack, pattern=r"^spotstk:"))
     app.add_handler(CommandHandler("simular", cmd_simular))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))

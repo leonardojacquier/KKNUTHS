@@ -297,10 +297,50 @@ def _hand_strip_img(h: CanonicalHand, seq: int, a: dict,
         return ""
 
 
+def _tabela_auditoria(auditoria: list[dict]) -> str:
+    """Seção de AUDITORIA DE ALL-INS: cada decisão de stack curto contra o
+    equilíbrio, com o EV em bb. É a conta que o relatório não tinha."""
+    if not auditoria:
+        return ""
+    _NOME = {"open_shove": "abriu de all-in", "reshove": "re-shove sobre open",
+             "squeeze": "squeeze", "call_shove": "pagar all-in",
+             "overcall": "overcall"}
+    linhas = []
+    for l in auditoria:
+        ok = l["acertou"]
+        cor = "#1f7a4d" if ok else "#a8382e"
+        marca = "✔" if ok else "✘"
+        custo = "" if ok else f" · custou {l['custo_bb']:g}bb"
+        vs = f" vs {l['vilao']}" if l.get("vilao") else ""
+        linhas.append(
+            f"<tr><td><b>{_html.escape(l['mao'])}</b></td>"
+            f"<td>{_html.escape(l['posicao'])} · {l['stack_bb']:g}bb</td>"
+            f"<td>{_NOME.get(l['spot'], l['spot'])}{_html.escape(vs)}</td>"
+            f"<td>{l['voce_fez']}</td>"
+            f"<td>{l['equilibrio']} ({l['range_pct']:g}% do range)</td>"
+            f"<td style='color:{cor};font-weight:700'>{marca} "
+            f"{(l['ev_bb'] or 0):+.2f}bb{custo}</td></tr>")
+    erros = [l for l in auditoria if not l["acertou"]]
+    total_custo = sum(l["custo_bb"] for l in erros)
+    return (
+        "<h2>Auditoria de all-ins</h2>"
+        "<p class='sub'>Cada decisão de all-in ou fold com stack curto, "
+        "resolvida no equilíbrio (mesa de 9, com ante e a ação que veio na "
+        "frente). EV em bb contra foldar — cálculo determinístico.</p>"
+        f"<p class='sub'><b>{len(auditoria)} decisões · "
+        f"{len(auditoria)-len(erros)} no equilíbrio · {len(erros)} fora"
+        + (f", custando {total_custo:.1f}bb" if erros else "") + "</b></p>"
+        "<table class='audit'><tr><th>Mão</th><th>Spot</th><th>Situação</th>"
+        "<th>Você</th><th>Equilíbrio</th><th>EV</th></tr>"
+        + "".join(linhas) + "</table>")
+
+
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                       board_png: bytes | None = None,
-                      per_hand_analysis: dict[str, str] | None = None) -> str:
-    """`per_hand_analysis`: hand_id -> análise do coach (mãos jogadas)."""
+                      per_hand_analysis: dict[str, str] | None = None,
+                      auditoria: list[dict] | None = None) -> str:
+    """`per_hand_analysis`: hand_id -> análise do coach (mãos jogadas).
+    `auditoria`: saída de allin_audit.auditar_allins (seção de all-ins)."""
     hands = sorted(hands, key=lambda h: h.played_at or "")
     per_hand_analysis = per_hand_analysis or {}
     from app.analysis.tournament_board import tournament_summary
@@ -413,7 +453,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
     """
     buyin = f" · buy-in ${s['buyin']:g}" if s.get("buyin") else ""
     return f"""<!doctype html><html lang=pt-BR><head><meta charset=utf-8>
-<title>Mão a mão — Torneio #{s['tournament_id']}</title><style>{css}</style></head><body>
+<title>Mão a mão — Torneio #{s['tournament_id']}</title><style>{css}table.audit td,table.audit th{{font-size:12px;padding:5px 8px}}table.audit th{{background:#16211A;color:#D0A85C}}table.audit tr:nth-child(even){{background:#F7F9F7}}</style></head><body>
 <h1>♠ Análise mão a mão — Torneio #{s['tournament_id']}</h1>
 <div class=sub>{s['site']}{buyin} · níveis {esc(str(s['levels']))} ·
 {s['hands']} mãos · cada mão identificada pelo Nº da sala (confira no PokerCraft/HM)</div>
@@ -426,6 +466,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 </div>
 {board_img}
 {coach_html}
+{_tabela_auditoria(auditoria or [])}
 <h2>🃏 Mãos jogadas — análise completa ({len(played_cards)})</h2>
 <p style='color:#828A84;font-size:11.5px;margin:2px 0 8px'>O selo de
 <b>decisão</b> julga o preço na hora, não o desfecho — ganhar com decisão
