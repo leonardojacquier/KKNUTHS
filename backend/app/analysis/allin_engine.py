@@ -137,7 +137,27 @@ def solve_spot(spot: str, hero_pos: str, stack_bb: float,
             empurrador = solve_spot("open_shove", vil, s, a, bf)
         r_shove = (np.array([empurrador["acao"][h] for h in hands])
                    if empurrador else np.ones(n))
-        eq = _eq(r_shove)
+        # `pagaram` só faz sentido no OVERCALL (as fichas de quem pagou estão
+        # no pote e eles seguem vivos). Em call_shove a ação ainda está aberta
+        # e o `dead` não contém essas fichas: contar os jogadores sem contar o
+        # dinheiro deles apertaria o range por um motivo falso.
+        n_pag = max(0, int(pagaram)) if spot == "overcall" else 0
+        if n_pag:
+            # QUEM JÁ PAGOU É ADVERSÁRIO VIVO, não dinheiro morto. O código
+            # somava as fichas deles ao pote e mandava o herói bater só o
+            # shover: dava "overcall com 100% das mãos" e 72o +3,4bb. Aqui a
+            # equity é a chance de bater TODOS, por Monte Carlo multiway
+            # (multiplicar as equities heads-up foi medido e reprovado:
+            # erra até 14 pontos nas mãos fracas).
+            from app.analysis.multiway_equity import equity_table
+
+            pagador = solve_spot("call_shove", hero, s, a, bf, vilao_pos=vil)
+            r_call = (np.array([pagador["acao"][h] for h in hands])
+                      if pagador else r_shove)
+            eq = equity_table(list(hands), [r_shove] + [r_call] * n_pag,
+                              iters=6000)
+        else:
+            eq = _eq(r_shove)
         ev = _ev_showdown(eq, dead - s)     # dead já inclui o all-in dele
         acao = (ev > fold_ev).astype(float)
         pct = round(100 * float((acao * peso).sum() / peso.sum()), 1)
@@ -151,7 +171,10 @@ def solve_spot(spot: str, hero_pos: str, stack_bb: float,
             "premissas": (
                 f"premissas: paga all-in de {vil or 'vilão'} · stack {s:g}bb · "
                 f"ante {a*100:g}% do bb · range de shove dele resolvido no "
-                f"mesmo motor · bubble factor {bf:g}"),
+                f"mesmo motor · bubble factor {bf:g}"
+                + (f" · {n_pag} que já pagou(aram) entra(m) como ADVERSÁRIO "
+                   f"vivo (equity multiway por simulação, precisa bater "
+                   f"todos)" if n_pag else "")),
         }
 
     # ---------------- nó de EMPURRAR (fictitious play) ----------------

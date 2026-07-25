@@ -3354,3 +3354,53 @@ def test_cota_do_piloto_50_e_admin_nunca_bloqueado():
 
     from app.bot import handlers
     assert "FREE_MONTHLY_ANALYSES" in inspect.getsource(handlers)
+
+
+def test_ev_multiway_precisa_bater_todos():
+    # pergunta do aluno: "você não calcula o EV em pote multiway?". Calculava
+    # errado: quem JÁ tinha pagado o all-in entrava como dinheiro morto, e o
+    # herói só precisava bater o primeiro. Saía "overcall com 100% das mãos"
+    # e 72o +3,4bb — conselho que perde dinheiro.
+    import numpy as np
+
+    from app.analysis.allin_engine import available, solve_spot
+    if not available():
+        return
+
+    hu = solve_spot("overcall", "BB", 12.0, vilao_pos="CO", pagaram=0)
+    mw = solve_spot("overcall", "BB", 12.0, vilao_pos="CO", pagaram=1)
+
+    # o defeito: range degenerado e lixo lucrativo
+    assert mw["acao_pct"] < 90, "overcall multiway voltou a pagar quase tudo"
+    assert mw["ev"]["72o"] < 0, "72o não pode ser +EV pagando all-in"
+    # mais gente no pote = a MESMA mão vale menos em equity; o EV só sobe
+    # porque entrou o stack deles no pote — o que tem que cair é a força
+    # relativa: AA continua a melhor, 72o continua a pior
+    assert mw["ev"]["AA"] > mw["ev"]["KK"] > mw["ev"]["72o"]
+    assert mw["premissas"].count("ADVERSÁRIO vivo") == 1
+
+    # call_shove é heads-up por contrato: `pagaram` não pode mexer nele
+    for pag in (0, 2):
+        assert solve_spot("call_shove", "BB", 12.0, vilao_pos="CO",
+                          pagaram=pag)["acao_pct"] == hu["acao_pct"]
+
+    # o núcleo: a equity multiway bate com uma implementação INDEPENDENTE
+    # (Monte Carlo de ranges.equity_vs_range). O atalho de multiplicar as
+    # equities heads-up erra até 14 pontos — por isso não foi usado.
+    from app.analysis.jam_fold_solver import _matrix
+    from app.analysis.multiway_equity import equity_table
+    from app.analysis.ranges import equity_vs_range, parse_range
+
+    hands, _E, _W = _matrix()
+    R = "TT+, AQs+, AKo"
+    dentro = set(parse_range(R))
+    pesos = np.array([1.0 if h in dentro else 0.0 for h in hands])
+    tab = equity_table(list(hands), [pesos, pesos], iters=1500, seed=3)
+    idx = {h: i for i, h in enumerate(hands)}
+    for nome, cs in (("AA", ["As", "Ad"]), ("76s", ["7h", "6h"])):
+        ref = equity_vs_range(cs, R, [], iterations=12000, seed=99,
+                              num_opponents=2)["equity"]
+        assert abs(tab[idx[nome]] - ref) < 0.04, (
+            f"{nome}: tabela {tab[idx[nome]]:.3f} x referência {ref:.3f}")
+        assert abs(ref - tab[idx[nome]]) < abs(ref - ref * ref) or ref < 0.2, (
+            f"{nome}: o produto das equities heads-up seria pior que isto")

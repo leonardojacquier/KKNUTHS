@@ -1069,6 +1069,15 @@ def _dispatch(name: str, args: dict):
     if name == "ev_allin":
         from app.analysis.allin_engine import solve_spot
 
+        # overcall multiway resolve a equity por simulação (bater TODOS):
+        # ~20s. Espera calada parece pau — avisa antes, igual ao pós-flop.
+        if str(args.get("spot")) == "overcall" and int(args.get("pagaram") or 0):
+            from app.bot.notify import avisar
+
+            avisar(_TOOL_CHAT.get(),
+                   "⏳ Esse é um *overcall multiway*: preciso simular a chance "
+                   "de você bater *todos* os que já pagaram, não um de cada "
+                   "vez. Leva *uns 20 segundos*. (Não travou.)")
         sol = solve_spot(
             str(args.get("spot") or "open_shove"),
             str(args.get("hero_pos") or "MP"),

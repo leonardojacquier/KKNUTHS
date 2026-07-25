@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-ZOOM = 0.82    # 0.845 estourou pra 8ª página com o aviso de espera
+ZOOM = 0.795   # 0.82 estourou pra 8ª página com o overcall multiway
 FIX = ("<style>@page{size:210mm 297mm;margin:9mm 11mm}"
        f"html{{zoom:{ZOOM}}}</style>")
 
