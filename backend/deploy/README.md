@@ -74,6 +74,20 @@ saída** (`output_judge.py`, 8h — audita as respostas que o coach mandou:
 selo de veredito, número em cada decisão, jargão proibido, calque, carta
 sem ícone; avisa o admin quando a qualidade cai).
 
+Instala também o **backup do banco** (`backup_db.py`, 4h UTC / 1h BRT): dump
+de todas as tabelas em `JSON.gz` dentro de `/opt/poker-bot/backups`, 14 dias
+de cópias, aviso no Telegram se falhar. O dump tem mãos e conversas de aluno
+— **fica só no VPS**, nunca vai pro git.
+
+```bash
+# conferir a última cópia
+ssh root@187.127.13.220 "ls -lh /opt/poker-bot/backups | tail -3"
+# rodar na mão
+ssh root@187.127.13.220 "cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/backup_db.py"
+# restaurar (só repõe o que faltar; nunca sobrescreve linha existente)
+ssh root@187.127.13.220 "cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/backup_db.py --restaurar backups/kknuths-AAAAMMDD-HHMM.json.gz"
+```
+
 ## Verificação pós-deploy
 
 ```bash

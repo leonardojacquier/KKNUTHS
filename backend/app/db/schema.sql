@@ -183,3 +183,36 @@ create index if not exists idx_notes_user_time on player_notes(user_id, created_
 
 alter table public.player_stats_history enable row level security;
 alter table public.player_notes         enable row level security;
+
+-- ───────────── estado de conversa, memória e pendências ─────────────
+-- Estas três nasceram direto no banco (ad hoc) e ficaram FORA deste arquivo
+-- por semanas: reconstruir o projeto a partir do schema.sql produziria um
+-- banco sem memória de conversa e sem ICM salvo. Documentadas aqui.
+
+-- Conversa persistente por usuário: a última mão/contexto do chat sobrevive
+-- ao restart do bot (o follow-up "e se ele tivesse QJ?" precisa da mão).
+create table if not exists conversation_state (
+    telegram_id bigint primary key,
+    state       jsonb not null,
+    updated_at  timestamptz not null default now()
+);
+alter table public.conversation_state enable row level security;
+
+-- Memória de longo prazo por aluno, chave/valor (ex.: payouts do torneio
+-- para o ICM automático — informados uma vez, aplicados sempre).
+create table if not exists user_meta (
+    user_id     uuid not null references users(id) on delete cascade,
+    key         text not null,
+    value       jsonb not null,
+    updated_at  timestamptz not null default now(),
+    primary key (user_id, key)
+);
+alter table public.user_meta enable row level security;
+
+-- Simulação em andamento (/simular à prova de restart).
+create table if not exists pending_sims (
+    telegram_id bigint primary key,
+    sim         jsonb not null,
+    updated_at  timestamptz not null default now()
+);
+alter table public.pending_sims enable row level security;

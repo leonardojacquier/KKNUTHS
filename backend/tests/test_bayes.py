@@ -3072,3 +3072,122 @@ def test_procedencia_declara_de_onde_veio_a_leitura():
     from app.bot import processing
     src = inspect.getsource(processing._process_upload_inner)
     assert "bloco_leitura" in src and "selo_procedencia" in src
+
+
+def test_backup_do_banco_fecha_o_circulo(tmp_path, monkeypatch):
+    # o histórico do aluno (mãos, análises, caderno) vivia num único banco
+    # gerenciado, SEM cópia. O canário exige que o backup (a) leve todas as
+    # tabelas, (b) pagine, (c) volte no restore e (d) grite quando falhar.
+    import gzip
+    import json
+
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path))
+    from scripts import backup_db
+
+    class Q:
+        def __init__(self, db, tabela):
+            self.db, self.t, self.rng = db, tabela, None
+
+        def select(self, *_a, **_k):
+            return self
+
+        def range(self, a, b):
+            self.rng = (a, b)
+            return self
+
+        def upsert(self, rows, **_k):
+            self.db.setdefault(self.t, []).extend(rows)
+            return self
+
+        def execute(self):
+            linhas = self.db.get(self.t, [])
+            if self.rng:
+                linhas = linhas[self.rng[0]:self.rng[1] + 1]
+            return type("R", (), {"data": list(linhas)})()
+
+    class Client:
+        def __init__(self, db):
+            self.db = db
+
+        def table(self, t):
+            return Q(self.db, t)
+
+    class Repo:
+        enabled = True
+
+        def __init__(self, db):
+            self.client = Client(db)
+            self.eventos = []
+
+        def log_event(self, *a, **k):
+            self.eventos.append((a, k))
+
+    # 1200 mãos força a paginação (o cliente corta em 1000 por resposta)
+    db = {
+        "users": [{"id": "u1", "telegram_id": 1}],
+        "hands": [{"id": f"h{i}", "user_id": "u1"} for i in range(1200)],
+        "hand_analysis": [{"id": "a1", "summary": "ok",
+                           "embedding": [0.1] * 1536}],
+        "player_notes": [{"id": "n1", "note": "paga demais no river"}],
+    }
+    repo = Repo(db)
+    caminho, contagem = backup_db.fazer_backup(repo)
+
+    assert contagem["hands"] == 1200, "backup truncou na primeira página"
+    assert contagem["player_notes"] == 1                # o caderno vai junto
+    assert set(backup_db.TABELAS) <= set(contagem)      # nenhuma tabela fora
+
+    pacote = json.load(gzip.open(caminho, "rt", encoding="utf-8"))
+    ana = pacote["tabelas"]["hand_analysis"][0]
+    assert ana["summary"] == "ok"
+    assert "embedding" not in ana, "vetor de 1536 floats não entra no dump"
+
+    # restore: repõe o que FALTA, sem apagar nada
+    vazio = Repo({"users": [{"id": "u1", "telegram_id": 1}]})
+    posto = backup_db.restaurar(vazio, str(caminho))
+    assert posto["hands"] == 1200
+    assert len(vazio.client.db["player_notes"]) == 1
+
+    # rotação: guarda as N mais recentes
+    for i in range(20):
+        (tmp_path / f"kknuths-2026010{i % 9}-0{i % 9}00.json.gz").touch()
+    backup_db.limpar_antigos(guardar=5)
+    assert len(list(tmp_path.glob("kknuths-*.json.gz"))) == 5
+
+    # falha do backup TEM que avisar o admin (silêncio é o pior caso)
+    avisos = []
+    monkeypatch.setattr(backup_db, "_avisar",
+                        lambda tok, txt: avisos.append(txt))
+
+    class Quebrado(Repo):
+        def __init__(self):
+            super().__init__({})
+            self.client.table = lambda t: (_ for _ in ()).throw(
+                RuntimeError("sem rede"))
+
+    monkeypatch.setattr(backup_db, "get_repository", lambda: Quebrado())
+    monkeypatch.setattr(backup_db, "get_settings",
+                        lambda: type("S", (), {"telegram_bot_token": "t"})())
+    assert backup_db.main() == 1
+    assert avisos and "FALHOU" in avisos[0]
+
+    # e o cron está no deploy (script existir sem cron = backup que não roda)
+    import pathlib
+    dep = pathlib.Path(__file__).resolve().parent.parent / "deploy/vps_deploy.sh"
+    assert "backup_db.py" in dep.read_text()
+
+
+def test_schema_sql_cobre_as_tabelas_que_o_codigo_usa():
+    # drift real: conversation_state, user_meta e pending_sims nasceram
+    # direto no banco e ficaram fora do schema.sql — reconstruir o projeto
+    # a partir do arquivo daria um banco sem memória de conversa.
+    import pathlib
+    import re
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    schema = (raiz / "app/db/schema.sql").read_text()
+    codigo = (raiz / "app/db/repository.py").read_text()
+    usadas = set(re.findall(r'table\("([a-z_]+)"\)', codigo))
+    faltando = [t for t in usadas
+                if f"create table if not exists {t}" not in schema]
+    assert not faltando, f"tabelas usadas no código e fora do schema.sql: {faltando}"
