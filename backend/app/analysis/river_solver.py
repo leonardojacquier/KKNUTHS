@@ -74,8 +74,14 @@ def _equity_matrix(oop: list[tuple[str, str]], ip: list[tuple[str, str]],
     for ro in runouts:
         ro_set = set(ro)
         full = [Card.new(c) for c in board + list(ro)]
-        v_o = np.array([not (set(c) & ro_set) for c in oop])
-        v_i = np.array([not (set(c) & ro_set) for c in ip])
+        # combo inválido se colidir com o runout OU com o próprio board: no
+        # nó de chance o board cresce com a carta sorteada, e os combos que a
+        # seguram continuavam sendo avaliados — treys recebia carta repetida
+        # e estourava (KeyError no flush_lookup) com range realista de flop
+        v_o = np.array([not (set(c) & ro_set) and not (set(c) & dead)
+                        for c in oop])
+        v_i = np.array([not (set(c) & ro_set) and not (set(c) & dead)
+                        for c in ip])
         s_o = np.array([ev.evaluate(full, list(t)) if ok else 0
                         for t, ok in zip(t_oop, v_o)], dtype=np.int32)
         s_i = np.array([ev.evaluate(full, list(t)) if ok else 0
@@ -133,6 +139,14 @@ class RiverSolver:
         self.board0 = tuple(board)
         self._R_cache: dict[tuple, np.ndarray] = {}
         self._rng = random.Random(20260721)
+        # captura das utilidades por combo num nó (para o gráfico de EV por
+        # mão): o CFR já as calcula — faltava só expor
+        self._capture_key: str | None = None
+        self._captured: tuple | None = None
+        # modo AVALIAÇÃO: joga a estratégia MÉDIA (o equilíbrio) e não
+        # atualiza regret. Sem isso o EV extraído era o da estratégia
+        # corrente de UMA passada — oscilava 14bb entre execuções.
+        self._eval_mode = False
         # máscaras de card removal por carta: combo NÃO contém a carta
         self._free = {}
         for side, combos in ((0, self.oop_combos), (1, self.ip_combos)):
@@ -271,7 +285,8 @@ class RiverSolver:
                 acts.append(("jam", self.stack - inv[actor]))
 
         node = self._node(key, actor, len(acts))
-        strat = node.strategy()
+        strat = node.avg_strategy() if self._eval_mode else node.strategy()
+        _capturar = (self._capture_key is not None and key == self._capture_key)
         r_me, r_opp = reaches[actor], reaches[1 - actor]
         oop_view = actor == 0
 
@@ -317,9 +332,12 @@ class RiverSolver:
                 u_opp_total += u_ip_c if oop_view else u_oop_c
 
         ev_me = (strat * u_me).sum(axis=1)
-        # CFR+: regrets nunca negativos
-        node.regret = np.maximum(node.regret + (u_me - ev_me[:, None]), 0.0)
-        node.strat_sum += r_me[:, None] * strat
+        if _capturar:
+            self._captured = (u_me.copy(), [a[0] for a in acts])
+        # CFR+: regrets nunca negativos (não no modo avaliação)
+        if not self._eval_mode:
+            node.regret = np.maximum(node.regret + (u_me - ev_me[:, None]), 0.0)
+            node.strat_sum += r_me[:, None] * strat
 
         if oop_view:
             return ev_me, u_opp_total
@@ -336,6 +354,66 @@ class RiverSolver:
         return self
 
     # ------------------------------------------------------------------
+    def hand_values(self, player: str = "oop", passes: int = 120) -> dict | None:
+        """EV por MÃO CANÔNICA na raiz do jogador: o valor da melhor ação
+        AGRESSIVA menos o da passiva (check/fold) — a mesma leitura do
+        gráfico de EV pré-flop. O CFR já calculava isso por combo; aqui é
+        agregado nas 169 mãos (média ponderada pelos combos vivos)."""
+        idx = 0 if player == "oop" else 1
+        combos = self.oop_combos if idx == 0 else self.ip_combos
+        self._capture_key = "|" if idx == 0 else "|x"
+        self._capture_key_final = self._capture_key
+        self._eval_mode = True
+        r0, r1 = np.ones(self._n[0]), np.ones(self._n[1])
+        # várias passadas: no flop/turn a próxima carta é AMOSTRADA, então
+        # uma passada só reflete um runout. A média integra a chance.
+        n_passes = 1 if len(self.board0) == 5 else max(1, int(passes))
+        acc, acts = None, None
+        for _ in range(n_passes):
+            self._captured = None
+            self._cfr("|", 0, 0.0, (0.0, 0.0), (r0, r1), True)
+            if self._captured:
+                u_p, acts = self._captured
+                acc = u_p if acc is None else acc + u_p
+        self._eval_mode = False
+        self._capture_key = None
+        if acc is None or acts is None:
+            return None
+        u = acc / n_passes
+
+        # No EQUILÍBRIO, as ações do suporte valem o MESMO (é a definição) —
+        # então "EV(aposta) − EV(check)" fica ~0 e não informa nada. O que
+        # importa pós-flop é: (a) QUANTO a mão vale neste spot e (b) com que
+        # frequência ela agride. É o que os solvers mostram na range view.
+        norm = (self.M if idx == 0 else self.M.T) @ np.ones(self._n[1 - idx])
+        norm = np.maximum(norm, 1e-9)
+        node = self.nodes.get(self._capture_key_final)
+        strat = node.avg_strategy() if node is not None else None
+        if strat is None:
+            return None
+        ev_combo = (strat * u).sum(axis=1) / norm
+        agressivas = [i for i, a in enumerate(acts)
+                      if a in ("bet", "jam", "call")]
+        freq_combo = strat[:, agressivas].sum(axis=1) if agressivas else \
+            np.zeros(len(combos))
+
+        from app.analysis.pushfold import canonical_hand
+
+        soma: dict[str, float] = {}
+        somaf: dict[str, float] = {}
+        cont: dict[str, int] = {}
+        for i, combo in enumerate(combos):
+            h = canonical_hand([combo[0], combo[1]])
+            soma[h] = soma.get(h, 0.0) + float(ev_combo[i])
+            somaf[h] = somaf.get(h, 0.0) + float(freq_combo[i])
+            cont[h] = cont.get(h, 0) + 1
+        ev = {h: round(soma[h] / cont[h], 3) for h in soma}
+        freq = {h: round(min(1.0, somaf[h] / cont[h]), 3) for h in somaf}
+        medio = round(sum(ev.values()) / max(len(ev), 1), 3)
+        return {"ev": ev, "freq": freq, "ev_medio": medio, "acoes": acts,
+                "combos": len(combos), "player": player,
+                "pot": self.pot, "board": list(self.board0)}
+
     def summary(self, player: str = "oop", top: int = 4) -> dict:
         """Estratégia média na raiz do jogador: frequência de cada ação no range
         + exemplos de mãos que mais tomam cada ação."""

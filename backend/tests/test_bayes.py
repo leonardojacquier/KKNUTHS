@@ -1481,6 +1481,54 @@ def test_range_deep_nao_vale_para_stack_curto():
     assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
 
 
+def test_range_view_posflop():
+    # o CFR+ já calculava valor por combo; faltava expor como matriz 13×13.
+    # No equilíbrio as ações do suporte valem o MESMO, então o gráfico útil
+    # é o VALOR da mão e a frequência de agressão (range view de solver).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+    from app.analysis.river_solver import RiverSolver
+
+    # river seco de gabarito: AA (nuts) vs QQ (bluff-catcher)
+    s = RiverSolver(["Kh", "8d", "5c", "2s", "7h"], "AA, 33", "QQ",
+                    100.0, 100.0).solve(400)
+    hv = s.hand_values("oop")
+    assert hv and hv["combos"] > 0
+    assert hv["ev"]["AA"] > hv["ev"]["33"]          # nuts vale mais que ar
+    assert hv["ev"]["AA"] > hv["ev_medio"]          # e acima da média
+    assert hv["freq"]["AA"] > 0.8                   # nuts aposta quase sempre
+    # valor em ESCALA de fichas (o EV contrafactual cru dava centenas)
+    assert abs(hv["ev"]["AA"]) < 4 * s.pot
+
+    # estabilidade: o modo avaliação usa a estratégia MÉDIA, não a corrente
+    s2 = RiverSolver(["Kh", "8d", "5c", "2s", "7h"], "AA, 33", "QQ",
+                     100.0, 100.0).solve(900)
+    assert abs(s2.hand_values("oop")["ev"]["AA"] - hv["ev"]["AA"]) < 8
+
+    # flop com range REALISTA: era o caso que estourava (carta duplicada no
+    # nó de chance chegava no treys)
+    f = RiverSolver(["Ah", "7d", "2c"], "22+, A2s+, KQs, AJo+",
+                    "22+, A2s+, KJs+, AQo+", 6.0, 20.0).solve(600)
+    fv = f.hand_values("oop")
+    assert fv and fv["combos"] > 50
+    # poker: set e top par valem mais que par abaixo do ás
+    assert fv["ev"]["77"] > fv["ev"]["KK"]
+    assert fv["ev"]["AA"] > fv["ev"]["JJ"]
+
+    # tool + gráfico
+    a = {"board": ["Ah", "7d", "2c"], "oop_range": "22+, A2s+, KQs, AJo+",
+         "ip_range": "22+, A2s+, KJs+, AQo+", "pot": 6, "stack": 20,
+         "grafico": "ev"}
+    d = _dispatch("range_view_posflop", a)
+    assert d["street"] == "flop" and d["melhores"] and d["piores"]
+    spec = charts_from_tool_call("range_view_posflop", a, d)
+    assert spec[0] == "posflop"
+    from app.analysis.range_chart import render_spec
+    png, leg = render_spec(spec)
+    assert png and len(png) > 5000 and "VALE" in leg
+    # board inválido não passa
+    assert "error" in _dispatch("range_view_posflop", {**a, "board": ["Ah"]})
+
+
 def test_motor_allin_cobre_todos_os_spots():
     # motor único de all-in pré-flop: os 6 nós que aparecem numa mesa de 9.
     # Validado contra os DOIS solvers que já existiam (é a garantia de que a

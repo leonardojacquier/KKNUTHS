@@ -490,6 +490,28 @@ TOOLS = [
         },
     },
     {
+        "name": "range_view_posflop",
+        "description": "RANGE VIEW PÓS-FLOP (gráfico): quanto cada mão do range VALE "
+        "naquele flop/turn/river em fichas (grafico='ev'), ou com que frequência ela "
+        "APOSTA no equilíbrio (grafico='freq'). Sai do mesmo CFR+ do solve_river. USE "
+        "quando o aluno pedir a tabela/gráfico de um spot pós-flop, ou quando quiser "
+        "mostrar visualmente quais mãos do range dele são as boas naquele board. "
+        "Ranges estreitos (<420 combos no flop/turn).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "board": {"type": "array", "items": {"type": "string"}},
+                "oop_range": {"type": "string"},
+                "ip_range": {"type": "string"},
+                "pot": {"type": "number"},
+                "stack": {"type": "number"},
+                "player": {"type": "string", "enum": ["oop", "ip"]},
+                "grafico": {"type": "string", "enum": ["ev", "freq"]},
+            },
+            "required": ["board", "oop_range", "ip_range", "pot", "stack"],
+        },
+    },
+    {
         "name": "ev_allin",
         "description": "MOTOR DE EV DE ALL-IN PRÉ-FLOP: resolve o equilíbrio e devolve o "
         "EV por mão (em bb, contra foldar) de QUALQUER all-in de stack curto (<=~25bb) — "
@@ -695,7 +717,10 @@ _SYSTEM = {
         "decide ('esse AJo re-shovado rende +3.4bb contra foldar'). "
         "push_fold segue valendo pro veredito rápido de open-shove.\n"
         "C6 PÓS-FLOP RELEVANTE: solve_river — CFR+ da street; river exato, "
-        "flop/turn com equity realizada (cite a premissa da nota). Para "
+        "flop/turn com equity realizada (cite a premissa da nota). Se o aluno "
+        "pedir a TABELA/gráfico de um spot pós-flop, ou pra ver quais mãos do "
+        "range são as boas naquele board, use range_view_posflop (valor de cada "
+        "mão em fichas ou frequência de agressão — sai do mesmo solver). Para "
         "exploits, population_tendencies.\n"
         "C7 PKO/BOUNTY: se o contexto traz pko=true ou bounties, o torneio é "
         "hunter — TODO call de all-in que pode eliminar um vilão usa pko_call "
@@ -942,6 +967,32 @@ def _dispatch(name: str, args: dict):
             return {"error": "sem conversa ativa para corrigir"}
         return redefine_hero(tg, str(args.get("nome") or ""),
                              args.get("cards") or None)
+    if name == "range_view_posflop":
+        from app.analysis.river_solver import RiverSolver
+
+        board = [_norm_card(c) or c for c in (args.get("board") or [])]
+        if len(board) not in (3, 4, 5):
+            return {"error": "board precisa ter 3, 4 ou 5 cartas"}
+        try:
+            solver = RiverSolver(board, str(args["oop_range"]),
+                                 str(args["ip_range"]), float(args["pot"]),
+                                 float(args["stack"])).solve()
+            hv = solver.hand_values(str(args.get("player") or "oop"))
+        except Exception as exc:
+            return {"error": str(exc)[:120]}
+        if not hv:
+            return {"error": "não consegui extrair os valores desse spot"}
+        melhores = sorted(hv["ev"].items(), key=lambda kv: -kv[1])[:10]
+        piores = sorted(hv["ev"].items(), key=lambda kv: kv[1])[:6]
+        return {"street": {3: "flop", 4: "turn", 5: "river"}[len(board)],
+                "board": board, "player": hv["player"], "pot": hv["pot"],
+                "ev_medio": hv["ev_medio"], "combos": hv["combos"],
+                "melhores": dict(melhores), "piores": dict(piores),
+                "agride_mais": dict(sorted(hv["freq"].items(),
+                                           key=lambda kv: -kv[1])[:8]),
+                "nota": ("valor em fichas por mão no equilíbrio; no equilíbrio "
+                         "as ações do suporte valem o mesmo, então o que "
+                         "informa é o VALOR da mão e a frequência")}
     if name == "ev_allin":
         from app.analysis.allin_engine import solve_spot
 
@@ -1227,6 +1278,12 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                     return ("range", f"top {round(pct * 100)}%",
                             f"Shove {pos} ~{stk:g}bb (aprox. Nash)")
             return None
+        if (name == "range_view_posflop" and isinstance(result, dict)
+                and result.get("board")):
+            return ("posflop", tuple(result["board"]), args["oop_range"],
+                    args["ip_range"], float(result["pot"]),
+                    float(args["stack"]), result.get("player") or "oop",
+                    "ev" if (args.get("grafico") or "ev") == "ev" else None)
         if name == "ev_allin" and isinstance(result, dict) and result.get("spot"):
             return ("spot", result["spot"], result["hero_pos"],
                     float(result["stack"]), "freq", result.get("vilao_pos"),

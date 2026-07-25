@@ -149,7 +149,7 @@ def _ev_color(ev: float, fold_ev: float, scale: float) -> tuple[int, int, int]:
 
 def render_ev_range_png(
     evs: dict[str, float], fold_ev: float, title: str, subtitle: str,
-    premises: str = "",
+    premises: str = "", legend: str = "",
 ) -> bytes:
     """Grade 13×13 colorida pelo EV da ação vs fold, com o valor em BB na célula.
 
@@ -194,8 +194,9 @@ def render_ev_range_png(
                    fill=text_col, font=f_ev)
 
     d.text((MARGIN, top + size - MARGIN + 6),
-           "célula = EV da ação MENOS o EV do fold, em BB (verde: agir; "
-           "vermelho: foldar; cinza: tanto faz)", fill=MUTED, font=f_sub)
+           legend or ("célula = EV da ação MENOS o EV do fold, em BB "
+                      "(verde: agir; vermelho: foldar; cinza: tanto faz)"),
+           fill=MUTED, font=f_sub)
     if premises:
         d.text((MARGIN, top + size - MARGIN + 24), premises,
                fill=MUTED, font=_font(11, bold=False))
@@ -228,6 +229,10 @@ def render_spec(spec: tuple) -> tuple[bytes, str] | None:
             return chart_for_query(
                 role, str(stack), mode if mode in ("ev", "icm") else None, bf
             )
+        if spec[0] == "posflop":      # solver pós-flop: valor/frequência
+            _, board, oop, ip, pot, stack, player, mode = spec
+            return chart_postflop(list(board), oop, ip, float(pot),
+                                  float(stack), player, mode)
         if spec[0] == "spot":         # motor unificado de all-in pré-flop
             _, kind, hero, stack, mode, vil, ob, pg = spec
             return chart_allin_spot(kind, hero, float(stack), mode, vil,
@@ -411,3 +416,49 @@ def chart_allin_spot(kind: str, hero: str, stack: float,
     return png, (
         f"\u2660 Range de {nome} do {hero}{vs} com {stack:g}bb — equilíbrio "
         f"resolvido ({sol['acao_pct']:g}% das mãos).")
+
+
+def chart_postflop(board: list[str], oop_range: str, ip_range: str,
+                   pot: float, stack: float, player: str = "oop",
+                   mode: str | None = None) -> tuple[bytes, str] | None:
+    """Range view PÓS-FLOP: quanto cada mão VALE no spot (mode='ev') ou com
+    que frequência ela agride (mode=None). Sai do mesmo CFR+ do solve_river.
+
+    No equilíbrio as ações do suporte valem o mesmo, então mostrar
+    'EV(aposta) − EV(check)' daria ~0 em tudo — o que informa é o VALOR da
+    mão e a frequência, igual à range view dos solvers."""
+    from app.analysis.river_solver import RiverSolver
+
+    try:
+        solver = RiverSolver(board, oop_range, ip_range, pot, stack).solve()
+        hv = solver.hand_values(player)
+    except Exception:
+        return None
+    if not hv:
+        return None
+
+    quem = "você" if player == "oop" else "o vilão"
+    cartas = " ".join(c[0].replace("T", "10") + c[1] for c in board)
+    street = {3: "FLOP", 4: "TURN", 5: "RIVER"}.get(len(board), "spot")
+    prem = (f"premissas: CFR+ range vs range · pote {pot:g} · stack {stack:g} · "
+            f"sizings 50%/100%/all-in, uma raise por street"
+            + ("" if len(board) == 5 else " · próxima carta amostrada"))
+    if mode == "ev":
+        png = render_ev_range_png(
+            hv["ev"], hv["ev_medio"],
+            f"Valor de cada mão — {street} {cartas}",
+            f"em fichas · média do range {hv['ev_medio']:+.1f} · {quem} age",
+            premises=prem,
+            legend=("célula = valor da mão MENOS a média do range, em fichas "
+                    "(verde: acima da média; vermelho: abaixo; cinza: fora "
+                    "do range)"))
+        return png, (
+            f"\u2660 Quanto cada mão do seu range VALE neste {street.lower()} "
+            f"({cartas}), em fichas. Verde = acima da média do range "
+            f"({hv['ev_medio']:+.1f}); vermelho = abaixo.")
+    png = render_range_png(
+        hv["freq"], f"Agressão — {street} {cartas}",
+        f"frequência de apostar/pagar no equilíbrio · pote {pot:g} · {quem} age")
+    return png, (
+        f"\u2660 Com que frequência cada mão APOSTA (ou paga) no equilíbrio "
+        f"deste {street.lower()} ({cartas}).")
