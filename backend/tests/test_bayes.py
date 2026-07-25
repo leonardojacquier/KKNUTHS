@@ -1443,8 +1443,17 @@ def test_range_deep_nao_vale_para_stack_curto():
     r = _dispatch("preflop_range", curto)
     assert r["vale_para_este_stack"] is False
     assert "push/fold" in r["aviso"] and "20bb" in r["aviso"]
-    # e o gráfico deep NÃO é enviado — contradiria o veredito de shove
-    assert charts_from_tool_call("preflop_range", curto, r) is None
+    # SUBSTITUI pelo gráfico certo (shove) — sumir com a imagem foi regressão
+    # real ("não tá mandando o gráfico dos ranges")
+    spec_curto = charts_from_tool_call("preflop_range", curto, r)
+    assert spec_curto is not None, "stack curto ficou SEM gráfico"
+    assert spec_curto[0] == "range" and spec_curto[1].startswith("top ")
+    assert "Shove" in spec_curto[2] and "20bb" in spec_curto[2]
+    # e o gráfico renderiza de verdade, com o título cabendo na borda
+    from app.analysis.range_chart import render_spec
+    png, _leg = render_spec(spec_curto)
+    assert png and len(png) > 5000
+    assert len(spec_curto[2]) <= 42, "título estoura a borda do gráfico"
 
     fundo = {"position": "MP", "action": "open", "stack_bb": 60}
     r2 = _dispatch("preflop_range", fundo)

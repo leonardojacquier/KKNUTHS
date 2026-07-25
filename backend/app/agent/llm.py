@@ -1160,7 +1160,22 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
             # '3bet vs_CO' é o range de 3-bet CONTRA o open de CO — o título
             # ambíguo ('Range de 3bet — CO') lia-se como range DO CO
             if result.get("vale_para_este_stack") is False:
-                return None      # stack curto: o gráfico certo é o de shove
+                # stack curto: a tabela deep não vale. SUBSTITUI pelo gráfico
+                # certo (shove) em vez de sumir com o gráfico — retornar None
+                # deixava o aluno sem imagem nenhuma (regressão flagrada).
+                from app.analysis.pushfold import shove_threshold
+
+                try:
+                    stk = float(args.get("stack_bb"))
+                except (TypeError, ValueError):
+                    stk = None
+                pct = shove_threshold(pos, stk) if stk else None
+                if pct:
+                    # título CURTO: o render corta na borda (medido)
+                    return ("range", f"top {round(pct * 100)}%",
+                            f"Shove {pos} ~{stk:g}bb — sua referência")
+                return ("range", result["range"],
+                        f"Open {pos} (25bb+) — só comparação")
             title = (f"Range de 3-bet contra open de {pos} — referência 25bb+"
                      if act == "3bet"
                      else f"Range de open — {pos} · referência 25bb+ (deep)")
