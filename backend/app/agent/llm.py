@@ -112,12 +112,16 @@ TOOLS = [
         "description": "Range de referência pré-flop DEEP (~25bb+): action='open' "
         "(posições UTG/UTG+1/MP/HJ/CO/BTN/SB) ou action='3bet' (vs EP/MP/CO/BTN = 3-bet "
         "CONTRA o open dessa posição). Use como villain_range no equity_vs_range. "
-        "Com stack <=20bb a referência é push_fold, NÃO esta tabela.",
+        "PASSE stack_bb (do herói ou de quem abriu): com <=20bb esta tabela NÃO "
+        "vale — a referência vira push_fold e a ferramenta te avisa.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "position": {"type": "string"},
                 "action": {"type": "string", "enum": ["open", "3bet"]},
+                "stack_bb": {"type": "number",
+                             "description": "stack em bb de quem age (define se a "
+                             "tabela deep vale ou se o spot é push/fold)"},
             },
             "required": ["position"],
         },
@@ -625,7 +629,12 @@ _SYSTEM = {
 
         "\n== C) CONTAS: qual ferramenta pra quê ==\n"
         "C1 RANGES: use preflop_range + equity_vs_range (não equity vs "
-        "aleatória) sempre que a ação der contexto do range do vilão. Em "
+        "aleatória) sempre que a ação der contexto do range do vilão. SEMPRE "
+        "passe stack_bb no preflop_range: aquela tabela é referência DEEP "
+        "(25bb+) e com stack curto NÃO vale — o spot vira push/fold (a "
+        "ferramenta avisa e o gráfico deep deixa de ser enviado). PROIBIDO "
+        "dizer 'o range de MP é...' pra quem tem 20bb sem avisar que a "
+        "referência é outra. Em "
         "c-bet/check de FLOP, range_advantage (quem é dono do board dita o "
         "plano — cite equity média e nut advantage). Em blefe ou call GRANDE "
         "no turn/river, blockers, verbalizando o efeito ('seu A♠ bloqueia o "
@@ -1059,7 +1068,24 @@ def _dispatch(name: str, args: dict):
         from app.analysis.ranges import preflop_range
 
         rng = preflop_range(args["position"], args.get("action", "open"))
-        return {"range": rng} if rng else {"error": "posição/ação sem chart"}
+        if not rng:
+            return {"error": "posição/ação sem chart"}
+        out = {"range": rng, "referencia": "deep (~25bb+)"}
+        stk = args.get("stack_bb")
+        try:
+            stk = float(stk) if stk is not None else None
+        except (TypeError, ValueError):
+            stk = None
+        if stk is not None and stk <= 20:
+            # o aluno perguntou: '(deep)' é o torneio ou meu stack?' — é a
+            # TABELA. Com 20bb ela não vale e mandar o gráfico deep engana.
+            out["vale_para_este_stack"] = False
+            out["aviso"] = (
+                f"com {stk:g}bb NÃO use esta tabela: o spot é push/fold — "
+                "chame push_fold e mande o gráfico de shove")
+        elif stk is not None:
+            out["vale_para_este_stack"] = True
+        return out
     if name == "icm":
         from app.analysis.icm import icm_equity
 
@@ -1133,8 +1159,11 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
             act = args.get("action", "open")
             # '3bet vs_CO' é o range de 3-bet CONTRA o open de CO — o título
             # ambíguo ('Range de 3bet — CO') lia-se como range DO CO
-            title = (f"Range de 3-bet contra open de {pos}" if act == "3bet"
-                     else f"Range de open — {pos} (deep)")
+            if result.get("vale_para_este_stack") is False:
+                return None      # stack curto: o gráfico certo é o de shove
+            title = (f"Range de 3-bet contra open de {pos} — referência 25bb+"
+                     if act == "3bet"
+                     else f"Range de open — {pos} · referência 25bb+ (deep)")
             return ("range", result["range"], title)
         if name == "push_fold" and isinstance(result, dict) and result.get("role"):
             return ("nash", result["role"], float(result.get("stack_resolvido") or

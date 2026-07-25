@@ -1433,6 +1433,40 @@ def test_filme_allin_multiway_mostra_evolucao_de_equity():
     assert film_bands(h2) and not any(
         b.get("equity_line") for b in film_bands(h2))
 
+def test_range_deep_nao_vale_para_stack_curto():
+    # aluno perguntou: "ele fala 'range do MP deep' — é o torneio ou o meu
+    # stack? com 20bb não estou deep". O '(deep)' descrevia a TABELA e nada
+    # impedia o gráfico deep de ir pra quem tinha 20bb (referência errada).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+
+    curto = {"position": "MP", "action": "open", "stack_bb": 20}
+    r = _dispatch("preflop_range", curto)
+    assert r["vale_para_este_stack"] is False
+    assert "push/fold" in r["aviso"] and "20bb" in r["aviso"]
+    # e o gráfico deep NÃO é enviado — contradiria o veredito de shove
+    assert charts_from_tool_call("preflop_range", curto, r) is None
+
+    fundo = {"position": "MP", "action": "open", "stack_bb": 60}
+    r2 = _dispatch("preflop_range", fundo)
+    assert r2["vale_para_este_stack"] is True
+    spec = charts_from_tool_call("preflop_range", fundo, r2)
+    assert spec and "referência 25bb+" in spec[2]      # título sem ambiguidade
+
+    # sem stack informado: manda, mas o título diz de que referência se trata
+    sem = {"position": "MP"}
+    r3 = _dispatch("preflop_range", sem)
+    assert r3["referencia"] == "deep (~25bb+)"
+    assert "referência 25bb+" in charts_from_tool_call("preflop_range", sem, r3)[2]
+    # 3-bet também deixa a referência explícita
+    tb = {"position": "CO", "action": "3bet"}
+    assert "referência 25bb+" in charts_from_tool_call(
+        "preflop_range", tb, _dispatch("preflop_range", tb))[2]
+
+    # e o prompt obriga a informar o stack
+    from app.agent.llm import _SYSTEM
+    assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
+
+
 def test_juiz_da_saida():
     # os canários checavam a MATEMÁTICA; quem descobria texto ruim era o
     # aluno. O juiz audita as respostas reais contra o contrato do prompt.
