@@ -203,7 +203,7 @@ def build_folder_html() -> str:
 
   <div class="ctabar">
     <div class="go">Fase de <em>testes fechados</em>
-      <small>Grátis durante o piloto — 100 análises por mês, sem instalar nada.</small></div>
+      <small>Grátis durante o piloto — 50 análises por mês, sem instalar nada.</small></div>
     <span class="invite">Acesso por convite<small>fale com quem te passou este folder</small></span>
   </div>
 

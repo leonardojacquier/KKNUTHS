@@ -80,7 +80,7 @@ def _build_html() -> str:
 <title>KKNuths — Coach de Poker com IA no Telegram | Análise de mãos que calcula, não acha</title>
 <meta name="description" content="Cole o link do replay (PPPoker) ou mande print, arquivo, texto ou áudio e receba análise profissional: equity vs range, ICM, equilíbrio Nash e solver em todas as streets. Grátis no Telegram.">
 <meta property="og:title" content="KKNuths — pare de achar. Calcule. ♠">
-<meta property="og:description" content="Seu coach de poker com IA no Telegram: números calculados, o filme da mão com showdown e gráficos de range. 100 análises grátis por mês.">
+<meta property="og:description" content="Seu coach de poker com IA no Telegram: números calculados, o filme da mão com showdown e gráficos de range. 50 análises grátis por mês.">
 <meta property="og:type" content="website">
 <style>{_CSS}</style>
 </head>
@@ -95,7 +95,7 @@ def _build_html() -> str:
     verdade: onde você ganhou, onde deixou dinheiro na mesa e o que treinar.</p>
     <a class="cta" href="{BOT_URL}">Começar grátis no Telegram →</a>
     <a class="cta ghost" href="#como">Como funciona</a>
-    <div class="sub">100 análises grátis por mês · sem cartão · leva 30 segundos</div>
+    <div class="sub">50 análises grátis por mês · sem cartão · leva 30 segundos</div>
   </div>
 </div>
 
@@ -193,7 +193,7 @@ def _build_html() -> str:
     <p>Suas mãos ficam na sua conta, usadas só para as suas análises e o seu perfil.
     Não compartilhamos seus dados individuais.</p></details>
     <details><summary>Quanto custa?</summary>
-    <p>O plano grátis dá 100 análises por mês — com simulador, quiz, gráficos e relatório
+    <p>O plano grátis dá 50 análises por mês — com simulador, quiz, gráficos e relatório
     semanal incluídos. Durante o beta, está tudo liberado.</p></details>
   </div>
 </section>

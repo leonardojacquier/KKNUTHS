@@ -18,7 +18,7 @@ DESC = (
     "Manda o print da mesa ou o arquivo do torneio e recebe a leitura de um "
     "coach profissional: relatório mão a mão, leaks em bb/100, KKN Tilt "
     "Detector e leitura de vilão em odds — matemática de solver, nada de "
-    "achismo.\n\nGrátis: 100 análises por mês. Manda uma mão e testa. 🃏"
+    "achismo.\n\nGrátis: 50 análises por mês. Manda uma mão e testa. 🃏"
 )
 SHORT = ("Coach de poker com IA — análise com matemática de solver, "
          "direto no Telegram. Pare de achar. Calcule. ♠")

@@ -16,7 +16,7 @@ tags: [kknuths, produto]
 | /range | gráficos 13×13: `btn` (open), `sb 10` (Nash), `sb 10 ev`, `sb 10 icm 1.5` |
 | /ask | busca semântica no histórico do próprio usuário |
 | /manual | manual do jogador em PDF |
-| /plano | plano e limites (free: 100 análises/mês) |
+| /plano | plano e limites (free: 50 análises/mês) |
 
 Extras de conversa: botão **🎈 Explica mais simples** em toda resposta do coach;
 quiz diário 19h; resumo semanal domingo 18h.

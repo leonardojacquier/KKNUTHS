@@ -66,7 +66,7 @@ Conectado, ativa com credenciais:
 - **Bot Telegram** (`/start`, `/stats`, `/ask`, `/plano`, `/assinar`, upload): "recebido → analisando".
 
 Recursos de lançamento:
-- **Cota gratuita** (`app/quota.py`): 15 análises/mês no free (env `FREE_MONTHLY_ANALYSES`),
+- **Cota gratuita** (`app/quota.py`): 50 análises/mês no free (env `FREE_MONTHLY_ANALYSES`),
   limite de upload 2 MB, máx. 5 mãos coacheadas por torneio. Funciona com banco
   (usage_events) ou em memória (dev). Planos pro/premium (coluna `users.plan`) = ilimitado.
 - **Bot não-bloqueante**: pipeline síncrono em `bot/processing.py` roda via

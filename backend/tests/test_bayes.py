@@ -3326,3 +3326,31 @@ def test_folder_do_piloto_nao_leva_link():
     assert "Discorde em voz alta" in html
     # a promessa de segurança continua na cara
     assert "sem RTA" in html and "pós-sessão" in html
+
+
+def test_cota_do_piloto_50_e_admin_nunca_bloqueado():
+    # a oferta do piloto passou pra 50 análises/mês. O canário guarda as duas
+    # coisas que quebram junto: o número que o aluno LÊ tem que bater com o
+    # que o código APLICA, e o dono não pode ser bloqueado pela própria cota
+    # (ele estava em 78 no mês quando o teto caiu pra 50 — seria barrado na
+    # véspera de chamar os testadores).
+    from app.api.folder_page import build_folder_html
+    from app.quota import (ADMIN_TELEGRAM_ID, FREE_MONTHLY_ANALYSES,
+                           check_quota)
+
+    assert FREE_MONTHLY_ANALYSES == 50
+    assert f"{FREE_MONTHLY_ANALYSES} análises por mês" in build_folder_html()
+    assert "100 análises" not in build_folder_html()
+
+    # dono: ilimitado mesmo com o mês estourado
+    class Repo:
+        enabled = True
+
+    q = check_quota(ADMIN_TELEGRAM_ID, {"plan": "free"}, Repo())
+    assert q.allowed and q.remaining == -1
+
+    # e a mensagem do /plano usa a constante, não um número escrito na mão
+    import inspect
+
+    from app.bot import handlers
+    assert "FREE_MONTHLY_ANALYSES" in inspect.getsource(handlers)

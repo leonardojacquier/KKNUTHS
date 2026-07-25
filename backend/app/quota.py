@@ -10,7 +10,12 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-FREE_MONTHLY_ANALYSES = int(os.getenv("FREE_MONTHLY_ANALYSES", "100"))
+FREE_MONTHLY_ANALYSES = int(os.getenv("FREE_MONTHLY_ANALYSES", "50"))
+
+# O dono opera a ferramenta: reprocessa mão, testa release, roda diagnóstico.
+# Quando a cota do free caiu de 100 para 50 ele já estava em 78 no mês e teria
+# sido BLOQUEADO pelo próprio preço, na véspera de chamar os testadores.
+ADMIN_TELEGRAM_ID = int(os.getenv("ADMIN_TELEGRAM_ID", "6452742024"))
 MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "2"))
 MAX_COACHED_HANDS = int(os.getenv("MAX_COACHED_HANDS", "5"))
 
@@ -40,7 +45,7 @@ def check_quota(telegram_id: int, user: dict | None, repo=None) -> QuotaResult:
     de liberar — banco instável não pode virar análise de LLM ilimitada e grátis.
     """
     plan = (user or {}).get("plan", "free")
-    if plan in _UNLIMITED_PLANS:
+    if plan in _UNLIMITED_PLANS or telegram_id == ADMIN_TELEGRAM_ID:
         return QuotaResult(True, -1, plan)
 
     # banco ligado mas usuário não veio (falha transitória do get_or_create):
