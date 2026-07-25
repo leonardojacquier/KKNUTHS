@@ -3472,3 +3472,103 @@ def test_potes_paralelos_o_curto_nao_leva_o_bolo():
     from app.agent.llm import _SYSTEM, TOOLS
     assert any(t["name"] == "potes_paralelos" for t in TOOLS)
     assert "C11b" in _SYSTEM["pt"] and "não pode ganhar o bolo inteiro" in _SYSTEM["pt"]
+
+
+def _mao_multiway_sem_allin(cartas):
+    """3 veem o flop, um folda no turn, showdown a 2 — nenhum all-in."""
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Hero", type=ActionType.POST, amount=0.5, post_type="sb"),
+        Action(actor="Vilao1", type=ActionType.POST, amount=1, post_type="bb"),
+        Action(actor="Vilao2", type=ActionType.RAISE, amount=3, to_amount=3),
+        Action(actor="Hero", type=ActionType.CALL, amount=2.5, to_amount=3),
+        Action(actor="Vilao1", type=ActionType.CALL, amount=2, to_amount=3)])
+    flop = Street(name=StreetName.FLOP, board=["Qs", "Th", "4d"], actions=[
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="Vilao1", type=ActionType.CHECK),
+        Action(actor="Vilao2", type=ActionType.BET, amount=5),
+        Action(actor="Hero", type=ActionType.CALL, amount=5),
+        Action(actor="Vilao1", type=ActionType.CALL, amount=5)])
+    turn = Street(name=StreetName.TURN, board=["Qs", "Th", "4d", "8c"],
+                  actions=[
+        Action(actor="Hero", type=ActionType.BET, amount=12),
+        Action(actor="Vilao1", type=ActionType.FOLD),
+        Action(actor="Vilao2", type=ActionType.CALL, amount=12)])
+    river = Street(name=StreetName.RIVER,
+                   board=["Qs", "Th", "4d", "8c", "2s"], actions=[
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="Vilao2", type=ActionType.CHECK)])
+    return CanonicalHand(
+        site="x", hand_id="mw2", hero="Hero",
+        stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True,
+                            position="SB"),
+                 PlayerSeat(seat=2, name="Vilao1", stack=100, position="BB"),
+                 PlayerSeat(seat=3, name="Vilao2", stack=100, position="CO")],
+        hero_cards=cartas, shown_cards={"Vilao2": ["Ah", "Qc"]},
+        streets=[pre, flop, turn, river],
+        final_board=["Qs", "Th", "4d", "8c", "2s"], total_pot=60)
+
+
+def test_ev_street_a_street_multiway_sem_allin():
+    # pedido do aluno: "se a mão for até showdown SEM all-in, tem como
+    # calcular o EV de cada street sendo multiway? Isso é o que eu quero."
+    from app.analysis.ev_streets import _ev_aposta, ev_por_street
+
+    r = ev_por_street(_mao_multiway_sem_allin(["Qd", "Jd"]))
+    assert not r.get("error"), r
+    assert r["multiway"] is True
+
+    # o campo é o que estava VIVO na hora: no flop eram 2 adversários, mesmo
+    # que só um tenha chegado ao showdown (era aqui que a equity inflava)
+    # (a mesma street tem mais de uma decisão: check e depois call)
+    nos = {(d["street"], d["acao"]): d for d in r["decisoes"]}
+    assert nos[("flop", "check")]["adversarios"] == 2
+    assert nos[("river", "check")]["adversarios"] == 1
+    # e ele diz de quem é cada leitura: carta vista x range suposto
+    assert any("mostrou:" in q for q in nos[("river", "check")]["quem"])
+    assert any("range:" in q for q in nos[("flop", "check")]["quem"])
+
+    # toda decisão tem EV, não só os calls (aposta e check também)
+    tipos = {d["acao"] for d in r["decisoes"]}
+    assert {"call", "check", "bet"} <= tipos
+    for d in r["decisoes"]:
+        assert "ev_bb" in d and "opcoes_bb" in d and "custo_do_erro_bb" in d
+
+    # BASE COMUM: dar check NÃO vale 0 (você segue podendo ganhar no
+    # showdown) — comparar check=0 com aposta=+4bb foi o primeiro erro
+    assert nos[("flop", "check")]["opcoes_bb"]["check"] > 0
+
+    # o modelo não pode dizer "aposte sempre": com mão fraca contra um vilão
+    # que a gente VIU continuar, apostar tem que ser pior que dar check
+    fraca = ev_por_street(_mao_multiway_sem_allin(["7h", "6c"]))
+    for d in fraca["decisoes"]:
+        if d["acao"] in ("check", "bet") and d.get("opcoes_bb"):
+            aposta = [v for k, v in d["opcoes_bb"].items()
+                      if k.startswith("apostar")]
+            if aposta:
+                assert d["opcoes_bb"]["check"] > aposta[0], (
+                    f"{d['street']}: apostar com ar apareceu melhor que check")
+
+    # ...e com set tem que ser o contrário
+    forte = ev_por_street(_mao_multiway_sem_allin(["4h", "4s"]))
+    turn = next(d for d in forte["decisoes"] if d["street"] == "turn")
+    aposta = [v for k, v in turn["opcoes_bb"].items() if k.startswith("apostar")]
+    assert aposta and aposta[0] > turn["opcoes_bb"]["check"]
+
+    # teste do modelo: blefe puro (0% quando pagam) rende exatamente 0
+    def puro(aposta, pote):
+        return (aposta / (pote + aposta), 0.0)
+    assert abs(_ev_aposta(0.0, 24, 12, puro)) < 1e-9
+
+    # o custo soma; o EV de streets diferentes NÃO (contaria o mesmo pote)
+    assert "custo_total_bb" in r and "ev_total_bb" not in r
+    assert any("EV imediato" in p for p in r["premissas"])
+    assert any("VIVO" in p for p in r["premissas"])
+    assert any("REFERÊNCIA" in p for p in r["premissas"])
+
+    # e a porta existe no coach, com a regra de usá-la
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "ev_por_street" for t in TOOLS)
+    assert "C11c" in _SYSTEM["pt"]

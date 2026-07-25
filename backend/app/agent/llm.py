@@ -490,6 +490,23 @@ TOOLS = [
         },
     },
     {
+        "name": "ev_por_street",
+        "description": "EV DE CADA DECISÃO SUA, STREET A STREET, EM POTE MULTIWAY "
+        "E SEM ALL-IN. Para cada jogada (check/aposta/call/fold) devolve: quantos "
+        "adversários estavam VIVOS naquele momento, a sua equity contra esse campo, "
+        "o EV da jogada feita, o EV das alternativas na MESMA base e quanto custou "
+        "a diferença. USE quando o aluno perguntar se jogou certo numa mão que foi "
+        "a showdown sem all-in, ou pedir o EV street a street. Sem argumento: sai "
+        "da própria mão. Cite o custo total da linha e as premissas que voltarem.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "nome": {"type": "string", "description": "jogador a analisar; "
+                         "vazio = o aluno"},
+            },
+        },
+    },
+    {
         "name": "potes_paralelos",
         "description": "POTE PRINCIPAL E POTES PARALELOS da mão em conversa: com "
         "stacks diferentes num all-in a 3+, o pote NÃO é um bolo só — quem está "
@@ -783,6 +800,12 @@ _SYSTEM = {
         "automático (o aluno não precisa pedir). Quando push_fold devolver "
         "ev_bb, CITE o número ('empurrar esse AQo rende +1.9bb contra "
         "foldar') — é a conta que decide o spot.\n"
+        "C11c EV STREET A STREET MULTIWAY: mão que foi a showdown SEM all-in "
+        "e o aluno quer saber se jogou certo → ev_por_street. Ela dá o EV de "
+        "cada decisão contra o campo VIVO naquele momento (não contra quem "
+        "sobrou no showdown) e o custo de cada jogada contra a melhor opção. "
+        "Cite o custo TOTAL da linha e diga que é EV imediato da street, não "
+        "da árvore inteira.\n"
         "C11b POTE PARALELO: all-in com 3+ jogadores e stacks diferentes → "
         "potes_paralelos, SEMPRE. O curto não pode ganhar o bolo inteiro, e "
         "citar o pote total como prêmio dele é conta errada. Diga quanto ele "
@@ -1018,6 +1041,15 @@ def _dispatch(name: str, args: dict):
             return {"error": "sem conversa ativa para corrigir"}
         return redefine_hero(tg, str(args.get("nome") or ""),
                              args.get("cards") or None)
+    if name == "ev_por_street":
+        from app.analysis.ev_streets import ev_por_street
+        from app.bot.processing import conversation_hand
+
+        tg = _TOOL_CHAT.get()
+        h = conversation_hand(tg) if tg else None
+        if h is None:
+            return {"error": "não achei a mão desta conversa"}
+        return ev_por_street(h, str(args.get("nome") or "") or None)
     if name == "potes_paralelos":
         from app.analysis.side_pots import ev_por_pote
         from app.bot.processing import conversation_hand

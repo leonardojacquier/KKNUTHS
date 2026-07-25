@@ -138,3 +138,145 @@ def equity_table(hands: list[str], ranges: list[np.ndarray],
             validos[i] += 1
 
     return np.where(validos > 0, soma / np.maximum(validos, 1), 0.0)
+
+
+def equity_vs_campo(hero_cards: list[str],
+                    conhecidas: list[list[str]],
+                    ranges: list,
+                    board: list[str] | None = None,
+                    iters: int = 6000, seed: int = 13) -> float | None:
+    """Equity de UMA mão contra um campo MISTO: alguns vilões com cartas
+    conhecidas (showdown) e outros só com range.
+
+    É o caso da mão normal que vai a showdown sem all-in: no flop havia três
+    jogadores, mas um foldou no turn e nunca mostrou. Calcular a equity só
+    contra quem mostrou trata o pote de 3 como heads-up — e infla a equity
+    do herói exatamente como o erro do overcall.
+    """
+    from treys import Card, Evaluator
+
+    from app.analysis.ranges import expand_combos, parse_range
+
+    hero_cards = [c for c in (hero_cards or []) if c]
+    if len(hero_cards) != 2:
+        return None
+    board = list(board or [])
+    mortas0 = set(hero_cards) | set(board)
+    for cs in conhecidas:
+        mortas0.update(cs)
+
+    if not ranges:
+        # campo todo conhecido: enumeração EXATA é barata pós-flop e não tem
+        # ruído nenhum — simular seria trocar resposta certa por aproximada
+        from app.analysis.equity import equity_vs_hands
+
+        return equity_vs_hands(hero_cards, list(conhecidas), board)
+
+    combos_range = []
+    for r in ranges:
+        # aceita notação ("TT+, AQs") OU lista de combos concretos — é o que
+        # range_que_continua devolve, e passar combo como notação levantava
+        # ValueError que morria num except mudo lá em cima
+        if isinstance(r, str):
+            combos = expand_combos(parse_range(r), mortas0)
+        else:
+            combos = [tuple(c) for c in r
+                      if c[0] not in mortas0 and c[1] not in mortas0]
+        if not combos:
+            return None
+        combos_range.append(combos)
+
+    ev = Evaluator()
+    rng = random.Random(seed)
+    baralho = [r + s for r in _RANKS for s in "cdhs"]
+    CN = {c: Card.new(c) for c in baralho}
+    hero_c = [CN[c] for c in hero_cards]
+    faltam = 5 - len(board)
+
+    soma = 0.0
+    validos = 0
+    for _ in range(iters):
+        usadas = set(mortas0)
+        vilaos = [list(cs) for cs in conhecidas]
+        ok = True
+        for combos in combos_range:
+            for _t in range(30):
+                c = combos[rng.randrange(len(combos))]
+                if c[0] not in usadas and c[1] not in usadas:
+                    usadas.update(c)
+                    vilaos.append(list(c))
+                    break
+            else:
+                ok = False
+                break
+        if not ok:
+            continue
+        resto = [c for c in baralho if c not in usadas]
+        rng.shuffle(resto)
+        mesa = [CN[c] for c in board] + [CN[c] for c in resto[:faltam]]
+        nota_h = ev.evaluate(mesa, hero_c)
+        notas = [ev.evaluate(mesa, [CN[a], CN[b]]) for a, b in vilaos]
+        melhor = min(notas)
+        if nota_h < melhor:
+            soma += 1.0
+        elif nota_h == melhor:
+            soma += 1.0 / (1 + sum(1 for x in notas if x == melhor))
+        validos += 1
+    return soma / validos if validos else None
+
+
+def range_que_continua(notacao: str, board: list[str], mortas: set[str],
+                       fracao: float) -> list[tuple[str, str]] | None:
+    """A parte do range que SEGUE na mão contra uma aposta: as `fracao` mãos
+    mais fortes naquele board (ordenadas pela mão feita).
+
+    Sem isto, o EV de apostar usa a equity contra o range INTEIRO do vilão —
+    e como o modelo dá crédito de fold equity, apostar aparecia melhor que
+    dar check em toda mão com equity > 0 ("sempre aposte", conselho ruim).
+    Quem paga não é o range todo: é a parte que bate em você.
+
+    Aproximação declarada: ordena pela FORÇA ATUAL no board. Projeto (draw)
+    fica subestimado — quem paga com draw entra abaixo do corte.
+    """
+    from treys import Card, Evaluator
+
+    from app.analysis.ranges import expand_combos, parse_range
+
+    combos = expand_combos(parse_range(notacao), set(mortas))
+    if not combos or len(board) < 3:
+        return None
+    fracao = max(0.02, min(1.0, float(fracao)))
+    ev = Evaluator()
+    mesa = [Card.new(c) for c in board]
+    notas = sorted(combos,
+                   key=lambda c: ev.evaluate(mesa, [Card.new(c[0]),
+                                                    Card.new(c[1])]))
+    corte = max(1, int(round(len(notas) * fracao)))
+    return notas[:corte]
+
+
+def continua_com(cartas: list[str], notacao: str, board: list[str],
+                 mortas: set[str], fracao: float) -> bool | None:
+    """Uma mão CONHECIDA segue na mão contra a aposta? Compara a força dela
+    no board com o corte de defesa do range de referência.
+
+    Existe porque dar crédito de fold equity contra um vilão cujas cartas a
+    gente VIU é inventar dinheiro: quem tem par de ases no board não folda,
+    e o modelo estava embolsando o pote como se foldasse.
+    """
+    from treys import Card, Evaluator
+
+    from app.analysis.ranges import expand_combos, parse_range
+
+    if len(cartas) != 2 or len(board) < 3:
+        return None
+    combos = expand_combos(parse_range(notacao), set(mortas))
+    if not combos:
+        return None
+    ev = Evaluator()
+    mesa = [Card.new(c) for c in board]
+    notas = sorted(ev.evaluate(mesa, [Card.new(a), Card.new(b)])
+                   for a, b in combos)
+    corte = notas[max(0, min(len(notas) - 1,
+                             int(round(len(notas) * max(0.02, fracao))) - 1))]
+    return ev.evaluate(mesa, [Card.new(cartas[0]), Card.new(cartas[1])]) <= corte
