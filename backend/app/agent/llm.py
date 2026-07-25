@@ -490,6 +490,37 @@ TOOLS = [
         },
     },
     {
+        "name": "ev_allin",
+        "description": "MOTOR DE EV DE ALL-IN PRÉ-FLOP: resolve o equilíbrio e devolve o "
+        "EV por mão (em bb, contra foldar) de QUALQUER all-in de stack curto (<=~25bb) — "
+        "e anexa o gráfico. Spots: open_shove (primeiro a agir), reshove (sobre um open), "
+        "squeeze (sobre open + call), call_shove (pagar um all-in), overcall (pagar um "
+        "all-in que já foi pago). USE sempre que a decisão do aluno for all-in ou fold "
+        "num desses spots — é a conta que decide, e cite o ev da mão dele. "
+        "bf>1 aplica pressão de ICM.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "spot": {"type": "string",
+                         "enum": ["open_shove", "reshove", "squeeze",
+                                  "call_shove", "overcall"]},
+                "hero_pos": {"type": "string",
+                             "description": "posição do aluno (UTG..BB)"},
+                "stack_bb": {"type": "number"},
+                "vilao_pos": {"type": "string",
+                              "description": "quem abriu (reshove/squeeze) ou quem "
+                              "empurrou (call_shove/overcall)"},
+                "open_bb": {"type": "number", "description": "tamanho do open em bb"},
+                "pagaram": {"type": "integer",
+                            "description": "quantos já pagaram na frente"},
+                "bf": {"type": "number", "description": "bubble factor (ICM); 1 = chip-EV"},
+                "cards": {"type": "array", "items": {"type": "string"},
+                          "description": "a mão do aluno, pra destacar o EV dela"},
+            },
+            "required": ["spot", "hero_pos", "stack_bb"],
+        },
+    },
+    {
         "name": "push_fold",
         "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
         "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
@@ -654,8 +685,15 @@ _SYSTEM = {
         "hora.\n"
         "C4 MDF: contra barrel ou sizing grande, cite o piso de defesa (tool "
         "mdf) — 'contra pote você só pode largar metade do range'.\n"
-        "C5 STACK CURTO: push_fold (para SB/BB retorna EQUILÍBRIO CALCULADO — "
-        "diga isso ao aluno).\n"
+        "C5 STACK CURTO (all-in ou fold): chame ev_allin — o motor resolve o "
+        "EQUILÍBRIO do spot e devolve o EV da mão do aluno em bb, com o "
+        "gráfico anexado. Escolha o spot certo: open_shove (primeiro a agir), "
+        "reshove (sobre um open — passe vilao_pos e open_bb), squeeze (sobre "
+        "open + call — passe pagaram), call_shove (pagar um all-in), overcall "
+        "(pagar all-in já pago). Passe cards pra ele destacar a mão, e bf>1 "
+        "quando houver pressão de ICM. CITE o ev_da_mao_bb — é a conta que "
+        "decide ('esse AJo re-shovado rende +3.4bb contra foldar'). "
+        "push_fold segue valendo pro veredito rápido de open-shove.\n"
         "C6 PÓS-FLOP RELEVANTE: solve_river — CFR+ da street; river exato, "
         "flop/turn com equity realizada (cite a premissa da nota). Para "
         "exploits, population_tendencies.\n"
@@ -904,6 +942,36 @@ def _dispatch(name: str, args: dict):
             return {"error": "sem conversa ativa para corrigir"}
         return redefine_hero(tg, str(args.get("nome") or ""),
                              args.get("cards") or None)
+    if name == "ev_allin":
+        from app.analysis.allin_engine import solve_spot
+
+        sol = solve_spot(
+            str(args.get("spot") or "open_shove"),
+            str(args.get("hero_pos") or "MP"),
+            round(float(args.get("stack_bb") or 10), 1),
+            0.125, float(args.get("bf") or 1.0),
+            (str(args["vilao_pos"]).upper() if args.get("vilao_pos") else None),
+            float(args.get("open_bb") or 2.2),
+            int(args.get("pagaram") or 0))
+        if not sol:
+            return {"error": "não consegui resolver esse spot"}
+        out = {k: sol[k] for k in
+               ("spot", "hero_pos", "vilao_pos", "stack", "acao_pct",
+                "atras", "dead", "fold_ev", "premissas")}
+        cartas = _norm_cards(args.get("cards"))
+        if len(cartas) == 2:
+            from app.analysis.pushfold import canonical_hand
+
+            mao = canonical_hand(cartas)
+            out["mao"] = mao
+            out["ev_da_mao_bb"] = sol["ev"].get(mao)
+            out["frequencia_da_mao"] = sol["acao"].get(mao)
+            out["decisao"] = ("all-in" if sol["acao"].get(mao, 0) > 0.5
+                              else "fold")
+        # top do range pra o coach citar sem despejar 169 mãos
+        top = sorted(sol["ev"].items(), key=lambda kv: -kv[1])[:12]
+        out["melhores"] = {h: v for h, v in top}
+        return out
     if name == "leitura_de_mao":
         from app.analysis.equity import hand_on_board
 
@@ -1159,6 +1227,11 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                     return ("range", f"top {round(pct * 100)}%",
                             f"Shove {pos} ~{stk:g}bb (aprox. Nash)")
             return None
+        if name == "ev_allin" and isinstance(result, dict) and result.get("spot"):
+            return ("spot", result["spot"], result["hero_pos"],
+                    float(result["stack"]), "freq", result.get("vilao_pos"),
+                    float(args.get("open_bb") or 2.2),
+                    int(args.get("pagaram") or 0))
         if name == "equity_vs_range" and args.get("villain_range"):
             return ("range", args["villain_range"], "Range assumido do vilão")
         if name == "preflop_range" and isinstance(result, dict) and result.get("range"):

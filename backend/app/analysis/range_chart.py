@@ -228,6 +228,10 @@ def render_spec(spec: tuple) -> tuple[bytes, str] | None:
             return chart_for_query(
                 role, str(stack), mode if mode in ("ev", "icm") else None, bf
             )
+        if spec[0] == "spot":         # motor unificado de all-in pré-flop
+            _, kind, hero, stack, mode, vil, ob, pg = spec
+            return chart_allin_spot(kind, hero, float(stack), mode, vil,
+                                    float(ob), int(pg))
         if spec[0] == "nashpos":      # open-shove por posição (mesa de 9)
             _, pos, stack, mode = spec
             return chart_for_query(pos, str(stack),
@@ -369,3 +373,41 @@ def chart_for_query(
         return png, f"♠ Range de referência de open-raise em {kind} (~100bb)."
 
     return None
+
+
+_SPOT_NOME = {
+    "open_shove": "all-in de abertura", "reshove": "re-shove sobre o open",
+    "squeeze": "squeeze all-in", "call_shove": "call de all-in",
+    "overcall": "overcall de all-in",
+}
+
+
+def chart_allin_spot(kind: str, hero: str, stack: float,
+                     mode: str | None = None, vilao: str | None = None,
+                     open_bb: float = 2.2, pagaram: int = 0,
+                     bf: float = 1.0) -> tuple[bytes, str] | None:
+    """Gráfico (frequência ou EV) de QUALQUER all-in pré-flop, pelo motor."""
+    from app.analysis.allin_engine import solve_spot
+
+    sol = solve_spot(kind, hero, round(float(stack), 1), ANTE_PADRAO, bf,
+                     vilao, float(open_bb), int(pagaram))
+    if not sol:
+        return None
+    nome = _SPOT_NOME.get(kind, kind)
+    vs = f" vs {sol['vilao_pos']}" if sol.get("vilao_pos") else ""
+    if mode == "ev":
+        png = render_ev_range_png(
+            sol["ev"], sol["fold_ev"],
+            f"EV — {nome} · {hero}{vs} · {stack:g}bb",
+            f"EV em BB vs foldar · pote morto {sol['dead']:g}bb",
+            premises=sol["premissas"])
+        return png, (
+            f"\u2660 EV de cada mão no {nome} do {hero}{vs} com {stack:g}bb. "
+            "Verde = a ação rende mais que foldar; vermelho = fold é melhor.")
+    png = render_range_png(
+        sol["acao"], f"{nome} — {hero}{vs} · {stack:g}bb",
+        f"Equilíbrio resolvido · pote morto {sol['dead']:g}bb · "
+        f"% = frequência mista")
+    return png, (
+        f"\u2660 Range de {nome} do {hero}{vs} com {stack:g}bb — equilíbrio "
+        f"resolvido ({sol['acao_pct']:g}% das mãos).")

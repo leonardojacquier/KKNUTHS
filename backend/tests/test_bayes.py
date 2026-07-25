@@ -1481,6 +1481,74 @@ def test_range_deep_nao_vale_para_stack_curto():
     assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
 
 
+def test_motor_allin_cobre_todos_os_spots():
+    # motor único de all-in pré-flop: os 6 nós que aparecem numa mesa de 9.
+    # Validado contra os DOIS solvers que já existiam (é a garantia de que a
+    # generalização não inventou matemática nova).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+    from app.analysis.allin_engine import available, solve_spot
+    from app.analysis.jam_fold_solver import solve_jam_fold
+    from app.analysis.open_shove_solver import solve_open_shove
+
+    if not available():
+        return
+
+    # OURO 1: o nó open_shove reproduz o solver especializado (exato)
+    for pos, stk in (("MP", 12.0), ("BTN", 10.0)):
+        m = solve_spot("open_shove", pos, stk)
+        o = solve_open_shove(pos, stk)
+        assert max(abs(m["ev"][h] - o["ev"][h]) for h in m["hands"]) < 0.01
+
+    # OURO 2: o nó call_shove do BB vs SB reproduz o jam/fold heads-up
+    for stk in (8.0, 12.0):
+        m = solve_spot("call_shove", "BB", stk, 0.0, 1.0, "SB")
+        r = solve_jam_fold(stk, 1.0, 0.0)
+        assert max(abs(m["ev"][h] - r["bb_ev"][h]) for h in m["hands"]) < 0.06
+
+    # os spots NOVOS existem e têm forma de poker
+    for spot, kw in (
+        ("reshove", dict(vilao_pos="CO")),
+        ("squeeze", dict(vilao_pos="MP", pagaram=1)),
+        ("call_shove", dict(vilao_pos="MP")),
+        ("overcall", dict(vilao_pos="CO", pagaram=1)),
+    ):
+        r = solve_spot(spot, "BTN", 12.0, 0.125, 1.0, **kw)
+        assert r and r["ev"]["AA"] > 3 and r["ev"]["72o"] < 0
+        assert 0 < r["acao_pct"] < 100 and r["dead"] > 0
+
+    # PROPRIEDADES do poker (o que prova que o modelo não é arbitrário)
+    pct = lambda **k: solve_spot(**k)["acao_pct"]
+    # mais fundo => mais tight
+    assert (pct(spot="reshove", hero_pos="BB", stack_bb=25.0, vilao_pos="MP")
+            < pct(spot="reshove", hero_pos="BB", stack_bb=12.0, vilao_pos="MP"))
+    # squeeze (2 na frente) é mais tight que reshove (1)
+    assert (pct(spot="squeeze", hero_pos="BB", stack_bb=15.0,
+                vilao_pos="MP", pagaram=1)
+            < pct(spot="reshove", hero_pos="BB", stack_bb=15.0, vilao_pos="MP"))
+    # pagar all-in é mais tight que empurrar
+    assert (pct(spot="call_shove", hero_pos="BTN", stack_bb=12.0, vilao_pos="MP")
+            < pct(spot="open_shove", hero_pos="BTN", stack_bb=12.0))
+    # ICM aperta o range
+    assert (pct(spot="open_shove", hero_pos="MP", stack_bb=12.0, bf=1.8)
+            <= pct(spot="open_shove", hero_pos="MP", stack_bb=12.0))
+
+    # a tool devolve o EV da mão do aluno e anexa o gráfico
+    a = {"spot": "reshove", "hero_pos": "BTN", "stack_bb": 12,
+         "vilao_pos": "CO", "cards": ["Ah", "Js"]}
+    d = _dispatch("ev_allin", a)
+    assert d["mao"] == "AJo" and d["decisao"] == "all-in"
+    assert d["ev_da_mao_bb"] > 0 and d["melhores"]
+    spec = charts_from_tool_call("ev_allin", a, d)
+    assert spec[0] == "spot" and spec[1] == "reshove"
+    from app.analysis.range_chart import render_spec
+    png, leg = render_spec(spec)
+    assert png and len(png) > 5000 and "re-shove" in leg
+    # e o par frequência + EV
+    ev_spec = ("spot", "reshove", "BTN", 12.0, "ev", "CO", 2.2, 0)
+    png2, leg2 = render_spec(ev_spec)
+    assert png2 and "EV de cada mão" in leg2
+
+
 def test_solver_open_shove_bate_com_o_heads_up():
     # VALIDAÇÃO do solver multiway: o SB tem exatamente 1 jogador atrás (o
     # BB), então com ante=0 o jogo é IDÊNTICO ao do solver heads-up que já
