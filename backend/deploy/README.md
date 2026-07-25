@@ -67,9 +67,12 @@ repetir os passos 1 e 3.
 O script faz: git de segurança (sem `.bak`), venv próprio, dependências,
 **roda os testes como gate** (aborta se falharem), sobe/reinicia no pm2 e
 instala os crons do produto: relatório semanal (dom 18h), quiz diário (19h),
-calibração (seg 5h), auditor de coerência (6h), sonda E2E (7h30) e o
+calibração (seg 5h), auditor de coerência (6h), sonda E2E (7h30), o
 **resumo diário de uso pro admin** (`daily_usage.py`, 23h UTC / 20h BRT —
-"entrou gente nova?", ativos do dia, mãos/perguntas/quiz).
+"entrou gente nova?", ativos do dia, mãos/perguntas/quiz) e o **juiz da
+saída** (`output_judge.py`, 8h — audita as respostas que o coach mandou:
+selo de veredito, número em cada decisão, jargão proibido, calque, carta
+sem ícone; avisa o admin quando a qualidade cai).
 
 ## Verificação pós-deploy
 

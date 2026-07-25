@@ -147,7 +147,7 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # só pagou seu open" numa mão em que houve 3-bet pago (caso real)
         "linha_da_mao": _action_log(hand),
         # PKO/bounty: recompensas na cabeça de cada jogador — presença disto
-        # OBRIGA a conta de all-in a usar pko_call (regra 4b)
+        # OBRIGA a conta de all-in a usar pko_call (regra C7)
         "pko": any(p.bounty for p in hand.players),
         "bounties": {(p.position or p.name[:12]): p.bounty
                      for p in hand.players if p.bounty},

@@ -39,26 +39,43 @@ def spr(effective_stack: float, pot: float) -> float:
     return effective_stack / pot
 
 
-def mdf(pot: float, bet: float) -> dict:
+def mdf(pot: float, bet: float, defensores: int = 1) -> dict:
     """MDF (minimum defense frequency) e alpha, enfrentando `bet` num pote `pot`.
 
     - MDF = pot/(pot+bet): fração MÍNIMA do range que você precisa defender
       para o vilão não lucrar blefando qualquer duas cartas.
     - alpha = bet/(pot+bet): quanto o VILÃO precisa que você folde para o
       blefe dele ser lucrativo (breakeven do blefe puro).
+
+    MULTIWAY (`defensores` > 1): o blefe só lucra se TODOS foldarem, então a
+    defesa é dividida — cada um precisa defender 1 − alpha^(1/N), bem menos
+    que o MDF heads-up (a carga é do grupo, não de cada um). Sem isso o coach
+    cobrava defesa de heads-up de quem estava em pote de 3.
     """
     if pot <= 0 or bet <= 0:
         raise ValueError("pot e bet devem ser positivos")
+    n = max(1, int(defensores))
     a = bet / (pot + bet)
-    return {
-        "mdf_pct": round(100 * (1 - a), 1),
+    mdf_cada = 1 - a ** (1 / n)
+    out = {
+        "mdf_pct": round(100 * mdf_cada, 1),
         "alpha_pct": round(100 * a, 1),
-        "leitura": (
+        "defensores": n,
+    }
+    if n == 1:
+        out["leitura"] = (
             f"contra essa aposta você precisa defender ≥{100*(1-a):.0f}% do "
             f"range (foldar mais que {100*a:.0f}% = o vilão lucra blefando "
             "qualquer coisa); do lado dele, o blefe precisa que você folde "
-            f"{100*a:.0f}%+ pra pagar sozinho"),
-    }
+            f"{100*a:.0f}%+ pra pagar sozinho")
+    else:
+        out["mdf_heads_up_pct"] = round(100 * (1 - a), 1)
+        out["leitura"] = (
+            f"pote com {n} defensores: cada um defende ≥{100*mdf_cada:.0f}% "
+            f"(não os {100*(1-a):.0f}% de heads-up) — o blefe dele só lucra se "
+            f"TODOS largarem, então a carga é dividida; largar demais em "
+            "conjunto é que abre a porta pro blefe")
+    return out
 
 
 def fmt_chips(v: float) -> str:

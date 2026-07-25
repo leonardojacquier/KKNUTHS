@@ -98,8 +98,11 @@ CRON_COHER="0 6 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scrip
 CRON_E2E="30 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/e2e_probe.py >> /var/log/poker-e2e.log 2>&1"
 # resumo DIÁRIO de uso pro admin (23h UTC = 20h BRT): entrou gente nova?, ativos, mãos
 CRON_USAGE="0 23 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/daily_usage.py >> /var/log/poker-usage.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ) | crontab -
+# juiz da SAÍDA (8h): audita as respostas que o coach mandou — selo, números,
+# jargão proibido, calque. Os outros canários só olham a matemática.
+CRON_JUDGE="0 8 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/output_judge.py >> /var/log/poker-judge.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ) | crontab -
 
 # 7b. E2E pós-deploy: a conta-teste usa o bot de verdade (dorme sem credenciais
 #     no .env). Em background, com folga pro bot terminar de subir.

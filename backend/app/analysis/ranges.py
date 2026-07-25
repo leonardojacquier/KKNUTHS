@@ -173,65 +173,110 @@ def equity_vs_range(
     board: list[str] | None = None,
     iterations: int = 10000,
     seed: int | None = None,
+    num_opponents: int = 1,
 ) -> dict:
-    """Equity do herói contra um range (Monte Carlo uniforme sobre os combos).
+    """Equity do herói contra `num_opponents` vilões, cada um com este range
+    (Monte Carlo uniforme sobre os combos).
 
     `villain_range` aceita notação ("TT+, AQs+") ou "top X%".
-    Retorna equity + tamanho do range considerado (após remover combos mortos).
+    MULTIWAY (num_opponents>1): cada vilão saca um combo independente do
+    range (sem carta repetida) e o herói só ganha se bater TODOS — a equity
+    despenca com cada oponente a mais, e é por isso que range de call aperta
+    em pote multiway. Empate divide o pote (conta a fração).
     """
     import random
 
     from app.analysis.equity import _FULL_DECK  # baralho compartilhado
 
     board = board or []
+    n_opp = max(1, int(num_opponents))
     dead = set(hero_cards) | set(board)
     hands = parse_range(villain_range)
     combos = expand_combos(hands, dead)
     if not combos:
         raise ValueError("range vazio após remover cartas mortas")
+    if len(combos) < n_opp:
+        raise ValueError("range pequeno demais para tantos oponentes")
 
     rng = random.Random(seed)
+
+    def _sortear_viloes():
+        """N combos do range sem carta repetida entre eles (mão real na mesa
+        não compartilha carta). Devolve None se não fechar — a amostra é
+        descartada em vez de enviesar."""
+        usadas, escolhidos = set(), []
+        for _ in range(n_opp):
+            for _tent in range(24):
+                c = combos[rng.randrange(len(combos))]
+                if c[0] not in usadas and c[1] not in usadas:
+                    usadas.update(c)
+                    escolhidos.append(c)
+                    break
+            else:
+                return None
+        return escolhidos
+
     try:
         from treys import Card, Evaluator  # type: ignore
 
         evaluator = Evaluator()
         hero_c = [Card.new(c) for c in hero_cards]
         board_c = [Card.new(c) for c in board]
-        wins = ties = 0
-        for _ in range(iterations):
-            v1, v2 = combos[rng.randrange(len(combos))]
-            rest = [c for c in _FULL_DECK if c not in dead and c != v1 and c != v2]
-            rng.shuffle(rest)
-            need = 5 - len(board)
-            sim_board = board_c + [Card.new(rest[i]) for i in range(need)]
-            hs = evaluator.evaluate(sim_board, hero_c)
-            vs = evaluator.evaluate(sim_board, [Card.new(v1), Card.new(v2)])
-            if hs < vs:
-                wins += 1
-            elif hs == vs:
-                ties += 1
-        eq = (wins + ties / 2) / iterations
+
+        def _share(vils, extra_raw, board_sim):
+            hs = evaluator.evaluate(board_sim, hero_c)
+            scores = [evaluator.evaluate(board_sim, [Card.new(a), Card.new(b)])
+                      for a, b in vils]
+            melhor = min(scores)
+            if hs < melhor:
+                return 1.0
+            if hs > melhor:
+                return 0.0
+            return 1.0 / (1 + sum(1 for s in scores if s == hs))
+
+        def _board(rest, need):
+            return board_c + [Card.new(rest[i]) for i in range(need)]
     except ImportError:
         from app.analysis.equity import _best_hand_score
 
-        wins = ties = 0
-        for _ in range(iterations):
-            v1, v2 = combos[rng.randrange(len(combos))]
-            rest = [c for c in _FULL_DECK if c not in dead and c != v1 and c != v2]
-            rng.shuffle(rest)
-            need = 5 - len(board)
-            sim_board = board + rest[:need]
-            hs = _best_hand_score(hero_cards + sim_board)
-            vs = _best_hand_score([v1, v2] + sim_board)
-            if hs > vs:
-                wins += 1
-            elif hs == vs:
-                ties += 1
-        eq = (wins + ties / 2) / iterations
+        def _share(vils, extra_raw, board_sim):
+            hs = _best_hand_score(hero_cards + board_sim)
+            scores = [_best_hand_score([a, b] + board_sim) for a, b in vils]
+            melhor = max(scores)
+            if hs > melhor:
+                return 1.0
+            if hs < melhor:
+                return 0.0
+            return 1.0 / (1 + sum(1 for s in scores if s == hs))
 
-    return {
+        def _board(rest, need):
+            return board + rest[:need]
+
+    total_share = 0.0
+    validas = 0
+    need = 5 - len(board)
+    for _ in range(iterations):
+        vils = _sortear_viloes()
+        if vils is None:
+            continue
+        mortas = dead.union(c for combo in vils for c in combo)
+        rest = [c for c in _FULL_DECK if c not in mortas]
+        rng.shuffle(rest)
+        total_share += _share(vils, rest, _board(rest, need))
+        validas += 1
+    if not validas:
+        raise ValueError("não consegui montar as mãos dos vilões nesse range")
+    eq = total_share / validas
+
+    out = {
         "equity": round(eq, 4),
         "range_hands": len(hands),
         "range_combos": len(combos),
         "range_used": villain_range,
+        "oponentes": n_opp,
     }
+    if n_opp > 1:
+        out["nota"] = (f"equity contra {n_opp} vilões com esse range (precisa "
+                       "bater TODOS) — por isso o range de call aperta em pote "
+                       "multiway")
+    return out

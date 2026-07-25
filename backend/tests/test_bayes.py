@@ -1433,29 +1433,120 @@ def test_filme_allin_multiway_mostra_evolucao_de_equity():
     assert film_bands(h2) and not any(
         b.get("equity_line") for b in film_bands(h2))
 
-def test_prompt_sem_regras_duplicadas():
-    # auditoria achou DUAS regras '4e)' e DUAS '4f)' com conteúdos diferentes
-    # (o prompt cresceu por remendo). Rótulo repetido confunde o modelo e
-    # degrada a saída — este canário trava a regressão.
+def test_juiz_da_saida():
+    # os canários checavam a MATEMÁTICA; quem descobria texto ruim era o
+    # aluno. O juiz audita as respostas reais contra o contrato do prompt.
+    import sys
+    sys.path.insert(0, "scripts")
+    from output_judge import _e_analise_de_mao, judge_answer
+
+    boa = (
+        "✅ Você jogou bem — 3-bet e c-bet no board certo\n\n"
+        "✅ *Pré* — 3-bet A♠K♠ de BB: contra o open do CO, +EV.\n"
+        "✅ *Flop* A♦7♣2♠ — c-bet 4bb: top par (você tinha 78%).\n"
+        "🟡 *Turn* 5♥ — check atrás perde 1 rodada de valor.\n\n"
+        "A que mais pesou: o check do turn custou ~3bb."
+    )
+    assert judge_answer(boa) == []
+
+    ruim = ("Papo reto: você tinha Kh Qd e no river o par grande dele "
+            "dominava. Precisava igualar o preço na rua final. "
+            "Sua equity era boa. Pote de 20bb no flop.")
+    probs = " | ".join(judge_answer(ruim))
+    assert "auto-elogio" in probs                  # 'papo reto'
+    assert "calque" in probs                       # 'par grande'/'rua'
+    assert "sem ícone" in probs and "Kh" in probs  # carta crua
+    assert "equity sem nenhum número" in probs
+
+    # análise de mão SEM selo é o defeito nº1 (aluno não sabe o veredito)
+    sem_selo = "No flop você apostou 5bb e no river pagou 12bb com top par."
+    assert any("SEM selo" in p for p in judge_answer(sem_selo))
+
+    # papo de teoria NÃO exige selo (falso positivo destruiria o juiz)
+    teoria = ("O range de open do BTN é amplo — cerca de 45% das mãos. "
+              "Contra um reg tight dá pra abrir ainda mais.")
+    assert judge_answer(teoria) == [] and not _e_analise_de_mao(teoria)
+    # 'As' é artigo em português: não pode virar 'carta sem ícone'
+    art = ("✅ Você jogou bem — top par\n\nAs cartas dele eram A♠K♦ "
+           "no flop de 12bb.")
+    assert judge_answer(art) == []
+    # bastidor do sistema é proibido pro coach
+    assert any("bastidor" in p for p in
+               judge_answer("Usei a ferramenta de equity pra calcular."))
+
+
+def test_multiway_equity_e_mdf():
+    # buraco achado na auditoria: o motor pensava heads-up, mas MTT de 9
+    # lugares é multiway na maioria dos potes grandes (caso real: A4o de BB
+    # contra open+call — 28% vs 1 vilão, bem menos contra dois).
+    from app.agent.llm import _dispatch
+    from app.analysis.ranges import equity_vs_range
+    from app.analysis.tools import mdf
+
+    rng_call = "77+, ATs+, AJo+"
+    eq = [equity_vs_range(["Ah", "4d"], rng_call, iterations=2500, seed=7,
+                          num_opponents=n)["equity"] for n in (1, 2, 3)]
+    # a equity DESPENCA com cada vilão a mais — é o que aperta o range de call
+    assert eq[0] > eq[1] > eq[2]
+    assert 0.24 < eq[0] < 0.34          # heads-up: ~28%
+    assert eq[1] < 0.22                 # contra dois já é lixo
+    r2 = equity_vs_range(["Ah", "4d"], rng_call, iterations=1500, seed=7,
+                         num_opponents=2)
+    assert r2["oponentes"] == 2 and "multiway" in r2["nota"]
+
+    # MDF multiway: a defesa é DIVIDIDA — cada um defende menos que heads-up,
+    # e o produto dos folds tem que dar exatamente alpha
+    hu = mdf(100, 100)
+    assert hu["mdf_pct"] == 50.0 and hu["defensores"] == 1
+    for n in (2, 3, 4):
+        m = mdf(100, 100, defensores=n)
+        assert m["mdf_pct"] < hu["mdf_pct"]
+        assert m["mdf_heads_up_pct"] == 50.0
+        fold_cada = 1 - m["mdf_pct"] / 100
+        assert abs(fold_cada ** n - m["alpha_pct"] / 100) < 0.01
+    assert "dividida" in mdf(100, 100, defensores=2)["leitura"]
+
+    # as duas ferramentas expõem o parâmetro ao coach
+    assert _dispatch("mdf", {"pot": 100, "bet": 100,
+                             "defensores": 3})["mdf_pct"] < 25
+    d = _dispatch("equity_vs_range", {"hero_cards": ["Ah", "Kh"],
+                                      "villain_range": "22+, A2s+",
+                                      "num_opponents": 3})
+    assert d["oponentes"] == 3
+
+    # e a regra do multiway está no prompt (C2) — sem ela o coach não passa N
+    from app.agent.llm import _SYSTEM
+    assert "C2 MULTIWAY" in _SYSTEM["pt"]
+    assert "num_opponents" in _SYSTEM["pt"] and "defensores=N" in _SYSTEM["pt"]
+
+
+def test_prompt_em_blocos_sem_duplicata():
+    # o prompt cresceu por remendo até ter DUAS regras '4e)' e DUAS '4f)'
+    # com conteúdos diferentes. Agora é organizado em 5 blocos temáticos
+    # (R resposta, F fatos, C contas, V voz, A automático) — este canário
+    # trava rótulo repetido, bloco faltando e numeração fora de ordem.
     import collections
     import re
 
     from app.agent.llm import _SYSTEM
 
-    for lang, texto in _SYSTEM.items():
-        labels = re.findall(r'(?:^|\n)(\d+[a-z]?)\) ', texto)
-        dups = [k for k, v in collections.Counter(labels).items() if v > 1]
-        assert not dups, f"[{lang}] rótulos duplicados no prompt: {dups}"
+    s = _SYSTEM["pt"]
+    for bloco in ("== R) A RESPOSTA ==", "== F) FATOS", "== C) CONTAS",
+                  "== V) VOZ", "== A) AUTOMÁTICO =="):
+        assert bloco in s, f"bloco sumiu do prompt: {bloco}"
 
-    # e a numeração tem que ler em ORDEM (1, 1b, 1c... 4b, 4c...): fora de
-    # ordem foi o rastro de regra enfiada no meio sem revisar o bloco
-    labels = re.findall(r'(?:^|\n)(\d+[a-z]?)\) ', _SYSTEM["pt"])
-    por_bloco: dict[str, list[str]] = {}
-    for lb in labels:
-        por_bloco.setdefault(lb[0], []).append(lb[1:] or "a")
-    for bloco, sufixos in por_bloco.items():
-        assert sufixos == sorted(sufixos), (
-            f"bloco {bloco} fora de ordem: {sufixos}")
+    labels = re.findall(r"\n([RFCVA])(\d+) ", s)
+    assert labels, "prompt sem regras rotuladas"
+    dups = [k for k, v in collections.Counter(labels).items() if v > 1]
+    assert not dups, f"rótulos duplicados: {dups}"
+
+    por_bloco: dict[str, list[int]] = {}
+    for letra, num in labels:
+        por_bloco.setdefault(letra, []).append(int(num))
+    for letra, nums in por_bloco.items():
+        assert nums == sorted(nums), f"bloco {letra} fora de ordem: {nums}"
+        assert nums == list(range(1, len(nums) + 1)), (
+            f"bloco {letra} com buraco na numeração: {nums}")
 
 
 def test_prompt_exige_selo_e_placar():
@@ -1471,7 +1562,9 @@ def test_prompt_exige_selo_e_placar():
                  "❌ Jogada cara"):
         assert selo in s
     # o placar é o PADRÃO, não opt-in atrás de pedido
-    assert "é o PADRÃO" in s
+    assert "padrão, não espere o aluno pedir" in s
+    # e cada decisão com preço mostra a conta (foi o 'por que ser econômico?')
+    assert "pedia X%, tinha Y%" in s
     # a instrução da análise de mão também cobra o selo
     from app.agent import llm as _llm
     import inspect
