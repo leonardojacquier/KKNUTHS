@@ -69,12 +69,43 @@ def shove_threshold(position: str, stack_bb: float) -> float | None:
     return None
 
 
-def push_fold(cards: list[str], stack_bb: float, position: str) -> dict:
-    """Decisão push/fold aproximada de Nash para open-shove em stack curto.
+def push_fold(cards: list[str], stack_bb: float, position: str,
+              ante_bb: float = 0.125) -> dict:
+    """Decisão push/fold para open-shove em stack curto.
+
+    Usa o SOLVER de open-shove (equilíbrio resolvido para a posição, com os
+    antes da mesa) quando disponível; a tabela estática fica de reserva. A
+    tabela ignorava os antes e saía sistematicamente mais tight — e o
+    gráfico de EV, que vem do solver, contradiria o veredito.
 
     Retorna decisão, limiar usado e o percentil da mão — o LLM usa isso para
     contextualizar ("sua mão está no top X%, o range de shove aqui é Y%").
     """
+    if stack_bb <= 20:
+        try:
+            from app.analysis.open_shove_solver import solve_open_shove
+
+            sol = solve_open_shove((position or "MP").upper(),
+                                   round(float(stack_bb), 1), 1.0,
+                                   round(float(ante_bb), 3))
+        except Exception:
+            sol = None
+        if sol:
+            mao = canonical_hand(cards)
+            freq = sol["shove"].get(mao, 0.0)
+            return {
+                "applicable": True,
+                "decision": "push" if freq > 0.5 else "fold",
+                "hand": mao,
+                "hand_top_pct": round(hand_percentile(cards) * 100, 1),
+                "shove_range_pct": sol["shove_pct"],
+                "ev_bb": sol["ev"].get(mao),
+                "stack_bb": stack_bb,
+                "position": position,
+                "fonte": "solver",
+                "premissas": sol["premissas"],
+            }
+
     group = _POSITION_GROUP.get(position or "", "MP")
     table = _THRESHOLDS[group]
     threshold = None

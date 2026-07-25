@@ -678,12 +678,12 @@ _SYSTEM = {
         "send_range_chart — nunca diga que não consegue mandar imagem. Em spot "
         "de SHOVE o range do gráfico é o MESMO do push_fold (passe position + "
         "stack_bb); NUNCA desenhe range de abertura deep pra spot de shove, "
-        "contradiz o veredito. EV POR MÃO: só existe em jam/fold heads-up "
-        "SB vs BB (role='SB'/'BB' + stack_bb + mode='ev'/'icm') — lá o "
-        "gráfico de EV vem junto do de frequência, automático. Em open-shove "
-        "de UTG/MP/CO/BTN o EV por mão NÃO existe (exigiria solver multiway): "
-        "mande o range de shove e diga que o EV por mão é do spot de "
-        "SB vs BB — PROIBIDO prometer um gráfico de EV que não vai chegar.\n"
+        "contradiz o veredito. EV POR MÃO: existe em QUALQUER posição com "
+        "stack <=20bb — o equilíbrio de open-shove é resolvido para o número "
+        "de jogadores atrás e o gráfico de EV vem JUNTO do de frequência, "
+        "automático (o aluno não precisa pedir). Quando push_fold devolver "
+        "ev_bb, CITE o número ('empurrar esse AQo rende +1.9bb contra "
+        "foldar') — é a conta que decide o spot.\n"
 
         "\n== V) VOZ: como escrever ==\n"
         "V1 CARTAS levam o ícone do naipe: A♠, K♥, 10♦, J♣ — nunca 'As'/'Kh' "
@@ -1152,6 +1152,8 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                 if pos == "BB":
                     return None  # dispatch já rejeitou; sem gráfico fantasma
                 stk = float(args["stack_bb"])
+                if stk <= 20:
+                    return ("nashpos", pos, stk, "freq")
                 pct = shove_threshold(pos, stk)
                 if pct:
                     return ("range", f"top {round(pct * 100)}%",
@@ -1178,19 +1180,23 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
                 # spec do SOLVER, que puxa o gráfico de EV por mão como
                 # companhia. Nas outras posições só existe o range (o EV por
                 # mão exigiria solver multiway — não fingimos que temos).
-                if pos == "SB" and stk:
-                    return ("nashmode", "SB", float(stk), "freq", 1.0)
-                pct = shove_threshold(pos, stk) if stk else None
-                if pct:
-                    # título CURTO: o render corta na borda (medido)
-                    return ("range", f"top {round(pct * 100)}%",
-                            f"Shove {pos} ~{stk:g}bb — sua referência")
+                if stk:
+                    if pos in ("SB", "BB"):
+                        return ("nashmode", pos, float(stk), "freq", 1.0)
+                    return ("nashpos", pos, float(stk), "freq")
                 return ("range", result["range"],
                         f"Open {pos} (25bb+) — só comparação")
             title = (f"Range de 3-bet contra open de {pos} — referência 25bb+"
                      if act == "3bet"
                      else f"Range de open — {pos} · referência 25bb+ (deep)")
             return ("range", result["range"], title)
+        if (name == "push_fold" and isinstance(result, dict)
+                and result.get("fonte") == "solver" and not result.get("role")):
+            pos = str(args.get("position") or result.get("position") or "MP").upper()
+            stk = float(result.get("stack_bb") or args.get("stack_bb") or 10)
+            if pos in ("SB", "BB"):
+                return ("nashmode", pos, stk, "freq", 1.0)
+            return ("nashpos", pos, stk, "freq")
         if name == "push_fold" and isinstance(result, dict) and result.get("role"):
             return ("nash", result["role"], float(result.get("stack_resolvido") or
                                                   result.get("stack_bb") or 10))

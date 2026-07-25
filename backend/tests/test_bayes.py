@@ -553,24 +553,31 @@ def test_shove_chart_matches_push_fold_verdict():
     from app.analysis.pushfold import push_fold, shove_threshold
     from app.analysis.ranges import parse_range
 
-    res = push_fold(["Td", "Jd"], 8.9, "UTG")
-    assert res["decision"] == "fold" and res["shove_range_pct"] == 12.0
+    from app.analysis.open_shove_solver import solve_open_shove
 
-    # gancho automático: o resultado aproximado (sem 'role') gera o gráfico
+    res = push_fold(["Td", "Jd"], 8.9, "UTG")
+    assert res["fonte"] == "solver"          # equilíbrio, não a tabela MVP
+
+    # COERÊNCIA (o que o canário existe pra proteger): o gráfico do spot sai
+    # do MESMO solver que deu o veredito — nada de tabela deep com a mão que
+    # o coach mandou foldar.
     spec = charts_from_tool_call("push_fold",
                                  {"cards": ["Td", "Jd"], "stack_bb": 8.9,
                                   "position": "UTG"}, res)
-    assert spec is not None and spec[0] == "range"
-    assert spec[1] == "top 12%"
-    assert "JTs" not in parse_range(spec[1])   # coerente: JTs fora do range
+    assert spec == ("nashpos", "UTG", 8.9, "freq")
+    sol = solve_open_shove("UTG", 8.9, 1.0, 0.125)
+    joga = sol["shove"]["JTs"] > 0.5
+    assert joga == (res["decision"] == "push"), "gráfico x veredito divergem"
 
-    # pedido explícito de tabela: position + stack_bb usa o mesmo limiar
+    # pedido explícito de tabela: position + stack_bb cai no mesmo solver
     spec2 = charts_from_tool_call("send_range_chart",
                                   {"position": "UTG", "stack_bb": 8.9}, {"ok": True})
-    assert spec2 is not None and spec2[1] == "top 12%"
+    assert spec2 == ("nashpos", "UTG", 8.9, "freq")
 
-    # acima de 20bb não existe shove aproximado
+    # acima de 20bb não existe shove aproximado (nem solver)
     assert shove_threshold("UTG", 35) is None
+    assert push_fold(["Td", "Jd"], 35, "UTG")["applicable"] is False
+    assert parse_range("top 12%")            # notação segue válida
 
 
 def test_chart_pipeline_coherence(monkeypatch):
@@ -1443,17 +1450,15 @@ def test_range_deep_nao_vale_para_stack_curto():
     r = _dispatch("preflop_range", curto)
     assert r["vale_para_este_stack"] is False
     assert "push/fold" in r["aviso"] and "20bb" in r["aviso"]
-    # SUBSTITUI pelo gráfico certo (shove) — sumir com a imagem foi regressão
-    # real ("não tá mandando o gráfico dos ranges")
+    # SUBSTITUI pelo gráfico certo (shove do solver) — sumir com a imagem foi
+    # regressão real ("não tá mandando o gráfico dos ranges")
     spec_curto = charts_from_tool_call("preflop_range", curto, r)
     assert spec_curto is not None, "stack curto ficou SEM gráfico"
-    assert spec_curto[0] == "range" and spec_curto[1].startswith("top ")
-    assert "Shove" in spec_curto[2] and "20bb" in spec_curto[2]
-    # e o gráfico renderiza de verdade, com o título cabendo na borda
+    assert spec_curto == ("nashpos", "MP", 20.0, "freq")
+    # e o gráfico renderiza de verdade
     from app.analysis.range_chart import render_spec
-    png, _leg = render_spec(spec_curto)
-    assert png and len(png) > 5000
-    assert len(spec_curto[2]) <= 42, "título estoura a borda do gráfico"
+    png, leg = render_spec(spec_curto)
+    assert png and len(png) > 5000 and "all-in do MP" in leg
 
     fundo = {"position": "MP", "action": "open", "stack_bb": 60}
     r2 = _dispatch("preflop_range", fundo)
@@ -1476,11 +1481,44 @@ def test_range_deep_nao_vale_para_stack_curto():
     assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
 
 
-def test_ev_acompanha_o_range_onde_existe(monkeypatch):
-    # aluno: "os EVs não estão aparecendo". O EV por mão existe SÓ no
-    # jam/fold heads-up SB vs BB (solver real). Ali ele tem que vir junto do
-    # gráfico de frequência; fora dali é proibido prometer (não há solver
-    # multiway — não fingimos ter).
+def test_solver_open_shove_bate_com_o_heads_up():
+    # VALIDAÇÃO do solver multiway: o SB tem exatamente 1 jogador atrás (o
+    # BB), então com ante=0 o jogo é IDÊNTICO ao do solver heads-up que já
+    # existia. Se os dois não baterem, o multiway está errado.
+    from app.analysis.jam_fold_solver import solve_jam_fold
+    from app.analysis.open_shove_solver import available, solve_open_shove
+
+    if not available():
+        return
+    for stk in (8.0, 12.0, 20.0):
+        novo = solve_open_shove("SB", stk, 1.0, 0.0)
+        ref = solve_jam_fold(stk, 1.0, 0.0)
+        difs = [abs(novo["ev"][h] - ref["sb_ev"][h]) for h in novo["hands"]]
+        assert max(difs) < 0.05, f"{stk}bb: EV diverge {max(difs):.3f}bb do HU"
+        assert abs(novo["shove_pct"] - 100 * sum(ref["sb_jam"].values())
+                   / len(ref["sb_jam"])) < 1.5
+
+    # sanidade do equilíbrio em mesa cheia
+    mp = solve_open_shove("MP", 12.0)
+    assert mp["atras"] == 6 and mp["ev"]["AA"] > 3
+    assert mp["ev"]["72o"] < 0 and mp["shove"]["AA"] > 0.9
+    # quanto mais gente atrás, MAIS tight (menos fold equity)
+    assert (solve_open_shove("UTG", 12.0)["shove_pct"]
+            < solve_open_shove("BTN", 12.0)["shove_pct"])
+    # stack mais fundo => shove mais tight
+    assert (solve_open_shove("MP", 18.0)["shove_pct"]
+            < solve_open_shove("MP", 8.0)["shove_pct"])
+    # o ante abre o range (dinheiro morto vale a pena roubar)
+    assert (solve_open_shove("MP", 12.0, 1.0, 0.0)["shove_pct"]
+            < solve_open_shove("MP", 12.0, 1.0, 0.125)["shove_pct"])
+    # BB não tem open-shove (ninguém atrás)
+    assert solve_open_shove("BB", 10.0) is None
+
+
+def test_ev_acompanha_o_range_em_qualquer_posicao(monkeypatch):
+    # aluno: "os EVs não estão aparecendo" e depois "vamos implementar os
+    # outros gráficos de EV". Agora o EV por mão existe em QUALQUER posição
+    # (solver de open-shove multiway), e vem junto do gráfico de frequência.
     from app.agent.llm import _SYSTEM, _dispatch, charts_from_tool_call
     from app.bot import processing as proc
 
@@ -1507,15 +1545,18 @@ def test_ev_acompanha_o_range_onde_existe(monkeypatch):
     caps2 = [c for _p, c in _charts(("nash", "SB", 10.0))]
     assert len(caps2) == 2 and any("EV de cada mão" in c for c in caps2)
 
-    # posição de mesa cheia: manda o range de shove, SEM EV falso
-    mp = {"position": "MP", "action": "open", "stack_bb": 10}
-    caps3 = [c for _p, c in _charts(
-        charts_from_tool_call("preflop_range", mp, _dispatch("preflop_range", mp)))]
-    assert len(caps3) == 1 and "Shove MP" in caps3[0]
-    assert not any("EV de cada mão" in c for c in caps3)
+    # POSIÇÃO DE MESA CHEIA: agora também vem o par (era o buraco)
+    for pos in ("UTG", "MP", "CO", "BTN"):
+        a = {"position": pos, "action": "open", "stack_bb": 10}
+        spec = charts_from_tool_call("preflop_range", a, _dispatch("preflop_range", a))
+        assert spec == ("nashpos", pos, 10.0, "freq")
+        caps = [c for _p, c in _charts(spec)]
+        assert len(caps) == 2, f"{pos} ficou sem o EV"
+        assert any(f"all-in do {pos}" in c for c in caps)
+        assert any("EV de cada mão" in c and pos in c for c in caps)
 
-    # e o prompt proíbe prometer EV onde ele não existe
-    assert "PROIBIDO prometer um gráfico de EV que não vai chegar" in _SYSTEM["pt"]
+    # o prompt anuncia que o EV existe em qualquer posição
+    assert "EV POR MÃO: existe em QUALQUER posição" in _SYSTEM["pt"]
 
 
 def test_juiz_da_saida():

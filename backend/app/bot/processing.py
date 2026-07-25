@@ -85,6 +85,9 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
             if s[0] == "nashmode":
                 mode = s[3] if len(s) > 3 else "freq"
                 return ("nash", str(s[1]).upper(), round(float(s[2]), 1), mode)
+            if s[0] == "nashpos":
+                mode = s[3] if len(s) > 3 else "freq"
+                return ("pos", str(s[1]).upper(), round(float(s[2]), 1), mode)
         except Exception:
             pass
         return s
@@ -99,11 +102,16 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
     # gráfico — a frequência diz O QUE jogar; o EV diz QUANTO cada mão rende
     for s in list(chart_specs):
         k = _key(s)
+        ev = None
         if k[0] == "nash" and k[3] == "freq":
             ev = ("nashmode", k[1], k[2], "ev", 1.0)
-            if _key(ev) not in seen:
-                seen.add(_key(ev))
-                chart_specs.insert(chart_specs.index(s) + 1, ev)
+        elif k[0] == "pos" and k[3] == "freq":
+            # open-shove de mesa cheia: o EV por mão agora existe (solver
+            # multiway) — vem junto, igual ao par de SB vs BB
+            ev = ("nashpos", k[1], k[2], "ev")
+        if ev and _key(ev) not in seen:
+            seen.add(_key(ev))
+            chart_specs.insert(chart_specs.index(s) + 1, ev)
             break
 
     if notes and user_id:

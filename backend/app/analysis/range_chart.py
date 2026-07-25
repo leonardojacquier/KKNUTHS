@@ -209,8 +209,9 @@ def render_ev_range_png(
 
 
 def render_spec(spec: tuple) -> tuple[bytes, str] | None:
-    """Renderiza uma spec coletada do coach: ("range", notacao, titulo) ou
-    ("nash", role, stack_bb). Retorna (png, legenda) ou None."""
+    """Renderiza uma spec do coach: ("range", notacao, titulo),
+    ("nash", role, stack), ("nashmode", role, stack, mode, bf) ou
+    ("nashpos", position, stack, mode). Retorna (png, legenda) ou None."""
     from app.analysis.ranges import parse_range
 
     try:
@@ -227,6 +228,10 @@ def render_spec(spec: tuple) -> tuple[bytes, str] | None:
             return chart_for_query(
                 role, str(stack), mode if mode in ("ev", "icm") else None, bf
             )
+        if spec[0] == "nashpos":      # open-shove por posição (mesa de 9)
+            _, pos, stack, mode = spec
+            return chart_for_query(pos, str(stack),
+                                   mode if mode == "ev" else None)
     except Exception:
         return None
     return None
@@ -320,6 +325,38 @@ def chart_for_query(
             f"♠ Range Nash de {action} do {kind} com {key}bb — equilíbrio "
             f"calculado, não aproximação. Células com % jogam de forma mista."
         )
+
+    # OPEN-SHOVE por posição em mesa cheia (UTG..BTN) com stack curto:
+    # equilíbrio resolvido pelo solver multiway — frequências ou EV por mão.
+    # Era o buraco: EV por mão só existia em SB vs BB heads-up.
+    if arg and kind not in ("SB", "BB"):
+        from app.analysis.open_shove_solver import solve_open_shove
+        try:
+            stack = float(str(arg).replace("bb", ""))
+        except ValueError:
+            stack = None
+        if stack and stack <= 20:
+            sol = solve_open_shove(kind, round(stack, 1), 1.0, ANTE_PADRAO)
+            if sol:
+                if mode == "ev":
+                    png = render_ev_range_png(
+                        sol["ev"], sol["fold_ev"],
+                        f"EV do all-in — {kind} · {stack:g}bb · chip-EV",
+                        f"EV em BB vs foldar · {sol['atras']} jogadores atrás",
+                        premises=sol["premissas"])
+                    return png, (
+                        f"♠ EV de cada mão no all-in de {kind} com {stack:g}bb "
+                        f"(mesa de 9, {sol['atras']} atrás). Verde = empurrar "
+                        "rende mais que foldar; vermelho = fold é melhor.")
+                png = render_range_png(
+                    sol["shove"],
+                    f"Nash {kind} — all-in (shove) · {stack:g}bb",
+                    f"Equilíbrio resolvido · {sol['atras']} atrás · ante "
+                    f"{ANTE_PADRAO*100:g}% do bb · % = frequência mista")
+                return png, (
+                    f"♠ Range de all-in do {kind} com {stack:g}bb — "
+                    f"equilíbrio resolvido com {sol['atras']} jogadores atrás "
+                    f"({sol['shove_pct']:g}% das mãos).")
 
     # charts de open-raise por posição
     if kind in OPEN_RANGES:
