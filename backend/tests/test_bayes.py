@@ -3307,3 +3307,22 @@ def test_aviso_de_espera_do_solver(monkeypatch):
     pos_tool = src.index("grafico_ev_da_mao")
     assert src.index("avisar_solver", pos_tool) < src.index(
         "_valores_posflop", pos_tool), "o aviso saiu DEPOIS do cálculo"
+
+
+def test_folder_do_piloto_nao_leva_link():
+    # o folder do piloto é entregue a dedo (10 convidados). Com link do bot
+    # ele vira cadastro aleatório e o teste perde o controle da amostra.
+    from app.api.folder_page import build_folder_html
+
+    html = build_folder_html()
+    assert "t.me/" not in html and "KKNUts_BOT" not in html
+    assert "Acesso por convite" in html
+    # e o que entrou depois da última versão do folder está lá
+    for novidade in ("/spot", "/prova", "Gráfico de EV de qualquer mão",
+                     "Leitura declarada", "Caderno do coach"):
+        assert novidade in html, f"folder desatualizado: falta {novidade}"
+    # o pedido ao testador (é o que faz um piloto valer alguma coisa)
+    assert "O que eu preciso de você no teste" in html
+    assert "Discorde em voz alta" in html
+    # a promessa de segurança continua na cara
+    assert "sem RTA" in html and "pós-sessão" in html
