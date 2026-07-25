@@ -429,7 +429,10 @@ def chart_allin_spot(kind: str, hero: str, stack: float,
         f"resolvido ({sol['acao_pct']:g}% das mãos).")
 
 
-@lru_cache(maxsize=4)
+# maxsize=2: um solve de flop resolvido ocupa ~80 MB de RAM (matrizes do
+# CFR+). O VPS é compartilhado — guardar 4 spots custaria mais memória do
+# que o bot inteiro. Dois basta: o par de gráficos sai do mesmo.
+@lru_cache(maxsize=2)
 def _solve_posflop(board: tuple, oop_range: str, ip_range: str,
                    pot: float, stack: float):
     """Um spot pós-flop resolvido UMA vez. O par de gráficos (valor por mão +

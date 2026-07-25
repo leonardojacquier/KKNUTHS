@@ -1007,6 +1007,11 @@ def _dispatch(name: str, args: dict):
         spot = spot_da_mao(h, args.get("street"))
         if spot.get("error"):
             return spot
+        # o aluno esperou 1 min sem sinal de vida e achou que tinha quebrado:
+        # avisa ANTES de resolver o que está rodando e quanto demora
+        from app.bot.notify import avisar_solver
+
+        avisar_solver(tg, spot["board"], 2)
         try:
             from app.analysis.range_chart import _valores_posflop
 
@@ -1038,6 +1043,9 @@ def _dispatch(name: str, args: dict):
         board = [_norm_card(c) or c for c in (args.get("board") or [])]
         if len(board) not in (3, 4, 5):
             return {"error": "board precisa ter 3, 4 ou 5 cartas"}
+        from app.bot.notify import avisar_solver
+
+        avisar_solver(_TOOL_CHAT.get(), board, 1)
         try:
             solver = RiverSolver(board, str(args["oop_range"]),
                                  str(args["ip_range"]), float(args["pot"]),
@@ -1229,7 +1237,9 @@ def _dispatch(name: str, args: dict):
         return push_fold(args["cards"], args["stack_bb"], pos)
     if name == "solve_river":
         from app.analysis.river_solver import solve_river
+        from app.bot.notify import avisar_solver
 
+        avisar_solver(_TOOL_CHAT.get(), args.get("board") or [], 0)
         return solve_river(
             args["board"], args["oop_range"], args["ip_range"],
             args["pot"], args["stack"], args.get("player", "oop"),

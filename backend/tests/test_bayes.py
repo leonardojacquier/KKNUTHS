@@ -3269,3 +3269,41 @@ def _st(nome):
 def _acao(quem):
     from app.models.canonical import Action, ActionType
     return Action(actor=quem, type=ActionType.CHECK)
+
+
+def test_aviso_de_espera_do_solver(monkeypatch):
+    # "foi isso que me lascou": o solver pós-flop leva ~1 min e o aluno ficava
+    # olhando "Analisando sua colocação…" sem sinal de vida — concluiu que a
+    # ferramenta tinha quebrado. Agora o aviso sai ANTES do cálculo.
+    from app.bot import notify
+
+    mandados = []
+    monkeypatch.setattr(notify, "avisar",
+                        lambda tg, txt: mandados.append((tg, txt)) or True)
+
+    notify.avisar_solver(777, ["Qs", "Th", "4d"], 2)
+    tg, txt = mandados[-1]
+    assert tg == 777
+    assert "flop" in txt and "Q♠ 10♥ 4♦" in txt        # naipe com ícone
+    assert "1 minuto" in txt                           # o tempo, honesto
+    assert "Não travou" in txt                         # o que ele precisava ler
+    assert "2 gráficos" in txt                         # e o que vai chegar
+
+    notify.avisar_solver(777, ["Qs", "Th", "4d", "8c", "2s"], 0)
+    assert "15 segundos" in mandados[-1][1]            # river é rápido: não mente
+    assert "gráfico" not in mandados[-1][1]            # solve_river não manda figura
+
+    # sem chat/sem token o aviso não pode derrubar a análise
+    monkeypatch.undo()
+    assert notify.avisar(None, "x") is False
+    assert notify.avisar(1, "") is False
+
+    # e as três ferramentas lentas avisam antes de resolver
+    import inspect
+
+    from app.agent import llm
+    src = inspect.getsource(llm._dispatch)
+    assert src.count("avisar_solver(") == 3, "alguma tool lenta ficou sem aviso"
+    pos_tool = src.index("grafico_ev_da_mao")
+    assert src.index("avisar_solver", pos_tool) < src.index(
+        "_valores_posflop", pos_tool), "o aviso saiu DEPOIS do cálculo"
