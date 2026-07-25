@@ -946,16 +946,22 @@ def report_doc_for_user(telegram_id: int,
     # AUDITORIA DE ALL-INS: o motor de equilíbrio roda em cada decisão de
     # all-in/fold de stack curto do torneio — determinístico, custo zero de
     # IA. Era o que faltava pra "análise completa de torneio" ter a conta.
-    from app.analysis.allin_audit import auditar_allins, resumo_auditoria
+    from app.analysis.allin_audit import (auditar_allins, auditar_posflop,
+                                          auditar_preflop_deep,
+                                          resumo_auditoria)
 
     auditoria = auditar_allins(hands)
+    pre_deep = auditar_preflop_deep(hands)
+    posflop = auditar_posflop(hands, max_spots=3)
     resumo = resumo_auditoria(auditoria)
     html = build_report_html(hands, "", board_png, per_hand_analysis=per_hand,
-                             auditoria=auditoria)
+                             auditoria=auditoria, pre_deep=pre_deep,
+                             posflop=posflop)
     repo.log_event(telegram_id, username, "relatorio",
                    {"tournament": latest.tournament_id, "hands": len(hands),
                     "allins_auditados": resumo.get("total", 0),
-                    "erros": resumo.get("erros", 0)})
+                    "erros": resumo.get("erros", 0),
+                    "pre_deep": len(pre_deep), "posflop": len(posflop)})
     cap = ("📋 Relatório mão a mão do seu último torneio — cada mão com "
            "análise e a versão 🎈 mais simples.")
     if resumo:
@@ -970,6 +976,14 @@ def report_doc_for_user(telegram_id: int,
                         f"({pior['stack_bb']:g}bb) — você {pior['voce_fez']}, "
                         f"o equilíbrio manda {pior['equilibrio']} "
                         f"({pior['custo_bb']:g}bb).")
+    fora_pre = sum(1 for l in pre_deep if not l["acertou"])
+    if pre_deep:
+        cap += (f"\n📐 *Pré-flop deep*: {len(pre_deep)} decisões contra o range "
+                f"de referência · {len(pre_deep)-fora_pre} dentro")
+    fora_pos = sum(1 for l in posflop if not l["acertou"])
+    if posflop:
+        cap += (f"\n🎲 *Pós-flop*: {len(posflop)} spots maiores resolvidos no "
+                f"CFR+ · {len(posflop)-fora_pos} no equilíbrio")
     cap += "\n\nQuer abrir alguma? Me manda o Nº ou as cartas aqui no chat."
     return (
         html.encode("utf-8"),

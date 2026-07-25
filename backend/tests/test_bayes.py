@@ -1553,6 +1553,61 @@ def test_portas_do_motor_spot_e_auditoria():
     assert '"spot"' in src
 
 
+def test_auditoria_cobre_todo_tipo_de_jogada():
+    # aluno: "quero análise de todo tipo de jogada, não só all-in". A
+    # auditoria passa a ter TRÊS níveis, cada um rotulado pelo rigor.
+    from app.analysis.allin_audit import (_decisoes_posflop, auditar_posflop,
+                                          auditar_preflop_deep)
+    from app.analysis.handreport import _tabela_posflop, _tabela_pre_deep
+    from app.api.site_assets import _demo_hand
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # --- PRÉ-FLOP DEEP contra a referência (open de mão fraca = fora) ---
+    def _mao_pre(cards, acao, stack=100):
+        pre = Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="Hero", type=acao, amount=2.5, to_amount=2.5)
+            if acao != ActionType.FOLD else
+            Action(actor="Hero", type=ActionType.FOLD)])
+        return CanonicalHand(
+            site="x", hand_id=f"p{cards[0]}{acao}", hero="Hero",
+            stakes=Stakes(small_blind=0.5, big_blind=1),
+            players=[PlayerSeat(seat=1, name="Hero", stack=stack,
+                                is_hero=True, position="UTG")],
+            hero_cards=cards, streets=[pre])
+
+    # AA de UTG: abrir está na referência; largar seria fora
+    ok = auditar_preflop_deep([_mao_pre(["Ah", "As"], ActionType.RAISE)])
+    assert ok and ok[0]["acertou"] and ok[0]["nivel"] == "referência"
+    ruim = auditar_preflop_deep([_mao_pre(["7h", "2d"], ActionType.RAISE)])
+    assert ruim and not ruim[0]["acertou"]     # 72o de UTG: fora da referência
+    # stack curto NÃO entra aqui (é do motor de all-in)
+    assert auditar_preflop_deep([_mao_pre(["Ah", "As"],
+                                          ActionType.RAISE, stack=10)]) == []
+
+    # --- PÓS-FLOP: só decisões de INICIATIVA (apostar/check) ---
+    h = _demo_hand()
+    ds = _decisoes_posflop(h)
+    assert ds and all(d["acao"] in ("bet", "check") for d in ds), (
+        "call/fold enfrentando aposta é OUTRO nó — comparar com a "
+        "frequência de aposta seria erro de categoria")
+
+    linhas = auditar_posflop([h], max_spots=2)
+    assert linhas, "pós-flop não auditou nada"
+    for l in linhas:
+        assert l["equilibrio"] in ("apostar", "check", "mista")
+        # faixa mista (30-70%) nunca é marcada como erro
+        if 30 <= l["freq_equilibrio_pct"] <= 70:
+            assert l["equilibrio"] == "mista" and l["acertou"]
+        assert l["valor_bb"] is not None
+
+    # as tabelas do relatório saem com os rótulos de rigor
+    assert "referência" in _tabela_pre_deep(ok)
+    html = _tabela_posflop(linhas)
+    assert "CFR+" in html and "MISTO" in html
+    assert _tabela_pre_deep([]) == "" and _tabela_posflop([]) == ""
+
+
 def test_range_view_posflop():
     # o CFR+ já calculava valor por combo; faltava expor como matriz 13×13.
     # No equilíbrio as ações do suporte valem o MESMO, então o gráfico útil

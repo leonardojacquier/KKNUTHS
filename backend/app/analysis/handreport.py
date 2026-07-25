@@ -335,10 +335,65 @@ def _tabela_auditoria(auditoria: list[dict]) -> str:
         + "".join(linhas) + "</table>")
 
 
+def _tabela_pre_deep(linhas: list[dict]) -> str:
+    """Pré-flop de stack deep contra o range de REFERÊNCIA (não é solver — o
+    rótulo diz, pra não vender tabela como equilíbrio)."""
+    if not linhas:
+        return ""
+    rows = []
+    for l in linhas:
+        cor = "#1f7a4d" if l["acertou"] else "#a8382e"
+        rows.append(
+            f"<tr><td><b>{_html.escape(l['mao'])}</b></td>"
+            f"<td>{_html.escape(l['posicao'])} · {l['stack_bb']:g}bb</td>"
+            f"<td>{_html.escape(l['spot'])}</td><td>{l['voce_fez']}</td>"
+            f"<td style='color:{cor};font-weight:700'>"
+            f"{'✔' if l['acertou'] else '✘'} referência: {l['referencia']}"
+            f"</td></tr>")
+    fora = sum(1 for l in linhas if not l["acertou"])
+    return ("<h2>Pré-flop de stack deep</h2>"
+            "<p class='sub'>Comparado ao range de <b>referência</b> da posição "
+            "— não é equilíbrio resolvido; é a tabela padrão, que serve de "
+            "régua e não de lei.</p>"
+            f"<p class='sub'><b>{len(linhas)} decisões · {len(linhas)-fora} "
+            f"dentro da referência</b></p>"
+            "<table class='audit'><tr><th>Mão</th><th>Spot</th>"
+            "<th>Situação</th><th>Você</th><th>Referência</th></tr>"
+            + "".join(rows) + "</table>")
+
+
+def _tabela_posflop(linhas: list[dict]) -> str:
+    """Pós-flop resolvido no CFR+ (só os maiores potes — custo de CPU)."""
+    if not linhas:
+        return ""
+    rows = []
+    for l in linhas:
+        cor = "#1f7a4d" if l["acertou"] else "#a8382e"
+        rows.append(
+            f"<tr><td><b>{_html.escape(l['mao'])}</b></td>"
+            f"<td>{_html.escape(l['street'])} · {_html.escape(l['board'])}</td>"
+            f"<td>{l['pot_bb']:g}bb</td><td>{l['voce_fez']}</td>"
+            f"<td>{_html.escape(l['equilibrio'])} "
+            f"({l['freq_equilibrio_pct']}% aposta)</td>"
+            f"<td style='color:{cor};font-weight:700'>"
+            f"{'✔' if l['acertou'] else '✘'}</td></tr>")
+    return ("<h2>Pós-flop — equilíbrio dos potes maiores</h2>"
+            "<p class='sub'>CFR+ range vs range nas decisões de "
+            "<b>iniciativa</b> (apostar ou dar check) dos maiores potes. "
+            "Entre 30% e 70% o equilíbrio joga MISTO — as duas ações estão "
+            "certas. Ranges do vilão estimados; cada spot custa segundos de "
+            "CPU, por isso só os maiores.</p>"
+            "<table class='audit'><tr><th>Mão</th><th>Street</th>"
+            "<th>Pote</th><th>Você</th><th>Equilíbrio</th><th></th></tr>"
+            + "".join(rows) + "</table>")
+
+
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                       board_png: bytes | None = None,
                       per_hand_analysis: dict[str, str] | None = None,
-                      auditoria: list[dict] | None = None) -> str:
+                      auditoria: list[dict] | None = None,
+                      pre_deep: list[dict] | None = None,
+                      posflop: list[dict] | None = None) -> str:
     """`per_hand_analysis`: hand_id -> análise do coach (mãos jogadas).
     `auditoria`: saída de allin_audit.auditar_allins (seção de all-ins)."""
     hands = sorted(hands, key=lambda h: h.played_at or "")
@@ -467,6 +522,8 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 {board_img}
 {coach_html}
 {_tabela_auditoria(auditoria or [])}
+{_tabela_pre_deep(pre_deep or [])}
+{_tabela_posflop(posflop or [])}
 <h2>🃏 Mãos jogadas — análise completa ({len(played_cards)})</h2>
 <p style='color:#828A84;font-size:11.5px;margin:2px 0 8px'>O selo de
 <b>decisão</b> julga o preço na hora, não o desfecho — ganhar com decisão
