@@ -3404,3 +3404,71 @@ def test_ev_multiway_precisa_bater_todos():
             f"{nome}: tabela {tab[idx[nome]]:.3f} x referência {ref:.3f}")
         assert abs(ref - tab[idx[nome]]) < abs(ref - ref * ref) or ref < 0.2, (
             f"{nome}: o produto das equities heads-up seria pior que isto")
+
+
+def test_potes_paralelos_o_curto_nao_leva_o_bolo():
+    # material trazido pelo aluno: em all-in a 3+ com stacks DIFERENTES o
+    # pote se parte em principal + paralelos. Antes o motor tratava tudo
+    # como um bolo só — e o curto aparecia ganhando fichas que ele nem
+    # podia disputar (mesmo tipo de erro do overcall: prêmio inexistente).
+    from app.analysis.side_pots import dividir_potes, ev_por_pote
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # aritmética: 10 / 25 / 40 investidos
+    potes = dividir_potes({"Curto": 10, "Medio": 25, "Grande": 40})
+    assert [p["valor"] for p in potes] == [30, 30, 15]
+    assert potes[0]["elegiveis"] == ["Curto", "Grande", "Medio"]
+    assert potes[1]["elegiveis"] == ["Grande", "Medio"]
+    assert potes[2]["elegiveis"] == ["Grande"]        # aposta não paga
+    assert sum(p["valor"] for p in potes) == 75       # nada some, nada nasce
+
+    # quem foldou deixa o dinheiro mas não disputa
+    p2 = dividir_potes({"Curto": 10, "Medio": 25, "BB": 2}, fora={"BB"})
+    assert sum(p["valor"] for p in p2) == 37
+    assert all("BB" not in p["elegiveis"] for p in p2)
+
+    # ante/blind que o parser não detalhou entra no pote PRINCIPAL
+    p3 = dividir_potes({"A": 10, "B": 10}, extra=3)
+    assert p3[0]["valor"] == 23
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Curto", type=ActionType.RAISE, amount=10, to_amount=10,
+               all_in=True),
+        Action(actor="Medio", type=ActionType.RAISE, amount=25, to_amount=25,
+               all_in=True),
+        Action(actor="Grande", type=ActionType.CALL, amount=25, to_amount=25)])
+    h = CanonicalHand(
+        site="x", hand_id="mw1", hero="Curto",
+        stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=1, name="Curto", stack=10, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="Medio", stack=25, position="SB"),
+                 PlayerSeat(seat=3, name="Grande", stack=40, position="BB")],
+        hero_cards=["As", "Kd"],
+        shown_cards={"Medio": ["Qh", "Qc"], "Grande": ["7s", "7d"]},
+        streets=[pre, Street(name=StreetName.RIVER,
+                             board=["Ah", "9c", "4d", "2s", "Jh"])],
+        final_board=["Ah", "9c", "4d", "2s", "Jh"], total_pot=60)
+
+    r = ev_por_pote(h)
+    assert r["multiway"] is True
+    principal, paralelo = r["potes"][0], r["potes"][1]
+    assert principal["voce_disputa"] and principal["valor_bb"] == 30
+    assert principal["equity"] == 1.0            # par de ases ganha de QQ e 77
+    assert paralelo["voce_disputa"] is False     # 30bb que ele NÃO podia ganhar
+    # o prêmio real é 30bb, não os 60bb do pote: EV líquido +20, não +50
+    assert r["ev_bruto_bb"] == 30 and r["ev_liquido_bb"] == 20
+
+    # a prova real ganhou a classe "potes" (gabarito = o total da SALA)
+    from app.analysis.selfcheck import _CLASSES, _check_potes
+    assert "potes" in dict(_CLASSES)
+    assert _check_potes(h) == []
+    inflada = h.model_copy(deep=True)
+    inflada.total_pot = 20                        # sala diz 20, ações somam 60
+    assert any("fichas a mais" in m for m in _check_potes(inflada))
+
+    # e o coach tem a porta + a regra de usá-la
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "potes_paralelos" for t in TOOLS)
+    assert "C11b" in _SYSTEM["pt"] and "não pode ganhar o bolo inteiro" in _SYSTEM["pt"]

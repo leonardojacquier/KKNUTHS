@@ -490,6 +490,22 @@ TOOLS = [
         },
     },
     {
+        "name": "potes_paralelos",
+        "description": "POTE PRINCIPAL E POTES PARALELOS da mão em conversa: com "
+        "stacks diferentes num all-in a 3+, o pote NÃO é um bolo só — quem está "
+        "curto disputa apenas a parte que cobriu. Devolve cada pote, quem o "
+        "disputa, a sua equity DENTRO dele e o EV somado. USE sempre que a mão "
+        "tiver all-in com 3+ jogadores, ou quando o aluno perguntar quanto ele "
+        "realmente podia ganhar. Sem argumento: sai da própria mão.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "nome": {"type": "string", "description": "jogador a analisar; "
+                         "vazio = o aluno"},
+            },
+        },
+    },
+    {
         "name": "grafico_ev_da_mao",
         "description": "GRÁFICO DE EV DA MÃO QUE ESTÁ NA CONVERSA (pós-flop) — a "
         "porta padrão quando o aluno pede 'o gráfico de EV', 'o range de EV dessa "
@@ -767,6 +783,10 @@ _SYSTEM = {
         "automático (o aluno não precisa pedir). Quando push_fold devolver "
         "ev_bb, CITE o número ('empurrar esse AQo rende +1.9bb contra "
         "foldar') — é a conta que decide o spot.\n"
+        "C11b POTE PARALELO: all-in com 3+ jogadores e stacks diferentes → "
+        "potes_paralelos, SEMPRE. O curto não pode ganhar o bolo inteiro, e "
+        "citar o pote total como prêmio dele é conta errada. Diga quanto ele "
+        "disputava de verdade e a equity DENTRO de cada pote.\n"
         "C11 GRÁFICO DE EV NÃO É SÓ DE ALL-IN. Pedido de 'gráfico de EV' / "
         "'range de EV dessa mão' / 'tabela desse flop' sobre a mão que está "
         "na conversa e que passou do pré-flop → grafico_ev_da_mao, SEM "
@@ -998,6 +1018,15 @@ def _dispatch(name: str, args: dict):
             return {"error": "sem conversa ativa para corrigir"}
         return redefine_hero(tg, str(args.get("nome") or ""),
                              args.get("cards") or None)
+    if name == "potes_paralelos":
+        from app.analysis.side_pots import ev_por_pote
+        from app.bot.processing import conversation_hand
+
+        tg = _TOOL_CHAT.get()
+        h = conversation_hand(tg) if tg else None
+        if h is None:
+            return {"error": "não achei a mão desta conversa"}
+        return ev_por_pote(h, str(args.get("nome") or "") or None)
     if name == "grafico_ev_da_mao":
         from app.analysis.postflop_spot import spot_da_mao
         from app.bot.processing import conversation_hand

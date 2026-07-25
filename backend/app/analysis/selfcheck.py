@@ -15,6 +15,8 @@ CLASSES verificadas (cada uma nasceu de um defeito real):
                      lugares, stack absurdo, board grande) — a camada de
                      input, onde nasceram os piores defeitos
   B. contas        — pote fecha, coletado <= pote, net coerente
+  B2. potes        — pote principal/paralelos batem com o total da SALA (o
+                     gabarito não é meu: é o replay)
   C. gabarito      — a mão feita que o coach cita bate com o board
   D. veredito      — imagem do spot não contradiz o solver (caso TT/15bb)
   E. motor         — o equilíbrio responde e é coerente (AA >= mão média)
@@ -153,6 +155,37 @@ def _check_motor() -> list[str]:
     return p
 
 
+def _check_potes(h: CanonicalHand) -> list[str]:
+    """A divisão em pote principal + paralelos tem que fechar com o total que
+    a SALA informou, e quem a sala pagou tem que ser elegível a algum pote.
+    É a verificação mais dura que existe aqui: o gabarito não é meu."""
+    p = []
+    try:
+        from app.analysis.side_pots import (contribuicoes, desistiram,
+                                            dividir_potes)
+
+        inv = contribuicoes(h)
+        if not inv or not h.total_pot:
+            return p
+        colocado = sum(inv.values())
+        # falta = ante/blind que o parser não detalhou (vai pro principal).
+        # SOBRA é que é defeito: significa que estou contando ficha que a
+        # sala não viu — aí a conta do pote está inflada.
+        if colocado > h.total_pot * 1.02:
+            p.append(f"as ações somam {colocado:.0f} mas a sala diz que o "
+                     f"pote foi {h.total_pot:.0f} (fichas a mais)")
+        potes = dividir_potes(inv, desistiram(h),
+                              max(0.0, h.total_pot - colocado))
+        elegiveis = {n for x in potes for n in x["elegiveis"]}
+        for quem, ganho in (h.collected or {}).items():
+            if ganho > 0 and elegiveis and quem not in elegiveis:
+                p.append(f"a sala pagou {quem}, que não é elegível a "
+                         f"nenhum pote pela minha divisão")
+    except Exception as exc:
+        p.append(f"divisão de potes QUEBRA: {type(exc).__name__}")
+    return p
+
+
 def _check_leitura(h: CanonicalHand) -> list[str]:
     """Camada de INPUT: o que foi lido é internamente possível? Print mal
     lido produz sintomas típicos (mesma carta em dois lugares, stack
@@ -169,6 +202,7 @@ _CLASSES = (
     ("parser", _check_parser),
     ("leitura", _check_leitura),
     ("contas", _check_contas),
+    ("potes", _check_potes),
     ("gabarito", _check_gabarito),
     ("filme", _check_filme),
     ("veredito", _check_veredito),
