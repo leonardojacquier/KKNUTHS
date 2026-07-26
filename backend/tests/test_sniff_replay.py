@@ -210,6 +210,25 @@ def test_teste_nao_pode_escrever_no_disco_da_maquina():
     assert depois == antes, f"o teste sujou o disco: {depois - antes}"
 
 
+def test_urls_cruas_mostram_o_que_o_filtro_esconde():
+    """"3 candidatos" num app inteiro é pouco demais para ser verdade. O
+    filtro escolhe o que TENTAR; isto mostra o que EXISTE, para o olho
+    humano ver o host de API que não tem 'api' no nome."""
+    from sniff_replay import urls_cruas
+
+    bundle = ('var B="https://gw.supremapoker.net/v2";'
+              'var L="https://img.cdn.net/x/logo.png";'
+              'var W="http://www.w3.org/2000/svg";'
+              'fetch(B+"/hand/"+id)')
+    u = urls_cruas(bundle)
+    assert "https://gw.supremapoker.net/v2" in u   # o host que interessa
+    assert not any("logo.png" in x for x in u)     # imagem sai
+    assert not any("w3.org" in x for x in u)       # ruído de biblioteca sai
+    # e o filtro de candidatos NÃO acharia esse host (não tem palavra-chave)
+    assert not any("gw.supremapoker.net" in x
+                   for x in candidatos_da_pagina(bundle, "https://r.x/"))
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 

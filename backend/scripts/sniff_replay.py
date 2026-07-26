@@ -196,6 +196,24 @@ def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
     return out
 
 
+def urls_cruas(texto: str) -> set[str]:
+    """TODA url absoluta citada, sem filtro de palavra-chave.
+
+    O filtro de `candidatos_da_pagina` serve para escolher o que TENTAR;
+    esta função serve para o humano ENXERGAR. São coisas diferentes: um
+    host de API sem 'api' no nome, ou um endpoint montado por concatenação
+    (BASE + '/hand/' + id), nunca aparecem inteiros para a regra.
+    """
+    achados = {m.group(0).rstrip("\"'`,);")
+               for m in re.finditer(r"https?://[^\s'\"`<>()\\]{6,200}",
+                                    texto or "")}
+    return {u for u in achados
+            if not re.search(r"\.(png|jpg|jpeg|gif|svg|css|woff2?|ttf|ico|"
+                             r"mp3|wav|mp4)($|\?)", u, re.I)
+            and not re.search(r"(w3\.org|schema\.org|github\.com|"
+                              r"npmjs|license|creativecommons)", u, re.I)}
+
+
 def candidatos_da_pagina(texto: str, base: str) -> list[str]:
     """URLs plausíveis de API/CDN citadas na página ou num .js dela.
 
@@ -325,6 +343,7 @@ def farejar(url: str, despejo: str | None = None) -> dict:
 
     alvos: list[str] = list(palpites_conhecidos(
         chave or "", host, partes_url.query))
+    cruas: set[str] = set()
     # o próprio link pode JÁ ser a mão: alguns clubes compartilham a URL do
     # JSON direto. Eu descartava essa resposta e saía dizendo "nada achei"
     # com a mão na mão.
@@ -367,7 +386,19 @@ def farejar(url: str, despejo: str | None = None) -> dict:
             novos = candidatos_da_pagina(miolo, j)
             de_bundle += len(novos)
             alvos += novos
+            cruas |= urls_cruas(miolo)
         print(f"  candidatos achados nos bundles: {de_bundle}")
+        for u in sorted(alvos)[:20]:
+            print(f"    → {u}")
+        # TODA url absoluta do bundle, sem filtro. "3 candidatos" num app
+        # inteiro é pouco demais para ser verdade: o filtro por palavra-chave
+        # descarta host de API que não tenha 'api' no nome, e endpoint montado
+        # por concatenação (BASE + '/x/' + id) nunca aparece inteiro. Aqui o
+        # olho humano vê o que a regra não viu.
+        if cruas:
+            print(f"\n  URLs absolutas citadas nos bundles ({len(cruas)}):")
+            for u in sorted(cruas)[:40]:
+                print(f"    {u}")
     if chave:
         # troca id genérico do bundle pela chave do link deste replay
         alvos += [re.sub(r"(?<=[/=])[0-9a-zA-Z_-]{16,}(?=(\.json)?$)",
