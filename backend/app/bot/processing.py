@@ -297,7 +297,7 @@ def _process_upload_inner(
             {"format": fmt, "note": result.note, "excerpt": excerpt,
              "raw_path": raw_path},
         )
-        if fmt == "pppoker_replay":
+        if fmt in ("pppoker_replay", "suprema_replay"):
             # o link foi reconhecido mas a mão não veio (CDN fora, chave
             # inválida): cai no caminho que já funciona
             return (
@@ -1283,6 +1283,12 @@ def replay_link_info(text: str) -> dict | None:
 
     site = "pppoker" if "pppoker" in host else (
         "suprema" if "suprema" in host else "outro")
+    if site == "suprema":
+        # a Suprema recebe o LINK inteiro: a chave sai dele dentro do parser
+        from app.parsers.suprema_replay import token_do_link
+
+        return {"site": site, "url": url,
+                "share_key": url if token_do_link(url) else None}
     return {"site": site, "url": url,
             "share_key": share_key_from_url(url) if site == "pppoker" else None}
 

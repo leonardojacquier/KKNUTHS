@@ -1340,15 +1340,17 @@ async def _route_text(update: Update, text: str) -> None:
     # PPPoker: puxa a mão sozinho (JSON no CDN) e analisa. Outros: instrução.
     rl = replay_link_info(text)
     if rl:
-        if rl["site"] == "pppoker" and rl["share_key"]:
+        if rl["site"] in ("pppoker", "suprema") and rl["share_key"]:
+            fmt = f"{rl['site']}_replay"
             await update.message.reply_text(
                 "🔗 Achei o link do replay! Puxando a mão e analisando… 🃏")
             reply = await asyncio.to_thread(
-                process_upload, rl["share_key"], "pppoker_replay",
+                process_upload, rl["share_key"], fmt,
                 tg_user.id, _uname(tg_user), "pt", None)
             # share_key no evento: sondas/diagnóstico acham a mão certa (o
             # fluxo antigo só deixava rastro quando caía no followup)
-            await _log(update, "replay_pppoker", share_key=rl["share_key"])
+            await _log(update, f"replay_{rl['site']}",
+                       share_key=rl["share_key"][:120])
             await _safe_reply(update.message, reply,
                               kind=LAST_UPLOAD_KIND.get(tg_user.id))
             await _send_pending_charts(update.message, tg_user.id)

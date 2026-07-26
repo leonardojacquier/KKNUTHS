@@ -1026,8 +1026,13 @@ def test_replay_link_detection_routes_pppoker():
         "index.html?shareKey=abc123def456aa99&lan=pt")
     assert r and r["site"] == "pppoker" and r["share_key"] == "abc123def456aa99"
 
+    # a Suprema PASSOU a ser suportada: o link inteiro vira a chave, porque a
+    # derivação do endpoint (prefixo de 8 + ambiente pelo caractere 10) é
+    # regra do replayer e mora no parser. Antes este assert exigia None, que
+    # era o estado "reconheço o clube mas não sei abrir".
     s = replay_link_info("https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5")
-    assert s and s["site"] == "suprema" and s["share_key"] is None
+    assert s and s["site"] == "suprema"
+    assert s["share_key"] == "https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5"
 
     assert replay_link_info("qual o range de UTG?") is None
 

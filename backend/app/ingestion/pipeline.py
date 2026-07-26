@@ -43,6 +43,21 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
         return IngestResult([], None, "pppoker_replay", confidence=0.0,
                             needs_review=True, note="replay PPPoker não acessível")
 
+    # replay de clube Suprema: `content` é o LINK inteiro (a derivação do
+    # endpoint mora no parser, porque envolve prefixo de 8 e escolha de
+    # ambiente pelo caractere 10 — regra do replayer, não nossa)
+    if fmt == "suprema_replay":
+        from app.parsers.suprema_replay import fetch_and_parse
+
+        link = content.decode() if isinstance(content, (bytes, bytearray)) else content
+        hand = fetch_and_parse(str(link))
+        if hand:
+            return IngestResult([hand], hand.site, "suprema_replay",
+                                confidence=0.95, needs_review=True,
+                                note="mão do replay Suprema (confira os valores)")
+        return IngestResult([], None, "suprema_replay", confidence=0.0,
+                            needs_review=True, note="replay Suprema não acessível")
+
     # PHH (padrão aberto TOML, .phh/.phhs — datasets do WSOP etc.): pela
     # extensão OU pelo cheiro do conteúdo ('variant = ...')
     if fmt in ("phh", "phhs") or (
