@@ -1,6 +1,6 @@
 ---
 tags: [kknuths, moc]
-atualizado: 2026-07-11
+atualizado: 2026-07-26
 ---
 # ♠ KKNuths — Mapa do Conhecimento
 
@@ -20,6 +20,7 @@ Lema: **Pare de achar. Calcule.**
 - [[KKN Tilt Detector]]
 - [[Leitura de Vilão - Range Tracker]]
 - [[Calibração por Showdown]]
+- [[EV Multiway e Potes Paralelos]]
 
 ## Técnica
 - [[Arquitetura Técnica]]
@@ -27,6 +28,9 @@ Lema: **Pare de achar. Calcule.**
 - [[Banco de Dados]]
 - [[Testes e Qualidade]]
 - [[Coerência Gráfico-Análise]]
+- [[Guarda da Saída]]
+- [[Ingestão de Replays de Clube]]
+- [[Custo de LLM]]
 
 ## Negócio
 - [[Estratégia e Moat]]

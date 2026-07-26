@@ -19,6 +19,21 @@ retenta no próximo. Instrumentar: capturar log e reportar no Telegram do admin.
 - gen_demo_tournament.py [seed] [n] — torneio demo
 - tg.py / tg_send_doc.py — Telegram do VPS (token do .env local)
 
+## ⚠️ `/opt/poker-bot` NÃO é clone do GitHub
+`git init` local só para versionar o estado; **não tem remote**. `git pull`
+ali sempre falha ("no tracking information"). O código chega por rsync do
+`auto_update.sh` (cron de 2 min). Para saber se o commit subiu:
+`tail -5 /var/log/poker-autodeploy.log`.
+
+## Investigar um clube de replay novo
+```
+cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python \
+  scripts/sniff_replay.py "<link>" --telegram
+```
+Detalhes e armadilhas em [[Ingestão de Replays de Clube]]. Se der 0 achados,
+o material bruto fica em `/tmp/replay_sniff/` — ler o HTML e `grep` os
+bundles resolve mais rápido que outra rodada automática.
+
 ## Flags (.env do VPS)
 - `BAYES_STATS=0` — desliga shrinkage (rollback de emergência)
 - `REPORT_AUTO=0` — relatório só via /relatorio
@@ -29,6 +44,12 @@ retenta no próximo. Instrumentar: capturar log e reportar no Telegram do admin.
 - `event='chart_failed'`: gráfico prometido que não renderizou (spec)
 - `event='diag'`: oneshot de diagnóstico despeja tail de log no banco
   (padrão: 2026-07-09-diagnostico-print-v2.sh)
+- `event='custo_llm'`: dólar por chamada ([[Custo de LLM]])
+- `event='entrega_ok|entrega_falha|entrega_remediada'`: taxa de entrega
+- `event='sem_mao_na_conversa'`: caminho de contexto quebrado
+- `event='replay_link'` com `chave_ilegivel=true`: link de PPPoker/Suprema
+  que o parser não abriu — é BUG, não limite do produto; a url vai junto
+- `event='jornadas'`: sonda diária ([[Guarda da Saída]])
 
 ## Sintomas conhecidos
 - Deploy sem 🔄/⚠️ → ver ERR trap / STATE file do auto_update

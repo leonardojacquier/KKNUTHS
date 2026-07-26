@@ -35,3 +35,41 @@ tags: [kknuths, operacao, decisoes]
   gráfico↔texto; invariantes em [[Coerência Gráfico-Análise]]
 - **Glossário central (TERMOS_REGRA)** — calques banidos (par grande,
   rua/etapa p/ street…) nas 3 camadas de texto; registro sempre 'você'
+
+## 2026-07-26
+- **Regra é pedido, conferência é garantia** — 3 pedidos de gráfico viraram
+  prosa com o motor pronto; 4 regras no prompt não resolveram. Nasceu o
+  [[Guarda da Saída]], que confere a entrega ANTES de mandar
+- **Taxa de entrega vira métrica** — antes era opinião minha e o defeito só
+  aparecia por print do aluno
+- **Construtor único de contexto** (`abrir_conversa`) que LEVANTA se a
+  conversa não tem mão nem declara `sem_mao` — quiz e simulador gravavam
+  sem `hand_id` e toda ferramenta de mão morria depois deles
+- **Canário é regra, não lista** — o anterior conferia duas strings
+  literais: era whitelist e não pegava arquivo novo
+- **Sonda de jornadas > sonda E2E** — a `e2e_probe` NUNCA rodou (depende de
+  conta-teste que nunca foi criada). A nova roda em processo, sem custo, e
+  pergunta "chegou o que o aluno pediu?", não "deu erro?"
+- **Multiway não se aproxima por independência** — medido: erra até 14
+  pontos. Monte Carlo real ([[EV Multiway e Potes Paralelos]])
+- **Herói tira as cartas ANTES do board** — o board saía de um baralho que
+  ainda continha as cartas do herói; viés de +3 a 6 pontos de equity
+- **Sem equity confiável, a opção não é oferecida** — `except` silencioso
+  removido; melhor calar que devolver conta errada
+- **Custo em DÓLAR, não em créditos** — `record_usage` gravava o inteiro 1;
+  nenhum preço era defensável ([[Custo de LLM]]). Modelo fora da tabela vira
+  `usd=None` + aviso: custo falso é pior que custo nenhum
+- **Teto por plano** (free 50 / piloto 100 / pro ilimitado); plano
+  desconhecido cai no FREE, nunca no ilimitado ([[Pricing e Planos]])
+- **Não vender dentro do Telegram** — Stars custa ~32% no celular; Pix
+  externo com webhook custa ~1%. Risco de política declarado
+- **Só anunciar preço depois de medir o custo no piloto**
+- **Resposta de erro é informação** — 403 do CloudFront e corpo `-1` foram
+  descartados como "falhou" e eram as melhores pistas do dia
+  ([[Ingestão de Replays de Clube]])
+- **Parser só se escreve com o formato REAL na mão** — um parser inventado
+  passa nos testes que eu mesmo escrevo e quebra na primeira mão de verdade,
+  que é pior que não ter porque parece pronto
+- **Biblioteca não faz I/O sozinha** — teste gravou fixture no `/tmp` do VPS
+  durante o gate e o admin leu como se fosse captura real; outro saiu
+  batendo em domínio inexistente. Efeito colateral só sai de `main()`
