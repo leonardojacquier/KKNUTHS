@@ -172,12 +172,15 @@ def test_caminho_completo_pagina_bundle_endpoint():
             return 200, html, "text/html"
         return 404, b"", ""
 
-    original = s._get
+    original, original_bater = s._get, s._bater
     s._get = _falso_get
+    # a matriz de POST também precisa de rédea: sem isto o teste saía
+    # batendo em domínio inexistente de verdade e levava 12 segundos
+    s._bater = lambda url, metodo, dados, referer: (0, b"")
     try:
         r = s.farejar("https://r.clube.net/?t=abc123def456")
     finally:
-        s._get = original
+        s._get, s._bater = original, original_bater
 
     assert r["chave"] == "abc123def456"
     assert r["achados"], "o endpoint estava escrito no bundle e tem que sair"
@@ -199,12 +202,13 @@ def test_teste_nao_pode_escrever_no_disco_da_maquina():
     def _falso_get(url, limite_bytes=0):
         return 200, b'<html><script src="/a.js"></script></html>', "text/html"
 
-    original = s._get
+    original, original_bater = s._get, s._bater
     s._get = _falso_get
+    s._bater = lambda url, metodo, dados, referer: (0, b"")
     try:
         s.farejar("https://r.clube.net/?t=abc123def456")   # sem despejo
     finally:
-        s._get = original
+        s._get, s._bater = original, original_bater
 
     depois = set(os.listdir(s._DESPEJO)) if os.path.isdir(s._DESPEJO) else set()
     assert depois == antes, f"o teste sujou o disco: {depois - antes}"
@@ -227,6 +231,56 @@ def test_urls_cruas_mostram_o_que_o_filtro_esconde():
     # e o filtro de candidatos NÃO acharia esse host (não tem palavra-chave)
     assert not any("gw.supremapoker.net" in x
                    for x in candidatos_da_pagina(bundle, "https://r.x/"))
+
+
+def test_php_conta_como_endpoint_e_asset_nao():
+    """A Suprema serve a mão em replayInfo.php. Uma API PHP quase sempre
+    quer POST — bater só com GET devolve erro e parece 'não é aqui'."""
+    from sniff_replay import parece_endpoint
+
+    assert parece_endpoint(
+        "https://ra.supremapoker.net/supremaAPI/replayInfo.php")
+    assert parece_endpoint("https://x.net/api/v2/hand")
+    assert not parece_endpoint("https://x.net/main.45fc5.js")
+    assert not parece_endpoint("https://x.net/cards/poker.png")
+
+
+def test_combinacoes_comecam_pela_querystring_original():
+    from sniff_replay import combinacoes_de_parametros
+
+    c = combinacoes_de_parametros("0s2kipvi002pt", "t=0s2kipvi002pt&er=5")
+    # o que a página usa de fato é o palpite com mais chance
+    assert c[0] == {"t": "0s2kipvi002pt", "er": "5"}
+    # e os apelidos carregam o `er` junto, porque a API pode exigir os dois
+    assert {"id": "0s2kipvi002pt", "er": "5"} in c
+
+
+def test_probe_acha_a_mao_via_post_e_manda_referer():
+    """O Referer vai junto de propósito: API de clube recusa quem não veio
+    da página do replay, e o 403 pareceria 'endpoint errado'."""
+    import sniff_replay as s
+
+    vistos = []
+
+    def _falso_bater(url, metodo, dados, referer):
+        import json as _j
+        vistos.append((metodo, dict(dados), referer))
+        if metodo == "POST-form" and dados.get("t") == "K1":
+            return 200, _j.dumps(MAO).encode()
+        return 403, b""
+
+    original = s._bater
+    s._bater = _falso_bater
+    try:
+        r = s.probar_endpoint("https://ra.x.net/replayInfo.php",
+                              [{"t": "K1", "er": "5"}],
+                              "https://r.x.net/?t=K1&er=5")
+    finally:
+        s._bater = original
+
+    assert r and r[0]["pontos"] >= 8
+    assert "POST-form" in r[0]["url"]
+    assert all(v[2].startswith("https://r.x.net/") for v in vistos)
 
 
 def test_blobs_ignoram_objeto_pequeno_de_config():

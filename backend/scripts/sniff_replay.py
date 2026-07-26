@@ -196,6 +196,44 @@ def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
     return out
 
 
+def parece_endpoint(url: str) -> bool:
+    """URL que vale bater com POST e variação de parâmetro.
+
+    `.php` conta: a Suprema serve a mão em
+    `ra.supremapoker.net/supremaAPI/replayInfo.php`, e uma API PHP quase
+    sempre quer POST — bater só com GET devolve página de erro e parece
+    'não é aqui'.
+    """
+    if re.search(r"\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|ico|mp3|mp4)"
+                 r"($|\?)", url or "", re.I):
+        return False
+    return bool(re.search(r"(\.php|\.json|/api/|api\.|/v\d/|info|detail|"
+                          r"replay|record|hand|review)", url or "", re.I))
+
+
+def combinacoes_de_parametros(chave: str, query: str) -> list[dict]:
+    """Como o endpoint pode querer receber a mão.
+
+    A querystring ORIGINAL vem primeiro: é literalmente o que a página usa,
+    então é o palpite com mais chance. Os apelidos existem porque a API
+    interna raramente usa o mesmo nome curto da URL pública.
+    """
+    from urllib.parse import parse_qsl
+
+    original = dict(parse_qsl(query or ""))
+    combos: list[dict] = []
+    if original:
+        combos.append(original)
+    for nome in ("t", "id", "key", "handId", "hand_id", "replayId",
+                 "gameId", "shareKey"):
+        c = {nome: chave}
+        if original.get("er"):
+            c["er"] = original["er"]
+        if c not in combos:
+            combos.append(c)
+    return combos[:9]
+
+
 def urls_cruas(texto: str) -> set[str]:
     """TODA url absoluta citada, sem filtro de palavra-chave.
 
@@ -321,6 +359,61 @@ def _guardar(pasta: str | None, nome: str, dados: bytes) -> None:
         pass
 
 
+def _bater(url: str, metodo: str, dados: dict, referer: str) -> tuple[int, bytes]:
+    """GET / POST-form / POST-json no mesmo endpoint.
+
+    O Referer vai junto de propósito: API de clube costuma recusar quem não
+    veio da própria página do replay, e sem ele a resposta é um 403 que
+    parece 'endpoint errado'.
+    """
+    from urllib.parse import urlencode, urlparse
+
+    cab = dict(_UA_MOBILE)
+    cab["Referer"] = referer
+    cab["Origin"] = f"https://{urlparse(referer).netloc}"
+    corpo = None
+    if metodo == "GET":
+        url = url + ("&" if "?" in url else "?") + urlencode(dados)
+    elif metodo == "POST-form":
+        corpo = urlencode(dados).encode()
+        cab["Content-Type"] = "application/x-www-form-urlencoded"
+    else:
+        corpo = json.dumps(dados).encode()
+        cab["Content-Type"] = "application/json"
+    req = urllib.request.Request(
+        url, data=corpo, headers=cab,
+        method="GET" if metodo == "GET" else "POST")
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as r:
+            return r.status, r.read(4_000_000)
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except Exception:
+        return 0, b""
+
+
+def probar_endpoint(url: str, combos: list[dict], referer: str) -> list[dict]:
+    """Roda a matriz método × parâmetros e devolve o que voltou com cara de
+    mão. Para na primeira combinação boa de cada método — o objetivo é
+    descobrir COMO chamar, não varrer tudo."""
+    achados: list[dict] = []
+    for metodo in ("POST-form", "GET", "POST-json"):
+        for dados in combos:
+            s, c = _bater(url, metodo, dados, referer)
+            if s != 200 or not c:
+                continue
+            obj = _talvez_json(c)
+            if obj is None:
+                continue
+            pontos = parece_mao(obj)
+            if pontos >= 5:
+                achados.append({"url": f"{url}  [{metodo} {dados}]",
+                                "pontos": pontos, "esqueleto": esqueleto(obj),
+                                "bruto": obj})
+                break
+    return achados
+
+
 def _talvez_json(corpo: bytes):
     try:
         return json.loads(corpo.decode("utf-8", "replace"))
@@ -399,6 +492,18 @@ def farejar(url: str, despejo: str | None = None) -> dict:
             print(f"\n  URLs absolutas citadas nos bundles ({len(cruas)}):")
             for u in sorted(cruas)[:40]:
                 print(f"    {u}")
+
+        # matriz método × parâmetro nos endpoints citados. Bater só com GET
+        # numa API PHP devolve página de erro e parece 'não é aqui'.
+        endpoints = [u for u in sorted(cruas) if parece_endpoint(u)][:6]
+        if endpoints:
+            combos = combinacoes_de_parametros(chave or "", partes_url.query)
+            print(f"\n  testando {len(endpoints)} endpoint(s) com "
+                  f"{len(combos)} combinações × 3 métodos…")
+            for e in endpoints:
+                novos = probar_endpoint(e, combos, url)
+                print(f"    {'✓' if novos else '·'} {e}")
+                achados_diretos += novos
     if chave:
         # troca id genérico do bundle pela chave do link deste replay
         alvos += [re.sub(r"(?<=[/=])[0-9a-zA-Z_-]{16,}(?=(\.json)?$)",
