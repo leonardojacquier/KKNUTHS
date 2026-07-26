@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-ZOOM = 0.795   # 0.82 estourou pra 8ª página com o overcall multiway
+ZOOM = 0.74   # manual completo: cards novos + tabela de comandos maior
 FIX = ("<style>@page{size:210mm 297mm;margin:9mm 11mm}"
        f"html{{zoom:{ZOOM}}}</style>")
 

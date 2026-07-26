@@ -3572,3 +3572,45 @@ def test_ev_street_a_street_multiway_sem_allin():
     from app.agent.llm import _SYSTEM, TOOLS
     assert any(t["name"] == "ev_por_street" for t in TOOLS)
     assert "C11c" in _SYSTEM["pt"]
+
+
+def test_manual_cobre_as_funcionalidades_novas():
+    # o manual é a promessa escrita: toda função nova entra nele, e o número
+    # que ele anuncia tem que ser o que o código aplica (a cota já esteve
+    # dizendo 100 enquanto a ferramenta dava 50).
+    import pathlib
+    import re
+
+    from app.quota import FREE_MONTHLY_ANALYSES
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    html = (raiz / "app/api/assets/manual_design.html").read_text()
+
+    assert "100 ANÁLISES" not in html and ">100<" not in html
+    assert f"{FREE_MONTHLY_ANALYSES} ANÁLISES/MÊS" in html
+
+    for tema in ("EV street a street em pote multiway",
+                 "Pote principal e paralelos",
+                 "Gráfico de EV de qualquer mão sua",
+                 "De onde veio cada dado",
+                 "Prova real — audite a ferramenta",
+                 "adversário vivo",          # overcall multiway
+                 "espera anunciada"):        # aviso do solver
+        assert tema in html, f"manual sem: {tema}"
+
+    # todo comando do menu do bot tem linha na tabela do manual
+    import inspect
+
+    from app.bot import handlers
+    menu = set(re.findall(r'"([a-z_]{3,12})"',
+                          inspect.getsource(handlers._set_bot_menu)))
+    tabela = set(re.findall(r'width: ?120px;[^>]*>/([a-z]+)</div>', html))
+    faltando = sorted((menu & {"stats", "evolucao", "estilo", "torneio",
+                               "relatorio", "simular", "treino", "range",
+                               "ask", "plano", "vilao", "leitura", "spot",
+                               "prova", "banca"}) - tabela)
+    assert not faltando, f"comandos fora da tabela do manual: {faltando}"
+
+    # e o PDF publicado acompanha (7 páginas, última cheia)
+    pdf = raiz / "app/api/assets/KKNuths-Manual.pdf"
+    assert pdf.stat().st_size > 500_000
