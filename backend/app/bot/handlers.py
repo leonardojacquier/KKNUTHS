@@ -1353,8 +1353,14 @@ async def _route_text(update: Update, text: str) -> None:
                               kind=LAST_UPLOAD_KIND.get(tg_user.id))
             await _send_pending_charts(update.message, tg_user.id)
             return
-        await _log(update, "replay_link", site=rl["site"])
-        await update.message.reply_markdown(replay_fallback_text())
+        # link de PPPoker que caiu aqui é BUG meu, não limite do produto:
+        # registro a url para conseguir consertar o padrão depois. Sem isto
+        # o evento dizia só 'replay_link' e a falha era indiagnosticável.
+        ilegivel = rl["site"] == "pppoker"
+        await _log(update, "replay_link", site=rl["site"],
+                   chave_ilegivel=ilegivel, url=rl["url"][:300])
+        await update.message.reply_markdown(
+            replay_fallback_text(rl["site"], chave_ilegivel=ilegivel))
         return
 
     raw_len = len(text)

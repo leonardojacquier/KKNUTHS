@@ -1287,15 +1287,35 @@ def replay_link_info(text: str) -> dict | None:
             "share_key": share_key_from_url(url) if site == "pppoker" else None}
 
 
-def replay_fallback_text() -> str:
-    """Mensagem para replay que não dá para puxar automático (Suprema etc.)."""
-    return (
-        "🔗 Esse é um *link de replay*. Esse tipo eu ainda não abro sozinho — "
-        "mas analiso a mão *agora* de dois jeitos:\n\n"
-        "📸 *Print do replay* — foto da tela da mão (cartas + board).\n"
-        "✍️ *Ou descreve* — _\"77 no CO, 30bb, limpei, flop A♦7♣9♣...\"_ — "
-        "que eu rodo os números na hora. 🃏"
-    )
+# clubes cujo link eu RECONHEÇO mas não sei abrir — dizer o nome é a
+# diferença entre "a ferramenta é limitada" e "a ferramenta está quebrada"
+_NOME_CLUBE = {"suprema": "Suprema", "clubgg": "ClubGG", "wepoker": "WePoker",
+               "pokerbros": "PokerBros", "upoker": "UPoker"}
+
+
+def replay_fallback_text(site: str | None = None,
+                         chave_ilegivel: bool = False) -> str:
+    """Mensagem para replay que não dá para puxar automático.
+
+    Ela era UMA só para dois casos muito diferentes: "esse clube eu não
+    abro" e "é PPPoker, que eu ABRO, mas não consegui ler a chave deste
+    link". O aluno não tinha como saber em qual caiu — e no segundo caso a
+    mensagem é simplesmente falsa, porque o replay dele eu sei ler.
+    """
+    saidas = ("📸 *Print do replay* — foto da tela da mão (cartas + board).\n"
+              "✍️ *Ou descreve* — _\"77 no CO, 30bb, limpei, flop A♦7♣9♣...\"_"
+              " — que eu rodo os números na hora. 🃏")
+    if chave_ilegivel:
+        return ("🔗 É um link da *PPPoker* — esse eu abro sozinho, mas não "
+                "achei o código da mão neste aqui. Costuma ser link cortado "
+                "ou encurtado: reabre o replay no app e usa *Compartilhar* "
+                "para copiar o link inteiro.\n\nSe preferir não repetir:\n\n"
+                + saidas)
+    clube = _NOME_CLUBE.get(site or "")
+    quem = f"da *{clube}*" if clube else "desse clube"
+    return (f"🔗 Esse é um *link de replay* {quem}. Abro sozinho só os da "
+            "*PPPoker* por enquanto — mas analiso a mão *agora* de dois "
+            "jeitos:\n\n" + saidas)
 
 
 def _extract_metas(text: str) -> list[str]:

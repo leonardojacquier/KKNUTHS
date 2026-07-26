@@ -67,11 +67,23 @@ _POS = {
     9: ["SB", "BB", "UTG", "UTG+1", "MP", "LJ", "HJ", "CO", "BTN"],
 }
 
-_SHARE_RE = re.compile(r"[?&]shareKey=([0-9a-zA-Z-]{12,})")
+# o parâmetro aparece como shareKey / sharekey / share_key dependendo de
+# onde o aluno copiou (app, web, chat do clube), e a chave pode ter '_'.
+# Case-sensitive e sem '_' — como era — devolvia None num link BOM, e o
+# aluno levava "não abro esse tipo" para um replay que eu sei ler.
+_SHARE_RE = re.compile(r"[?&#]share_?key=([0-9a-zA-Z_-]{12,})", re.IGNORECASE)
+# último recurso: UUID solto na URL (formato 8-4-4-4-12). É distintivo o
+# bastante para não casar com lixo.
+_UUID_RE = re.compile(
+    r"\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b",
+    re.IGNORECASE)
 
 
 def share_key_from_url(url: str) -> str | None:
-    m = _SHARE_RE.search(url or "")
+    from urllib.parse import unquote
+
+    u = unquote(url or "")
+    m = _SHARE_RE.search(u) or _UUID_RE.search(u)
     return m.group(1) if m else None
 
 
