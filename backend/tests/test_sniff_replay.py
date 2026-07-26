@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, "scripts")
 
 from sniff_replay import (candidatos_da_pagina, chave_do_link,  # noqa: E402
-                          esqueleto, parece_mao)
+                          esqueleto, palpites_conhecidos, parece_mao)
 
 # esqueleto real de uma mão de PPPoker (o formato que já sabemos ler)
 MAO = {"info": {"room": {"small_blind": 1, "ante": 0, "dealer_seatid": 3},
@@ -45,6 +45,40 @@ def test_chave_do_link_em_varios_formatos():
     assert chave_do_link("https://x.net/review/ZZZ1234567890123") == \
         "ZZZ1234567890123"
     assert chave_do_link("https://x.net/") is None
+
+
+# link REAL da Suprema, mandado pelo admin — é o gabarito deste arquivo
+SUPREMA = "https://r.supremapoker.net/?t=0s2kipvi002pt&er=5"
+
+
+def test_link_real_da_suprema():
+    """Enumerar nomes de parâmetro não funciona: a Suprema chama de `t`.
+    Com a lista de nomes, um link BOM devolvia None e o farejador rodaria
+    sem gerar um palpite sequer."""
+    assert chave_do_link(SUPREMA) == "0s2kipvi002pt"
+
+
+def test_contador_e_timestamp_nao_viram_chave():
+    """`er=5` está no mesmo link e não pode ser confundido com a mão."""
+    assert chave_do_link("https://x.net/?er=5") is None
+    assert chave_do_link("https://x.net/?ts=1690000000") is None   # timestamp
+    assert chave_do_link("https://x.net/?v=2&debug=true") is None
+
+
+def test_palpites_da_suprema_saem_do_subdominio_e_levam_os_parametros():
+    from urllib.parse import urlparse
+
+    p = urlparse(SUPREMA)
+    ps = palpites_conhecidos(chave_do_link(SUPREMA), p.netloc, p.query)
+    assert ps, "link com chave tem que gerar palpite"
+    # a API raramente fica no subdomínio que serve a página do replay
+    assert any("//supremapoker.net/" in u for u in ps)
+    # e quando o replay usa 2 parâmetros, a API costuma querer os dois
+    assert any(u.endswith("?t=0s2kipvi002pt&er=5") for u in ps)
+
+
+def test_sem_chave_nao_inventa_palpite():
+    assert palpites_conhecidos("", "r.supremapoker.net", "er=5") == []
 
 
 def test_candidatos_ignoram_imagem_e_priorizam_replay():

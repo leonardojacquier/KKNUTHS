@@ -102,21 +102,54 @@ def esqueleto(obj, prof: int = 0, limite: int = 4) -> object:
     return type(obj).__name__
 
 
+_NOMES_CONHECIDOS = ("sharekey", "share_key", "handid", "hand_id", "hand",
+                     "gameid", "game_id", "replay", "code", "key", "id")
+
+
+def _parece_identificador(v: str) -> bool:
+    """Valor com cara de id de mão, não de flag nem de timestamp.
+
+    Exigir letra derruba timestamp (`1690000000`) e contador (`er=5`) sem
+    precisar de lista de nomes proibidos.
+    """
+    if not re.fullmatch(r"[0-9a-zA-Z_-]{8,}", v or ""):
+        return False
+    return bool(re.search(r"[a-zA-Z]", v)) or len(v) >= 16
+
+
 def chave_do_link(url: str) -> str | None:
     """O identificador da mão dentro do link, seja qual for o nome do
-    parâmetro. Vale para qualquer clube — por isso não reusa o regex da
-    PPPoker, que exige 'shareKey'."""
-    from urllib.parse import unquote
+    parâmetro.
+
+    Enumerar nomes não funciona: a Suprema chama de `t`
+    (`r.supremapoker.net/?t=0s2kipvi002pt&er=5`), e um link real devolvia
+    None — o farejador rodaria sem gerar palpite nenhum. Agora a regra olha
+    o VALOR: nome conhecido tem preferência, senão vale o maior valor com
+    cara de id.
+    """
+    from urllib.parse import parse_qsl, unquote, urlparse
 
     u = unquote(url or "")
     uuid = re.search(r"\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
                      r"[0-9a-f]{4}-[0-9a-f]{12})\b", u, re.I)
     if uuid:
         return uuid.group(1)
-    par = re.search(r"[?&#](?:share_?key|hand_?id|gameid|id|key|code)="
-                    r"([0-9a-zA-Z_-]{8,})", u, re.I)
-    if par:
-        return par.group(1)
+
+    try:
+        p = urlparse(u)
+        params = parse_qsl(p.query, keep_blank_values=True)
+        params += parse_qsl((p.fragment or "").lstrip("#/?"),
+                            keep_blank_values=True)
+    except Exception:
+        params = []
+    validos = [(k.lower(), v) for k, v in params if _parece_identificador(v)]
+    for nome in _NOMES_CONHECIDOS:
+        for k, v in validos:
+            if k == nome:
+                return v
+    if validos:
+        return max(validos, key=lambda kv: len(kv[1]))[1]
+
     cauda = re.search(r"/([0-9a-zA-Z_-]{16,})(?:\.json)?/?$", u)
     return cauda.group(1) if cauda else None
 
@@ -157,21 +190,36 @@ def candidatos_da_pagina(texto: str, base: str) -> list[str]:
     return saida[:60]
 
 
-def palpites_conhecidos(chave: str, host: str) -> list[str]:
+def palpites_conhecidos(chave: str, host: str, query: str = "") -> list[str]:
     """Padrões que já funcionaram em outro clube. Vários apps de clube são
     white-label do mesmo fornecedor — o palpite é barato e às vezes acerta
-    de primeira."""
+    de primeira.
+
+    `query` é a querystring ORIGINAL do link: quando o replay usa mais de um
+    parâmetro (a Suprema manda `t` e `er`), a API costuma querer os dois, e
+    palpitar só com a chave erra por falta de argumento.
+    """
     if not chave:
         return []
-    raiz = host.split(".")[-2] if host.count(".") >= 1 else host
-    return [
-        f"https://alicdn.{raiz}.club/review_hand/{chave}.json",
-        f"https://cdn.{host}/review_hand/{chave}.json",
-        f"https://{host}/review_hand/{chave}.json",
-        f"https://{host}/api/hand/{chave}",
-        f"https://{host}/api/replay/{chave}",
-        f"https://{host}/api/record/{chave}",
-    ]
+    partes = host.split(".")
+    raiz = partes[-2] if len(partes) >= 2 else host
+    # r.supremapoker.net -> supremapoker.net: a API raramente fica no
+    # subdomínio que serve a página do replay
+    pai = ".".join(partes[-2:]) if len(partes) > 2 else host
+    hosts = [host, pai, f"cdn.{pai}", f"api.{pai}", f"alicdn.{raiz}.club"]
+    caminhos = [f"/review_hand/{chave}.json", f"/hand/{chave}.json",
+                f"/api/hand/{chave}", f"/api/replay/{chave}",
+                f"/api/record/{chave}", f"/api/hand/detail/{chave}",
+                f"/replay/{chave}.json", f"/{chave}.json"]
+    saida = [f"https://{h}{c}" for h in dict.fromkeys(hosts)
+             for c in caminhos]
+    if query:
+        # mesma API, mas chamada como a página chamaria: com os parâmetros
+        for h in dict.fromkeys(hosts):
+            saida += [f"https://{h}/api/hand?{query}",
+                      f"https://{h}/api/replay?{query}",
+                      f"https://{h}/hand?{query}"]
+    return saida
 
 
 # --------------------------------------------------------------- I/O
@@ -196,14 +244,19 @@ def _talvez_json(corpo: bytes):
 
 def farejar(url: str) -> dict:
     """Devolve {'chave', 'achados': [{url, pontos, esqueleto}], 'tentados'}."""
-    host = (urlparse(url).netloc or "").lower()
+    partes_url = urlparse(url)
+    host = (partes_url.netloc or "").lower()
     chave = chave_do_link(url)
     print(f"host: {host}\nchave extraída do link: {chave or '(nenhuma)'}\n")
+    if not chave:
+        print("AVISO: sem chave, os palpites por padrão conhecido não rodam "
+              "— sobra só o que estiver escrito na página e nos bundles.\n")
 
     status, corpo, ctype = _get(url)
     print(f"página do replay: HTTP {status} · {ctype} · {len(corpo)} bytes")
 
-    alvos: list[str] = list(palpites_conhecidos(chave or "", host))
+    alvos: list[str] = list(palpites_conhecidos(
+        chave or "", host, partes_url.query))
     # o próprio link pode JÁ ser a mão: alguns clubes compartilham a URL do
     # JSON direto. Eu descartava essa resposta e saía dizendo "nada achei"
     # com a mão na mão.
