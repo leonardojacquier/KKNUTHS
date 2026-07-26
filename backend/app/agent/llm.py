@@ -820,7 +820,10 @@ _SYSTEM = {
         "voltarem (pote, stack efetivo, quem está fora de posição) e diga que "
         "os ranges são de REFERÊNCIA pela posição, não os ranges reais. Só "
         "quando a ferramenta devolver 'error' você explica o motivo dela "
-        "(multiway, mão sem flop) — nunca invente que não consegue.\n"
+        "(mão sem flop) — nunca invente que não consegue. Se ela voltar com "
+        "'sem_grafico' (pote multiway), NÃO peça desculpa: diga em uma linha "
+        "que a matriz 13×13 é heads-up e ENTREGUE o EV por decisão que veio "
+        "junto, com o custo total da linha. Resposta sem número é o defeito.\n"
 
         "\n== V) VOZ: como escrever ==\n"
         "V1 CARTAS levam o ícone do naipe: A♠, K♥, 10♦, J♣ — nunca 'As'/'Kh' "
@@ -1067,6 +1070,23 @@ def _dispatch(name: str, args: dict):
         h = conversation_hand(tg) if tg else None
         spot = spot_da_mao(h, args.get("street"))
         if spot.get("error"):
+            # multiway não tem matriz 13×13 (o equilíbrio pós-flop é
+            # heads-up), mas TEM conta: devolve o EV por decisão em vez de
+            # deixar o aluno de mãos vazias. Ele pediu o gráfico três vezes
+            # e recebeu três desculpas — desculpa não é resposta.
+            if "heads-up" in str(spot.get("error")):
+                from app.analysis.ev_streets import ev_por_street
+
+                alt = ev_por_street(h)
+                if not alt.get("error"):
+                    return {
+                        "sem_grafico": spot["error"],
+                        "em_vez_disso": "EV de cada decisão sua no pote "
+                                        "multiway (a matriz 13×13 do "
+                                        "equilíbrio é heads-up; esta conta "
+                                        "não é)",
+                        **alt,
+                    }
             return spot
         # o aluno esperou 1 min sem sinal de vida e achou que tinha quebrado:
         # avisa ANTES de resolver o que está rodando e quanto demora

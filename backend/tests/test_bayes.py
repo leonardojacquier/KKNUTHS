@@ -3614,3 +3614,71 @@ def test_manual_cobre_as_funcionalidades_novas():
     # e o PDF publicado acompanha (7 páginas, última cheia)
     pdf = raiz / "app/api/assets/KKNuths-Manual.pdf"
     assert pdf.stat().st_size > 500_000
+
+
+def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
+    # o juiz da saída deu nota 2/10: o aluno pediu o gráfico de EV três vezes
+    # e recebeu três desculpas. Causa: depois de responder um quiz, o contexto
+    # da conversa vira {'modo':…, 'spot':{…,'hand_id':…}} e a busca da mão só
+    # olhava o PRIMEIRO nível — toda ferramenta de mão morria ali.
+    import app.bot.processing as P
+
+    ctx_drill = {"modo": "discussão de um spot de treino/quiz",
+                 "spot": {"cat": "turn", "hand_id": "pppoker-abc123"},
+                 "escolha_do_aluno": "call"}
+    assert P._hand_id_no_contexto(ctx_drill) == "pppoker-abc123"
+    assert P._hand_id_no_contexto({"hand_id": "X"}) == "X"
+    assert P._hand_id_no_contexto({"nada": 1}) is None
+
+    # o handler do quiz também promove o hand_id pro primeiro nível
+    import inspect
+
+    from app.bot import handlers
+    src = inspect.getsource(handlers)
+    assert '"hand_id": drill.get("hand_id")' in src
+
+    # e a mão é encontrada de verdade a partir do contexto de drill
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    h.hand_id = "pppoker-abc123"
+    monkeypatch.setattr(P, "LAST_ANALYSIS", {7: {"context": ctx_drill,
+                                                 "hand_row_id": None}})
+    monkeypatch.setattr(P, "_user_hands", lambda tg: [h])
+    assert P.conversation_hand(7) is h
+
+    # sem mão, a falha vira EVENTO (antes morria como prosa do coach)
+    eventos = []
+
+    class Repo:
+        enabled = True
+
+        def get_hand_canonical(self, _):
+            return None
+
+        def log_event(self, *a, **k):
+            eventos.append(a[2] if len(a) > 2 else None)
+
+    monkeypatch.setattr(P, "get_repository", lambda: Repo())
+    monkeypatch.setattr(P, "LAST_ANALYSIS", {8: {"context": {"nada": 1}}})
+    assert P.conversation_hand(8) is None
+    assert "sem_mao_na_conversa" in eventos
+
+
+def test_grafico_de_ev_multiway_entrega_conta_em_vez_de_desculpa(monkeypatch):
+    # a matriz 13×13 é heads-up. Em pote multiway a resposta não pode ser
+    # "não consigo": tem que vir o EV por decisão, que existe e é multiway.
+    import app.bot.processing as P
+    from app.agent import llm
+
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    monkeypatch.setattr(P, "conversation_hand", lambda tg: h)
+    llm.set_tool_chat(1)
+    r = llm._dispatch("grafico_ev_da_mao", {"street": "flop"})
+
+    assert "heads-up" in r["sem_grafico"]
+    assert r.get("decisoes"), "não veio a conta alternativa"
+    assert r["multiway"] is True and "custo_total_bb" in r
+    assert any(d.get("ev_bb") is not None for d in r["decisoes"])
+
+    # e o prompt proíbe transformar isso em pedido de desculpa
+    assert "NÃO peça desculpa" in llm._SYSTEM["pt"]
+    assert "Resposta sem número é o defeito" in llm._SYSTEM["pt"]

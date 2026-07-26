@@ -731,6 +731,9 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             "modo": "discussão de um spot de treino/quiz — o aluno acabou de "
             "responder e pode discordar ou pedir aprofundamento",
             "spot": {k: v for k, v in drill.items() if k != "story"},
+            # hand_id TAMBÉM no primeiro nível: é o que liga as ferramentas
+            # de mão (gráfico de EV, street a street, potes) a esta conversa
+            "hand_id": drill.get("hand_id"),
             "historia_da_mao": drill.get("story"),
             "escolha_do_aluno": choice,
         },

@@ -731,11 +731,40 @@ def conversation_hand(telegram_id: int) -> "CanonicalHand | None":
         if h:
             return h
     context = ctx.get("context") if isinstance(ctx.get("context"), dict) else {}
-    hand_id = (context or {}).get("hand_id")
+    hand_id = _hand_id_no_contexto(context)
     if hand_id:
         for x in _user_hands(telegram_id):
             if x.hand_id == hand_id and x.hero:
                 return x
+    # falha SILENCIOSA era o pior caso: as tools de mão devolviam "não achei"
+    # e o coach virava prosa. Fica registrado pra aparecer no diagnóstico.
+    try:
+        get_repository().log_event(telegram_id, None, "sem_mao_na_conversa",
+                                   {"chaves": sorted(context)[:8]})
+    except Exception:
+        pass
+    return None
+
+
+def _hand_id_no_contexto(context: dict) -> str | None:
+    """Acha o hand_id no contexto, inclusive ANINHADO.
+
+    Depois de responder um quiz, o contexto vira {'modo':…, 'spot':{…,
+    'hand_id':…}} — e a busca só olhava o primeiro nível. Resultado: toda
+    ferramenta de mão (gráfico de EV, street a street, potes) morria numa
+    conversa de treino, dizendo que não achava a mão. O aluno pediu o
+    gráfico três vezes seguidas e recebeu três desculpas.
+    """
+    if not isinstance(context, dict):
+        return None
+    direto = context.get("hand_id")
+    if isinstance(direto, str) and direto:
+        return direto
+    for valor in context.values():
+        if isinstance(valor, dict):
+            achado = _hand_id_no_contexto(valor)
+            if achado:
+                return achado
     return None
 
 
