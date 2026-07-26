@@ -280,15 +280,24 @@ def _get(url: str, limite_bytes: int = 4_000_000) -> tuple[int, bytes, str]:
 _DESPEJO = "/tmp/replay_sniff"
 
 
-def _guardar(nome: str, dados: bytes) -> None:
+def _guardar(pasta: str | None, nome: str, dados: bytes) -> None:
     """Guarda página e bundles em disco. Quando o farejador não acha nada,
     o material bruto é o que permite olhar com o olho humano em vez de
-    rodar de novo às cegas."""
+    rodar de novo às cegas.
+
+    `pasta=None` NÃO grava, e esse é o padrão de propósito: com o caminho
+    fixo embutido, o teste de integração gravou seus fixtures no /tmp do
+    VPS durante o portão do deploy. O admin abriu a pasta esperando a
+    página da Suprema e achou 57 bytes de mentira minha. Efeito colateral
+    só sai de `main()`, nunca de biblioteca.
+    """
     import os
 
+    if not pasta:
+        return
     try:
-        os.makedirs(_DESPEJO, exist_ok=True)
-        with open(os.path.join(_DESPEJO, nome), "wb") as f:
+        os.makedirs(pasta, exist_ok=True)
+        with open(os.path.join(pasta, nome), "wb") as f:
             f.write(dados)
     except Exception:
         pass
@@ -301,7 +310,7 @@ def _talvez_json(corpo: bytes):
         return None
 
 
-def farejar(url: str) -> dict:
+def farejar(url: str, despejo: str | None = None) -> dict:
     """Devolve {'chave', 'achados': [{url, pontos, esqueleto}], 'tentados'}."""
     partes_url = urlparse(url)
     host = (partes_url.netloc or "").lower()
@@ -327,7 +336,7 @@ def farejar(url: str) -> dict:
                                 "bruto": direto})
     if corpo and "json" not in ctype.lower():
         texto = corpo.decode("utf-8", "replace")
-        _guardar("pagina.html", corpo)
+        _guardar(despejo, "pagina.html", corpo)
 
         # mão embutida no próprio HTML: página de 4 KB pode já trazer tudo
         for blob in _blobs_json(texto):
@@ -354,7 +363,7 @@ def farejar(url: str) -> dict:
                 print(f"    ! bundle não baixou ({s}): {j}")
                 continue
             miolo = c.decode("utf-8", "replace")
-            _guardar(re.sub(r"[^\w.-]", "_", j.split("/")[-1])[:60], c)
+            _guardar(despejo, re.sub(r"[^\w.-]", "_", j.split("/")[-1])[:60], c)
             novos = candidatos_da_pagina(miolo, j)
             de_bundle += len(novos)
             alvos += novos
@@ -389,7 +398,7 @@ def main() -> int:
         print(__doc__)
         return 2
     url = sys.argv[1]
-    r = farejar(url)
+    r = farejar(url, despejo=_DESPEJO)
     print(f"\n{r['tentados']} endpoints tentados · "
           f"{len(r['achados'])} devolveram JSON com cara de mão\n")
     if not r["achados"]:

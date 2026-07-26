@@ -185,6 +185,31 @@ def test_caminho_completo_pagina_bundle_endpoint():
     assert r["achados"][0]["pontos"] >= 8
 
 
+def test_teste_nao_pode_escrever_no_disco_da_maquina():
+    """Aconteceu de verdade: com o caminho de despejo fixo no módulo, este
+    teste gravou seus fixtures em /tmp do VPS durante o portão do deploy. O
+    admin abriu a pasta esperando a página da Suprema e encontrou 57 bytes
+    de mentira minha. Efeito colateral só sai de main()."""
+    import os
+
+    import sniff_replay as s
+
+    antes = set(os.listdir(s._DESPEJO)) if os.path.isdir(s._DESPEJO) else set()
+
+    def _falso_get(url, limite_bytes=0):
+        return 200, b'<html><script src="/a.js"></script></html>', "text/html"
+
+    original = s._get
+    s._get = _falso_get
+    try:
+        s.farejar("https://r.clube.net/?t=abc123def456")   # sem despejo
+    finally:
+        s._get = original
+
+    depois = set(os.listdir(s._DESPEJO)) if os.path.isdir(s._DESPEJO) else set()
+    assert depois == antes, f"o teste sujou o disco: {depois - antes}"
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 
