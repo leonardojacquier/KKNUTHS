@@ -1317,8 +1317,12 @@ def test_resumo_diario_de_uso():
 
     txt, m = build_summary(now, reais, ev, day_ago)
     assert "Nenhum usuário novo hoje" in txt
-    assert m == {"novos": 0, "ativos": 2, "base": 3, "maos": 2,
-                 "perguntas": 3, "quiz": 2}
+    # (as métricas de entrega entraram depois; aqui não há pedido no dia)
+    assert {k: m[k] for k in ("novos", "ativos", "base", "maos",
+                              "perguntas", "quiz")} == {
+        "novos": 0, "ativos": 2, "base": 3, "maos": 2,
+        "perguntas": 3, "quiz": 2}
+    assert m["entrega_pct"] is None and m["entrega_pedidos"] == 0
     assert "sumido" in txt.split("Sem aparecer hoje")[1]     # retenção
     assert "Leo — 5 ações" in txt                            # ranking
 
@@ -3684,3 +3688,95 @@ def test_grafico_de_ev_multiway_entrega_conta_em_vez_de_desculpa(monkeypatch):
     # e o prompt proíbe transformar isso em pedido de desculpa
     assert "NÃO peça desculpa" in llm._SYSTEM["pt"]
     assert "Resposta sem número é o defeito" in llm._SYSTEM["pt"]
+
+
+def test_guarda_da_saida_conserta_o_que_faltou(monkeypatch):
+    # entrega 4,5/10: três vezes esta semana o aluno pediu gráfico e recebeu
+    # prosa. Regra de prompt já foi tentada quatro vezes (C10, C11, C11b,
+    # C11c) e falhou. Isto aqui é conferência ANTES de enviar, não pedido.
+    import app.bot.processing as P
+    from app.bot.guarda_saida import (conferir_e_remediar, faltou,
+                                      pedido_do_aluno)
+
+    # 1) classificar o pedido
+    assert pedido_do_aluno("Manda o gráfico de EV") == {"grafico", "numero"}
+    assert pedido_do_aluno("Qual o range de EV do turn ?") == {"grafico",
+                                                               "numero"}
+    assert pedido_do_aluno("joguei certo essa mão?") == {"numero"}
+    assert pedido_do_aluno("como controlo o tilt?") == set()
+
+    # 2) conferir a entrega — número em bb/% conta, prosa não
+    assert faltou({"numero"}, "você jogou bem no flop", False) == {"numero"}
+    assert faltou({"numero"}, "pagar custa -1,76bb", False) == set()
+    assert faltou({"numero"}, "sua equity era 34%", False) == set()
+    assert faltou({"grafico"}, "segue abaixo", True) == set()
+    assert faltou({"grafico"}, "não consigo montar", False) == {"grafico"}
+
+    # 3) remediar: o caso REAL (multiway) devolve a conta, não desculpa
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    monkeypatch.setattr(P, "conversation_hand", lambda tg: h)
+    eventos = []
+
+    class Repo:
+        enabled = True
+
+        def log_event(self, tid, uname, ev, det=None):
+            eventos.append(ev)
+
+    monkeypatch.setattr("app.db.get_repository", lambda: Repo())
+    resposta, specs = conferir_e_remediar(
+        1, "Qual o range de EV do turn ?",
+        "Vou te explicar o conceito. Qual dos dois você quer?", False)
+
+    assert "EV de cada decisão sua" in resposta
+    assert "bb" in resposta and "Custo total da linha" in resposta
+    # o TURN desta mão foi a três: sem matriz 13×13, mas com a conta — e a
+    # explicação em vez do pedido de desculpa
+    assert "13×13 é heads-up" in resposta and not specs
+    assert "entrega_falha" in eventos and "entrega_remediada" in eventos
+
+    # a street PEDIDA é respeitada: o river foi heads-up, então sai gráfico
+    from app.bot.guarda_saida import remediar, street_pedida
+    assert street_pedida("Qual o range de EV do turn ?") == "turn"
+    assert street_pedida("e o gráfico?") is None
+    txt_hu, specs_hu = remediar(1, {"grafico"}, "river")
+    assert specs_hu and specs_hu[0][0] == "posflop"
+    assert len(specs_hu[0][1]) == 5, "o gráfico saiu de outra street"
+
+    # pergunta sem pedido conferível não é tocada nem logada
+    eventos.clear()
+    r2, _ = conferir_e_remediar(1, "como controlo o tilt?", "Respira.", False)
+    assert r2 == "Respira." and not eventos
+
+    # entrega OK também é registrada (é o denominador da taxa)
+    eventos.clear()
+    conferir_e_remediar(1, "joguei certo?", "o call rendeu +2,10bb", False)
+    assert eventos == ["entrega_ok"]
+
+    # 4) o guarda está ligado no caminho da conversa
+    import inspect
+    assert "conferir_e_remediar" in inspect.getsource(P.process_followup)
+
+
+def test_taxa_de_entrega_no_resumo_diario():
+    # sem número, a nota de entrega era opinião minha e o defeito só
+    # aparecia quando o aluno mandava print.
+    from datetime import datetime, timezone
+
+    from scripts.daily_usage import build_summary
+
+    ev = ([{"telegram_id": 1, "event": "entrega_ok"}] * 7
+          + [{"telegram_id": 1, "event": "entrega_falha"}] * 3
+          + [{"telegram_id": 1, "event": "entrega_remediada"}] * 3
+          + [{"telegram_id": 1, "event": "sem_mao_na_conversa"}])
+    users = [{"telegram_id": 1, "username": "Leo", "created_at": "2026-01-01"}]
+    txt, m = build_summary(datetime.now(timezone.utc), users, ev, "2026-01-01")
+
+    assert m["entrega_pct"] == 70 and m["entrega_pedidos"] == 10
+    assert m["entrega_remediada"] == 3 and m["sem_mao"] == 1
+    assert "Entrega: 70%" in txt and "🟡" in txt
+    assert "não achou a mão da conversa" in txt
+
+    # sem pedidos no dia, não inventa métrica
+    _, vazio = build_summary(datetime.now(timezone.utc), users, [], "2026-01-01")
+    assert vazio["entrega_pct"] is None

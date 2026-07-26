@@ -941,6 +941,20 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             "Opa, me embananei aqui — me pergunta de novo em um instante? 🙏"
         )
 
+    # GUARDA DA SAÍDA: pediu gráfico e não veio gráfico? pediu EV e a
+    # resposta não tem número? Conserta ANTES de enviar, chamando a conta na
+    # marra. Mais regra no prompt já foi tentado quatro vezes e falhou.
+    try:
+        from app.bot.guarda_saida import conferir_e_remediar
+
+        tem_grafico = bool(PENDING_CHARTS.get(telegram_id, (0.0, []))[1])
+        answer, extra_specs = conferir_e_remediar(
+            telegram_id, question, answer, tem_grafico)
+        if extra_specs:
+            _stash_charts(telegram_id, extra_specs, ctx.get("user_id"))
+    except Exception as exc:
+        log.warning("guarda da saída falhou: %s", exc)
+
     ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]
     persist_conversation(telegram_id)
 

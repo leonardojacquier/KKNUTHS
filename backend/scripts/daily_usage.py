@@ -104,9 +104,31 @@ def build_summary(now: datetime, reais: list[dict], ev_24h: list[dict],
     if sumidos:
         l.append(f"\n😴 Sem aparecer hoje: {', '.join(sumidos[:8])}")
 
+    # TAXA DE ENTREGA: de cada pedido conferível (gráfico/número), quantos
+    # saíram completos de primeira. Era a métrica que faltava — sem ela a
+    # nota de entrega era opinião minha e o defeito só aparecia por print.
+    ok_e = _count("entrega_ok")
+    falha_e = _count("entrega_falha")
+    remediou = _count("entrega_remediada")
+    pedidos = ok_e + falha_e
+    entrega_pct = round(100 * ok_e / pedidos) if pedidos else None
+    if pedidos:
+        icone = "🟢" if entrega_pct >= 90 else ("🟡" if entrega_pct >= 70
+                                               else "🔴")
+        l.append(f"\n{icone} *Entrega: {entrega_pct}%* — {ok_e}/{pedidos} "
+                 f"pedidos de gráfico/número vieram completos de primeira"
+                 + (f" · {remediou} consertado(s) pelo guarda" if remediou
+                    else ""))
+    sem_mao = _count("sem_mao_na_conversa")
+    if sem_mao:
+        l.append(f"⚠️ *{sem_mao}x* a ferramenta não achou a mão da conversa "
+                 "(caminho de contexto quebrado)")
+
     metrics = {"novos": len(novos), "ativos": len(ativos_ids),
                "base": len(reais), "maos": analises, "perguntas": perguntas,
-               "quiz": quiz}
+               "quiz": quiz, "entrega_pct": entrega_pct,
+               "entrega_pedidos": pedidos, "entrega_remediada": remediou,
+               "sem_mao": sem_mao}
     return "\n".join(l), metrics
 
 
