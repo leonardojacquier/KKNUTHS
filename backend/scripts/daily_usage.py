@@ -56,7 +56,8 @@ def _events_since(repo, iso: str) -> list[dict]:
 
 
 def build_summary(now: datetime, reais: list[dict], ev_24h: list[dict],
-                  day_ago: str) -> tuple[str, dict]:
+                  day_ago: str, custo_24h: dict | None = None
+                  ) -> tuple[str, dict]:
     """Monta a mensagem do resumo diário (função PURA — testável sem I/O).
     Devolve (texto_markdown, métricas). A 1ª linha SEMPRE responde 'entrou
     gente nova?' — a métrica que o admin cobra."""
@@ -124,11 +125,25 @@ def build_summary(now: datetime, reais: list[dict], ev_24h: list[dict],
         l.append(f"⚠️ *{sem_mao}x* a ferramenta não achou a mão da conversa "
                  "(caminho de contexto quebrado)")
 
+    # CUSTO: o número que decide preço. Aparece todo dia porque foi a
+    # ausência dele que fez o teto de 50 análises ser escolhido no escuro.
+    usd = (custo_24h or {}).get("usd")
+    if usd is not None and (custo_24h or {}).get("chamadas"):
+        por_mao = f" · US$ {usd / analises:.2f}/mão" if analises else ""
+        l.append(f"\n💸 *Custo hoje: US$ {usd:.2f}* (≈ R$ {usd * 5.4:.2f})"
+                 + por_mao)
+        maior = list((custo_24h.get("por_tarefa") or {}).items())[:2]
+        if maior:
+            l.append("   " + " · ".join(f"{t} US$ {v:.2f}" for t, v in maior))
+        if custo_24h.get("chamadas_sem_preco"):
+            l.append("   ⚠️ modelo fora da tabela de preços — total "
+                     "SUBESTIMADO")
+
     metrics = {"novos": len(novos), "ativos": len(ativos_ids),
                "base": len(reais), "maos": analises, "perguntas": perguntas,
                "quiz": quiz, "entrega_pct": entrega_pct,
                "entrega_pedidos": pedidos, "entrega_remediada": remediou,
-               "sem_mao": sem_mao}
+               "sem_mao": sem_mao, "custo_usd": usd}
     return "\n".join(l), metrics
 
 
@@ -145,8 +160,14 @@ def main() -> int:
     users = repo.client.table("users").select(
         "id,telegram_id,username,created_at").execute().data or []
     ev_24h = _events_since(repo, day_ago)
+    try:
+        from app.agent.custo import eventos_de_custo, somar
 
-    text, metrics = build_summary(now, users, ev_24h, day_ago)
+        custo_24h = somar(eventos_de_custo(repo, day_ago))
+    except Exception:
+        custo_24h = None  # resumo sem custo é melhor que resumo nenhum
+
+    text, metrics = build_summary(now, users, ev_24h, day_ago, custo_24h)
     ok = notify_admin(settings.telegram_bot_token, text)
     repo.log_event(0, "daily_usage", "daily_usage", metrics)
     print(f"resumo diário: {'enviado' if ok else 'FALHOU'} — "

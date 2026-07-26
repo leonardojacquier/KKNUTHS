@@ -1034,6 +1034,30 @@ async def _responder_spot(message, texto: str) -> None:
                                       caption=r[1][:1000])
 
 
+async def cmd_quem(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/quem [telegram_id] — quanto o produto gastou de LLM neste mês.
+
+    Só o dono vê. É a régua que falta pra decidir preço: enquanto o custo
+    por análise não estiver medido em uso real, qualquer plano é chute.
+    """
+    from app.quota import ADMIN_TELEGRAM_ID
+
+    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+        return  # silêncio: comando de operação não se anuncia pro aluno
+    alvo = None
+    if ctx.args:
+        try:
+            alvo = int(ctx.args[0])
+        except ValueError:
+            await update.message.reply_text("Uso: `/quem` ou `/quem <telegram_id>`",
+                                            parse_mode="Markdown")
+            return
+    from app.agent.custo import relatorio_do_mes
+
+    txt = await asyncio.to_thread(relatorio_do_mes, alvo)
+    await update.message.reply_markdown(txt)
+
+
 async def cmd_prova(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """/prova — autoteste sobre as mãos do próprio aluno."""
     await _log(update, "prova_cmd")
@@ -1648,6 +1672,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("banca", cmd_banca))
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
     app.add_handler(CommandHandler("prova", cmd_prova))
+    app.add_handler(CommandHandler("quem", cmd_quem))
     app.add_handler(CommandHandler("spot", cmd_spot))
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
     app.add_handler(CallbackQueryHandler(on_spot_stack, pattern=r"^spotstk:"))

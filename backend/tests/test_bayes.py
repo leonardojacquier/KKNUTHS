@@ -1333,6 +1333,17 @@ def test_resumo_diario_de_uso():
     assert m2["novos"] == 1 and m2["base"] == 4
     assert "NovoDoClube" in txt2 and "novo(s) hoje" in txt2
 
+    # CUSTO no resumo: sem o número na cara todo dia, o preço volta a ser
+    # chute. 2 mãos no dia e US$ 0,60 -> US$ 0,30/mão.
+    custo = {"chamadas": 9, "usd": 0.6, "chamadas_sem_preco": 0,
+             "por_tarefa": {"analise": 0.4, "conversa": 0.2}}
+    txt3, m3 = build_summary(now, reais, ev, day_ago, custo)
+    assert m3["custo_usd"] == 0.6
+    assert "Custo hoje: US$ 0.60" in txt3 and "US$ 0.30/mão" in txt3
+    assert "analise US$ 0.40" in txt3
+    # sem dado de custo o resumo continua saindo (nada de quebrar por isso)
+    assert build_summary(now, reais, ev, day_ago)[1]["custo_usd"] is None
+
 
 def test_repeticao_espacada_do_treino():
     # o quiz persegue o leak: categorias com erro sustentado pesam mais no

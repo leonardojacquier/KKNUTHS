@@ -108,6 +108,11 @@ def _nota_llm(pares: list[dict]) -> dict | None:
                 "Responda SÓ JSON: {\"nota\": 8.5, \"pior\": \"o que mais "
                 "atrapalha, 1 frase\", \"exemplo\": \"trecho curto\"}"),
             messages=[{"role": "user", "content": amostra}])
+        # o cron também gasta: sem isto o custo total do produto fica menor
+        # do que a fatura, que é o jeito clássico de se enganar sozinho
+        from app.agent import custo
+
+        custo.registrar(resp, settings.cheap_model, "cron:juiz")
         txt = "".join(b.text for b in resp.content if b.type == "text").strip()
         if txt.startswith("```"):
             txt = txt.split("```", 2)[1].removeprefix("json").strip()

@@ -895,6 +895,18 @@ def set_tool_chat(telegram_id: int | None) -> None:
     _TOOL_CHAT.set(telegram_id)
 
 
+# QUAL tarefa está gastando: análise, conversa, leitura de print… Sem isto o
+# custo total não diz onde economizar, e é exatamente essa quebra que decide
+# se a conversa pós-análise vai para o modelo barato.
+_TAREFA: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "_TAREFA", default="outro"
+)
+
+
+def set_tarefa(nome: str) -> None:
+    _TAREFA.set(nome)
+
+
 # modelos que REJEITAM o parâmetro temperature (400 'temperature is
 # deprecated for this model') — descoberto em produção: o deploy da
 # consistência derrubou a leitura de prints inteira
@@ -929,7 +941,17 @@ def _create(client, **kw):
     delay = 1.0
     for attempt in range(4):
         try:
-            return client.messages.create(**kw)
+            resp = client.messages.create(**kw)
+            # contabilidade: o que esta chamada custou em DÓLAR, não em
+            # "créditos". Blindado — nunca pode derrubar a resposta do aluno.
+            try:
+                from app.agent import custo
+
+                custo.registrar(resp, model, _TAREFA.get(),
+                                _TOOL_CHAT.get(), _TOOL_USER.get())
+            except Exception:
+                pass
+            return resp
         except Exception as exc:
             msg = str(exc)
             if "temperature" in msg and kw.pop("temperature", None) is not None:
@@ -1525,6 +1547,7 @@ def coach(
     `key_hands`: análises das mãos decisivas de um torneio — o Claude narra a
     "história do torneio" em cima delas, além do agregado.
     """
+    set_tarefa("analise")
     settings = get_settings()
     fallback = structured.get("summary", "")
     if not settings.anthropic_api_key:
@@ -1620,6 +1643,7 @@ def prepare_briefing(ctx: dict, lang: str = "pt") -> str | None:
     fecha com METAS parseáveis ('META 1:' / 'META 2:') que viram notas no
     caderno do coach — o relatório pós-torneio vai cobrá-las (fase 3).
     """
+    set_tarefa("briefing")
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -1684,6 +1708,7 @@ def simplify(text: str) -> str | None:
 
     Modelo barato, sem tools — resposta rápida. None se o LLM está fora.
     """
+    set_tarefa("simplificar")
     from app.config import get_settings
 
     settings = get_settings()
@@ -1742,6 +1767,7 @@ def session_notebook_notes(history: list[dict], resumo_mao: str,
     aluno pensa — dúvida recorrente, conceito mal calibrado, progresso — e que
     ainda não esteja no caderno. Lista vazia se nada novo: melhor calar que
     repetir."""
+    set_tarefa("caderno")
     from app.config import get_settings
 
     settings = get_settings()
@@ -1800,6 +1826,7 @@ def followup(
     `image_b64` traz a imagem original — o modelo pode RELÊ-LA quando o aluno
     disser que algo foi mal extraído. Retorna None sem chave/erro.
     """
+    set_tarefa("conversa")
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -1904,6 +1931,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
     Para cada decisão divergente da real, julga (com as tools) se a escolha do
     aluno era melhor, pior ou equivalente — e quantifica. None sem chave/erro.
     """
+    set_tarefa("simulador")
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -1982,6 +2010,7 @@ def synthesize_answer(query: str, snippets: list[str], lang: str = "pt") -> str 
     Usa o modelo barato (Haiku) — tarefa simples de síntese, não de julgamento.
     Retorna None sem chave/erro (o chamador mostra os resumos crus).
     """
+    set_tarefa("busca")
     settings = get_settings()
     if not settings.anthropic_api_key or not snippets:
         return None
@@ -2047,6 +2076,7 @@ def extract_from_hand_text(text: str) -> CanonicalHand | None:
     converte para o mesmo JSON da visão e reaproveitamos _snapshot_to_canonical.
     Retorna None sem chave ou se a extração falhar.
     """
+    set_tarefa("leitura_texto")
     settings = get_settings()
     if not settings.anthropic_api_key or not text.strip():
         return None
@@ -2134,6 +2164,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     Retorna um `CanonicalHand` parcial com `confidence` < 1.0 (dado de visão é menos
     confiável que hand history nativa). Sem chave/lib ou em falha, retorna None.
     """
+    set_tarefa("leitura_print")
     global LAST_VISION_CHECK
     settings = get_settings()
     if not settings.anthropic_api_key:
