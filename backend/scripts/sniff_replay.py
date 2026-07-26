@@ -1,0 +1,283 @@
+"""FAREJADOR DE REPLAY — descobre de onde um replayer de clube tira a mão.
+
+Por que existe: o parser da PPPoker não saiu de documentação, saiu de
+captura de rede. O replayer é um jogo WebGL, mas a mão em si estava num
+JSON estático num CDN — e o `shareKey` do link era o nome do arquivo. Achar
+isso levou horas de tentativa manual. Este script faz a mesma busca sozinho,
+para o próximo clube (Suprema, ClubGG, WePoker, PokerBros, UPoker).
+
+Ele NÃO escreve parser. Ele responde a única pergunta que trava o parser:
+*qual URL devolve a mão, e com que cara vem o JSON?* Com essa resposta o
+parser vira trabalho mecânico de mapear campo.
+
+Rode de onde a rede alcança o clube (o VPS):
+
+    python scripts/sniff_replay.py "<link do replay>" [--telegram]
+
+O que faz, em ordem:
+  1. baixa a página do replay com User-Agent de celular (replayer de clube
+     costuma servir coisa diferente pro desktop);
+  2. varre a página E os .js que ela carrega procurando candidatos a
+     endpoint (api/, .json, cdn., host de review/hand/replay);
+  3. tenta cada candidato, injetando a chave do link onde couber — inclusive
+     o palpite no formato PPPoker, porque vários apps de clube são
+     white-label do mesmo fornecedor;
+  4. de tudo que voltar JSON, mostra o ESQUELETO (chaves e tipos, sem
+     despejar valores) e marca o que parece mão de poker.
+
+Nada de segredo sai daqui: o link de replay é o que o próprio jogador
+compartilha. O script só LÊ — não envia nada, não faz login, não toca em
+conta de sala.
+"""
+from __future__ import annotations
+
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+from urllib.parse import urljoin, urlparse
+
+_UA_MOBILE = {
+    "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
+                   "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"),
+    "Accept": "*/*",
+}
+_TIMEOUT = 25
+
+# sinais de que um JSON é uma MÃO, não configuração de UI. Peso por quanto
+# cada chave é específica de poker — 'cards' vale mais que 'id'.
+_SINAIS = {
+    "cards": 3, "card": 2, "board": 3, "hole": 3, "holecards": 3,
+    "players": 3, "player": 1, "seat": 2, "seatid": 3, "seats": 2,
+    "actions": 3, "action": 1, "flop": 3, "turn": 2, "river": 3,
+    "preflop": 3, "pre_flop": 3, "pot": 3, "pots": 3, "pool": 1,
+    "blind": 2, "smallblind": 3, "small_blind": 3, "bigblind": 3,
+    "ante": 2, "stack": 2, "chips": 2, "winner": 2, "winning": 2,
+    "showdown": 3, "rake": 2, "dealer": 2, "gameid": 1, "hand_id": 3,
+}
+
+
+# ------------------------------------------------------------- puras
+def chaves(obj, prof: int = 0, limite: int = 6) -> set[str]:
+    """Todas as chaves do JSON, em qualquer profundidade, minúsculas."""
+    out: set[str] = set()
+    if prof > limite:
+        return out
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out.add(str(k).lower())
+            out |= chaves(v, prof + 1, limite)
+    elif isinstance(obj, list):
+        for v in obj[:20]:
+            out |= chaves(v, prof + 1, limite)
+    return out
+
+
+def parece_mao(obj) -> int:
+    """Pontuação de 'isto é uma mão de poker'. >= 8 é candidato forte.
+
+    Soma de sinais em vez de exigir uma chave específica: cada clube nomeia
+    do seu jeito, e exigir 'players' perderia um JSON que chama de 'users'.
+    """
+    ks = chaves(obj)
+    return sum(peso for chave, peso in _SINAIS.items() if chave in ks)
+
+
+def esqueleto(obj, prof: int = 0, limite: int = 4) -> object:
+    """JSON reduzido a chaves e TIPOS. É o que se lê para escrever o parser;
+    despejar os valores só afoga quem está procurando a estrutura."""
+    if prof > limite:
+        return "…"
+    if isinstance(obj, dict):
+        return {str(k): esqueleto(v, prof + 1, limite)
+                for k, v in list(obj.items())[:40]}
+    if isinstance(obj, list):
+        if not obj:
+            return []
+        return [esqueleto(obj[0], prof + 1, limite),
+                f"…+{len(obj) - 1} itens" if len(obj) > 1 else None]
+    if isinstance(obj, str):
+        return f"str({len(obj)})" if len(obj) > 24 else f"'{obj}'"
+    return type(obj).__name__
+
+
+def chave_do_link(url: str) -> str | None:
+    """O identificador da mão dentro do link, seja qual for o nome do
+    parâmetro. Vale para qualquer clube — por isso não reusa o regex da
+    PPPoker, que exige 'shareKey'."""
+    from urllib.parse import unquote
+
+    u = unquote(url or "")
+    uuid = re.search(r"\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     r"[0-9a-f]{4}-[0-9a-f]{12})\b", u, re.I)
+    if uuid:
+        return uuid.group(1)
+    par = re.search(r"[?&#](?:share_?key|hand_?id|gameid|id|key|code)="
+                    r"([0-9a-zA-Z_-]{8,})", u, re.I)
+    if par:
+        return par.group(1)
+    cauda = re.search(r"/([0-9a-zA-Z_-]{16,})(?:\.json)?/?$", u)
+    return cauda.group(1) if cauda else None
+
+
+def candidatos_da_pagina(texto: str, base: str) -> list[str]:
+    """URLs plausíveis de API/CDN citadas na página ou num .js dela.
+
+    Devolve em ordem de promessa: quem tem 'hand'/'review'/'replay' no
+    caminho vem antes de um .json qualquer.
+    """
+    achados: list[str] = []
+    for m in re.finditer(r"""['"](https?://[^'"\s]{8,300}|/[^'"\s]{4,300})['"]""",
+                         texto or ""):
+        bruto = m.group(1)
+        if not re.search(r"(api|\.json|cdn|review|hand|replay|record|game)",
+                         bruto, re.I):
+            continue
+        if re.search(r"\.(png|jpg|jpeg|gif|svg|css|woff2?|ttf|mp3|wav)($|\?)",
+                     bruto, re.I):
+            continue
+        achados.append(urljoin(base, bruto))
+
+    def promessa(u: str) -> int:
+        p = 0
+        if re.search(r"(review_?hand|hand_?record|replay|review)", u, re.I):
+            p -= 3
+        if re.search(r"\.json", u, re.I):
+            p -= 2
+        if re.search(r"/api/", u, re.I):
+            p -= 1
+        return p
+
+    vistos, saida = set(), []
+    for u in sorted(achados, key=promessa):
+        if u not in vistos:
+            vistos.add(u)
+            saida.append(u)
+    return saida[:60]
+
+
+def palpites_conhecidos(chave: str, host: str) -> list[str]:
+    """Padrões que já funcionaram em outro clube. Vários apps de clube são
+    white-label do mesmo fornecedor — o palpite é barato e às vezes acerta
+    de primeira."""
+    if not chave:
+        return []
+    raiz = host.split(".")[-2] if host.count(".") >= 1 else host
+    return [
+        f"https://alicdn.{raiz}.club/review_hand/{chave}.json",
+        f"https://cdn.{host}/review_hand/{chave}.json",
+        f"https://{host}/review_hand/{chave}.json",
+        f"https://{host}/api/hand/{chave}",
+        f"https://{host}/api/replay/{chave}",
+        f"https://{host}/api/record/{chave}",
+    ]
+
+
+# --------------------------------------------------------------- I/O
+def _get(url: str, limite_bytes: int = 4_000_000) -> tuple[int, bytes, str]:
+    req = urllib.request.Request(url, headers=_UA_MOBILE)
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as r:
+            return (r.status, r.read(limite_bytes),
+                    r.headers.get("Content-Type", ""))
+    except urllib.error.HTTPError as e:
+        return e.code, b"", ""
+    except Exception as e:
+        return 0, str(e).encode()[:200], ""
+
+
+def _talvez_json(corpo: bytes):
+    try:
+        return json.loads(corpo.decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def farejar(url: str) -> dict:
+    """Devolve {'chave', 'achados': [{url, pontos, esqueleto}], 'tentados'}."""
+    host = (urlparse(url).netloc or "").lower()
+    chave = chave_do_link(url)
+    print(f"host: {host}\nchave extraída do link: {chave or '(nenhuma)'}\n")
+
+    status, corpo, ctype = _get(url)
+    print(f"página do replay: HTTP {status} · {ctype} · {len(corpo)} bytes")
+
+    alvos: list[str] = list(palpites_conhecidos(chave or "", host))
+    # o próprio link pode JÁ ser a mão: alguns clubes compartilham a URL do
+    # JSON direto. Eu descartava essa resposta e saía dizendo "nada achei"
+    # com a mão na mão.
+    direto = _talvez_json(corpo) if corpo else None
+    achados_diretos = []
+    if direto is not None and parece_mao(direto) >= 5:
+        achados_diretos.append({"url": url, "pontos": parece_mao(direto),
+                                "esqueleto": esqueleto(direto),
+                                "bruto": direto})
+    if corpo and "json" not in ctype.lower():
+        texto = corpo.decode("utf-8", "replace")
+        js = [u for u in candidatos_da_pagina(texto, url)
+              if u.endswith(".js")][:6]
+        alvos += candidatos_da_pagina(texto, url)
+        for j in js:                       # o endpoint costuma estar no bundle
+            s, c, _ = _get(j)
+            if s == 200 and c:
+                alvos += candidatos_da_pagina(c.decode("utf-8", "replace"), j)
+    if chave:
+        # troca id genérico do bundle pela chave do link deste replay
+        alvos += [re.sub(r"(?<=[/=])[0-9a-zA-Z_-]{16,}(?=(\.json)?$)",
+                         chave, a) for a in list(alvos)[:20]]
+
+    vistos, achados, tentados = {url}, list(achados_diretos), 0
+    for alvo in alvos:
+        if alvo in vistos or len(vistos) > 80:
+            continue
+        vistos.add(alvo)
+        tentados += 1
+        s, c, ct = _get(alvo)
+        if s != 200 or not c:
+            continue
+        dados = _talvez_json(c)
+        if dados is None:
+            continue
+        pontos = parece_mao(dados)
+        if pontos >= 5:
+            achados.append({"url": alvo, "pontos": pontos,
+                            "esqueleto": esqueleto(dados), "bruto": dados})
+    achados.sort(key=lambda a: -a["pontos"])
+    return {"chave": chave, "achados": achados, "tentados": tentados}
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 2
+    url = sys.argv[1]
+    r = farejar(url)
+    print(f"\n{r['tentados']} endpoints tentados · "
+          f"{len(r['achados'])} devolveram JSON com cara de mão\n")
+    if not r["achados"]:
+        print("Nada. O replayer provavelmente busca a mão por WebSocket ou "
+              "com token de sessão — aí só captura de rede no navegador "
+              "resolve (DevTools > Network com o replay aberto).")
+        return 1
+    for i, a in enumerate(r["achados"][:3], 1):
+        print(f"── candidato {i} (pontos {a['pontos']})\n{a['url']}")
+        print(json.dumps(a["esqueleto"], ensure_ascii=False, indent=2)[:2500])
+        print()
+    saida = "/tmp/replay_sniff.json"
+    with open(saida, "w") as f:
+        json.dump([{k: v for k, v in a.items() if k != "esqueleto"}
+                   for a in r["achados"][:3]], f, ensure_ascii=False, indent=2)
+    print(f"JSON bruto dos candidatos: {saida}")
+
+    if "--telegram" in sys.argv:
+        from scripts.jornadas import _avisar   # reusa o aviso do admin
+
+        _avisar("🔍 *Farejador de replay*\n"
+                + "\n".join(f"• {a['pontos']} pts — `{a['url'][:120]}`"
+                            for a in r["achados"][:3]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
