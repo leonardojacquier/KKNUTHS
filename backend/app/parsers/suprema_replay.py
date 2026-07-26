@@ -40,9 +40,23 @@ _APIS = {
 }
 _API_PADRAO = "https://ra.supremapoker.net/supremaAPI/replayInfo.php"
 
-_UA = {"User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
-                      "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"),
-       "Referer": "https://r.supremapoker.net/"}
+# CABEÇALHOS: não são enfeite, são a diferença entre 13 kB e 2 bytes.
+# A mesma URL, com o mesmo `?s=`, devolve `-1` para o User-Agent padrão do
+# curl e a mão inteira para um navegador. Custou várias rodadas concluir
+# que o endpoint estava errado quando o errado era o cabeçalho — o `-1` é
+# indistinguível de "token inválido".
+_UA = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/150.0.0.0 Safari/537.36"),
+    "Accept": "*/*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Origin": "https://r.supremapoker.net",
+    "Referer": "https://r.supremapoker.net/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+}
 _TIMEOUT = 25
 
 

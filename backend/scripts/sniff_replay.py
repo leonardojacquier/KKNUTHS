@@ -38,10 +38,19 @@ import urllib.error
 import urllib.request
 from urllib.parse import urljoin, urlparse
 
+# Passar-se por NAVEGADOR não é detalhe: a API da Suprema devolve `-1` (2
+# bytes) para o User-Agent padrão do curl e 13 kB para o Chrome, na MESMA
+# URL. Sem estes cabeçalhos o farejador conclui "endpoint errado" quando o
+# endpoint estava certo — o pior falso negativo que ele pode dar.
 _UA_MOBILE = {
-    "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
-                   "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"),
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/150.0.0.0 Safari/537.36"),
     "Accept": "*/*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
 }
 _TIMEOUT = 25
 

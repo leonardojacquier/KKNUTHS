@@ -44,6 +44,18 @@ def test_token_curto_nao_vira_chute():
     assert "ra.supremapoker.net" in url_da_api("abcdefgh")
 
 
+def test_manda_cabecalho_de_navegador():
+    """A MESMA URL devolve 2 bytes (`-1`) para o User-Agent padrão do curl e
+    13 kB para o Chrome. Sem estes cabeçalhos o parser conclui 'token
+    inválido' sobre uma mão que existe."""
+    from app.parsers.suprema_replay import _UA
+
+    assert "Chrome/" in _UA["User-Agent"]
+    assert _UA["Referer"].startswith("https://r.supremapoker.net")
+    for obrigatorio in ("Origin", "Sec-Fetch-Site", "Accept"):
+        assert _UA.get(obrigatorio), obrigatorio
+
+
 def test_resposta_de_erro_da_aplicacao_nao_vira_mao():
     """`-1` chega com HTTP 200: quem confia no status importa lixo."""
     from app.parsers import suprema_replay as sr
