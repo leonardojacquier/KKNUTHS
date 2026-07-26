@@ -3634,14 +3634,32 @@ def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
     assert P._hand_id_no_contexto({"hand_id": "X"}) == "X"
     assert P._hand_id_no_contexto({"nada": 1}) is None
 
-    # TODO contexto de conversa precisa carregar o hand_id — o quiz era um,
-    # a simulação era outro (mesmo defeito, vivo em paralelo)
+    # REGRA, não lista: ninguém escreve contexto de conversa na mão. A versão
+    # anterior deste canário conferia duas linhas literais (quiz e simulador)
+    # — um QUINTO escritor passaria batido, que é exatamente como os dois
+    # primeiros nasceram.
     import inspect
+    import pathlib as _pl
+
+    raiz = _pl.Path(__file__).resolve().parent.parent
+    for arq in raiz.rglob("app/**/*.py"):
+        if arq.name == "processing.py":
+            continue
+        assert "LAST_ANALYSIS[" not in arq.read_text(), (
+            f"{arq.name} escreve contexto direto — use abrir_conversa()")
+
+    from app.bot.processing import abrir_conversa
+    # e o construtor OBRIGA a decidir qual é a mão
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        abrir_conversa(99, context={"modo": "x"})
+    assert abrir_conversa(99, context={"modo": "x"}, sem_mao=True)
+    ctx_q = abrir_conversa(99, context={"spot": {}}, hand_id="pppoker-1")
+    assert ctx_q["context"]["hand_id"] == "pppoker-1"
 
     from app.bot import handlers
     src = inspect.getsource(handlers)
-    assert '"hand_id": drill.get("hand_id")' in src
-    assert '"hand_id": sim.get("hand_id")' in src
+    assert src.count("abrir_conversa(") == 2   # quiz e simulador
 
     # e a mão é encontrada de verdade a partir do contexto de drill
     h = _mao_multiway_sem_allin(["Qd", "Jd"])

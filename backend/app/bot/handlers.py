@@ -726,21 +726,18 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         pass
     ctx.user_data.pop("drill", None)
     # o spot vira contexto de conversa: "por que fold?" já funciona em seguida
-    LAST_ANALYSIS[update.effective_user.id] = {
-        "context": {
+    from app.bot.processing import abrir_conversa
+    abrir_conversa(
+        update.effective_user.id,
+        context={
             "modo": "discussão de um spot de treino/quiz — o aluno acabou de "
             "responder e pode discordar ou pedir aprofundamento",
             "spot": {k: v for k, v in drill.items() if k != "story"},
-            # hand_id TAMBÉM no primeiro nível: é o que liga as ferramentas
-            # de mão (gráfico de EV, street a street, potes) a esta conversa
-            "hand_id": drill.get("hand_id"),
             "historia_da_mao": drill.get("story"),
             "escolha_do_aluno": choice,
         },
-        "history": [],
-        "hand_row_id": None,
-        "user_id": None,
-    }
+        hand_id=drill.get("hand_id"),
+        sem_mao=not drill.get("hand_id"))
     from app.bot.processing import persist_conversation
     await asyncio.to_thread(persist_conversation, update.effective_user.id)
     await _show_reveal(query, text)
@@ -1167,13 +1164,11 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     # fim: resumo + contexto para discutir em texto livre
     summary = sim_summary(sim)
-    LAST_ANALYSIS[update.effective_user.id] = {
-        "context": {
+    from app.bot.processing import abrir_conversa
+    abrir_conversa(
+        update.effective_user.id,
+        context={
             "simulacao": sim["results"],
-            # MESMO defeito do quiz, que estava vivo aqui também: sem o
-            # hand_id no contexto, terminar uma simulação matava todas as
-            # ferramentas de mão (gráfico de EV, street a street, potes).
-            "hand_id": sim.get("hand_id"),
             "mao": {
                 "cartas": sim["cards"],
                 "posicao": sim["position"],
@@ -1183,10 +1178,8 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 **(sim.get("gabarito") or {}),
             },
         },
-        "history": [],
-        "hand_row_id": None,
-        "user_id": None,
-    }
+        hand_id=sim.get("hand_id"),
+        sem_mao=not sim.get("hand_id"))
     from app.bot.processing import persist_conversation
     await asyncio.to_thread(persist_conversation, update.effective_user.id)
     ctx.user_data.pop("sim", None)

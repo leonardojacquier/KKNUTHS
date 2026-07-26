@@ -507,18 +507,15 @@ def _process_upload_inner(
     # a conversa anterior ENCERROU aqui (mão nova = contexto novo): destila o
     # que ela revelou sobre o aluno pro caderno do coach, em background
     _notebook_from_session(LAST_ANALYSIS.get(telegram_id), telegram_id)
-    LAST_ANALYSIS[telegram_id] = {
-        "context": {
-            "analysis": structured,
-            "key_hands": key_hands,
-            "coaching_anterior": coaching,
-        },
-        "history": [],
-        "hand_row_id": hand_row_ids[0] if hand_row_ids else None,
-        "user_id": user["id"] if user else None,
-        "image_b64": image_b64,
-        "media": media,
-    }
+    abrir_conversa(
+        telegram_id,
+        context={"analysis": structured, "key_hands": key_hands,
+                 "coaching_anterior": coaching},
+        hand_row_id=hand_row_ids[0] if hand_row_ids else None,
+        hand_id=hands[0].hand_id if hands else None,
+        user_id=user["id"] if user else None,
+        sem_mao=not hands,
+        image_b64=image_b64, media=media)
     persist_conversation(telegram_id)
 
     # PROCEDÊNCIA: fonte incerta (print/foto) abre declarando o que foi lido
@@ -721,6 +718,39 @@ def redefine_hero(telegram_id: int, nome: str,
                           "cartas_texto", "summary")}}
 
 
+def abrir_conversa(telegram_id: int, *, context: dict,
+                   hand_row_id: str | None = None,
+                   hand_id: str | None = None,
+                   user_id: str | None = None,
+                   sem_mao: bool = False, **extra) -> dict:
+    """A ÚNICA porta para começar uma conversa. Exige decidir, na hora de
+    escrever, qual mão é esta — ou declarar que não há mão.
+
+    Por que virou função: quatro lugares montavam este dicionário na mão e
+    DOIS esqueceram o hand_id (quiz e simulador). O efeito era o mesmo nos
+    dois: terminou a jornada, morreram todas as ferramentas de mão. Um
+    canário com a lista dos escritores conhecidos não impede o quinto —
+    isto impede, porque não existe outro caminho.
+
+    `sem_mao=True` é para conversa que legitimamente não tem mão (coaching
+    geral, banca, tilt). É explícito de propósito: esquecer não pode ser o
+    default.
+    """
+    if not (hand_row_id or hand_id or sem_mao):
+        raise ValueError(
+            "conversa sem mão: passe hand_row_id/hand_id, ou sem_mao=True "
+            "se ela realmente não tem mão (esquecer é o bug de sempre)")
+    ctx = {
+        "context": {**context, **({"hand_id": hand_id} if hand_id else {})},
+        "history": [],
+        "hand_row_id": hand_row_id,
+        "user_id": user_id,
+        **extra,
+    }
+    LAST_ANALYSIS[telegram_id] = ctx
+    return ctx
+
+
 def conversation_hand(telegram_id: int) -> "CanonicalHand | None":
     """A mão da conversa ativa: pela linha persistida (banco) ou pelo hand_id
     guardado no contexto (acervo em memória). Base da análise street a street."""
@@ -786,12 +816,9 @@ def ensure_hand_context(telegram_id: int, hand_id: str | None) -> bool:
         return bool(ctx)
     repo = get_repository()
     user = repo.get_or_create_user(telegram_id, None) if repo.enabled else None
-    LAST_ANALYSIS[telegram_id] = {
-        "context": {"analysis": structured, "hand_id": h.hand_id},
-        "history": [],
-        "hand_row_id": None,
-        "user_id": user["id"] if user else None,
-    }
+    abrir_conversa(telegram_id, context={"analysis": structured},
+                   hand_id=h.hand_id,
+                   user_id=user["id"] if user else None)
     persist_conversation(telegram_id)
     return True
 
@@ -859,8 +886,9 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             latest = repo.get_latest_analysis(user["id"]) if user else None
             if latest and latest.get("summary"):
                 canonical = latest.get("canonical") or {}
-                ctx = {
-                    "context": {
+                ctx = abrir_conversa(
+                    telegram_id,
+                    context={
                         "analysis_anterior": latest["summary"],
                         "mao": {
                             "hero_cards": canonical.get("hero_cards"),
@@ -869,11 +897,11 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
                             "format": canonical.get("format"),
                         },
                     },
-                    "history": [],
-                    "hand_row_id": latest.get("hand_row_id"),
-                    "user_id": user["id"],
-                }
-                LAST_ANALYSIS[telegram_id] = ctx
+                    hand_row_id=latest.get("hand_row_id"),
+                    hand_id=canonical.get("hand_id"),
+                    user_id=user["id"],
+                    sem_mao=not (latest.get("hand_row_id")
+                                 or canonical.get("hand_id")))
 
     if not ctx:
         # modo coach geral: pergunta aberta de poker, sem mão específica —
@@ -884,17 +912,16 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         if repo.enabled:
             user = repo.get_or_create_user(telegram_id, username)
             stats = repo.get_player_stats(user["id"]) if user else None
-        ctx = {
-            "context": {
-                "modo": "coaching geral — sem mão específica; responda a pergunta "
-                "do aluno como coach de poker (estratégia, tilt, bankroll, ranges…)",
+        ctx = abrir_conversa(
+            telegram_id,
+            context={
+                "modo": "coaching geral — sem mão específica; responda a "
+                "pergunta do aluno como coach de poker (estratégia, tilt, "
+                "bankroll, ranges…)",
                 "perfil_do_jogador": stats,
             },
-            "history": [],
-            "hand_row_id": None,
-            "user_id": user["id"] if user else None,
-        }
-        LAST_ANALYSIS[telegram_id] = ctx
+            user_id=user["id"] if user else None,
+            sem_mao=True)
 
     # GABARITO SEMPRE FRESCO: a conversa persistida atravessa deploys — e
     # congelava a análise de ANTES de um upgrade do analyzer (caso real: o
