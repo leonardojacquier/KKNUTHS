@@ -8,6 +8,19 @@ Criar `deploy/oneshot/AAAA-MM-DD-nome.sh` (idempotente, `set -uo pipefail`,
 `cd /opt/poker-bot`), commit + push → roda no próximo deploy (~2min). Falhou →
 retenta no próximo. Instrumentar: capturar log e reportar no Telegram do admin.
 
+⚠️ **`exit 0` no fim ANULA o retry.** Sem `set -e`, um Python que quebra no
+meio não muda o código de saída: o deploy marca a tarefa como concluída, nada
+chega no Telegram e ela nunca mais roda. Aconteceu com o oneshot v4 da
+PokerCraft — silêncio total, indistinguível de "não rodou".
+
+Regra para oneshot de DIAGNÓSTICO:
+- envolver tudo em `try/except` e **mandar o traceback** pelo Telegram: um
+  diagnóstico que falha calado é pior que nenhum;
+- só biblioteca padrão e token lido do `.env` por `grep` — importar módulo do
+  app acrescenta uma classe inteira de falha ao que deveria ser o passo mais
+  simples;
+- `exit 0` só depois de ter reportado.
+
 ## Scripts prontos (scripts/)
 - revalidation_report.py <tg> [dest] [--update] — relatório mão a mão
 - send_stats_preview.py <dono> <dest> — prévia do /stats p/ admin
