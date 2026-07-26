@@ -384,6 +384,47 @@ def test_encurtador_e_resolvido_antes_de_tudo():
         s.urllib.request.urlopen = original
 
 
+def test_caminho_relativo_de_api_e_encontrado():
+    """App moderno monta a URL a partir da origem: `fetch(BASE + path)`. O
+    varredor de URL ABSOLUTA achou 2 URLs no bundle inteiro da PokerCraft, e
+    nenhuma era da API — porque a API estava escrita sem host."""
+    from sniff_replay import caminhos_relativos
+
+    bundle = ('const R="/api/hand-replay/shared";'
+              'const S="/assets/main.css";'
+              'fetch("/api/v2/record/detail")')
+    c = caminhos_relativos(bundle)
+    assert "/api/hand-replay/shared" in c
+    assert "/api/v2/record/detail" in c
+    assert not any(x.endswith(".css") for x in c)
+
+
+def test_blob_grande_nao_e_espremido_por_configs_pequenas():
+    """Teto de 8 achados deixava a mão de fora: objeto pequeno de config
+    enchia as vagas antes de o varredor chegar nela. Agora sai ordenado por
+    tamanho."""
+    import json
+
+    from sniff_replay import _blobs_json
+
+    ruido = "".join(f'<script>var c{i}={{"cfg":{i},"lang":"pt","x":"{i}"}};</script>'
+                    for i in range(20))
+    html = ruido + "<script>window.__D__ = " + json.dumps(MAO) + ";</script>"
+    blobs = _blobs_json(html)
+    assert parece_mao(blobs[0]) >= 8, "a mão tem que vir PRIMEIRO"
+
+
+def test_script_type_application_json_e_lido():
+    """Padrão de estado embutido de app moderno."""
+    import json
+
+    from sniff_replay import _blobs_json
+
+    html = ('<script type="application/json" id="__DATA__">'
+            + json.dumps(MAO) + "</script>")
+    assert any(parece_mao(b) >= 8 for b in _blobs_json(html))
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 

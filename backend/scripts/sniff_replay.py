@@ -177,18 +177,40 @@ def scripts_da_pagina(html: str, base: str) -> list[str]:
     return list(dict.fromkeys(urls))[:12]
 
 
-def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
-    """Objetos JSON embutidos no HTML (`window.__DADOS__ = {...}`).
+_SCRIPT_DADOS = re.compile(
+    r"""<script[^>]*type=['"]application/(?:json|ld\+json)['"][^>]*>"""
+    r"""(.*?)</script>""", re.I | re.S)
 
-    Página de 4 KB pode já trazer a mão inteira dentro de um <script>.
-    Contagem de chaves porque regex não equilibra delimitador.
+
+def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
+    """Objetos JSON embutidos no HTML.
+
+    Página GRANDE quase sempre já traz a mão dentro dela: a da PokerCraft
+    tem 85 KB contra 3,7 KB da Suprema. Contagem de chaves porque regex não
+    equilibra delimitador.
+
+    Duas correções vindas do caso PokerCraft:
+      • `<script type="application/json">` é lido direto (é o padrão de
+        estado embutido de app moderno);
+      • os blobs saem ORDENADOS por tamanho, e o teto não corta mais os
+        primeiros 8 achados — objeto pequeno de configuração enchia as
+        vagas antes de o varredor chegar na mão.
     """
-    out: list[object] = []
-    for i, ch in enumerate(texto or ""):
-        if ch != "{" or len(out) >= 8:
+    achados: list[tuple[int, object]] = []
+
+    for m in _SCRIPT_DADOS.finditer(texto or ""):
+        try:
+            achados.append((len(m.group(1)), json.loads(m.group(1).strip())))
+        except Exception:
+            pass
+
+    i, limite_texto = 0, len(texto or "")
+    while i < limite_texto and len(achados) < 200:
+        if texto[i] != "{":
+            i += 1
             continue
         nivel, fim = 0, None
-        for j in range(i, min(i + 200_000, len(texto))):
+        for j in range(i, min(i + 400_000, limite_texto)):
             if texto[j] == "{":
                 nivel += 1
             elif texto[j] == "}":
@@ -196,13 +218,32 @@ def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
                 if nivel == 0:
                     fim = j + 1
                     break
-        if not fim or fim - i < minimo:
-            continue
-        try:
-            out.append(json.loads(texto[i:fim]))
-        except Exception:
-            pass
-    return out
+        if fim and fim - i >= minimo:
+            try:
+                achados.append((fim - i, json.loads(texto[i:fim])))
+            except Exception:
+                pass
+        i = (fim or i + 1)          # não reprocessa o interior do objeto
+    achados.sort(key=lambda kv: -kv[0])
+    return [obj for _tam, obj in achados[:12]]
+
+
+_CAMINHO = re.compile(
+    r"""['"](/(?:[\w.-]+/){0,5}[\w.-]*"""
+    r"""(?:api|hand|replay|record|review|detail|share|game)[\w./-]*)['"]""",
+    re.I)
+
+
+def caminhos_relativos(texto: str) -> set[str]:
+    """Caminhos de API escritos SEM host (`"/api/hand-replay/"`).
+
+    App moderno monta a URL a partir da origem: `fetch(BASE + path)`. O
+    varredor de URL absoluta não vê nada disso — no caso PokerCraft ele
+    achou duas URLs no bundle inteiro, e nenhuma era da API.
+    """
+    return {m.group(1) for m in _CAMINHO.finditer(texto or "")
+            if not re.search(r"\.(js|css|png|jpg|svg|woff2?|ico)$",
+                             m.group(1), re.I)}
 
 
 def parece_endpoint(url: str) -> bool:
@@ -518,6 +559,7 @@ def farejar(url: str, despejo: str | None = None) -> dict:
     alvos: list[str] = list(palpites_conhecidos(
         chave or "", host, partes_url.query))
     cruas: set[str] = set()
+    relativos: set[str] = set()
     # o próprio link pode JÁ ser a mão: alguns clubes compartilham a URL do
     # JSON direto. Eu descartava essa resposta e saía dizendo "nada achei"
     # com a mão na mão.
@@ -539,6 +581,7 @@ def farejar(url: str, despejo: str | None = None) -> dict:
                     "pontos": parece_mao(blob), "esqueleto": esqueleto(blob),
                     "bruto": blob})
 
+        relativos |= caminhos_relativos(texto)
         da_pagina = candidatos_da_pagina(texto, url)
         scripts = scripts_da_pagina(texto, url)
         print(f"  scripts na página: {len(scripts)}")
@@ -561,6 +604,7 @@ def farejar(url: str, despejo: str | None = None) -> dict:
             de_bundle += len(novos)
             alvos += novos
             cruas |= urls_cruas(miolo)
+            relativos |= caminhos_relativos(miolo)
         print(f"  candidatos achados nos bundles: {de_bundle}")
         for u in sorted(alvos)[:20]:
             print(f"    → {u}")
@@ -573,6 +617,16 @@ def farejar(url: str, despejo: str | None = None) -> dict:
             print(f"\n  URLs absolutas citadas nos bundles ({len(cruas)}):")
             for u in sorted(cruas)[:40]:
                 print(f"    {u}")
+        if relativos:
+            print(f"\n  CAMINHOS relativos de API ({len(relativos)}) — o app "
+                  "monta a URL a partir da origem:")
+            for c in sorted(relativos)[:30]:
+                print(f"    {c}")
+            base = f"{partes_url.scheme}://{host}"
+            alvos += [base + c for c in sorted(relativos)]
+            if chave:
+                alvos += [base + c.rstrip("/") + "/" + chave
+                          for c in sorted(relativos)]
 
         # matriz método × parâmetro nos endpoints citados. Bater só com GET
         # numa API PHP devolve página de erro e parece 'não é aqui'.
