@@ -79,6 +79,17 @@ def test_pppoker_ilegivel_nao_mente_dizendo_que_nao_abre():
     assert "não abro" not in txt.split("Se preferir")[0]
 
 
+def test_gg_gl_e_reconhecido_como_replay():
+    """Encurtador da GGPoker. Fora da lista de hosts, o link caía no leitor
+    de TEXTO e o aluno recebia 'não entendi' — a pior resposta possível,
+    porque sugere que ele errou."""
+    r = replay_link_info("https://gg.gl/fovbb")
+    assert r and r["site"] == "ggpoker"
+    assert r["share_key"] is None          # ainda não abrimos sozinho
+    txt = replay_fallback_text("ggpoker")
+    assert "GGPoker" in txt and "Print do replay" in txt
+
+
 def test_clube_desconhecido_nao_quebra_a_mensagem():
     txt = replay_fallback_text("outro")
     assert "desse clube" in txt and "PPPoker" in txt

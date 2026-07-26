@@ -464,6 +464,33 @@ def probar_endpoint(url: str, combos: list[dict], referer: str,
     return achados
 
 
+_META_REFRESH = re.compile(
+    r"""(?:http-equiv=['"]?refresh['"]?[^>]*url=|"""
+    r"""(?:window\.)?location(?:\.href)?\s*=\s*['"])([^'"\s>]+)""", re.I)
+
+
+def resolver_encurtador(url: str) -> str:
+    """Segue o encurtador até a URL final.
+
+    `gg.gl/fovbb` não tem chave nenhuma: derivar qualquer coisa dele é
+    trabalhar no endereço errado. O redirecionamento pode ser HTTP (o
+    urlopen já segue) ou por meta-refresh/JS, que só se vê no corpo.
+    """
+    try:
+        req = urllib.request.Request(url, headers=_UA_MOBILE)
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as r:
+            final = r.geturl() or url
+            corpo = r.read(200_000)
+    except urllib.error.HTTPError as e:
+        return getattr(e, "url", url) or url
+    except Exception:
+        return url
+    if final != url:
+        return final
+    m = _META_REFRESH.search(corpo.decode("utf-8", "replace"))
+    return urljoin(url, m.group(1)) if m else url
+
+
 def _talvez_json(corpo: bytes):
     try:
         return json.loads(corpo.decode("utf-8", "replace"))
@@ -473,6 +500,10 @@ def _talvez_json(corpo: bytes):
 
 def farejar(url: str, despejo: str | None = None) -> dict:
     """Devolve {'chave', 'achados': [{url, pontos, esqueleto}], 'tentados'}."""
+    final = resolver_encurtador(url)
+    if final != url:
+        print(f"encurtador: {url}\n         -> {final}\n")
+        url = final
     partes_url = urlparse(url)
     host = (partes_url.netloc or "").lower()
     chave = chave_do_link(url)

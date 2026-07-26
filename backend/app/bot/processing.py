@@ -1250,9 +1250,13 @@ def spot_range_chart(telegram_id: int) -> tuple[bytes, str] | None:
 # pppoker.club = link de compartilhamento novo (share.php?...&shareKey=UUID);
 # replay.pppoker.net = link antigo do frame do replayer. Ambos carregam o
 # shareKey que é o nome do arquivo JSON no CDN.
+# gg.gl é o ENCURTADOR de replay da GGPoker. Sem ele na lista o link não era
+# nem reconhecido como replay: caía no leitor de texto e o aluno recebia
+# "não entendi", que é a pior resposta possível — sugere que ele errou.
 _REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "pppoker.club",
                  "supremapoker.net", "clubgg.com", "wepoker", "pokerbros",
-                 "upoker")
+                 "upoker", "gg.gl", "ggpoker.com", "ggpoker.net",
+                 "gg.poker")
 
 
 def replay_link_info(text: str) -> dict | None:
@@ -1281,8 +1285,10 @@ def replay_link_info(text: str) -> dict | None:
         return None
     from app.parsers.pppoker_replay import share_key_from_url
 
-    site = "pppoker" if "pppoker" in host else (
-        "suprema" if "suprema" in host else "outro")
+    site = ("pppoker" if "pppoker" in host else
+            "suprema" if "suprema" in host else
+            "ggpoker" if ("gg.gl" in host or "ggpoker" in host
+                          or "gg.poker" in host) else "outro")
     if site == "suprema":
         # a Suprema recebe o LINK inteiro: a chave sai dele dentro do parser
         from app.parsers.suprema_replay import token_do_link
@@ -1296,7 +1302,8 @@ def replay_link_info(text: str) -> dict | None:
 # clubes cujo link eu RECONHEÇO mas não sei abrir — dizer o nome é a
 # diferença entre "a ferramenta é limitada" e "a ferramenta está quebrada"
 _NOME_CLUBE = {"suprema": "Suprema", "clubgg": "ClubGG", "wepoker": "WePoker",
-               "pokerbros": "PokerBros", "upoker": "UPoker"}
+               "pokerbros": "PokerBros", "upoker": "UPoker",
+               "ggpoker": "GGPoker"}
 
 
 def replay_fallback_text(site: str | None = None,

@@ -344,6 +344,46 @@ def test_pista_do_erro_e_relatada_uma_vez_so():
     assert len(ditas) == 1 and "EXISTE" in ditas[0]
 
 
+def test_encurtador_e_resolvido_antes_de_tudo():
+    """`gg.gl/fovbb` não tem chave nenhuma: derivar dele é trabalhar no
+    endereço errado. Cobre redirecionamento HTTP e meta-refresh/JS."""
+    import sniff_replay as s
+
+    class _R:
+        def __init__(self, url, corpo=b""):
+            self._u, self._c = url, corpo
+
+        def geturl(self):
+            return self._u
+
+        def read(self, _n=0):
+            return self._c
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    alvo = "https://replay.ggpoker.com/hand?id=ABC123XYZ"
+    original = s.urllib.request.urlopen
+
+    s.urllib.request.urlopen = lambda *a, **k: _R(alvo)
+    try:
+        assert s.resolver_encurtador("https://gg.gl/fovbb") == alvo
+    finally:
+        s.urllib.request.urlopen = original
+
+    # redirecionamento por meta-refresh (o urlopen não segue)
+    html = (b'<meta http-equiv="refresh" content="0; url='
+            + alvo.encode() + b'">')
+    s.urllib.request.urlopen = lambda *a, **k: _R("https://gg.gl/fovbb", html)
+    try:
+        assert s.resolver_encurtador("https://gg.gl/fovbb") == alvo
+    finally:
+        s.urllib.request.urlopen = original
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 
