@@ -104,13 +104,20 @@ CRON_JUDGE="0 8 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scrip
 # BACKUP do banco (4h UTC = 1h BRT): o histórico do aluno é o ativo e vivia
 # sem cópia. Dump em JSON.gz no disco do VPS, 14 dias; avisa o admin se falhar.
 CRON_BACKUP="0 4 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/backup_db.py >> /var/log/poker-backup.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ) | crontab -
+# SONDA DE JORNADAS (7h): o caminho do aluno entrega artefato? Roda em
+# processo (sem Telegram, sem LLM) — a sonda E2E depende de uma conta-teste
+# que nunca foi criada e por isso nunca rodou uma vez sequer.
+CRON_JORNADAS="0 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/jornadas.py >> /var/log/poker-jornadas.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ) | crontab -
 
 # 7b. E2E pós-deploy: a conta-teste usa o bot de verdade (dorme sem credenciais
 #     no .env). Em background, com folga pro bot terminar de subir.
 ( sleep 30 && cd "$APP_DIR" && PYTHONPATH="$APP_DIR" ./venv/bin/python \
     scripts/e2e_probe.py >> /var/log/poker-e2e.log 2>&1 ) &
+# jornadas pós-deploy: 10s, sem LLM, pega release que quebrou a entrega
+( sleep 20 && cd "$APP_DIR" && PYTHONPATH="$APP_DIR" ./venv/bin/python \
+    scripts/jornadas.py >> /var/log/poker-jornadas.log 2>&1 ) &
 
 echo "== OK: pm2 status =="
 pm2 status "$PM2_NAME"

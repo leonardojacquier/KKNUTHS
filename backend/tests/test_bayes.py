@@ -3780,3 +3780,57 @@ def test_taxa_de_entrega_no_resumo_diario():
     # sem pedidos no dia, não inventa métrica
     _, vazio = build_summary(datetime.now(timezone.utc), users, [], "2026-01-01")
     assert vazio["entrega_pct"] is None
+
+
+def test_sonda_de_jornadas_exige_artefato():
+    # a sonda E2E nunca rodou (depende de conta-teste que não existe: ZERO
+    # eventos 'e2e' no banco). Esta roda em processo, sem Telegram e sem LLM,
+    # e não pergunta "deu erro?" — pergunta "chegou o que foi pedido?".
+    from scripts.jornadas import jornadas_reais, jornadas_sinteticas
+
+    res = jornadas_sinteticas()
+    assert len(res) >= 5
+    falhas = [(n, d) for n, ok, d in res if not ok]
+    assert not falhas, f"jornada quebrada: {falhas}"
+    # cada uma tem que devolver NÚMERO na descrição, não só "ok"
+    assert any("bb" in d for _n, _o, d in res)
+
+    # parte A: contexto de produção sem hand_id é FALHA (foi o bug do quiz
+    # e o do simulador, os dois vivos ao mesmo tempo)
+    class Repo:
+        def __init__(self, linhas):
+            self.linhas = linhas
+            self.client = self
+
+        def table(self, _):
+            return self
+
+        def select(self, *_a, **_k):
+            return self
+
+        def limit(self, *_a):
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": self.linhas})()
+
+    bom = Repo([{"telegram_id": 1, "state": {
+        "context": {"spot": {"hand_id": "x"}}, "hand_row_id": None}}])
+    assert all(ok for _n, ok, _d in jornadas_reais(bom))
+
+    ruim = Repo([{"telegram_id": 2, "state": {
+        "context": {"simulacao": [1], "mao": {"cartas": ["As", "Kd"]}},
+        "hand_row_id": None}}])
+    nome, ok, det = jornadas_reais(ruim)[0]
+    assert not ok and "SEM hand_id" in det
+
+    # conversa sem mão por natureza (tilt, banca) não pode acusar falha
+    geral = Repo([{"telegram_id": 3, "state": {
+        "context": {"modo": "coaching geral"}, "hand_row_id": None}}])
+    assert all(ok for _n, ok, _d in jornadas_reais(geral))
+
+    # e a sonda está instalada no deploy (script sem cron não roda)
+    import pathlib
+    dep = (pathlib.Path(__file__).resolve().parent.parent
+           / "deploy/vps_deploy.sh").read_text()
+    assert "jornadas.py" in dep and "CRON_JORNADAS" in dep

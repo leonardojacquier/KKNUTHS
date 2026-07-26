@@ -74,6 +74,21 @@ saída** (`output_judge.py`, 8h — audita as respostas que o coach mandou:
 selo de veredito, número em cada decisão, jargão proibido, calque, carta
 sem ícone; avisa o admin quando a qualidade cai).
 
+Instala também a **sonda de jornadas** (`jornadas.py`, 7h e depois de cada
+deploy): percorre as conversas VIVAS do banco exigindo que a mão resolva —
+foi assim que dois contextos quebrados (quiz e simulador) passaram
+despercebidos — e roda as contas que mais quebraram (EV multiway, potes
+paralelos, overcall, prova real) exigindo NÚMERO na saída. Roda em processo:
+sem Telegram, sem conta-teste, sem LLM, sem custo. Falhou, avisa o admin.
+
+```bash
+ssh root@187.127.13.220 "cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/jornadas.py"
+```
+
+> Nota: a `e2e_probe.py` (que fala com o Telegram) segue dormindo — depende
+> das credenciais `E2E_*` no .env, que nunca foram criadas. Conferido no
+> banco: nenhum evento 'e2e' desde que ela existe.
+
 Instala também o **backup do banco** (`backup_db.py`, 4h UTC / 1h BRT): dump
 de todas as tabelas em `JSON.gz` dentro de `/opt/poker-bot/backups`, 14 dias
 de cópias, aviso no Telegram se falhar. O dump tem mãos e conversas de aluno
