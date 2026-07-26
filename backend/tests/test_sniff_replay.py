@@ -283,6 +283,67 @@ def test_probe_acha_a_mao_via_post_e_manda_referer():
     assert all(v[2].startswith("https://r.x.net/") for v in vistos)
 
 
+CLOUDFRONT_403 = (
+    b"<HTML><H1>403 ERROR</H1>This distribution is not configured to allow "
+    b"the HTTP request method that was used for this request. The "
+    b"distribution supports only cachable requests.</HTML>")
+
+
+def test_403_do_cloudfront_e_confirmacao_nao_recusa():
+    """Aconteceu com a Suprema: o POST levou 403, e o corpo dizia que só
+    entra requisição cacheável — ou seja, a URL está CERTA e o método é que
+    estava errado. Descartar isso como 'falhou' quase matou o endpoint."""
+    from sniff_replay import pista_do_erro
+
+    pista = pista_do_erro(CLOUDFRONT_403)
+    assert pista and "EXISTE" in pista
+    assert pista_do_erro(b"<html>404 not found</html>") is None
+
+
+def test_corpo_que_e_so_um_numero_e_erro_da_aplicacao():
+    """A Suprema devolveu literalmente `-1` com HTTP 200 quando o método já
+    estava certo. Isso não é 'vazio': é o endpoint respondendo que o
+    PARÂMETRO está errado."""
+    from sniff_replay import pista_do_erro
+
+    p = pista_do_erro(b"-1")
+    assert p and "RESPONDE" in p and "parâmetro" in p
+    assert pista_do_erro(b"0")
+    # JSON de verdade não pode ser confundido com código de erro
+    assert pista_do_erro(b'{"pot": 30}') is None
+
+
+def test_get_vem_antes_do_post():
+    """API de clube fica atrás de CDN, e CDN só deixa passar cacheável."""
+    import sniff_replay as s
+
+    ordem = []
+    original = s._bater
+    s._bater = lambda u, m, d, r: (ordem.append(m), (403, CLOUDFRONT_403))[1]
+    try:
+        s.probar_endpoint("https://ra.x.net/replayInfo.php", [{"t": "K"}],
+                          "https://r.x.net/", relatar=lambda _t: None)
+    finally:
+        s._bater = original
+    assert ordem[0] == "GET"
+
+
+def test_pista_do_erro_e_relatada_uma_vez_so():
+    import sniff_replay as s
+
+    ditas = []
+    original = s._bater
+    s._bater = lambda u, m, d, r: (403, CLOUDFRONT_403)
+    try:
+        s.probar_endpoint("https://ra.x.net/r.php",
+                          [{"t": "K"}, {"id": "K"}, {"key": "K"}],
+                          "https://r.x.net/", relatar=ditas.append)
+    finally:
+        s._bater = original
+    # 3 métodos × 3 combos = 9 respostas iguais, mas o humano lê UMA linha
+    assert len(ditas) == 1 and "EXISTE" in ditas[0]
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 

@@ -392,15 +392,56 @@ def _bater(url: str, metodo: str, dados: dict, referer: str) -> tuple[int, bytes
         return 0, b""
 
 
-def probar_endpoint(url: str, combos: list[dict], referer: str) -> list[dict]:
+# respostas de ERRO que na verdade CONFIRMAM o endpoint. O 403 do
+# CloudFront "supports only cachable requests" quer dizer: a URL existe, o
+# método é que está errado — use GET. Jogar isso fora como "falhou" foi o
+# que quase me fez descartar o endpoint certo da Suprema.
+_PISTAS = (
+    ("only cachable requests", "CDN só aceita GET/HEAD — o endpoint EXISTE"),
+    ("request method that was used", "método errado, a URL está certa"),
+    ("method not allowed", "método errado, a URL está certa"),
+    ("missing parameter", "faltou parâmetro — a URL está certa"),
+    ("invalid token", "quer autenticação — a URL está certa"),
+)
+
+
+def pista_do_erro(corpo: bytes) -> str | None:
+    """Traduz uma resposta de erro que ainda assim é informação."""
+    t = (corpo or b"").decode("utf-8", "replace").lower()[:4000]
+    for marca, significado in _PISTAS:
+        if marca in t:
+            return significado
+    # corpo que é só um número curto ("-1", "0", "404") é código de erro da
+    # APLICAÇÃO, com HTTP 200. Foi o que a Suprema devolveu quando o método
+    # já estava certo: prova de que o endpoint responde, e de que o
+    # problema passou a ser o parâmetro (ou o replay expirou).
+    if re.fullmatch(r"\s*-?\d{1,4}\s*", t or ""):
+        return (f"resposta da aplicação «{t.strip()}» — o endpoint RESPONDE; "
+                "o que está errado agora é o parâmetro (ou o replay expirou)")
+    return None
+
+
+def probar_endpoint(url: str, combos: list[dict], referer: str,
+                    relatar=print) -> list[dict]:
     """Roda a matriz método × parâmetros e devolve o que voltou com cara de
     mão. Para na primeira combinação boa de cada método — o objetivo é
-    descobrir COMO chamar, não varrer tudo."""
+    descobrir COMO chamar, não varrer tudo.
+
+    GET vem primeiro: API de clube costuma ficar atrás de CDN, e CDN
+    normalmente só deixa passar método cacheável.
+    """
     achados: list[dict] = []
-    for metodo in ("POST-form", "GET", "POST-json"):
+    ja_relatado: set[str] = set()
+    for metodo in ("GET", "POST-form", "POST-json"):
         for dados in combos:
             s, c = _bater(url, metodo, dados, referer)
             if s != 200 or not c:
+                # resposta de erro pode ser a melhor pista do dia — antes
+                # ela era descartada em silêncio junto com o resto
+                pista = pista_do_erro(c)
+                if pista and pista not in ja_relatado:
+                    ja_relatado.add(pista)
+                    relatar(f"      ↳ {metodo} devolveu {s}: {pista}")
                 continue
             obj = _talvez_json(c)
             if obj is None:
