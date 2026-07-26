@@ -37,7 +37,7 @@ from app.bot.processing import (
 )
 from app.config import get_settings
 from app.db import get_repository
-from app.quota import FREE_MONTHLY_ANALYSES, MAX_UPLOAD_MB
+from app.quota import MAX_UPLOAD_MB
 
 # boas-vindas CURTA + 3 botões: primeiro contato não pode ser muro de comandos
 # (conselho: provável causa de churn). O guia completo fica no botão.
@@ -165,13 +165,11 @@ async def on_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_plano(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _log(update, "plano")
-    await update.message.reply_markdown(
-        "🎁 *Beta gratuito*\n\n"
-        f"Você tem {FREE_MONTHLY_ANALYSES} análises por mês, renovadas todo mês.\n"
-        "Inclui: análise de mãos e torneios com IA, perfil de estilo, "
-        "base de conhecimento (/ask) e drills (/treino).\n\n"
-        "Planos pagos com análises ilimitadas chegam em breve."
-    )
+    from app.bot.processing import plano_reply
+
+    tg_user = update.effective_user
+    txt = await asyncio.to_thread(plano_reply, tg_user.id, _uname(tg_user))
+    await update.message.reply_markdown(txt)
 
 
 async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1058,6 +1056,37 @@ async def cmd_quem(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_markdown(txt)
 
 
+async def cmd_planode(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/planode — lista os alunos e muda o plano de um deles. Só o dono.
+
+    `/planode`                      → quem é quem, com telegram_id e consumo
+    `/planode 12345 piloto`         → sobe o teto desse aluno
+    """
+    from app.quota import ADMIN_TELEGRAM_ID
+
+    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+        return
+    from app.bot.processing import listar_planos_reply, mudar_plano_reply
+
+    if len(ctx.args or []) < 2:
+        txt = await asyncio.to_thread(listar_planos_reply)
+        await _safe_reply(update.message, txt)
+        return
+    txt, alvo_id = await asyncio.to_thread(
+        mudar_plano_reply, ctx.args[0], ctx.args[1])
+    await update.message.reply_markdown(txt)
+    if alvo_id:
+        # quem teve o limite mexido merece saber — promoção que o
+        # beneficiado não enxerga não muda o comportamento dele
+        from app.bot.processing import plano_reply
+
+        aviso = await asyncio.to_thread(plano_reply, alvo_id)
+        from app.bot.notify import avisar
+
+        await asyncio.to_thread(
+            avisar, alvo_id, "🎉 Seu acesso foi atualizado!\n\n" + aviso)
+
+
 async def cmd_prova(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """/prova — autoteste sobre as mãos do próprio aluno."""
     await _log(update, "prova_cmd")
@@ -1673,6 +1702,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
     app.add_handler(CommandHandler("prova", cmd_prova))
     app.add_handler(CommandHandler("quem", cmd_quem))
+    app.add_handler(CommandHandler("planode", cmd_planode))
     app.add_handler(CommandHandler("spot", cmd_spot))
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
     app.add_handler(CallbackQueryHandler(on_spot_stack, pattern=r"^spotstk:"))

@@ -21,6 +21,33 @@ MAX_COACHED_HANDS = int(os.getenv("MAX_COACHED_HANDS", "5"))
 
 _UNLIMITED_PLANS = {"pro", "premium"}
 
+# TETO MENSAL POR PLANO. Antes só existiam dois mundos — 50 análises ou
+# ilimitado — e o meio-termo ("esse aluno merece 100") só era possível dando
+# ilimitado, que é justamente o que não dá para bancar sem saber o custo.
+#
+# 'piloto' é o plano dos testadores convidados: teto dobrado, prazo do
+# piloto, sem cartão. Nome honesto de propósito — 'plus'/'vip' sugere preço
+# e vira promessa que ninguém prometeu.
+LIMITE_POR_PLANO: dict[str, int] = {
+    "free": FREE_MONTHLY_ANALYSES,
+    "piloto": int(os.getenv("PILOTO_MONTHLY_ANALYSES", "100")),
+}
+
+# planos que o dono pode atribuir pelo bot (o Stripe não conhece 'piloto')
+PLANOS_MANUAIS = sorted(set(LIMITE_POR_PLANO) | _UNLIMITED_PLANS)
+
+
+def limite_do_plano(plan: str | None) -> int | None:
+    """Teto mensal do plano. None = ilimitado.
+
+    Plano desconhecido cai no teto do free — fail-closed. Um typo em
+    `/planode` não pode virar análise ilimitada e de graça.
+    """
+    p = (plan or "free").strip().lower()
+    if p in _UNLIMITED_PLANS:
+        return None
+    return LIMITE_POR_PLANO.get(p, FREE_MONTHLY_ANALYSES)
+
 # fallback em memória: {telegram_id: (ano-mes, contagem)}
 _mem: dict[int, tuple[str, int]] = {}
 
@@ -45,7 +72,8 @@ def check_quota(telegram_id: int, user: dict | None, repo=None) -> QuotaResult:
     de liberar — banco instável não pode virar análise de LLM ilimitada e grátis.
     """
     plan = (user or {}).get("plan", "free")
-    if plan in _UNLIMITED_PLANS or telegram_id == ADMIN_TELEGRAM_ID:
+    teto = limite_do_plano(plan)
+    if teto is None or telegram_id == ADMIN_TELEGRAM_ID:
         return QuotaResult(True, -1, plan)
 
     # banco ligado mas usuário não veio (falha transitória do get_or_create):
@@ -57,7 +85,7 @@ def check_quota(telegram_id: int, user: dict | None, repo=None) -> QuotaResult:
     used = _count_used(telegram_id, user, repo)
     if used is None:
         return QuotaResult(False, 0, plan, degraded=True)
-    remaining = max(0, FREE_MONTHLY_ANALYSES - used)
+    remaining = max(0, teto - used)
     return QuotaResult(remaining > 0, remaining, plan)
 
 

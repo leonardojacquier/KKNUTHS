@@ -18,7 +18,8 @@ from app.config import get_settings
 from app.db import get_repository
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
-from app.quota import MAX_COACHED_HANDS, check_quota, consume_quota
+from app.quota import (ADMIN_TELEGRAM_ID, MAX_COACHED_HANDS, PLANOS_MANUAIS,
+                       check_quota, consume_quota, limite_do_plano)
 
 log = logging.getLogger("processing")
 
@@ -2011,6 +2012,137 @@ def spot_reply(texto: str) -> tuple[str, list[tuple]] | None:
     specs = [("spot", kind, hero, float(stack), "freq", vil, 2.2, pagaram),
              ("spot", kind, hero, float(stack), "ev", vil, 2.2, pagaram)]
     return "\n".join(linhas), specs
+
+
+def texto_do_plano(plan: str | None, restantes: int, teto: int | None) -> str:
+    """Mensagem do /plano. Função PURA — testável sem banco nem Telegram.
+
+    Passou a ler o plano DE VERDADE porque o teto deixou de ser um só: um
+    testador com 100 análises lendo 'você tem 50' é o produto mentindo pra
+    ele, e ele não tem como saber qual dos dois números vale.
+    """
+    base = ("Inclui: análise de mãos e torneios com IA, perfil de estilo, "
+            "base de conhecimento (/ask) e drills (/treino).")
+    if teto is None:
+        return (f"♾️ *Plano {(plan or 'pro').upper()}*\n\n"
+                f"Análises *ilimitadas*.\n{base}")
+    cabecalho = ("🧪 *Piloto — convidado*" if (plan or "") == "piloto"
+                 else "🎁 *Beta gratuito*")
+    return (f"{cabecalho}\n\n"
+            f"Você tem *{teto}* análises por mês, renovadas todo mês — "
+            f"restam *{restantes}* neste mês.\n{base}\n\n"
+            "Planos pagos chegam depois do piloto.")
+
+
+def plano_reply(telegram_id: int, username: str | None = None) -> str:
+    repo = get_repository()
+    user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
+    quota = check_quota(telegram_id, user, repo)
+    teto = limite_do_plano(quota.plan)
+    if telegram_id == ADMIN_TELEGRAM_ID:
+        teto = None
+    return texto_do_plano(quota.plan, quota.remaining, teto)
+
+
+def _usos_do_mes_por_user(repo) -> dict[str, int]:
+    """{user_id: análises no mês}. Vazio se o banco engasgar."""
+    from datetime import datetime, timezone
+
+    try:
+        inicio = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        linhas = (repo.client.table("usage_events").select("user_id")
+                  .gte("created_at", inicio).execute().data) or []
+    except Exception:
+        return {}
+    out: dict[str, int] = {}
+    for l in linhas:
+        uid = l.get("user_id")
+        if uid:
+            out[uid] = out.get(uid, 0) + 1
+    return out
+
+
+def listar_planos_reply() -> str:
+    """Quem é quem, com plano e consumo — é aqui que se acha o telegram_id."""
+    from app.quota import limite_do_plano
+
+    repo = get_repository()
+    if not repo.enabled:
+        return "Banco desligado — não dá para listar."
+    try:
+        users = (repo.client.table("users")
+                 .select("id,telegram_id,username,plan").execute().data) or []
+    except Exception as exc:
+        return f"Não consegui ler os usuários: {type(exc).__name__}: {exc}"
+    usos = _usos_do_mes_por_user(repo)
+    users.sort(key=lambda u: -usos.get(u.get("id"), 0))
+    linhas = ["👥 *Usuários e planos* (uso do mês)", ""]
+    for u in users:
+        if u.get("telegram_id") in (0, None):
+            continue          # linhas de sistema (deploy, crons)
+        teto = limite_do_plano(u.get("plan"))
+        n = usos.get(u.get("id"), 0)
+        quanto = f"{n}/{teto}" if teto is not None else f"{n}/∞"
+        linhas.append(f"• `{u['telegram_id']}` {u.get('username') or '—'} — "
+                      f"*{u.get('plan') or 'free'}* · {quanto}")
+    linhas.append("\nPara mudar: `/planode <telegram_id> <plano>`")
+    linhas.append("Planos: " + ", ".join(f"`{p}`" for p in PLANOS_MANUAIS))
+    return "\n".join(linhas)
+
+
+def mudar_plano_reply(alvo: str, plano: str) -> tuple[str, int | None]:
+    """Muda o plano de um aluno. Devolve (resposta ao admin, telegram_id).
+
+    O telegram_id volta para que o CHAMADOR avise o aluno — quem teve o
+    limite mexido merece saber, senão a promoção é invisível para quem
+    ela beneficia.
+    """
+    from app.quota import limite_do_plano
+
+    plano = (plano or "").strip().lower()
+    if plano not in PLANOS_MANUAIS:
+        return ("Plano desconhecido. Use: "
+                + ", ".join(f"`{p}`" for p in PLANOS_MANUAIS), None)
+    repo = get_repository()
+    if not repo.enabled:
+        return ("Banco desligado — não dá para mudar plano.", None)
+
+    chave = alvo.strip().lstrip("@")
+    try:
+        q = repo.client.table("users").select("id,telegram_id,username,plan")
+        if chave.isdigit():
+            linhas = q.eq("telegram_id", int(chave)).execute().data or []
+        else:
+            linhas = q.ilike("username", chave).execute().data or []
+    except Exception as exc:
+        return (f"Falha ao procurar `{alvo}`: {type(exc).__name__}", None)
+    if not linhas:
+        return (f"Não achei `{alvo}`. Rode `/planode` sem argumento para ver "
+                "a lista com os telegram_id.", None)
+    if len(linhas) > 1:
+        return (f"`{alvo}` casou com {len(linhas)} usuários — use o "
+                "telegram_id para não mudar o plano da pessoa errada.", None)
+
+    u = linhas[0]
+    antes = u.get("plan") or "free"
+    repo.update_user_plan(u["id"], plano)
+    # confere no banco em vez de confiar: update_user_plan engole exceção
+    try:
+        agora = (repo.client.table("users").select("plan")
+                 .eq("id", u["id"]).execute().data or [{}])[0].get("plan")
+    except Exception:
+        agora = None
+    if agora != plano:
+        return (f"⚠️ Pedi a troca de *{u.get('username') or u['telegram_id']}* "
+                f"para `{plano}`, mas o banco ainda diz `{agora or '?'}`. "
+                "Nada mudou — tente de novo.", None)
+    teto = limite_do_plano(plano)
+    return (f"✅ *{u.get('username') or u['telegram_id']}* "
+            f"(`{u['telegram_id']}`): `{antes}` → `{plano}` — "
+            + ("análises ilimitadas" if teto is None
+               else f"{teto} análises/mês") + ".",
+            u.get("telegram_id"))
 
 
 def prova_real_reply(telegram_id: int) -> str:

@@ -3364,11 +3364,19 @@ def test_cota_do_piloto_50_e_admin_nunca_bloqueado():
     q = check_quota(ADMIN_TELEGRAM_ID, {"plan": "free"}, Repo())
     assert q.allowed and q.remaining == -1
 
-    # e a mensagem do /plano usa a constante, não um número escrito na mão
+    # e a mensagem do /plano não pode ter teto escrito na mão: agora existe
+    # mais de um teto (free 50, piloto 100) e um número fixo no texto seria
+    # mentira para metade dos alunos
     import inspect
+    import re
 
-    from app.bot import handlers
-    assert "FREE_MONTHLY_ANALYSES" in inspect.getsource(handlers)
+    from app.bot.processing import texto_do_plano
+    # sem a docstring: ela CITA os números justamente para explicar o bug
+    fonte = inspect.getsource(texto_do_plano).replace(
+        texto_do_plano.__doc__ or "\0", "")
+    assert not re.search(r"\b(50|100)\b", fonte), (
+        "teto escrito na mão em texto_do_plano — tem que vir do argumento")
+    assert "*100* análises" in texto_do_plano("piloto", 100, 100)
 
 
 def test_ev_multiway_precisa_bater_todos():
