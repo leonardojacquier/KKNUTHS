@@ -124,6 +124,73 @@ def test_link_que_ja_e_o_json_da_mao_conta_como_achado():
     assert r["achados"][0]["pontos"] >= 8
 
 
+def test_bundle_de_nome_generico_e_varrido():
+    """A falha que o VPS expôs: 55 endpoints tentados = só os meus palpites.
+    O filtro por palavra-chave descartava `/assets/index-4f3a.js`, que é
+    onde o endpoint mora — o farejador dizia 'não achei' sem ter olhado."""
+    from sniff_replay import scripts_da_pagina
+
+    html = ('<script src="/assets/index-4f3a.js"></script>'
+            '<script src="https://cdn.x.net/vendor.abc.js"></script>'
+            '<script>var a=1</script>')
+    s = scripts_da_pagina(html, "https://r.x.net/?t=k")
+    assert s == ["https://r.x.net/assets/index-4f3a.js",
+                 "https://cdn.x.net/vendor.abc.js"]
+    # e o filtro antigo realmente os perderia
+    assert not any("index-4f3a" in u
+                   for u in candidatos_da_pagina(html, "https://r.x.net/"))
+
+
+def test_mao_embutida_no_html_e_encontrada():
+    """Página de 4 KB pode já trazer a mão dentro de um <script>."""
+    import json
+
+    from sniff_replay import _blobs_json
+
+    html = ("<html><script>window.__D__ = "
+            + json.dumps(MAO) + ";</script></html>")
+    blobs = _blobs_json(html)
+    assert any(parece_mao(b) >= 8 for b in blobs)
+
+
+def test_caminho_completo_pagina_bundle_endpoint():
+    """A LIGAÇÃO, não as peças: página → bundle de nome genérico → endpoint
+    → mão. É este percurso inteiro que falhava em silêncio no VPS."""
+    import json as _j
+
+    import sniff_replay as s
+
+    html = b'<html><script src="/assets/index-9f2.js"></script></html>'
+    bundle = b'var API="https://api.clube.net/v2/hand/detail.json";'
+
+    def _falso_get(url, limite_bytes=0):
+        if url.endswith("index-9f2.js"):
+            return 200, bundle, "application/javascript"
+        if "hand/detail.json" in url:
+            return 200, _j.dumps(MAO).encode(), "application/json"
+        if url.startswith("https://r.clube.net/?t="):
+            return 200, html, "text/html"
+        return 404, b"", ""
+
+    original = s._get
+    s._get = _falso_get
+    try:
+        r = s.farejar("https://r.clube.net/?t=abc123def456")
+    finally:
+        s._get = original
+
+    assert r["chave"] == "abc123def456"
+    assert r["achados"], "o endpoint estava escrito no bundle e tem que sair"
+    assert r["achados"][0]["url"].endswith("hand/detail.json")
+    assert r["achados"][0]["pontos"] >= 8
+
+
+def test_blobs_ignoram_objeto_pequeno_de_config():
+    from sniff_replay import _blobs_json
+
+    assert _blobs_json('<script>var c={"a":1};</script>') == []
+
+
 def test_esqueleto_nao_entra_em_recursao_infinita():
     fundo = {}
     no = fundo

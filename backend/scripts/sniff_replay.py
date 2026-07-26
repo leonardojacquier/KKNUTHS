@@ -154,6 +154,48 @@ def chave_do_link(url: str) -> str | None:
     return cauda.group(1) if cauda else None
 
 
+def scripts_da_pagina(html: str, base: str) -> list[str]:
+    """TODO <script src> da página, sem filtro de nome.
+
+    Existe separado de `candidatos_da_pagina` por causa de uma falha real:
+    o filtro por palavra-chave (api|json|hand|replay…) descartava o bundle
+    `/assets/index-4f3a.js`, que é justamente onde o endpoint está escrito.
+    O farejador então varria zero bundles e concluía "não achei nada" sem
+    nunca ter olhado no lugar certo.
+    """
+    urls = [urljoin(base, m.group(1)) for m in re.finditer(
+        r"""<script[^>]+src=['"]([^'"]+)['"]""", html or "", re.I)]
+    return list(dict.fromkeys(urls))[:12]
+
+
+def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
+    """Objetos JSON embutidos no HTML (`window.__DADOS__ = {...}`).
+
+    Página de 4 KB pode já trazer a mão inteira dentro de um <script>.
+    Contagem de chaves porque regex não equilibra delimitador.
+    """
+    out: list[object] = []
+    for i, ch in enumerate(texto or ""):
+        if ch != "{" or len(out) >= 8:
+            continue
+        nivel, fim = 0, None
+        for j in range(i, min(i + 200_000, len(texto))):
+            if texto[j] == "{":
+                nivel += 1
+            elif texto[j] == "}":
+                nivel -= 1
+                if nivel == 0:
+                    fim = j + 1
+                    break
+        if not fim or fim - i < minimo:
+            continue
+        try:
+            out.append(json.loads(texto[i:fim]))
+        except Exception:
+            pass
+    return out
+
+
 def candidatos_da_pagina(texto: str, base: str) -> list[str]:
     """URLs plausíveis de API/CDN citadas na página ou num .js dela.
 
@@ -235,6 +277,23 @@ def _get(url: str, limite_bytes: int = 4_000_000) -> tuple[int, bytes, str]:
         return 0, str(e).encode()[:200], ""
 
 
+_DESPEJO = "/tmp/replay_sniff"
+
+
+def _guardar(nome: str, dados: bytes) -> None:
+    """Guarda página e bundles em disco. Quando o farejador não acha nada,
+    o material bruto é o que permite olhar com o olho humano em vez de
+    rodar de novo às cegas."""
+    import os
+
+    try:
+        os.makedirs(_DESPEJO, exist_ok=True)
+        with open(os.path.join(_DESPEJO, nome), "wb") as f:
+            f.write(dados)
+    except Exception:
+        pass
+
+
 def _talvez_json(corpo: bytes):
     try:
         return json.loads(corpo.decode("utf-8", "replace"))
@@ -268,13 +327,38 @@ def farejar(url: str) -> dict:
                                 "bruto": direto})
     if corpo and "json" not in ctype.lower():
         texto = corpo.decode("utf-8", "replace")
-        js = [u for u in candidatos_da_pagina(texto, url)
-              if u.endswith(".js")][:6]
-        alvos += candidatos_da_pagina(texto, url)
-        for j in js:                       # o endpoint costuma estar no bundle
+        _guardar("pagina.html", corpo)
+
+        # mão embutida no próprio HTML: página de 4 KB pode já trazer tudo
+        for blob in _blobs_json(texto):
+            if parece_mao(blob) >= 5:
+                achados_diretos.append({
+                    "url": url + " (JSON embutido no HTML)",
+                    "pontos": parece_mao(blob), "esqueleto": esqueleto(blob),
+                    "bruto": blob})
+
+        da_pagina = candidatos_da_pagina(texto, url)
+        scripts = scripts_da_pagina(texto, url)
+        print(f"  scripts na página: {len(scripts)}")
+        for s_url in scripts:
+            print(f"    {s_url}")
+        print(f"  candidatos citados na página: {len(da_pagina)}")
+        alvos += da_pagina
+
+        # TODO bundle é varrido, tenha o nome que tiver — o endpoint mora
+        # aqui, e filtrar bundle por nome foi o que cegou a primeira versão
+        de_bundle = 0
+        for j in scripts:
             s, c, _ = _get(j)
-            if s == 200 and c:
-                alvos += candidatos_da_pagina(c.decode("utf-8", "replace"), j)
+            if s != 200 or not c:
+                print(f"    ! bundle não baixou ({s}): {j}")
+                continue
+            miolo = c.decode("utf-8", "replace")
+            _guardar(re.sub(r"[^\w.-]", "_", j.split("/")[-1])[:60], c)
+            novos = candidatos_da_pagina(miolo, j)
+            de_bundle += len(novos)
+            alvos += novos
+        print(f"  candidatos achados nos bundles: {de_bundle}")
     if chave:
         # troca id genérico do bundle pela chave do link deste replay
         alvos += [re.sub(r"(?<=[/=])[0-9a-zA-Z_-]{16,}(?=(\.json)?$)",
@@ -309,9 +393,12 @@ def main() -> int:
     print(f"\n{r['tentados']} endpoints tentados · "
           f"{len(r['achados'])} devolveram JSON com cara de mão\n")
     if not r["achados"]:
-        print("Nada. O replayer provavelmente busca a mão por WebSocket ou "
-              "com token de sessão — aí só captura de rede no navegador "
-              "resolve (DevTools > Network com o replay aberto).")
+        print("Nada por HTTP simples. Próximo passo é olhar o material bruto:\n"
+              f"  ls -la {_DESPEJO}/\n"
+              f"  head -c 4000 {_DESPEJO}/pagina.html\n"
+              "Se a página não citar endpoint nenhum, a mão vem por "
+              "WebSocket ou POST autenticado — aí só captura no navegador "
+              "resolve (F12 > Network com o replay rodando).")
         return 1
     for i, a in enumerate(r["achados"][:3], 1):
         print(f"── candidato {i} (pontos {a['pontos']})\n{a['url']}")
