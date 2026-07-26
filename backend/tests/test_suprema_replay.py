@@ -44,6 +44,40 @@ def test_token_curto_nao_vira_chute():
     assert "ra.supremapoker.net" in url_da_api("abcdefgh")
 
 
+# pares (código, texto) tirados de uma mão REAL da Suprema — o próprio JSON
+# traz as duas formas, então isto é gabarito do servidor, não meu
+CARTAS_REAIS = {29: "Kd", 28: "Qd", 51: "3h", 38: "6c", 67: "3s",
+                76: "Qs", 18: "2d"}
+
+
+def test_decodifica_todas_as_cartas_de_uma_mao_real():
+    from app.parsers.suprema_replay import _card, _cards
+
+    for codigo, esperado in CARTAS_REAIS.items():
+        assert _card(codigo) == esperado, codigo
+    # board da mão: 3♥ 6♣ 3♠ Q♠ 2♦
+    assert _cards([51, 38, 67, 76, 18]) == ["3h", "6c", "3s", "Qs", "2d"]
+
+
+def test_naipe_segue_a_mesma_escada_da_pppoker():
+    """1=♦ 2=♣ 3=♥ 4=♠ — igual à PPPoker, que usa base 256 em vez de 16."""
+    from app.parsers.pppoker_replay import _SUIT as SUIT_PP
+    from app.parsers.suprema_replay import _SUIT as SUIT_SU
+
+    assert SUIT_SU == SUIT_PP
+
+
+def test_carta_invalida_some_em_vez_de_virar_placeholder():
+    """Mão com carta inventada é pior que mão incompleta: a análise sairia
+    confiante e errada."""
+    from app.parsers.suprema_replay import _card, _cards
+
+    assert _card(0) is None and _card(15) is None      # rank fora de 2..14
+    assert _card(999) is None and _card(None) is None
+    assert _cards([51, 999, 38]) == ["3h", "6c"]
+    assert _cards(None) == []
+
+
 def test_manda_cabecalho_de_navegador():
     """A MESMA URL devolve 2 bytes (`-1`) para o User-Agent padrão do curl e
     13 kB para o Chrome. Sem estes cabeçalhos o parser conclui 'token

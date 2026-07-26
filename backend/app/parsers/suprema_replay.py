@@ -60,6 +60,37 @@ _UA = {
 _TIMEOUT = 25
 
 
+# CARTAS: `cardsD` é numérico e `cards` já vem legível ("K♦"). Uso o
+# numérico como fonte: o texto depende do idioma da conta e usa "10" em vez
+# de "T", enquanto divmod(v, 16) é estável.
+#   divmod(29,16) = (1,13) -> K♦ ;  divmod(67,16) = (4,3) -> 3♠
+# O mapa de naipes é o MESMO da PPPoker (1=♦ 2=♣ 3=♥ 4=♠); lá a base é 256,
+# aqui é 16. Conferido contra as 7 cartas de uma mão real.
+_SUIT = {1: "d", 2: "c", 3: "h", 4: "s"}
+_RANK = {**{n: str(n) for n in range(2, 10)},
+         10: "T", 11: "J", 12: "Q", 13: "K", 14: "A"}
+
+
+def _card(v) -> str | None:
+    """Código numérico -> 'Kd'. None para valor fora da baralho."""
+    try:
+        naipe, rank = divmod(int(v), 16)
+    except (TypeError, ValueError):
+        return None
+    if naipe not in _SUIT or rank not in _RANK:
+        return None
+    return f"{_RANK[rank]}{_SUIT[naipe]}"
+
+
+def _cards(lista) -> list[str]:
+    """Lista de códigos -> ['Kd', 'Qd']. Carta ilegível é descartada em vez
+    de virar placeholder: mão com carta inventada é pior que mão incompleta.
+    """
+    if not isinstance(lista, (list, tuple)):
+        return []
+    return [c for c in (_card(v) for v in lista) if c]
+
+
 def token_do_link(url: str) -> str | None:
     """O `t` cru do link (13 caracteres na prática, mas não fixo o tamanho:
     o replayer só exige que exista)."""
