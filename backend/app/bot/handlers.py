@@ -1170,6 +1170,10 @@ async def on_sim_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     LAST_ANALYSIS[update.effective_user.id] = {
         "context": {
             "simulacao": sim["results"],
+            # MESMO defeito do quiz, que estava vivo aqui também: sem o
+            # hand_id no contexto, terminar uma simulação matava todas as
+            # ferramentas de mão (gráfico de EV, street a street, potes).
+            "hand_id": sim.get("hand_id"),
             "mao": {
                 "cartas": sim["cards"],
                 "posicao": sim["position"],

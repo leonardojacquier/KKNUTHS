@@ -3630,12 +3630,14 @@ def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
     assert P._hand_id_no_contexto({"hand_id": "X"}) == "X"
     assert P._hand_id_no_contexto({"nada": 1}) is None
 
-    # o handler do quiz também promove o hand_id pro primeiro nível
+    # TODO contexto de conversa precisa carregar o hand_id — o quiz era um,
+    # a simulação era outro (mesmo defeito, vivo em paralelo)
     import inspect
 
     from app.bot import handlers
     src = inspect.getsource(handlers)
     assert '"hand_id": drill.get("hand_id")' in src
+    assert '"hand_id": sim.get("hand_id")' in src
 
     # e a mão é encontrada de verdade a partir do contexto de drill
     h = _mao_multiway_sem_allin(["Qd", "Jd"])
