@@ -425,6 +425,48 @@ def test_script_type_application_json_e_lido():
     assert any(parece_mao(b) >= 8 for b in _blobs_json(html))
 
 
+def test_state_transfer_do_angular_e_desembrulhado():
+    """A PokerCraft guarda a resposta da API dentro da página, em
+    `<script id="ng-state">`: `{"<hash>": {"u": url, "b": corpo, "s": 200}}`.
+    As chaves são b/h/s/u — o JSON pontua ZERO e a mão está lá dentro."""
+    import base64
+    import json
+
+    from sniff_replay import desembrulhar
+
+    # corpo como string JSON
+    envelope = {"371745488": {"u": "https://x/api/hand",
+                              "b": json.dumps(MAO), "s": 200, "st": "OK"}}
+    assert parece_mao(envelope) < 5, "o envelope não parece mão — esse é o ponto"
+    assert any(parece_mao(d) >= 8 for d in desembrulhar(envelope))
+
+    # corpo em base64
+    b64 = base64.b64encode(json.dumps(MAO).encode()).decode()
+    assert any(parece_mao(d) >= 8
+               for d in desembrulhar({"b": {"data": b64}}))
+
+
+def test_desembrulhar_aguenta_base64_de_gzip():
+    import base64
+    import gzip
+    import json
+
+    from sniff_replay import desembrulhar
+
+    comprimido = base64.b64encode(
+        gzip.compress(json.dumps(MAO).encode())).decode()
+    assert any(parece_mao(d) >= 8
+               for d in desembrulhar({"payload": comprimido}))
+
+
+def test_desembrulhar_nao_estoura_com_lixo():
+    from sniff_replay import desembrulhar
+
+    assert desembrulhar("x" * 200) == []
+    assert desembrulhar({"a": "não é base64 nem json, mas é longo o bastante"}) == []
+    assert desembrulhar(None) == [] and desembrulhar(123) == []
+
+
 def test_blobs_ignoram_objeto_pequeno_de_config():
     from sniff_replay import _blobs_json
 

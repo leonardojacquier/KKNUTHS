@@ -228,6 +228,61 @@ def _blobs_json(texto: str, minimo: int = 80) -> list[object]:
     return [obj for _tam, obj in achados[:12]]
 
 
+def desembrulhar(obj, prof: int = 0) -> list[object]:
+    """Payloads escondidos DENTRO de campos string.
+
+    App com renderização no servidor guarda a resposta da API já cacheada na
+    página. O Angular usa `<script id="ng-state">` com
+    `{"<hash>": {"u": <url>, "b": <corpo>, "s": 200}}` — as chaves são `b`,
+    `h`, `s`, `u`, e nenhuma delas é vocabulário de poker. O JSON pontua
+    ZERO e a mão está ali dentro.
+
+    Abre string que seja JSON, base64 de JSON, ou base64 de gzip+JSON.
+    """
+    import base64
+    import gzip
+
+    saida: list[object] = []
+    if prof > 4:
+        return saida
+    if isinstance(obj, dict):
+        for v in obj.values():
+            saida += desembrulhar(v, prof + 1)
+    elif isinstance(obj, list):
+        for v in obj[:40]:
+            saida += desembrulhar(v, prof + 1)
+    elif isinstance(obj, str) and len(obj) >= 40:
+        try:
+            dentro = json.loads(obj)
+            saida.append(dentro)
+            saida += desembrulhar(dentro, prof + 1)
+            return saida
+        except Exception:
+            pass
+        try:
+            bruto = base64.b64decode(obj + "==", validate=False)
+        except Exception:
+            return saida
+        for tentativa in (bruto, _talvez_gunzip(bruto, gzip)):
+            if not tentativa:
+                continue
+            try:
+                dentro = json.loads(tentativa.decode("utf-8", "replace"))
+            except Exception:
+                continue
+            saida.append(dentro)
+            saida += desembrulhar(dentro, prof + 1)
+            break
+    return saida
+
+
+def _talvez_gunzip(bruto: bytes, gzip_mod):
+    try:
+        return gzip_mod.decompress(bruto)
+    except Exception:
+        return None
+
+
 _CAMINHO = re.compile(
     r"""['"](/(?:[\w.-]+/){0,5}[\w.-]*"""
     r"""(?:api|hand|replay|record|review|detail|share|game)[\w./-]*)['"]""",
@@ -573,13 +628,15 @@ def farejar(url: str, despejo: str | None = None) -> dict:
         texto = corpo.decode("utf-8", "replace")
         _guardar(despejo, "pagina.html", corpo)
 
-        # mão embutida no próprio HTML: página de 4 KB pode já trazer tudo
+        # mão embutida no próprio HTML — direta OU dentro de um embrulho de
+        # state transfer, que pontua zero porque suas chaves são b/h/s/u
         for blob in _blobs_json(texto):
-            if parece_mao(blob) >= 5:
-                achados_diretos.append({
-                    "url": url + " (JSON embutido no HTML)",
-                    "pontos": parece_mao(blob), "esqueleto": esqueleto(blob),
-                    "bruto": blob})
+            for dado, nota in [(blob, "JSON embutido no HTML")] + [
+                    (d, "dentro do state transfer") for d in desembrulhar(blob)]:
+                if parece_mao(dado) >= 5:
+                    achados_diretos.append({
+                        "url": f"{url} ({nota})", "pontos": parece_mao(dado),
+                        "esqueleto": esqueleto(dado), "bruto": dado})
 
         relativos |= caminhos_relativos(texto)
         da_pagina = candidatos_da_pagina(texto, url)
