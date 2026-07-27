@@ -137,7 +137,7 @@ def build_folder_html() -> str:
   <div class="brand"><img class="logo" src="{_img('logo_avatar.png')}" alt="KKNuths"><b>KKNuths</b> · coach de poker com IA · no seu Telegram</div>
 
   <h1>Pare de achar.<br><em>Calcule.</em></h1>
-  <p class="sub"><b>Cola o link do replay</b> (PPPoker) e a mão abre sozinha:
+  <p class="sub"><b>Cola o link do replay</b> (PPPoker e Suprema) e a mão abre sozinha:
   o filme completo com showdown e a leitura de um coach profissional — com
   <b>matemática de solver</b> por trás de cada veredito, street a street.
   Movido pelo <b>Motor KKN</b>.</p>
@@ -145,7 +145,7 @@ def build_folder_html() -> str:
   <div class="mid">
     <div class="feats">
       <div class="feat"><h3>🔗 Cola o link, sai o filme</h3>
-        <p>Replay da PPPoker abre sozinho: a mão inteira quadro a quadro, com
+        <p>Replay da PPPoker e da Suprema abre sozinho: a mão inteira quadro a quadro, com
         as cartas do vilão no showdown e quem levou o pote. Print, arquivo e
         áudio também valem — qualquer sala.</p></div>
       <div class="feat"><h3>⚖️ Veredito com número, street a street</h3>
@@ -220,7 +220,8 @@ def build_folder_html() -> str:
 
   <div class="cols">
     <div class="grp"><h4>📥 Análise</h4><ul>
-      <li><b>Link de replay (PPPoker)</b>: cola e a mão abre sozinha</li>
+      <li><b>Link de replay (PPPoker e Suprema)</b>: cola e a mão abre sozinha</li>
+      <li><b>GGPoker</b>: manda o arquivo do PokerCraft — vem a sessão inteira</li>
       <li><b>O filme da mão</b> com showdown, vencedor e a conta em cada street<span class="x">EXCLUSIVO</span></li>
       <li>Print, .txt (GG/Stars/Winamax/Party/888), texto colado, CSV, áudio e PDF</li>
       <li><b>Leitura declarada</b>: em print, o bot abre dizendo o que leu e o quanto confia<span class="x">EXCLUSIVO</span></li>
