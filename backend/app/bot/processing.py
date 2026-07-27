@@ -1324,11 +1324,26 @@ def replay_fallback_text(site: str | None = None,
                 "ou encurtado: reabre o replay no app e usa *Compartilhar* "
                 "para copiar o link inteiro.\n\nSe preferir não repetir:\n\n"
                 + saidas)
+    if site == "ggpoker":
+        # a GGPoker cifra a mão (medido: 22 kB, entropia 7,99/8, blocos AES).
+        # Mas ela tem uma saída OFICIAL e melhor: o histórico do PokerCraft
+        # traz a SESSÃO inteira, não uma mão — e é isso que alimenta stats,
+        # leaks e evolução. Mandar o aluno para o print seria pior conselho.
+        return ("🔗 Link de replay da *GGPoker*. Esse eu não abro — a mão vem "
+                "cifrada pelo site.\n\n"
+                "Mas tem um caminho *melhor* pra você: o **arquivo de mãos "
+                "do PokerCraft**.\n\n"
+                "1️⃣ PokerCraft → *Hand History*\n"
+                "2️⃣ escolhe o período → *Download*\n"
+                "3️⃣ me manda o `.txt` aqui\n\n"
+                "Vem a *sessão inteira* em vez de uma mão só — e é assim que "
+                "eu monto seu perfil, seus leaks e sua evolução. 🃏\n\n"
+                "Se quiser só esta mão agora:\n\n" + saidas)
     clube = _NOME_CLUBE.get(site or "")
     quem = f"da *{clube}*" if clube else "desse clube"
     return (f"🔗 Esse é um *link de replay* {quem}. Abro sozinho só os da "
-            "*PPPoker* por enquanto — mas analiso a mão *agora* de dois "
-            "jeitos:\n\n" + saidas)
+            "*PPPoker* e da *Suprema* por enquanto — mas analiso a mão "
+            "*agora* de dois jeitos:\n\n" + saidas)
 
 
 def _extract_metas(text: str) -> list[str]:

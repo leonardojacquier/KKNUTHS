@@ -85,6 +85,47 @@ Lições que viraram código:
   Ver `pista_do_erro` em [[#Farejador de replay]]
 - GET antes de POST: API de clube fica atrás de CDN
 
+## GGPoker / PokerCraft — INVESTIGAÇÃO ENCERRADA (2026-07-26)
+Não abrimos, e a decisão é definitiva. Fica registrado para ninguém
+reabrir do zero.
+
+`gg.gl/<código>` é encurtador → `my.pokercraft.com/embedded/shared/
+hand-replay/<alias>`. App Angular que desenha a mão num `<canvas>` (não há
+vídeo). **Duas** chamadas, achadas por HAR:
+
+| endpoint | tamanho | o que é |
+|---|---|---|
+| `/api/share/alias?type=handReplay&alias=…` | 336 B | envelope |
+| `/api/share/alias/hand-replay?type=…` | **22.368 B** | **a mão** |
+
+Ambas devolvem `{"data": "<hex>"}` **cifrado**:
+
+| medida | envelope | a mão |
+|---|---|---|
+| blocos de 16 | 21 | 1.398 |
+| entropia | 7,39 | **7,99** de 8,00 |
+| bytes distintos | 189/256 | **256/256** |
+| blocos repetidos | 0 | 0 |
+
+Entropia 7,99 com os 256 valores presentes e nenhum bloco repetido é
+indistinguível de aleatório: não é compressão nem codificação. E o
+envelope MUDA a cada chamada com o mesmo link (IV aleatório).
+
+**A chave vive no bundle do cliente.** Extraí-la para decifrar seria
+contornar proteção técnica deliberada de sala regulada — não fazemos, e
+não indicamos caminho. Diferente da Suprema, onde o JSON é servido em
+claro e só faltava o cabeçalho certo.
+
+**O caminho para GGPoker é o arquivo do PokerCraft** (Hand History →
+Download → `.txt`), que é oficial, exato e traz a SESSÃO inteira em vez de
+uma mão. É o que a mensagem do bot passa a oferecer — mandar o aluno só
+para o print seria o pior conselho disponível.
+
+Armadilha para quem revisitar: o `ng-state` da página traz apenas a
+PRIMEIRA chamada (o servidor renderizou), o que dá a falsa impressão de
+que só existe uma. A segunda é feita no navegador e só aparece em HAR
+capturado **com o DevTools aberto antes do carregamento**.
+
 ## Farejador de replay
 `scripts/sniff_replay.py <link> [--telegram]` — roda de onde a rede alcança
 o clube (o VPS). Descobre de onde um replayer novo tira a mão:

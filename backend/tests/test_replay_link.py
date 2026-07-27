@@ -90,6 +90,23 @@ def test_gg_gl_e_reconhecido_como_replay():
     assert "GGPoker" in txt and "Print do replay" in txt
 
 
+def test_ggpoker_aponta_para_o_caminho_MELHOR_e_nao_so_para_o_print():
+    """A mão da GGPoker vem cifrada, mas existe saída oficial e superior: o
+    histórico do PokerCraft traz a SESSÃO inteira, não uma mão. Mandar o
+    aluno só para o print seria dar o pior conselho disponível."""
+    txt = replay_fallback_text("ggpoker")
+    assert "PokerCraft" in txt and "Hand History" in txt
+    assert ".txt" in txt
+    assert "sessão inteira" in txt
+    # e não promete abrir o que não abre
+    assert "não abro" in txt
+
+
+def test_mensagem_dos_outros_clubes_cita_as_duas_salas_que_abrem():
+    txt = replay_fallback_text("clubgg")
+    assert "ClubGG" in txt and "PPPoker" in txt and "Suprema" in txt
+
+
 def test_clube_desconhecido_nao_quebra_a_mensagem():
     txt = replay_fallback_text("outro")
     assert "desse clube" in txt and "PPPoker" in txt
