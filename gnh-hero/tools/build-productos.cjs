@@ -70,8 +70,10 @@ function page(p, cat, group) {
   const img = p.img ? p.img.replace('../', `${BASE}/`) : `${BASE}/img/logo-oficial.png`
   const waMsg = encodeURIComponent(`Hola, me interesa: ${p.name}`)
 
+  // as células podem trazer um link nosso para a ficha; o resto é escapado
+  const cell = (c) => /^<a href="\/fichas\/[a-z0-9-]+\.html">[^<]*<\/a>$/.test(String(c)) ? c : esc(c)
   const specRows = p.specs
-    ? p.specs.r.map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('\n        ')
+    ? p.specs.r.map((row) => `<tr>${row.map((c) => `<td>${cell(c)}</td>`).join('')}</tr>`).join('\n        ')
     : ''
   const specTable = p.specs ? `
       <h2>Modelos y especificaciones técnicas</h2>
@@ -83,10 +85,12 @@ function page(p, cat, group) {
       </table>
       <p class="nota">Datos del catálogo del fabricante. Consultanos por configuraciones y disponibilidad.</p>` : ''
 
+  const plain = (v) => String(v).replace(/<[^>]*>/g, '').trim()
   const props = p.specs
     ? p.specs.r.slice(0, 12).map((row) => ({
-        '@type': 'PropertyValue', name: `${p.specs.h[0]} ${row[0]}`,
-        value: row.slice(1).map((v, i) => `${p.specs.h[i + 1]}: ${v}`).join(' · '),
+        '@type': 'PropertyValue', name: `${p.specs.h[0]} ${plain(row[0])}`,
+        value: row.slice(1).map((v, i) => `${p.specs.h[i + 1]}: ${plain(v)}`)
+          .filter((s) => !/:\s*$/.test(s)).join(' · '),
       }))
     : []
 
