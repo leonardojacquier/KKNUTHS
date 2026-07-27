@@ -102,6 +102,43 @@ def test_ggpoker_aponta_para_o_caminho_MELHOR_e_nao_so_para_o_print():
     assert "não abro" in txt
 
 
+def test_ggpoker_ensina_a_pedir_a_MAO_especifica_depois():
+    """O alias do link é código de compartilhamento, resolvido só no
+    servidor deles — não vira Hand ID por fora. Mas o PokerCraft mostra o
+    Hand ID, e a busca por id JÁ EXISTE no handsearch: o aluno traz o
+    número e a mão é achada no arquivo dele. Fecha o ciclo sem o link."""
+    txt = replay_fallback_text("ggpoker")
+    assert "Hand ID" in txt
+    assert "analisa a mão" in txt          # a frase que ele pode copiar
+
+
+def test_busca_por_hand_id_realmente_existe():
+    """A instrução acima só vale se a busca funcionar de verdade — prometer
+    ao aluno um caminho que não existe é pior que não oferecer nada."""
+    from app.analysis.handsearch import find_hand
+    from app.api.site_assets import _demo_hand
+
+    mao = _demo_hand()
+    achado = find_hand([mao], mao.hand_id)
+    assert achado and achado[0]["hand_id"] == mao.hand_id
+    # id curto demais não casa (senão qualquer letra varreria o histórico)
+    assert not find_hand([mao], "ab")
+
+
+def test_o_coach_tem_a_ferramenta_de_abrir_mao_por_numero():
+    """De nada adianta a busca existir se o coach não puder chamá-la — foi
+    exatamente o defeito do gráfico de EV, que existia e nunca era invocado.
+    """
+    from app.agent.llm import TOOLS, _dispatch
+
+    nomes = {t["name"] for t in TOOLS}
+    assert "get_hand" in nomes
+    esquema = next(t for t in TOOLS if t["name"] == "get_hand")
+    assert "query" in esquema["input_schema"]["properties"]
+    # sem histórico na conversa ela responde com ERRO explícito, não em branco
+    assert "error" in _dispatch("get_hand", {"query": "RC1234567890"})
+
+
 def test_mensagem_dos_outros_clubes_cita_as_duas_salas_que_abrem():
     txt = replay_fallback_text("clubgg")
     assert "ClubGG" in txt and "PPPoker" in txt and "Suprema" in txt

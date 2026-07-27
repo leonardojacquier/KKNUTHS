@@ -1329,16 +1329,22 @@ def replay_fallback_text(site: str | None = None,
         # Mas ela tem uma saída OFICIAL e melhor: o histórico do PokerCraft
         # traz a SESSÃO inteira, não uma mão — e é isso que alimenta stats,
         # leaks e evolução. Mandar o aluno para o print seria pior conselho.
-        return ("🔗 Link de replay da *GGPoker*. Esse eu não abro — a mão vem "
-                "cifrada pelo site.\n\n"
-                "Mas tem um caminho *melhor* pra você: o **arquivo de mãos "
-                "do PokerCraft**.\n\n"
-                "1️⃣ PokerCraft → *Hand History*\n"
-                "2️⃣ escolhe o período → *Download*\n"
-                "3️⃣ me manda o `.txt` aqui\n\n"
-                "Vem a *sessão inteira* em vez de uma mão só — e é assim que "
-                "eu monto seu perfil, seus leaks e sua evolução. 🃏\n\n"
-                "Se quiser só esta mão agora:\n\n" + saidas)
+        # O alias do link (_8gph8vo-…) é código de COMPARTILHAMENTO, resolvido
+        # só no servidor deles — não dá para virar Hand ID por fora. Mas o
+        # PokerCraft mostra o Hand ID na própria mão, e a busca por id já
+        # existe no `handsearch`. Então o aluno traz o número, e eu acho no
+        # arquivo dele: fecha o ciclo sem depender do link.
+        return ("🔗 Link de replay da *GGPoker*. Esse eu não abro — o site não "
+                "libera a mão pelo link.\n\n"
+                "*Faz assim, que fica até melhor:*\n\n"
+                "1️⃣ PokerCraft → *Hand History* → período → *Download*\n"
+                "2️⃣ me manda o `.txt` aqui\n"
+                "3️⃣ depois me peça a mão: _\"analisa a mão RC1234567890\"_\n\n"
+                "O `.txt` traz a *sessão inteira*, então além dessa mão eu "
+                "monto seu perfil, seus leaks e sua evolução — coisas que uma "
+                "mão sozinha não mostra. E o *Hand ID* aparece na tela da mão "
+                "no PokerCraft (o mesmo número que a busca dele usa). 🃏\n\n"
+                "Se preferir resolver só esta agora:\n\n" + saidas)
     clube = _NOME_CLUBE.get(site or "")
     quem = f"da *{clube}*" if clube else "desse clube"
     return (f"🔗 Esse é um *link de replay* {quem}. Abro sozinho só os da "
