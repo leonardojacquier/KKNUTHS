@@ -980,7 +980,11 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         if repo.enabled:
             repo.log_event(telegram_id, username, "followup_failed",
                            {"q": question[:300]})
-        return (
+        # Se a API caiu (crédito, chave, limite), o aluno merece a verdade:
+        # "me embananei" joga a culpa numa confusão do coach que não houve.
+        from app.agent.saude import recado_recente
+
+        return recado_recente() or (
             "Opa, me embananei aqui — me pergunta de novo em um instante? 🙏"
         )
 
@@ -1122,7 +1126,10 @@ def simplify_last(telegram_id: int, username: str | None) -> str | None:
 
     simple = simplify(str(text))
     if not simple:
-        return "Opa, me embananei aqui — toca o botão de novo em um instante? 🙏"
+        from app.agent.saude import recado_recente
+
+        return recado_recente() or (
+            "Opa, me embananei aqui — toca o botão de novo em um instante? 🙏")
     # a versão simples vira a última fala: dá para simplificar em cadeia e o
     # follow-up continua do ponto que o aluno de fato leu
     ctx["history"] = (ctx.get("history", []) +

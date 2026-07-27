@@ -966,6 +966,15 @@ def _create(client, **kw):
                 continue
             log.warning("LLM create falhou (%s): %s",
                         type(exc).__name__, msg[:200])
+            # Falha de INFRAESTRUTURA (crédito zerado, chave inválida) não
+            # é confusão do coach: avisa o admin e guarda o recado honesto
+            # para o aluno, em vez de "me embananei".
+            try:
+                from app.agent import saude
+
+                saude.registrar(exc)
+            except Exception:
+                pass
             raise
 
 
