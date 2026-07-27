@@ -1334,16 +1334,22 @@ def replay_fallback_text(site: str | None = None,
         # PokerCraft mostra o Hand ID na própria mão, e a busca por id já
         # existe no `handsearch`. Então o aluno traz o número, e eu acho no
         # arquivo dele: fecha o ciclo sem depender do link.
-        return ("🔗 Link de replay da *GGPoker*. Esse eu não abro — o site não "
-                "libera a mão pelo link.\n\n"
+        # Nada de mandar o aluno caçar código: `find_hand` casa por CARTAS
+        # ("QJ", "QJs", "QdJd"), e ele está olhando o replay — as cartas
+        # estão na cara dele. O Nº da mão é só uma das formas, e a menos
+        # conveniente. Exigi-lo era atrito que eu mesmo inventei.
+        return ("🔗 Link de replay da *GGPoker*. Esse eu não abro — o site "
+                "não libera a mão pelo link.\n\n"
                 "*Faz assim, que fica até melhor:*\n\n"
                 "1️⃣ PokerCraft → *Hand History* → período → *Download*\n"
                 "2️⃣ me manda o `.txt` aqui\n"
-                "3️⃣ depois me peça a mão: _\"analisa a mão RC1234567890\"_\n\n"
-                "O `.txt` traz a *sessão inteira*, então além dessa mão eu "
-                "monto seu perfil, seus leaks e sua evolução — coisas que uma "
-                "mão sozinha não mostra. E o *Hand ID* aparece na tela da mão "
-                "no PokerCraft (o mesmo número que a busca dele usa). 🃏\n\n"
+                "3️⃣ pede a mão pelas *cartas*: _\"abre a mão de AK\"_\n\n"
+                "Não precisa procurar número nenhum — as cartas que você está "
+                "vendo no replay bastam (e o Nº da mão também serve, se "
+                "preferir).\n\n"
+                "O `.txt` traz a *sessão inteira*: além dessa mão, sai seu "
+                "perfil, seus leaks e sua evolução — o que uma mão sozinha "
+                "nunca mostra. 🃏\n\n"
                 "Se preferir resolver só esta agora:\n\n" + saidas)
     clube = _NOME_CLUBE.get(site or "")
     quem = f"da *{clube}*" if clube else "desse clube"

@@ -108,8 +108,22 @@ def test_ggpoker_ensina_a_pedir_a_MAO_especifica_depois():
     Hand ID, e a busca por id JÁ EXISTE no handsearch: o aluno traz o
     número e a mão é achada no arquivo dele. Fecha o ciclo sem o link."""
     txt = replay_fallback_text("ggpoker")
-    assert "Hand ID" in txt
-    assert "analisa a mão" in txt          # a frase que ele pode copiar
+    assert "cartas" in txt
+    assert "abre a mão de" in txt          # a frase que ele pode copiar
+    # e NÃO manda ninguém caçar código: as cartas estão na tela do replay
+    assert "Não precisa procurar número" in txt
+
+
+def test_busca_acha_pelas_CARTAS_e_nao_so_pelo_numero():
+    """Exigir o Nº da mão era atrito que eu inventei. O aluno está olhando o
+    replay — as cartas estão na cara dele."""
+    from app.analysis.handsearch import find_hand
+    from app.api.site_assets import _demo_hand
+
+    mao = _demo_hand()                      # QdJd
+    for consulta in ("QJ", "QJs", "qjs", "QdJd"):
+        assert find_hand([mao], consulta), consulta
+    assert not find_hand([mao], "QJo")      # naipe errado não casa
 
 
 def test_busca_por_hand_id_realmente_existe():
