@@ -795,16 +795,28 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    await update.message.reply_text("✅ Recebido. Analisando suas mãos…")
+    # EVENTO NO RECEBIMENTO, antes de analisar. Sem isto, durante uma
+    # análise longa o banco fica idêntico ao de um bot morto — foi assim que
+    # um torneio demorando virou uma hora de investigação de "queda".
+    await _log(update, "upload_recebido", arquivo=(doc.file_name or "")[:80],
+               bytes=doc.file_size or 0)
+
+    aviso = await update.message.reply_text("✅ Recebido. Analisando suas mãos…")
     file = await ctx.bot.get_file(doc.file_id)
     content = bytes(await file.download_as_bytearray())
     fmt = _ext(doc.file_name)
     tg_user = update.effective_user
 
-    reply = await asyncio.to_thread(
-        process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
-        update.message.caption,
-    )
+    from app.bot import progresso
+
+    contador = await progresso.acompanhar(aviso, tg_user.id, "Analisando")
+    try:
+        reply = await asyncio.to_thread(
+            process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
+            update.message.caption,
+        )
+    finally:
+        await progresso.encerrar(contador, tg_user.id, aviso)
     await _safe_reply(update.message, reply,
                       kind=LAST_UPLOAD_KIND.get(tg_user.id))
     await _send_pending_charts(update.message, tg_user.id)
@@ -812,15 +824,22 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Print da mesa enviado como foto (não como arquivo)."""
-    await update.message.reply_text("✅ Recebido. Lendo o print…")
+    await _log(update, "print_recebido")
+    aviso = await update.message.reply_text("✅ Recebido. Lendo o print…")
     photo = update.message.photo[-1]  # maior resolução
     file = await ctx.bot.get_file(photo.file_id)
     content = bytes(await file.download_as_bytearray())
     tg_user = update.effective_user
-    reply = await asyncio.to_thread(
-        process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
-        update.message.caption,
-    )
+    from app.bot import progresso
+
+    contador = await progresso.acompanhar(aviso, tg_user.id, "Lendo o print")
+    try:
+        reply = await asyncio.to_thread(
+            process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
+            update.message.caption,
+        )
+    finally:
+        await progresso.encerrar(contador, tg_user.id, aviso)
     await _safe_reply(update.message, reply,
                       kind=LAST_UPLOAD_KIND.get(tg_user.id))
     await _send_pending_charts(update.message, tg_user.id)

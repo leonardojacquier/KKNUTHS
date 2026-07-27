@@ -14,6 +14,7 @@ from app.agent.embeddings import embed_text
 from app.agent.llm import coach
 from app.analysis import compute_player_stats
 from app.analysis.tools import fmt_chips as _fmt_chips
+from app.bot.progresso import marcar
 from app.config import get_settings
 from app.db import get_repository
 from app.ingestion import ingest
@@ -265,6 +266,7 @@ def _process_upload_inner(
         raw_path = repo.store_raw_file(telegram_id, content.encode(), fmt or "txt")
 
     # ---- ingestão ----
+    marcar(telegram_id, "Lendo o arquivo")
     result = ingest(content, source_format=fmt)
     if not result.hands and caption and len(caption.strip()) >= 12:
         # print ilegível mas o aluno NARROU a mão junto: a narração é fonte
@@ -330,6 +332,8 @@ def _process_upload_inner(
     remember_hands(telegram_id, hands)
 
     # ---- persistência (no-op sem Supabase) ----
+    marcar(telegram_id, f"Guardando {len(hands)} mão(s)"
+           if len(hands) > 1 else "Guardando a mão")
     hand_row_ids: list[str | None] = []
     if user:
         upload_id = repo.save_upload(
@@ -339,6 +343,8 @@ def _process_upload_inner(
             hand_row_ids.append(repo.save_hand(user["id"], h, upload_id))
 
     # ---- análise determinística ----
+    marcar(telegram_id, f"Calculando {len(hands)} mão(s)"
+           if len(hands) > 1 else "Calculando a mão")
     is_tournament = hands[0].format.value in ("tournament", "sng") and len(hands) > 1
     LAST_UPLOAD_KIND[telegram_id] = "tournament" if is_tournament else "hand"
     key_hands = None
@@ -395,6 +401,8 @@ def _process_upload_inner(
         if saved and saved.get("valores"):
             structured["payouts_salvos"] = saved
     chart_specs: list = []
+    marcar(telegram_id, "Montando o relatório do torneio"
+           if is_tournament else "Escrevendo a análise")
     coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs)
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
