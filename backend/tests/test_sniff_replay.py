@@ -425,6 +425,23 @@ def test_script_type_application_json_e_lido():
     assert any(parece_mao(b) >= 8 for b in _blobs_json(html))
 
 
+def test_chunks_de_modulepreload_sao_baixados():
+    """App dividido em chunks declara os pedaços como <link modulepreload>,
+    não como <script src>. Eu baixava só o main-*.js e concluía que o
+    endpoint não estava no código — estava, num arquivo que nunca abri."""
+    from sniff_replay import scripts_da_pagina
+
+    html = ('<script src="main-464FIGUI.js" type="module"></script>'
+            '<link rel="modulepreload" href="chunk-UX76QKQI.js">'
+            '<link href="chunk-DDE4YXTD.js" rel="modulepreload">'
+            '<link rel="stylesheet" href="styles.css">')
+    s = scripts_da_pagina(html, "https://my.pokercraft.com/e/x/")
+    assert any("main-464FIGUI.js" in u for u in s)
+    assert any("chunk-UX76QKQI.js" in u for u in s), "modulepreload perdido"
+    assert any("chunk-DDE4YXTD.js" in u for u in s), "atributos invertidos"
+    assert not any(u.endswith(".css") for u in s)
+
+
 def test_state_transfer_do_angular_e_desembrulhado():
     """A PokerCraft guarda a resposta da API dentro da página, em
     `<script id="ng-state">`: `{"<hash>": {"u": url, "b": corpo, "s": 200}}`.

@@ -174,7 +174,17 @@ def scripts_da_pagina(html: str, base: str) -> list[str]:
     """
     urls = [urljoin(base, m.group(1)) for m in re.finditer(
         r"""<script[^>]+src=['"]([^'"]+)['"]""", html or "", re.I)]
-    return list(dict.fromkeys(urls))[:12]
+    # app dividido em CHUNKS declara os pedaços como <link rel="modulepreload">,
+    # não como <script src>. Eu baixava só o `main-*.js` e concluía que o
+    # endpoint não estava no código — estava, noutro arquivo que eu nunca
+    # abri. Achado que veio de um print do DevTools, não da minha varredura.
+    urls += [urljoin(base, m.group(1)) for m in re.finditer(
+        r"""<link[^>]+rel=['"](?:modulepreload|preload)['"][^>]*"""
+        r"""href=['"]([^'"]+\.js[^'"]*)['"]""", html or "", re.I)]
+    urls += [urljoin(base, m.group(1)) for m in re.finditer(
+        r"""<link[^>]+href=['"]([^'"]+\.js[^'"]*)['"][^>]*"""
+        r"""rel=['"](?:modulepreload|preload)['"]""", html or "", re.I)]
+    return list(dict.fromkeys(urls))[:20]
 
 
 _SCRIPT_DADOS = re.compile(
