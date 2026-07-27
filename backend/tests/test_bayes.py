@@ -1349,6 +1349,14 @@ def test_resumo_diario_de_uso():
     # sem dado de custo o resumo continua saindo (nada de quebrar por isso)
     assert build_summary(now, reais, ev, day_ago)[1]["custo_usd"] is None
 
+    # EVENTO SEM telegram_id não pode virar um usuário chamado "None". O log
+    # de custo gravava None nas chamadas de cron, e o resumo o listou como
+    # ativo — 5 ativos numa base de 4.
+    sujo = ev + [{"telegram_id": None, "event": "custo_llm"}] * 3
+    txt4, m4 = build_summary(now, reais, sujo, day_ago)
+    assert "None" not in txt4
+    assert m4["ativos"] == 2, "evento sem dono inflou a contagem de ativos"
+
 
 def test_repeticao_espacada_do_treino():
     # o quiz persegue o leak: categorias com erro sustentado pesam mais no

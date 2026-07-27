@@ -125,7 +125,11 @@ def registrar(resp, modelo: str | None, tarefa: str = "outro",
         detalhe = dict(reg)
         if user_id:
             detalhe["user_id"] = user_id
-        get_repository().log_event(telegram_id, None, "custo_llm", detalhe)
+        # chamada sem conversa (cron) é SISTEMA: telegram_id 0, nunca None.
+        # Com None ela escapava do filtro do resumo diário e aparecia como
+        # um usuário chamado "None" — inflando a contagem de ativos.
+        get_repository().log_event(telegram_id or 0, None, "custo_llm",
+                                   detalhe)
         return reg
     except Exception as exc:  # nunca derruba a resposta
         log.debug("custo: não consegui registrar (%s)", exc)

@@ -777,11 +777,18 @@ def conversation_hand(telegram_id: int) -> "CanonicalHand | None":
                 return x
     # falha SILENCIOSA era o pior caso: as tools de mão devolviam "não achei"
     # e o coach virava prosa. Fica registrado pra aparecer no diagnóstico.
-    try:
-        get_repository().log_event(telegram_id, None, "sem_mao_na_conversa",
-                                   {"chaves": sorted(context)[:8]})
-    except Exception:
-        pass
+    #
+    # SÓ para chat de gente. telegram_id <= 0 é sistema por convenção aqui, e
+    # a sonda de jornadas exercita este caminho de propósito a cada deploy —
+    # 32 registros num dia, afogando o sinal que o evento existe para dar.
+    # Alarme que dispara sozinho é alarme que ninguém lê.
+    if telegram_id and telegram_id > 0:
+        try:
+            get_repository().log_event(telegram_id, None,
+                                       "sem_mao_na_conversa",
+                                       {"chaves": sorted(context)[:8]})
+        except Exception:
+            pass
     return None
 
 

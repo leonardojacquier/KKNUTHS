@@ -22,7 +22,11 @@ from app.db import get_repository
 
 ADMIN_ID = 6452742024
 # telegram_ids internos (deploy/diag/e2e/sondas) que não são usuários reais
-_SYS_IDS = {0}
+# Sistema: 0 por convenção, e None por defesa — um evento gravado sem
+# telegram_id escapava do filtro e virava um usuário chamado "None" no
+# resumo, inflando a contagem de ativos. Filtrar por VALOR conhecido é
+# frágil; o que define sistema é 'não é gente'.
+_SYS_IDS = {0, None}
 
 
 def notify_admin(token: str, text: str) -> bool:
@@ -55,14 +59,20 @@ def _events_since(repo, iso: str) -> list[dict]:
     return out
 
 
+def _e_gente(telegram_id) -> bool:
+    """Chat de PESSOA. Sistema é 0/None; ids negativos são grupos."""
+    return telegram_id not in _SYS_IDS and isinstance(telegram_id, int) \
+        and telegram_id > 0
+
+
 def build_summary(now: datetime, reais: list[dict], ev_24h: list[dict],
                   day_ago: str, custo_24h: dict | None = None
                   ) -> tuple[str, dict]:
     """Monta a mensagem do resumo diário (função PURA — testável sem I/O).
     Devolve (texto_markdown, métricas). A 1ª linha SEMPRE responde 'entrou
     gente nova?' — a métrica que o admin cobra."""
-    reais = [u for u in reais if u["telegram_id"] not in _SYS_IDS]
-    ev_24h = [e for e in ev_24h if e["telegram_id"] not in _SYS_IDS]
+    reais = [u for u in reais if _e_gente(u.get("telegram_id"))]
+    ev_24h = [e for e in ev_24h if _e_gente(e.get("telegram_id"))]
 
     novos = [u for u in reais if (u.get("created_at") or "") >= day_ago]
     ativos_ids = {e["telegram_id"] for e in ev_24h}
