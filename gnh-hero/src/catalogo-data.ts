@@ -49,12 +49,12 @@ export const CATALOG: Category[] = [
         products: [
           { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 16 t: entran por accesos de apenas 0,65 m, se estabilizan con outriggers independientes y izan donde una grúa convencional no llega — interiores, patios, obras en altura y montaje de vidrio. Control remoto e indicador de par incluidos; brazo extensor y cesto opcionales.',
             figs: [
-              { src: '/img/prod/grua/carga-3t.jpg', cap: 'Curva de carga — 3 t (capacidad según radio y ángulo de pluma)' },
-              { src: '/img/prod/grua/carga-5t.jpg', cap: 'Curva de carga — 5 t' },
-              { src: '/img/prod/grua/carga-8t.jpg', cap: 'Curva de carga — 8 t' },
-              { src: '/img/prod/grua/carga-10t.jpg', cap: 'Curva de carga — 10 t' },
-              { src: '/img/prod/grua/carga-12t.jpg', cap: 'Curva de carga — 12 t' },
-              { src: '/img/prod/grua/carga-16t.jpg', cap: 'Curva de carga — 16 t' },
+              { src: '/img/prod/grua/carga-3t.jpg', cap: 'Grúa Araña 3 t' },
+              { src: '/img/prod/grua/carga-5t.jpg', cap: 'Grúa Araña 5 t' },
+              { src: '/img/prod/grua/carga-8t.jpg', cap: 'Grúa Araña 8 t' },
+              { src: '/img/prod/grua/carga-10t.jpg', cap: 'Grúa Araña 10 t' },
+              { src: '/img/prod/grua/carga-12t.jpg', cap: 'Grúa Araña 12 t' },
+              { src: '/img/prod/grua/carga-16t.jpg', cap: 'Grúa Araña 16 t' },
             ],
             tags: ['izaje', 'izar', 'elevacion', 'elevar', 'carga', 'altura', 'vidrio', 'montaje', 'compacta', 'acceso dificil', 'tonelada', 'levantar', 'gruas'] },
           { name: 'Mini Excavadora HT15', img: '../img/prod/excavadora.png', note: 'Miniexcavadora de orugas con motor Kubota. Balanceo lateral del brazo, cabina y aire acondicionado opcionales.',

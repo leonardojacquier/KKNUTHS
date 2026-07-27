@@ -71,7 +71,7 @@ const logoImg = (h) => logoB64
 // caminho relativo: leve na web e resolve igual no file:// do gerador de PDF
 const imgTag = (file, alt) => {
   if (!fs.existsSync(path.join(IMGDIR, file))) return ''
-  return `<img src="../img/prod/grua/${file}" alt="${alt}" loading="lazy" style="width:100%;height:auto;border:1px solid var(--hair)">`
+  return `<img src="../img/prod/grua/${file}" alt="${alt}" style="width:100%;height:auto;border:1px solid var(--hair)">`
 }
 
 const row = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : ''
