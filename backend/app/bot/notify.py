@@ -20,6 +20,33 @@ import urllib.request
 log = logging.getLogger(__name__)
 
 
+ADMIN_ID = 6452742024
+
+
+def texto_usuario_novo(username: str | None, telegram_id: int,
+                       total: int | None = None) -> str:
+    """Aviso de cadastro novo. PURA — testável sem rede.
+
+    Traz os comandos junto porque a primeira coisa que o dono quer fazer é
+    justamente olhar quem é e decidir o teto. Aviso sem ação vira só
+    notificação.
+    """
+    quem = (username or "").strip() or f"id {telegram_id}"
+    linha_total = f"\nAgora são *{total}* na base." if total else ""
+    return (f"🟢 *Usuário novo: {quem}*\n`{telegram_id}`{linha_total}\n\n"
+            f"`/quem {telegram_id}` — o que ele consome\n"
+            f"`/planode {telegram_id} piloto` — sobe pra 100 análises")
+
+
+def avisar_admin_usuario_novo(username: str | None, telegram_id: int,
+                              total: int | None = None) -> bool:
+    """Cadastro novo é o evento nº1 do piloto: o dono quer saber NA HORA,
+    não no resumo das 23h."""
+    if telegram_id == ADMIN_ID:
+        return False          # o dono entrando não é notícia
+    return avisar(ADMIN_ID, texto_usuario_novo(username, telegram_id, total))
+
+
 def avisar(telegram_id: int | None, texto: str) -> bool:
     """Manda uma mensagem solta pro chat. Nunca levanta exceção."""
     if not telegram_id or not texto:

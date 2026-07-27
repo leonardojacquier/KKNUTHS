@@ -97,6 +97,24 @@ class Repository:
             .insert({"telegram_id": telegram_id, "username": username, "lang": lang})
             .execute()
         )
+        # AVISO DE CADASTRO NOVO — aqui, e não nos 10 lugares que chamam esta
+        # função: usuário nasce num ponto só, e instrumentar os chamadores é
+        # receita de esquecer um. Fire-and-forget: se o Telegram falhar, o
+        # cadastro continua valendo.
+        if created.data:
+            try:
+                from app.bot.notify import avisar_admin_usuario_novo
+
+                total = None
+                try:
+                    total = (self.client.table("users")
+                             .select("id", count="exact")
+                             .execute().count)
+                except Exception:
+                    pass
+                avisar_admin_usuario_novo(username, telegram_id, total)
+            except Exception as exc:
+                log.debug("aviso de usuário novo falhou: %s", exc)
         return created.data[0] if created.data else None
 
     @_safe(None)
