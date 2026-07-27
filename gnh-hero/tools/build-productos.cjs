@@ -85,6 +85,15 @@ function page(p, cat, group) {
       </table>
       <p class="nota">Datos del catálogo del fabricante. Consultanos por configuraciones y disponibilidad.</p>` : ''
 
+  // figuras extra (curvas de carga / diagramas), en grilla
+  const figsHTML = (p.figs && p.figs.length) ? `
+      <h2>Curvas de carga por modelo</h2>
+      <p class="nota" style="margin:0 0 12px">La capacidad real depende del radio de operación y del ángulo de pluma.
+      Consultá la curva del modelo antes de definir el izaje.</p>
+      <div class="figs">
+        ${p.figs.map((f) => `<figure><img src="${esc(f.src)}" alt="${esc(f.cap)}" loading="lazy"><figcaption>${esc(f.cap)}</figcaption></figure>`).join('\n        ')}
+      </div>` : ''
+
   const plain = (v) => String(v).replace(/<[^>]*>/g, '').trim()
   const props = p.specs
     ? p.specs.r.slice(0, 12).map((row) => ({
@@ -152,6 +161,10 @@ tbody tr:nth-child(even){background:#fafbfd}
 .cta{display:inline-block;margin:24px 0 8px;background:#22c15e;color:#fff;text-decoration:none;font-weight:700;padding:14px 26px;border-radius:100px}
 .cta.alt{background:var(--orange)}
 .tags{margin-top:26px;font-size:13px;color:var(--mut)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:6px}
+.figs figure{margin:0}
+.figs img{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.figs figcaption{font-size:12.5px;color:var(--mut);margin-top:6px}
 footer{max-width:920px;margin:0 auto;padding:22px 20px 40px;font-size:13px;color:var(--mut)}
 footer a{color:var(--navy)}
 </style>
@@ -169,6 +182,7 @@ footer a{color:var(--navy)}
 
   <a class="cta" href="https://wa.me/${WA}?text=${waMsg}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
 ${specTable}
+${figsHTML}
 
   <h2>Disponibilidad y asesoramiento</h2>
   <p>GNH distribuye e importa ${esc(p.name.toLowerCase())} en Paraguay, con asesoramiento técnico

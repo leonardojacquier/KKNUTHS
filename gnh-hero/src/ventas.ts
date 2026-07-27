@@ -340,14 +340,22 @@ function renderHeroCarousel(): void {
 }
 
 /* ---------- render do catálogo ---------- */
+/** slug da página estática do produto (só existe para quem tem tabela de specs) */
+const prodSlug = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[()./]/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
 function productCard(p: Product): string {
   const msg = `Hola, me interesa: ${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`
+  const href = p.specs ? `/ventas/${prodSlug(p.name)}/` : ''   // página propia con specs y ficha
+  const media = p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy">` : `<span class="ph">${p.name}</span>`
   return `
     <article class="v-card" data-s="${deacc(`${p.name} ${p.brand ?? ''} ${p.note ?? ''} ${(p.tags ?? []).join(' ')}`)}">
-      <div class="v-card-media">${p.img ? `<img src="${p.img}" alt="${p.name}" loading="lazy">` : `<span class="ph">${p.name}</span>`}</div>
+      <div class="v-card-media">${href
+        ? `<a href="${href}" class="v-media-link" aria-label="Ver ficha de ${p.name}">${media}<span class="v-media-hint">Ver detalles</span></a>`
+        : media}</div>
       <div class="v-card-body">
         ${p.brand ? `<span class="v-brand">${p.brand}</span>` : ''}
-        <h3 class="v-name">${p.name}</h3>
+        <h3 class="v-name">${href ? `<a href="${href}">${p.name}</a>` : p.name}</h3>
         ${p.note ? `<p class="v-note">${p.note}</p>` : ''}
         ${p.specs ? `<details class="v-specs"><summary>Modelos y especificaciones</summary>
           <div class="v-specs-scroll"><table>
@@ -355,7 +363,10 @@ function productCard(p: Product): string {
             <tbody>${p.specs.r.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
           </table></div>
         </details>` : ''}
-        <a class="v-cta" href="${wa(msg)}" target="_blank" rel="noopener" data-ev="product" data-detail="${p.name}">Consultar ${icon('arrow', 'v-cta-i')}</a>
+        <div class="v-card-actions">
+          ${href ? `<a class="v-doc" href="${href}">Ver detalles</a>` : ''}
+          <a class="v-cta" href="${wa(msg)}" target="_blank" rel="noopener" data-ev="product" data-detail="${p.name}">Consultar ${icon('arrow', 'v-cta-i')}</a>
+        </div>
       </div>
     </article>`
 }
