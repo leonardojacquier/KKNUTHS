@@ -108,8 +108,14 @@ CRON_BACKUP="0 4 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scri
 # processo (sem Telegram, sem LLM) — a sonda E2E depende de uma conta-teste
 # que nunca foi criada e por isso nunca rodou uma vez sequer.
 CRON_JORNADAS="0 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/jornadas.py >> /var/log/poker-jornadas.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ) | crontab -
+# SONDA DE RECEBIMENTO (de hora em hora): o bot ainda ESCUTA? Nenhum outro
+# monitor cobre isso — todos rodam em processo próprio e não tocam no
+# Telegram, então passam alegremente com o bot mudo. Só fala quando há
+# problema: webhook registrado ou getMe falhando = certeza; silêncio humano
+# longo em horário ativo = suspeita.
+CRON_RECEB="7 * * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/sonda_recebimento.py >> /var/log/poker-recebimento.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas\|poker-recebimento\|sonda_recebimento" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ; echo "$CRON_RECEB" ) | crontab -
 
 # 7b. E2E pós-deploy: a conta-teste usa o bot de verdade (dorme sem credenciais
 #     no .env). Em background, com folga pro bot terminar de subir.
