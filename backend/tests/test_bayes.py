@@ -3626,6 +3626,14 @@ def test_manual_cobre_as_funcionalidades_novas():
                  "espera anunciada"):        # aviso do solver
         assert tema in html, f"manual sem: {tema}"
 
+    # SALAS: o manual dizia só PPPoker. A Suprema passou a abrir sozinha e o
+    # GGPoker tem caminho PRÓPRIO (arquivo, não link) — um aluno de GG que
+    # lesse "cola o link" ficaria tentando o que não funciona.
+    assert "PPPoker e Suprema" in html or "PPPoker</b> ou da <b>Suprema" in html
+    assert "PokerCraft" in html and "Hand History" in html
+    assert "abre a mão de AK" in html, (
+        "o manual precisa mostrar COMO pedir a mão depois do arquivo")
+
     # todo comando do menu do bot tem linha na tabela do manual
     import inspect
 
