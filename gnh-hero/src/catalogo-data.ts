@@ -42,7 +42,7 @@ export const CATALOG: Category[] = [
       {
         title: 'Movimentación',
         products: [
-          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 70 t de capacidad. Control remoto e indicador de par incluidos. Brazo extensor y cesto opcionales.',
+          { name: 'Grúa Araña', brand: 'GNH', img: '../img/prod/grua-arana.png', note: 'Grúas araña de orugas de 1,5 t a 16 t: entran por accesos de apenas 0,65 m, se estabilizan con outriggers independientes y izan donde una grúa convencional no llega — interiores, patios, obras en altura y montaje de vidrio. Control remoto e indicador de par incluidos; brazo extensor y cesto opcionales.',
             tags: ['izaje', 'izar', 'elevacion', 'elevar', 'carga', 'altura', 'vidrio', 'montaje', 'compacta', 'acceso dificil', 'tonelada', 'levantar', 'gruas'] },
           { name: 'Mini Excavadora HT15', img: '../img/prod/excavadora.png', note: 'Miniexcavadora de orugas con motor Kubota. Balanceo lateral del brazo, cabina y aire acondicionado opcionales.',
             tags: ['excavacion', 'excavar', 'zanja', 'zanjeo', 'movimiento de tierra', 'kubota', 'demolicion', 'jardin', 'pala', 'retro', 'cimiento'] },
@@ -168,6 +168,15 @@ export const CATALOG: Category[] = [
    TABLAS DE MODELOS — transcriptas del catálogo Jinan Zhishen (ZS)
    ============================================================ */
 export const SPECS: Record<string, { h: string[]; r: string[][] }> = {
+  // Grúas araña ZS — datos de los catálogos del fabricante (1,5 / 3 / 5 / 8 / 16 t).
+  // El ancho de paso es el dato decisivo: define por dónde entra la máquina.
+  'Grúa Araña': { h: ['Modelo', 'Capacidad', 'Radio máx.', 'Altura máx.', 'Ancho de paso', 'Peso', 'Motor'], r: [
+    ['ZS-1.5T','1,5 t','6 m','6,5 m','0,65 m','1.300 kg','Honda 390 nafta'],
+    ['ZS-3T','3 t','10,5 m','10,8 m','0,80 m','3.000 kg','Changchai EV80 diésel'],
+    ['ZS-5T','5 t','15 m','17 m','1,50 m','6.100 kg','Diésel 55 kW'],
+    ['ZS-8T','8 t','18 m','21 m','1,60 m','8.700 kg','Diésel 55 kW'],
+    ['ZS-16T','16 t','23 m','25 m','2,70 m','16.500 kg','Yuchai diésel'],
+  ] },
   'Transpaleta Eléctrica': { h: ['Modelo', 'Carga', 'Elevación', 'Peso'], r: [
     ['CBD20','2000 kg','205 mm','600 kg'],['CBD25','2500 kg','205 mm','600 kg'],['CBD30','3000 kg','205 mm','600 kg'],
     ['CBD50','5000 kg','215 mm','945 kg'],['CBD60','6000 kg','215 mm','945 kg'],['CBD80','8000 kg','220 mm','1980 kg'],

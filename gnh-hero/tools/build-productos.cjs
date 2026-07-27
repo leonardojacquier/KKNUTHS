@@ -37,6 +37,7 @@ const slugify = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 /** nomenclatura dupla ES/EN quando o nome comercial tem sinônimo conhecido */
 const ALIAS_TITULO = {
+  'Grúa Araña': 'Spider Crane',
   'Plataforma Tijera Autopropulsada': 'Scissor Lift',
   'Plataforma Tijera de Orugas': 'Tracked Scissor Lift',
   'Plataforma Tijera con Estabilizadores': 'Scissor Lift',
