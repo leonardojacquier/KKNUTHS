@@ -140,6 +140,25 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* linhas de produto: discretas, mas texto real e indexável */
+.gw-lines {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  translate: -50% 0;
+  width: min(92vw, 760px);
+  text-align: center;
+  font-family: 'General Sans', sans-serif;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.26);
+  opacity: 0;
+  animation: gw-lines-in 1s ease 2.2s forwards;
+}
+@keyframes gw-lines-in { to { opacity: 1; } }
+@media (max-width: 560px) { .gw-lines { font-size: 9.5px; bottom: 6px; } }
+@media (prefers-reduced-motion: reduce) { .gw-lines { opacity: 1; animation: none; } }
+
 /* ---------- saída (aplicada no clique) ---------- */
 #gateway.gw-exit {
   transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
