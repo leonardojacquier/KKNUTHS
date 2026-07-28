@@ -1116,8 +1116,13 @@ async def cmd_quem(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """
     from app.quota import ADMIN_TELEGRAM_ID
 
-    if update.effective_user.id != ADMIN_TELEGRAM_ID:
-        return  # silêncio: comando de operação não se anuncia pro aluno
+    tg_id = update.effective_user.id
+    # NÃO responder é indistinguível de bot quebrado — foi assim que o dono
+    # ficou sem saber por que o comando "não funcionava". Para o aluno o
+    # comando segue mudo; para QUEM ACHA que é admin, a resposta diz o motivo.
+    await _log(update, "quem_cmd", admin_ok=(tg_id == ADMIN_TELEGRAM_ID))
+    if tg_id != ADMIN_TELEGRAM_ID:
+        return
     alvo = None
     if ctx.args:
         try:
@@ -1128,8 +1133,15 @@ async def cmd_quem(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             return
     from app.agent.custo import relatorio_do_mes
 
-    txt = await asyncio.to_thread(relatorio_do_mes, alvo)
-    await update.message.reply_markdown(txt)
+    try:
+        txt = await asyncio.to_thread(relatorio_do_mes, alvo)
+    except Exception as exc:
+        await update.message.reply_text(
+            f"/quem quebrou: {type(exc).__name__}: {exc}"[:600])
+        raise
+    # Markdown do Telegram estoura com `_` ou `*` num apelido de aluno e a
+    # mensagem inteira NÃO é enviada — some tudo, sem erro visível.
+    await _safe_reply(update.message, txt)
 
 
 async def cmd_planode(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1140,7 +1152,9 @@ async def cmd_planode(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """
     from app.quota import ADMIN_TELEGRAM_ID
 
-    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+    tg_id = update.effective_user.id
+    await _log(update, "planode_cmd", admin_ok=(tg_id == ADMIN_TELEGRAM_ID))
+    if tg_id != ADMIN_TELEGRAM_ID:
         return
     from app.bot.processing import listar_planos_reply, mudar_plano_reply
 
