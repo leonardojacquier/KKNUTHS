@@ -30,7 +30,9 @@ def build_msg(d):
     if not d or d.get('error'):
         return f"⚠️ Resumo GNH: {(d or {}).get('error', 'sem dados')}"
     L = [f"📊 GNH · gnhorizons.com", f"Resumo de {d['fecha']}", '']
-    L.append(f"👥 {d['visitantes']} visitantes · {d['eventos']} ações")
+    bots = d.get('bots') or 0
+    L.append(f"👥 {d['visitantes']} visitantes · {d['eventos']} ações"
+             + (f"  (+{bots} bots filtrados)" if bots else ""))
     portas = {p['k']: p['n'] for p in d.get('portas', [])}
     L.append(f"🚪 Ventas {portas.get('ventas', 0)} · Institucional {portas.get('institucional', 0)}")
     if d.get('origenes'):
@@ -44,6 +46,8 @@ def build_msg(d):
         L.append(f"🏢 Negócios (institucional): {top(d['negocios'])}")
     if d.get('busquedas'):
         L.append(f"🔎 Buscas: {top(d['busquedas'])}")
+    if d.get('promos'):
+        L.append(f"🏷 Promoções clicadas: {top(d['promos'])}")
     if d.get('busquedas_vacias'):
         L.append(f"❗ Buscas SEM resultado: {top(d['busquedas_vacias'])}")
     if d.get('fichas'):
