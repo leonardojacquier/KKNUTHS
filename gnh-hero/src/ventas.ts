@@ -231,6 +231,9 @@ function initBuscador(): void {
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
 interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string }
 const FEATURED: Featured[] = [
+  // PROMO ACTIVA — al vencer, borrar esta línea y restaurar el slide estático
+  // de ventas/index.html + el preload del <head> a plataformas-o14 (ver comentario allí).
+  { name: 'Plataforma Eléctrica', tag: '20% OFF solo por esta semana — plataforma electro-hidráulica de elevación de personal, al mejor precio.', img: '../img/prod/promo-plataforma-o.jpg', imgMobile: '../img/prod/promo-plataforma-mobile-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central-o.jpg', cat: 'equipos', bleed: true },
@@ -617,19 +620,37 @@ function renderCatalog(): void {
 }
 
 /* ---------- promoções (oculta se vazio) ---------- */
-interface Promo { title: string; text: string; url?: string }
-const PROMOS: Promo[] = [] // AJUSTAR: agregar promociones activas
+interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string }
+const PROMOS: Promo[] = [
+  {
+    badge: '20% OFF · solo por esta semana',
+    title: 'Plataforma Eléctrica al mejor precio',
+    text: 'Plataforma electro-hidráulica de elevación de personal para trabajo en altura: mástil de aluminio, chasis con ruedas y estabilizadores. Promoción por tiempo limitado — consultá disponibilidad y altura de trabajo.',
+    img: '../img/prod/promo-plataforma-art.jpg',
+    url: '/ventas/plataforma-de-mastil-de-aluminio/',
+    cta: 'Ver especificaciones',
+  },
+]
 
 function renderPromos(): void {
   const el = document.getElementById('promos')!
   if (!PROMOS.length) { el.style.display = 'none'; return }
   el.innerHTML = `
+    <h2 class="v-promo-h">Promociones</h2>
     <div class="v-promo-band">
       ${PROMOS.map((p) => `
-        <div class="v-promo">
-          <h3>${p.title}</h3><p>${p.text}</p>
-          ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener">Ver más →</a>` : ''}
-        </div>`).join('')}
+        <article class="v-promo${p.img ? ' has-img' : ''}">
+          ${p.img ? `<a class="v-promo-art" href="${p.url ?? '#'}"><img src="${p.img}" alt="${p.title}" loading="lazy"></a>` : ''}
+          <div class="v-promo-body">
+            ${p.badge ? `<span class="v-promo-badge">${p.badge}</span>` : ''}
+            <h3>${p.title}</h3><p>${p.text}</p>
+            <div class="v-promo-actions">
+              ${p.url ? `<a class="v-promo-cta" href="${p.url}">${p.cta ?? 'Ver más'} →</a>` : ''}
+              <a class="v-promo-wa" href="${wa(`Hola, me interesa la promoción: ${p.title}`)}" target="_blank" rel="noopener"
+                 data-ev="promo" data-detail="${p.title}">Consultar por WhatsApp</a>
+            </div>
+          </div>
+        </article>`).join('')}
     </div>`
 }
 

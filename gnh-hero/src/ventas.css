@@ -363,7 +363,46 @@ a.vh-cta { text-decoration: none; }
 @media (max-width: 640px) { .v-filter-box { flex-basis: 100%; } }
 
 /* promoções */
+.v-promo-h {
+  font-family: 'Satoshi', sans-serif; font-weight: 800; font-size: clamp(22px, 3vw, 30px);
+  color: #0F172A; margin-bottom: 16px;
+}
 .v-promo-band { display: grid; gap: 14px; }
+/* promo com arte: imagem à esquerda, texto à direita */
+.v-promo.has-img {
+  display: grid; grid-template-columns: minmax(0, 300px) 1fr; gap: 0;
+  padding: 0; overflow: hidden; align-items: stretch;
+  /* fundo escuro: o selo vermelho e o CTA laranja ganham contraste */
+  background: linear-gradient(135deg, #1b2c4d, #0F172A 62%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.v-promo.has-img h3 { color: #fff; }
+.v-promo.has-img p { color: rgba(255, 255, 255, 0.82); }
+.v-promo.has-img a { text-decoration: none; }
+.v-promo-art { display: block; background: #0b1220; }
+.v-promo-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v-promo-body { padding: 24px 26px; display: flex; flex-direction: column; justify-content: center; }
+.v-promo-badge {
+  display: inline-block; align-self: flex-start; background: #E11D48; color: #fff;
+  font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 12px;
+  letter-spacing: .06em; text-transform: uppercase; padding: 5px 12px; border-radius: 100px;
+  margin-bottom: 10px;
+}
+.v-promo-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.v-promo-cta, .v-promo-wa {
+  display: inline-flex; align-items: center; min-height: 42px; padding: 9px 20px;
+  border-radius: 100px; font-family: 'Satoshi', sans-serif; font-weight: 700;
+  font-size: 14px; text-decoration: none;
+}
+.v-promo-cta { background: #F26D21; color: #fff; }
+.v-promo-cta:hover { filter: brightness(1.07); }
+.v-promo-wa { background: #22c15e; color: #fff; }
+.v-promo-wa:hover { filter: brightness(1.07); }
+@media (max-width: 640px) {
+  .v-promo.has-img { grid-template-columns: 1fr; }
+  .v-promo-art img { max-height: 260px; object-position: center 30%; }
+  .v-promo-body { padding: 20px; }
+}
 .v-promo {
   background: linear-gradient(135deg, #F26D21, #ff9a4d); color: #fff;
   border-radius: 18px; padding: 22px 24px;
