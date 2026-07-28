@@ -77,8 +77,13 @@ export function trackLanding(): void {
   let tz = ''
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { /* noop */ }
   const lang = (navigator.language || '').slice(0, 5)
-  const entry = location.pathname.includes('/ventas') ? 'ventas'
+  const base = location.pathname.includes('/promo') ? 'promo'
+    : location.pathname.includes('/ventas') ? 'ventas'
     : location.pathname.includes('/institucional') ? 'institucional' : 'gateway'
+  // red de origen cuando el enlace trae ?utm_source= (instagram, facebook, whatsapp…)
+  let src = ''
+  try { src = (new URLSearchParams(location.search).get('utm_source') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) } catch { /* noop */ }
+  const entry = src ? `${base}-${src}` : base
   track('landing', `${tz}|${lang}|${entry}`)
 }
 

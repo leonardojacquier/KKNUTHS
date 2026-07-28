@@ -627,8 +627,8 @@ const PROMOS: Promo[] = [
     title: 'Plataforma Eléctrica al mejor precio',
     text: 'Plataforma electro-hidráulica de elevación de personal para trabajo en altura: mástil de aluminio, chasis con ruedas y estabilizadores. Promoción por tiempo limitado — consultá disponibilidad y altura de trabajo.',
     img: '../img/prod/promo-plataforma-art.jpg',
-    url: '/ventas/plataforma-de-mastil-de-aluminio/',
-    cta: 'Ver especificaciones',
+    url: '/promo/plataforma-electrica/',
+    cta: 'Ver la promoción',
   },
 ]
 
