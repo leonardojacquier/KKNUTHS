@@ -1796,6 +1796,42 @@ def _describe_safe(cards, board) -> str | None:
         return None
 
 
+# DEMO: a mão que todo mundo recebe antes de mandar a sua. Quem só treinou
+# nela ainda não usou o produto de verdade.
+_HAND_ID_DEMO = "demo-site"
+
+
+def texto_convite_primeira_mao() -> str:
+    """Convite explícito para mandar a PRIMEIRA mão própria. PURA.
+
+    Nasceu do primeiro usuário externo: entrou às 02h, clicou em treinar,
+    respondeu dois drills na mão-demo e saiu em 2min30 — sem nunca mandar
+    uma mão dele. O funil parava exatamente aqui, e não porque ele desistiu:
+    ninguém tinha CONVIDADO. O drill acabava e pronto.
+    """
+    return ("\n\n━━━━━━━━━━━━━━\n"
+            "🎯 *Esse treino foi numa mão de exemplo.*\n"
+            "O KKNuths fica bom mesmo é nas *suas* mãos — aí ele acha os "
+            "seus vazamentos, não os de um desconhecido.\n\n"
+            "*Manda uma agora:* print da mesa, arquivo de mãos, ou o link "
+            "do replay (PPPoker/Suprema). Leva 10 segundos.")
+
+
+def merece_convite_primeira_mao(telegram_id: int, hand_id: str | None) -> bool:
+    """Convidar quem AINDA NÃO mandou mão — e só nesse caso.
+
+    Insistir com quem já usa vira ruído no fim de todo treino, e ruído a
+    gente aprende a pular.
+    """
+    if hand_id and hand_id != _HAND_ID_DEMO:
+        return False          # o drill já foi numa mão DELE
+    try:
+        return not any(h.hand_id != _HAND_ID_DEMO
+                       for h in _user_hands(telegram_id))
+    except Exception:
+        return False          # na dúvida, não incomoda
+
+
 def _user_hands(telegram_id: int) -> list:
     """Mãos do usuário: memória recente e, se vazio, o histórico do banco."""
     hands = list(RECENT_HANDS.get(telegram_id, []))

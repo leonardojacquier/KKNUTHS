@@ -130,6 +130,17 @@ def build_summary(now: datetime, reais: list[dict], ev_24h: list[dict],
                  f"pedidos de gráfico/número vieram completos de primeira"
                  + (f" · {remediou} consertado(s) pelo guarda" if remediou
                     else ""))
+    # CONVERSÃO do convite: quantos foram convidados a mandar a primeira mão
+    # e quantos mandaram. É o gargalo que o primeiro usuário externo revelou —
+    # dois drills na demo e saiu sem nunca usar o produto de verdade.
+    convidados = _count("convite_primeira_mao")
+    if convidados:
+        primeiras = len({e["telegram_id"] for e in ev_24h
+                         if e["event"] in ("upload_recebido", "print_recebido",
+                                           "replay_pppoker", "replay_suprema")})
+        l.append(f"\n🎯 *Convite à 1ª mão: {convidados}* enviado(s) · "
+                 f"*{primeiras}* pessoa(s) mandaram mão hoje")
+
     sem_mao = _count("sem_mao_na_conversa")
     if sem_mao:
         l.append(f"⚠️ *{sem_mao}x* a ferramenta não achou a mão da conversa "

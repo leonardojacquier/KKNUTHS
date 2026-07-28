@@ -722,6 +722,23 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             text += "\n\n🔥 Treino de hoje feito — volta amanhã pra começar a sequência."
     except Exception:
         pass
+
+    # CONVITE À PRIMEIRA MÃO — o funil parava aqui. O primeiro usuário
+    # externo respondeu dois drills na mão-demo e saiu sem nunca mandar uma
+    # mão dele; não desistiu, é que ninguém convidou.
+    convite = False
+    try:
+        from app.bot.processing import (merece_convite_primeira_mao,
+                                        texto_convite_primeira_mao)
+        convite = await asyncio.to_thread(
+            merece_convite_primeira_mao, update.effective_user.id,
+            drill.get("hand_id"))
+        if convite:
+            text += texto_convite_primeira_mao()
+            await _log(update, "convite_primeira_mao")
+    except Exception:
+        pass
+
     ctx.user_data.pop("drill", None)
     # o spot vira contexto de conversa: "por que fold?" já funciona em seguida
     from app.bot.processing import abrir_conversa
@@ -739,6 +756,18 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     from app.bot.processing import persist_conversation
     await asyncio.to_thread(persist_conversation, update.effective_user.id)
     await _show_reveal(query, text)
+
+    # BOTÃO junto do convite: instrução que exige digitar é instrução que
+    # não é seguida às 2 da manhã. `go:enviar` já explica os formatos.
+    if convite:
+        try:
+            await query.message.reply_text(
+                "👇 Qual é mais fácil pra você?",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📤 Como mando minha mão?",
+                                          callback_data="go:enviar")]]))
+        except Exception:
+            pass
 
     # storyboard da revelação: o filme da mão até a decisão, com a matemática e
     # o veredito. Determinístico (custo zero de LLM); só some se algo falhar.
