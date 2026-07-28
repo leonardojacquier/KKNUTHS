@@ -36,6 +36,15 @@ function collect(root) {
       }
     }
   }
+  // landings de promoción (una carpeta por campaña, escritas a mano)
+  const promoDir = path.join(root, 'promo')
+  if (fs.existsSync(promoDir)) {
+    for (const d of fs.readdirSync(promoDir, { withFileTypes: true })) {
+      if (d.isDirectory() && fs.existsSync(path.join(promoDir, d.name, 'index.html'))) {
+        urls.push({ loc: `/promo/${d.name}/`, freq: 'weekly', pri: '0.9' })
+      }
+    }
+  }
   return urls
 }
 

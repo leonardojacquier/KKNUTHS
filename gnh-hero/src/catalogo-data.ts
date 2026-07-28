@@ -266,13 +266,20 @@ export const SPECS: Record<string, { h: string[]; r: string[][] }> = {
   'Plataforma sobre Triciclo Eléctrico': { h: ['Modelo', 'Capacidad', 'Alt. plataforma', 'Peso'], r: [
     ['SJYC06','300 kg','6 m','1500 kg'],['SJYC08','300 kg','8 m','1600 kg'],['SJYC10','300 kg','10 m','1800 kg'],
     ['SJYC11.8','300 kg','11,8 m','1900 kg'],['SJYC0.5-12','500 kg','12 m','2230 kg'] ] },
-  'Plataforma de Mástil de Aluminio': { h: ['Modelo', 'Mástil', 'Capacidad', 'Altura', 'Peso'], r: [
-    ['SJY0.15-4','Simple','150 kg','4 m','230 kg'],['SJY0.15-6','Simple','150 kg','6 m','270 kg'],
-    ['SJY0.12-8','Simple','120 kg','8 m','290 kg'],['SJY0.1-9','Simple','100 kg','9 m','320 kg'],
-    ['SJY0.1-10','Simple','100 kg','10 m','330 kg'],['SJYL0.2-4','Doble','240 kg','4 m','360 kg'],
-    ['SJYL0.23-6','Doble','230 kg','6 m','400 kg'],['SJYL0.23-8','Doble','230 kg','8 m','440 kg'],
-    ['SJYL0.23-10','Doble','230 kg','10 m','520 kg'],['SJYL0.22-12','Doble','220 kg','12 m','610 kg'],
-    ['SJYL0.2-14','Doble','200 kg','14 m','670 kg'],['SJYL0.15-16','Doble','150 kg','16 m','750 kg'] ] },
+  'Plataforma de Mástil de Aluminio': { h: ['Modelo', 'Mástil', 'Capacidad', 'Altura', 'Peso', 'Ficha'], r: [
+    ['SJY0.15-4','Simple','150 kg','4 m','230 kg','<a href="/fichas/plataforma-sjy0-15-4.html">Ver ficha</a>'],
+    ['SJY0.15-6','Simple','150 kg','6 m','270 kg','<a href="/fichas/plataforma-sjy0-15-6.html">Ver ficha</a>'],
+    ['SJY0.12-8','Simple','120 kg','8 m','290 kg','<a href="/fichas/plataforma-sjy0-12-8.html">Ver ficha</a>'],
+    ['SJY0.1-9','Simple','100 kg','9 m','320 kg','<a href="/fichas/plataforma-sjy0-1-9.html">Ver ficha</a>'],
+    ['SJY0.1-10','Simple','100 kg','10 m','330 kg','<a href="/fichas/plataforma-sjy0-1-10.html">Ver ficha</a>'],
+    ['SJYL0.2-4','Doble','240 kg','4 m','360 kg','<a href="/fichas/plataforma-sjyl0-2-4.html">Ver ficha</a>'],
+    ['SJYL0.23-6','Doble','230 kg','6 m','400 kg','<a href="/fichas/plataforma-sjyl0-23-6.html">Ver ficha</a>'],
+    ['SJYL0.23-8','Doble','230 kg','8 m','440 kg','<a href="/fichas/plataforma-sjyl0-23-8.html">Ver ficha</a>'],
+    ['SJYL0.23-10','Doble','230 kg','10 m','520 kg','<a href="/fichas/plataforma-sjyl0-23-10.html">Ver ficha</a>'],
+    ['SJYL0.22-12','Doble','220 kg','12 m','610 kg','<a href="/fichas/plataforma-sjyl0-22-12.html">Ver ficha</a>'],
+    ['SJYL0.2-14','Doble','200 kg','14 m','670 kg','<a href="/fichas/plataforma-sjyl0-2-14.html">Ver ficha</a>'],
+    ['SJYL0.15-16','Doble','150 kg','16 m','750 kg','<a href="/fichas/plataforma-sjyl0-15-16.html">Ver ficha</a>'],
+  ] },
   'Minicargadora (Skid Steer)': { h: ['Modelo', 'Carga operativa', 'Potencia'], r: [
     ['320T','250 kg','13 HP'],['S360','320 kg','13,5 HP'],['380T','300 kg','21,5–23 HP'],['S380','300 kg','21,5–23 HP'],
     ['S382T','380 kg','26 HP'],['SL390','250 kg','13,5 HP'],['T470','350 kg','20–25 HP'],['S530','450 kg','19 HP'],
