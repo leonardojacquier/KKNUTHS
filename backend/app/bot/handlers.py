@@ -7,6 +7,7 @@ respondendo aos demais usuários enquanto uma análise longa executa.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -115,12 +116,39 @@ def _uname(u) -> str | None:
     return u.username or (u.full_name or None)
 
 
+# quem já teve a identidade gravada NESTE processo (evita um select por evento)
+_IDENTIDADE_VISTA: dict[int, str] = {}
+
+
+def _sincronizar_identidade(telegram_id: int, nome: str | None) -> None:
+    """Garante que a linha em `users` tenha um nome legível.
+
+    O `/start` só registrava o evento; quem criava a linha era um caminho
+    interno que passa `None` no nome. Resultado: o primeiro usuário externo
+    ficou como 'None' no banco e no resumo diário, e não dava para saber
+    quem era. O Telegram SEMPRE manda first_name — o `@` é que é opcional.
+    """
+    if not nome or _IDENTIDADE_VISTA.get(telegram_id) == nome:
+        return
+    try:
+        repo = get_repository()
+        if repo.enabled:
+            repo.get_or_create_user(telegram_id, nome)   # cria OU faz backfill
+            _IDENTIDADE_VISTA[telegram_id] = nome
+    except Exception as exc:
+        logging.getLogger("bot").debug("identidade não sincronizada: %s", exc)
+
+
 async def _log(update: Update, event: str, **detail) -> None:
     """Registra a interação em bot_events (não bloqueia nem falha o handler)."""
     u = update.effective_user
     repo = get_repository()
     if repo.enabled and u:
-        await asyncio.to_thread(repo.log_event, u.id, _uname(u), event, detail or None)
+        nome = _uname(u)
+        # identidade ANTES do evento: assim o /start já nasce com nome, em
+        # vez de esperar o aluno passar por um caminho que o forneça
+        await asyncio.to_thread(_sincronizar_identidade, u.id, nome)
+        await asyncio.to_thread(repo.log_event, u.id, nome, event, detail or None)
 
 
 _START_KB = InlineKeyboardMarkup([
@@ -401,7 +429,7 @@ async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         emb = embed_query(query)
         if emb is None:
             return None, "Não consegui buscar no seu histórico agora — tenta de novo daqui a pouco. 🙏"
-        user = repo.get_or_create_user(tg_id, update.effective_user.username)
+        user = repo.get_or_create_user(tg_id, _uname(update.effective_user))  # `.username` cru perde quem não tem @
         hits = repo.search_analysis(user["id"], emb, limit=5)
         if not hits:
             return None, "Não achei mãos relacionadas ainda. Envie mais histórico."
