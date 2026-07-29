@@ -31,6 +31,7 @@ Lema: **Pare de achar. Calcule.**
 - [[Guarda da Saída]]
 - [[Ingestão de Replays de Clube]]
 - [[Custo de LLM]]
+- [[Unidades da Leitura de Print]]
 
 ## Negócio
 - [[Estratégia e Moat]]
