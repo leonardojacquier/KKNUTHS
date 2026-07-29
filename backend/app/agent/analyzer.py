@@ -128,6 +128,13 @@ def analyze_hand(hand: CanonicalHand) -> dict:
             "stack efetivo em bb."} if escala_suspeita else {}),
         "final_board": hand.final_board,
         "pot_total": round(pot, 2),
+        # Print de MEIO de mão: o pote reconstruído pela soma das ações é
+        # sempre um piso, porque a foto não mostra a linha inteira. O número
+        # impresso na tela é o pote de verdade, e é ele que dá o preço.
+        **({"pot_na_tela": round(float(hand.total_pot), 2),
+            "pot_na_tela_nota": "Pote LIDO na imagem — vale mais que "
+            "pot_total (soma só das ações visíveis no print). Use este para "
+            "pot odds."} if _pot_lido_manda(hand, pot) else {}),
         "net_chips": net,
         "net_bb": round(net / bb, 2),
         # showdown REAL: cartas reveladas por jogador + quem levou o pote.
@@ -165,6 +172,17 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "spots": spots,
         "summary": _deterministic_summary(hand, spots, net, bb),
     }
+
+
+def _pot_lido_manda(hand: CanonicalHand, pot_somado: float) -> bool:
+    """O pote impresso na foto vale mais que a soma das ações transcritas.
+
+    Só para snapshot de imagem, e só quando o lido é MAIOR: a foto de meio de
+    mão nunca mostra a linha inteira, então a soma é um piso. Se o lido for
+    menor, é erro de leitura e a soma manda (mão fechada não perde ficha)."""
+    if hand.source_format != "image" or not hand.total_pot:
+        return False
+    return float(hand.total_pot) > pot_somado + 0.01
 
 
 def _cartas_texto(hand: CanonicalHand) -> dict:

@@ -119,3 +119,28 @@ def test_a_visao_e_instruida_a_devolver_uma_unidade_so():
 
     assert "UNIDADE" in _VISION_PROMPT
     assert "MESMA unidade" in _VISION_PROMPT
+
+
+def test_pote_lido_na_tela_vale_mais_que_a_soma_das_acoes():
+    """Print de meio de mão não mostra a linha inteira: a soma das ações é um
+    piso. No print do Antônio a tela dizia 10.1 e a soma dava 7.5 — e é o
+    pote que define o preço da decisão."""
+    mao = _snapshot_to_canonical(_antonio(), fingerprint="e6ee00c6cd73")
+    ctx = analyzer.analyze_hand(mao)
+    assert ctx["pot_total"] < 10.1, "a soma das ações visíveis é menor"
+    assert ctx["pot_na_tela"] == 10.1
+    assert "pot odds" in ctx["pot_na_tela_nota"]
+
+
+def test_mao_fechada_de_hand_history_nao_ganha_pote_paralelo():
+    """Só snapshot de imagem — .txt tem a linha toda, a soma é a verdade."""
+    mao = _snapshot_to_canonical(_antonio(), fingerprint="x")
+    mao.source_format = "text"
+    assert "pot_na_tela" not in analyzer.analyze_hand(mao)
+
+
+def test_pote_lido_menor_que_a_soma_e_erro_de_leitura_e_e_ignorado():
+    dados = _antonio()
+    dados["total_pot"] = 2.0
+    ctx = analyzer.analyze_hand(_snapshot_to_canonical(dados, fingerprint="y"))
+    assert "pot_na_tela" not in ctx, "mão não perde ficha; a soma manda"
