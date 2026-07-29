@@ -95,6 +95,13 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         (p.position or p.name[:8]): round(p.stack / bb, 1) for p in hand.players
     }
 
+    # 0.0bb com ficha na mesa é escala errada, não stack zerado — e '0.0' lido
+    # como número de verdade faz o coach raciocinar sobre um spot que não
+    # existe. Caso real: print com blinds em fichas e stacks em bb; tudo virou
+    # zero e o coach pediu ao aluno o stack que estava na foto.
+    escala_suspeita = any(
+        p.stack and round(p.stack / bb, 1) == 0.0 for p in hand.players)
+
     # spots também em BB (o modelo raciocina em BB, não em fichas)
     for s in spots:
         for k_chips, k_bb in (("to_call", "to_call_bb"), ("pot_before", "pot_bb"),
@@ -115,6 +122,10 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "hero_stack_bb": hero_stack_bb,
         "effective_bb": effective_bb,
         "stacks_bb": stacks_bb,
+        **({"stacks_ilegiveis": "Os stacks vieram numa escala inconsistente "
+            "com o big blind e NÃO são confiáveis (0.0bb aqui não quer dizer "
+            "stack zerado). Não raciocine sobre profundidade: peça ao aluno o "
+            "stack efetivo em bb."} if escala_suspeita else {}),
         "final_board": hand.final_board,
         "pot_total": round(pot, 2),
         "net_chips": net,

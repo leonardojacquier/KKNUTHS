@@ -2074,7 +2074,11 @@ _VISION_PROMPT = (
     "Regras: cartas em 2 caracteres (rank 23456789TJQKA, naipe cdhs; '10' vira 'T'). "
     "Posições: UTG/MP/HJ/CO/BTN/SB/BB quando visíveis (o botão do dealer indica o BTN). "
     "Em replay, transcreva a linha de ação inteira street a street com os valores exatos. "
-    "Campo ilegível = null/vazio. NÃO invente valores — extraia só o que está na imagem."
+    "Campo ilegível = null/vazio. NÃO invente valores — extraia só o que está na imagem.\n"
+    "UNIDADE: blinds, stacks, amounts e total_pot têm que sair TODOS na MESMA "
+    "unidade. Muita sala mostra o nível em fichas no cabeçalho (ex.: 15000/30000) "
+    "e os stacks na mesa em bb (ex.: 17.4) ao mesmo tempo — nesse caso converta "
+    "os blinds para bb (small_blind 0.5, big_blind 1) e devolva tudo em bb."
 )
 
 
@@ -2240,6 +2244,35 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
         return None
 
 
+def _coerir_unidades(stakes, players) -> bool:
+    """Conserta o print que vem com o nível em FICHAS e os stacks em BB.
+
+    Caso real (29/07, primeira mão do Antônio): a sala mostrava '15000/30000'
+    no cabeçalho e a mesa em bb (stacks 17.4, 66.6...; pote 10.1). A visão
+    transcreveu os dois literalmente, e tudo lá embaixo divide por big_blind:
+    17.4/30000 = 0.0. O coach recebeu stack 0, pote 0, aposta 0 — e pediu ao
+    aluno o stack efetivo que já estava no print.
+
+    O sinal é impossível de acontecer de verdade: o MAIOR stack da mesa não
+    pode ser menor que um big blind (o pote sozinho já seria maior que todo
+    mundo). Quando isso aparece, quem está fora de escala são os blinds —
+    stacks, apostas e pote já estão em bb. Então trazemos os blinds para bb.
+
+    Devolve True se corrigiu. Mexe só em `stakes` (mutação in place).
+    """
+    bb = float(getattr(stakes, "big_blind", 0) or 0)
+    maior = max((float(p.stack or 0) for p in players), default=0.0)
+    if bb <= 0 or maior <= 0 or maior >= bb:
+        return False
+    stakes.small_blind = round((stakes.small_blind or 0) / bb, 4)
+    stakes.ante = round((stakes.ante or 0) / bb, 4)
+    stakes.big_blind = 1.0
+    logging.getLogger("llm").warning(
+        "unidades mistas no print: blinds em fichas (bb=%s) e stacks em bb "
+        "(maior=%s) — blinds convertidos para bb", bb, maior)
+    return True
+
+
 # última exceção da visão — vai para a nota do upload_failed (legível por SQL)
 LAST_VISION_ERROR: str | None = None
 
@@ -2371,6 +2404,8 @@ def _snapshot_to_canonical(data: dict, fingerprint: str | None = None) -> Canoni
         }[sname]
         if acts or card_seen:
             streets.append(Street(name=sname, board=boards[sname], actions=acts))
+
+    _coerir_unidades(stakes, players)
 
     has_actions = any(s.actions for s in streets)
     fmt = data.get("format") or "cash"
