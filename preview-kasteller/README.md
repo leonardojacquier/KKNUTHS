@@ -10,9 +10,35 @@ python3 build-site.py          # lê assets-site/ e escreve kasteller-site.html
 
 ## Estrutura
 
-Hero (mosaico desktop / textura + linework mobile) · Manifesto com reveal palavra
-por palavra e contadores · Categorías · Materiales · Proyectos (faixa horizontal com
-régua) · Proceso em degraus · Showroom · Footer.
+Hero preso com scroll-zoom (desktop) / textura + linework (mobile) · Manifesto com
+reveal palavra por palavra e contadores · Categorías · Materiales · Proyectos (faixa
+horizontal com régua) · Proceso em degraus · Showroom · Footer.
+
+## A entrada (efeito principal)
+
+Mosaico 5×3 de 160vmax × 110vmax começando em `scale(.62)`. A seção mede **350vh** e
+o palco é **`position:sticky`** — é isso que "prende" a tela. O quanto se rolou dentro
+dessa altura vira progresso 0→1 e comanda:
+
+| progresso | o que acontece |
+|---|---|
+| 0 → 1 | grid de `scale(.62)` a `scale(3.4)`, convergindo na célula central |
+| 0,05 → 0,3 | o indicador "Scroll" some |
+| 0,15 → 0,55 | o conteúdo recua (`scale .92`) e faz fade |
+| 0 → 1 | vizinhas escurecem (`brightness .92 → .55`) |
+| 0,5 → 0,85 | o header some |
+| 0,55 → 1 | véu preto sobe até 55% |
+
+`scale(3.4)` — e não 2,9 — porque a célula central mede 30,72vmax: abaixo de ~3,26 ela
+não cobre a viewport inteira em tela panorâmica.
+
+**Por que sticky em vez do `pin` do GSAP:** o CDN está bloqueado neste ambiente, então
+o efeito foi feito em vanilla. Como o progresso vem da *posição de scroll* (e não de
+eventos de wheel), trackpad, roda e toque se comportam igual e dá para voltar rolando
+para cima — que é o mesmo princípio do `scrub` do ScrollTrigger.
+
+No mobile (≤720px) o palco é ocultado: a altura extra some e entra o hero imersivo.
+Com `prefers-reduced-motion` o hero volta a ter 1 tela, sem zoom.
 
 ## Identidade
 

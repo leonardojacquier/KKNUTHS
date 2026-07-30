@@ -105,52 +105,61 @@ a{color:inherit;text-decoration:none}
 .overlay .k{position:absolute;right:-6vw;bottom:-4vh;width:56vw;height:auto;
   color:var(--crema);opacity:.05}
 
-/* ---------------- hero ---------------- */
-.hero{position:relative;min-height:100svh;overflow:hidden;background:var(--negro)}
-.mosaico{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
-  padding:10px}
-.col{display:grid;gap:10px;align-content:start;will-change:transform}
-.col figure{margin:0;overflow:hidden;background:#121110;opacity:0;transform:translateY(26px)}
-.col .ph{width:100%;height:100%;filter:grayscale(.18) brightness(.82)}
-.col.a .ph{filter:grayscale(.3) brightness(.7)}
-.col.c .ph{filter:grayscale(.12) brightness(.88)}
-.col.a figure:nth-child(1){height:46vh}
-.col.a figure:nth-child(2){height:34vh}
-.col.a figure:nth-child(3){height:40vh}
-.col.b figure:nth-child(1){height:38vh}
-.col.b figure:nth-child(2){height:52vh}
-.col.b figure:nth-child(3){height:32vh}
-.col.c figure:nth-child(1){height:42vh}
-.col.c figure:nth-child(2){height:36vh}
-.col.c figure:nth-child(3){height:44vh}
-.cargado .col figure{opacity:1;transform:none;
-  transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1)}
-.hero::after{content:'';position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,.34),rgba(0,0,0,.76))}
-
-.hero-centro{position:relative;z-index:3;min-height:100svh;display:grid;align-items:end;
-  justify-items:center;padding:120px var(--gut) clamp(60px,11vh,120px)}
-.panel{background:var(--crema);color:var(--negro);padding:clamp(34px,4.4vw,62px);
-  width:min(44vw,560px);text-align:center;opacity:0;transform:translateY(22px)}
-.cargado .panel{opacity:1;transform:none;transition:opacity 1s ease .95s,transform 1s ease .95s}
-.panel .rotulo{color:var(--taupe)}
-.panel p{margin:16px 0 26px;font-size:14.5px;color:#3A3733;max-width:34ch;margin-inline:auto}
-.btn{display:inline-block;border:1px solid var(--taupe);color:var(--taupe);padding:14px 30px;
-  font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;transition:.4s;opacity:.35}
-.cargado .btn{opacity:1;transition:opacity .9s ease 1.5s,background .35s,color .35s}
-.btn:hover{background:var(--negro);border-color:var(--negro);color:var(--blanco)}
-.titular{position:absolute;left:0;right:0;top:33%;z-index:4;transform:translateY(-50%);
-  text-align:center;pointer-events:none;padding:0 2vw;
-  font-family:var(--serif);font-weight:300;color:var(--blanco);
-  font-size:clamp(52px,9vw,140px);line-height:.92;
-  text-shadow:0 2px 40px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4)}
-.titular span{display:block;opacity:0;transform:translateY(26px)}
-.cargado .titular span{opacity:1;transform:none;
+/* ---------------- hero: mosaico 5x3 preso, zoom controlado pelo scroll ----------------
+   O "pin" é sticky nativo: a seção mede 350vh e o palco gruda no topo. O scroll
+   dentro dessa altura vira progresso 0..1 e comanda o zoom. Sai mais previsível
+   que capturar wheel — funciona igual com trackpad, roda e toque. */
+.hero{position:relative;height:350vh;background:var(--negro)}
+.hero-stage{position:sticky;top:0;height:100svh;overflow:hidden;background:var(--negro)}
+.rejilla{position:absolute;top:50%;left:50%;width:160vmax;height:110vmax;
+  display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr);
+  gap:1.6vmax;transform:translate(-50%,-50%) scale(.62);will-change:transform}
+.celda{position:relative;overflow:hidden;background:#121110;opacity:0;transform:translateY(40px)}
+.rejilla{--vec:.92}
+.celda .ph{position:absolute;inset:0;filter:brightness(var(--vec))}
+.celda.centro{grid-column:3;grid-row:2;z-index:2}
+.celda.centro .ph{filter:brightness(.78)}
+.cargado .celda{opacity:1;transform:none;
   transition:opacity 1.1s cubic-bezier(.22,1,.36,1),transform 1.1s cubic-bezier(.22,1,.36,1)}
-.cargado .titular span:nth-child(2){transition-delay:.12s}
-.baja{position:absolute;left:50%;bottom:22px;z-index:5;transform:translateX(-50%);
-  display:grid;justify-items:center;gap:8px;color:rgba(255,255,255,.62)}
-.baja i{width:1px;height:40px;background:linear-gradient(rgba(255,255,255,.65),transparent)}
+
+.velo{position:absolute;inset:0;z-index:5;background:var(--negro);opacity:0;pointer-events:none}
+
+.hero-contenido{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;pointer-events:none;
+  color:var(--blanco);padding:0 6vw;will-change:transform,opacity}
+.hero-sello{opacity:0;transform:translateY(20px)}
+.cargado .hero-sello{opacity:1;transform:none;transition:opacity .8s ease .55s,transform .8s ease .55s}
+.hero-sello .k{width:46px;height:51px;color:var(--crema)}
+.titular{margin:26px 0 0;font-family:var(--serif);font-weight:400;
+  font-size:clamp(46px,8.6vw,132px);line-height:1.02;letter-spacing:.01em;
+  text-shadow:0 2px 40px rgba(0,0,0,.45)}
+.titular .linea{display:block;overflow:hidden}
+.titular .linea>span{display:inline-block;transform:translateY(110%)}
+.cargado .titular .linea>span{transform:none;
+  transition:transform 1.1s cubic-bezier(.16,1,.3,1) .8s}
+.cargado .titular .linea:nth-child(2)>span{transition-delay:.92s}
+.hero-sub{margin-top:24px;font-size:clamp(12px,1.4vw,15px);letter-spacing:.16em;
+  text-transform:uppercase;opacity:0;color:rgba(255,255,255,.86)}
+.cargado .hero-sub{opacity:1;transition:opacity .8s ease 1.5s}
+.hero-cta{pointer-events:auto;margin-top:40px;opacity:0;display:inline-flex;align-items:center;
+  gap:10px;background:rgba(232,225,215,.16);border:1px solid rgba(255,255,255,.55);
+  backdrop-filter:blur(6px);padding:17px 38px;border-radius:999px;font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;transition:background .35s,color .35s}
+.cargado .hero-cta{opacity:1;transition:opacity .8s ease 1.75s,background .35s,color .35s}
+.hero-cta:hover{background:var(--crema);color:var(--negro)}
+.hero-hint{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);z-index:11;
+  display:grid;justify-items:center;gap:10px;opacity:0;
+  font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.cargado .hero-hint{opacity:1;transition:opacity .6s ease 2s}
+.hero-hint.scrub{transition:none}
+.hero-hint::after{content:'';width:1px;height:44px;
+  background:linear-gradient(rgba(255,255,255,.85),transparent);
+  animation:gotear 1.9s ease-in-out infinite}
+@keyframes gotear{
+  0%{transform:scaleY(0);transform-origin:top}
+  45%{transform:scaleY(1);transform-origin:top}
+  55%{transform:scaleY(1);transform-origin:bottom}
+  100%{transform:scaleY(0);transform-origin:bottom}}
 
 /* hero mobile: otra experiencia — textura + linework */
 .hero-mob{display:none}
@@ -262,8 +271,9 @@ section{position:relative}
 @media (max-width:720px){
   .burger{display:block}
   .cita{display:none}
-  .hero .mosaico,.hero .hero-centro,.hero .baja,.hero .titular,.hero::after{display:none}
-  .hero{min-height:100svh}
+  /* mobile não tem o zoom: some o palco e a altura de scroll extra */
+  .hero{height:auto;min-height:100svh}
+  .hero-stage,.hero-hint{display:none}
   .hero-mob{display:grid;position:relative;min-height:100svh;place-items:center;
     text-align:center;padding:110px 24px 70px;overflow:hidden}
   .hero-mob>.ph{position:absolute;inset:0;z-index:0;
@@ -296,8 +306,14 @@ section{position:relative}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
+  /* sem zoom preso: o mosaico fica estático e a página rola normalmente */
+  .hero{height:100svh}
+  .hero-stage{position:relative}
+  .celda{opacity:1!important;transform:none!important}
+  .titular .linea>span{transform:none!important}
+  .hero-sello,.hero-sub,.hero-cta{opacity:1!important;transform:none!important}
   .js .rv{opacity:1;transform:none}
-  .col figure,.panel,.titular span,.btn{opacity:1!important;transform:none!important}
+  .panel,.btn{opacity:1!important;transform:none!important}
 }
 """
 
@@ -327,39 +343,23 @@ BODY = """
 
 <main id="inicio">
   <!-- ---------- hero desktop: mosaico ---------- -->
-  <section class="hero">
-    <div class="mosaico" aria-hidden="true">
-      <div class="col a">
-        <figure><div class="ph i-marmol-blanco"></div></figure>
-        <figure><div class="ph i-travertino"></div></figure>
-        <figure><div class="ph i-piedra-gris"></div></figure>
+  <section class="hero" id="hero">
+    <div class="hero-stage">
+      <div class="rejilla" id="rejilla" aria-hidden="true"></div>
+      <div class="velo" id="velo"></div>
+      <div class="hero-contenido" id="hero-contenido">
+        <div class="hero-sello">__KMARK__</div>
+        <h1 class="titular">
+          <span class="linea"><span>Superficies que</span></span>
+          <span class="linea"><span>definen espacios</span></span>
+        </h1>
+        <p class="hero-sub">Revestimientos de alto padrón · Ciudad del Este</p>
+        <a class="hero-cta" href="#manifiesto">Conocer el showroom</a>
       </div>
-      <div class="col b">
-        <figure><div class="ph i-ks-hero"></div></figure>
-        <figure><div class="ph i-marmol-negro"></div></figure>
-        <figure><div class="ph i-porcelanato"></div></figure>
-      </div>
-      <div class="col c">
-        <figure><div class="ph i-madera"></div></figure>
-        <figure><div class="ph i-marmol-blanco"></div></figure>
-        <figure><div class="ph i-travertino"></div></figure>
-      </div>
+      <div class="hero-hint" aria-hidden="true">Scroll</div>
     </div>
 
-    <h1 class="titular"><span>Superficies que</span><span>definen espacios</span></h1>
-
-    <div class="hero-centro">
-      <div class="panel">
-        <span class="rotulo">Revestimientos de alto padrón</span>
-        <p>Porcelanatos, mármoles y piedras naturales seleccionados pieza por pieza.
-        Del showroom a la obra, con especificación técnica.</p>
-        <a class="btn" href="#materiales">Ver materiales</a>
-      </div>
-    </div>
-
-    <div class="baja" aria-hidden="true"><i></i><span class="rotulo">Bajar</span></div>
-
-    <!-- hero mobile: textura + desenho técnico -->
+    <!-- hero mobile: textura + desenho técnico (substitui o mosaico em telas pequenas) -->
     <div class="hero-mob">
       <div class="ph i-marmol-negro" role="img" aria-label="Macrotextura de piedra natural"></div>
       <svg class="trazo" viewBox="0 0 390 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -508,9 +508,32 @@ BODY = """
   var lento = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!lento) root.classList.add('js');
 
-  /* entrada escalonada do mosaico */
-  var figs = document.querySelectorAll('.col figure');
-  figs.forEach(function (f, i) { f.style.transitionDelay = (i * 0.1) + 's'; });
+  /* mosaico 5x3: a célula central (3,2) é o destino do zoom */
+  var rejilla = document.getElementById('rejilla');
+  var TEX = ['i-marmol-blanco','i-travertino','i-piedra-gris','i-porcelanato',
+             'i-marmol-negro','i-madera'];
+  if (rejilla) {
+    var t = 0;
+    for (var r = 1; r <= 3; r++) {
+      for (var c = 1; c <= 5; c++) {
+        var centro = (r === 2 && c === 3);
+        var cel = document.createElement('div');
+        cel.className = 'celda' + (centro ? ' centro' : '');
+        cel.style.gridColumn = c; cel.style.gridRow = r;
+        var ph = document.createElement('div');
+        ph.className = 'ph ' + (centro ? 'i-ks-hero' : TEX[t++ % TEX.length]);
+        cel.appendChild(ph); rejilla.appendChild(cel);
+      }
+    }
+    /* stagger aleatório, como no demo (from:"random") */
+    var celdas = [].slice.call(rejilla.children);
+    var orden = celdas.map(function (_, i) { return i; });
+    for (var k = orden.length - 1; k > 0; k--) {
+      var j2 = (k * 9301 + 49297) % (k + 1);      // embaralho determinístico
+      var tmp = orden[k]; orden[k] = orden[j2]; orden[j2] = tmp;
+    }
+    orden.forEach(function (idx, pos) { celdas[idx].style.transitionDelay = (pos * 0.07) + 's'; });
+  }
   requestAnimationFrame(function () { root.classList.add('cargado'); });
 
   /* menu mobile */
@@ -557,13 +580,41 @@ BODY = """
     palabras = manif.querySelectorAll('.w');
   }
 
-  /* parallax por coluna + scrub do manifesto, num único rAF */
-  var cols = document.querySelectorAll('.col'), vel = [0.14, 0.05, 0.20], tick = false;
+  /* ---- HERO: o scroll dentro da seção vira progresso 0..1 e comanda o zoom ----
+     A seção mede 350vh e o palco é sticky; então "prender" a tela é o próprio
+     sticky. Nada de capturar wheel: assim trackpad, roda e toque se comportam
+     igual, e o usuário pode voltar rolando para cima. */
+  var hero = document.getElementById('hero'),
+      rej = document.getElementById('rejilla'),
+      velo = document.getElementById('velo'),
+      contenido = document.getElementById('hero-contenido'),
+      cabecera = document.querySelector('.top'),
+      pista_hint = document.querySelector('.hero-hint'),
+      ESC0 = 0.62, ESC1 = 3.4, tick = false;
+
+  function entre(v, a, b) { return Math.max(0, Math.min(1, (v - a) / (b - a))); }
+
+  function zoom(p) {
+    if (!rej) return;
+    rej.style.transform = 'translate(-50%,-50%) scale(' + (ESC0 + (ESC1 - ESC0) * p) + ')';
+    /* o conteúdo recua e some, dando lugar à imagem */
+    var f = entre(p, 0.15, 0.55);
+    contenido.style.transform = 'scale(' + (1 - 0.08 * f) + ')';
+    contenido.style.opacity = 1 - f;
+    /* véu fecha a cena para a transição de seção */
+    velo.style.opacity = entre(p, 0.55, 1) * 0.55;
+    /* vizinhas escurecem; a central mantém o brilho */
+    rej.style.setProperty('--vec', 0.92 - 0.37 * p);
+    cabecera.style.opacity = 1 - entre(p, 0.5, 0.85);
+    if (pista_hint) pista_hint.style.opacity = 1 - entre(p, 0.05, 0.3);
+  }
+
   function pintar() {
     tick = false;
-    var y = scrollY;
-    if (y < innerHeight * 1.2) {
-      cols.forEach(function (c, i) { c.style.transform = 'translate3d(0,' + (-y * vel[i]) + 'px,0)'; });
+    if (hero && rej && getComputedStyle(rej).display !== 'none') {
+      if (pista_hint) pista_hint.classList.add('scrub');
+      var r = hero.getBoundingClientRect();
+      zoom(entre(-r.top, 0, hero.offsetHeight - innerHeight));
     }
     if (palabras.length) {
       var r = manif.getBoundingClientRect();
@@ -579,8 +630,8 @@ BODY = """
   pintar();
 
   /* header sólido depois do hero */
-  var top = document.querySelector('.top');
-  function fijar() { top.classList.toggle('solido', scrollY > innerHeight * 0.72); }
+  var top = cabecera;
+  function fijar() { top.classList.toggle('solido', scrollY > hero.offsetHeight * 0.92); }
   addEventListener('scroll', fijar, { passive: true }); fijar();
 
   /* revelações */
