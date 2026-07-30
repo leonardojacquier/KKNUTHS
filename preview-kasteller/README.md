@@ -1,7 +1,8 @@
 # Site Kasteller Revestimientos — vista previa
 
-`kasteller-site.html` é o one-page montado a partir do briefing (referências
-h-h-architects no desktop e FOR LIVING no mobile). Autocontido: fontes e imagens
+`kasteller-site.html` é o one-page montado a partir do briefing e do arquivo de
+referência do cliente (`kastellersite_1.html`), que define estrutura, copy e os
+movimentos de scroll. Autocontido: fontes e imagens
 em base64, porque o ambiente bloqueia CDNs e a prévia roda sob CSP estrita.
 
 ```bash
@@ -10,9 +11,15 @@ python3 build-site.py          # lê assets-site/ e escreve kasteller-site.html
 
 ## Estrutura
 
-Hero preso com scroll-zoom (desktop) / textura + linework (mobile) · Manifesto com
-reveal palavra por palavra e contadores · Categorías · Materiales · Proyectos (faixa
-horizontal com régua) · Proceso em degraus · Showroom · Footer.
+Hero preso com scroll-zoom + payoff em vídeo (desktop) / textura + linework (mobile) ·
+Manifesto com reveal palavra por palavra e contadores · Categorías (cards
+desencontrados, chip central) · Materiales (grid editorial 12 colunas) ·
+**Proyectos: galeria PRESA — o scroll vertical vira deslocamento horizontal da faixa,
+com régua** · Proceso em degraus · Showroom com parallax de fundo · Footer.
+
+Outros movimentos da referência implementados: reveals palavra por palavra também nas
+seções escuras (viram branco), cards/materiais/passos subindo ao entrar na viewport,
+menu overlay com clip-path, e o header que some durante o zoom e **volta** no fim.
 
 ## A entrada (efeito principal)
 
