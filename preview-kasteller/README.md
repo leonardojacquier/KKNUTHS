@@ -22,12 +22,20 @@ dessa altura vira progresso 0→1 e comanda:
 
 | progresso | o que acontece |
 |---|---|
-| 0 → 1 | grid de `scale(.62)` a `scale(3.4)`, convergindo na célula central |
+| 0 → 0,72 | grid de `scale(.62)` a `scale(3.4)`, convergindo na célula central |
 | 0,05 → 0,3 | o indicador "Scroll" some |
 | 0,15 → 0,55 | o conteúdo recua (`scale .92`) e faz fade |
-| 0 → 1 | vizinhas escurecem (`brightness .92 → .55`) |
+| 0,3 → 0,65 | o VÍDEO central sobe de brilho .78 para pleno |
 | 0,5 → 0,85 | o header some |
-| 0,55 → 1 | véu preto sobe até 55% |
+| **0,72 → 1** | **payoff: o vídeo roda em tela cheia, limpo** |
+| 0,85 → 1 | véu preto sobe até 40% para a transição |
+
+**O destino do zoom é um `<video>`** (muted, loop, playsinline, com poster) —
+`assets-site/kasteller-loop.webm`, um Ken Burns de 9,3 s / 84 KB gerado por ffmpeg a
+partir da foto real + texturas com crossfade, porque Pexels/Coverr estão bloqueados
+neste ambiente. Trocar pelos clipes reais do showroom (aí sim 2–3 cenas de obra).
+WebM/VP9 porque o Chromium do sandbox não tem H.264; no servidor real, servir
+`hero.webm` + `hero.mp4` como no site da GNH.
 
 `scale(3.4)` — e não 2,9 — porque a célula central mede 30,72vmax: abaixo de ~3,26 ela
 não cobre a viewport inteira em tela panorâmica.

@@ -31,6 +31,9 @@ def data_uri(name, mime):
 IMG = {k: data_uri(f'{k}.jpg', 'image/jpeg') for k in (
     'ks-hero', 'marmol-blanco', 'marmol-negro', 'travertino',
     'piedra-gris', 'porcelanato', 'madera')}
+# clipe do payoff: Ken Burns gerado localmente (Pexels bloqueado aqui);
+# trocar pelos vídeos reais do showroom quando chegarem
+VIDEO = data_uri('kasteller-loop.webm', 'video/webm')
 
 # Cada imagem vira UMA variável CSS — usá-la N vezes no HTML não duplica os bytes.
 VARS = (':root{' + ''.join(f'--i-{k}:url({v});' for k, v in IMG.items()) + '}\n'
@@ -119,6 +122,8 @@ a{color:inherit;text-decoration:none}
 .celda .ph{position:absolute;inset:0;filter:brightness(var(--vec))}
 .celda.centro{grid-column:3;grid-row:2;z-index:2}
 .celda.centro .ph{filter:brightness(.78)}
+.celda.centro video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  filter:brightness(.78)}
 .cargado .celda{opacity:1;transform:none;
   transition:opacity 1.1s cubic-bezier(.22,1,.36,1),transform 1.1s cubic-bezier(.22,1,.36,1)}
 
@@ -520,9 +525,21 @@ BODY = """
         var cel = document.createElement('div');
         cel.className = 'celda' + (centro ? ' centro' : '');
         cel.style.gridColumn = c; cel.style.gridRow = r;
-        var ph = document.createElement('div');
-        ph.className = 'ph ' + (centro ? 'i-ks-hero' : TEX[t++ % TEX.length]);
-        cel.appendChild(ph); rejilla.appendChild(cel);
+        if (centro) {
+          /* payoff: o destino do zoom é um vídeo (muted+playsinline = autoplay ok) */
+          var vid = document.createElement('video');
+          vid.muted = true; vid.loop = true; vid.autoplay = true;
+          vid.playsInline = true; vid.setAttribute('playsinline', '');
+          vid.poster = document.getElementById('inicio').dataset.poster;
+          vid.src = document.getElementById('inicio').dataset.video;
+          vid.play && vid.play().catch(function () {});
+          cel.appendChild(vid);
+        } else {
+          var ph = document.createElement('div');
+          ph.className = 'ph ' + TEX[t++ % TEX.length];
+          cel.appendChild(ph);
+        }
+        rejilla.appendChild(cel);
       }
     }
     /* stagger aleatório, como no demo (from:"random") */
@@ -570,7 +587,11 @@ BODY = """
     });
   }
 
-  if (lento) return;
+  if (lento) {
+    var v0 = document.querySelector('.celda.centro video');
+    if (v0) { v0.autoplay = false; v0.pause(); }
+    return;
+  }
 
   /* manifesto: palavra por palavra conforme o scroll */
   var manif = document.getElementById('manif'), palabras = [];
@@ -590,19 +611,25 @@ BODY = """
       contenido = document.getElementById('hero-contenido'),
       cabecera = document.querySelector('.top'),
       pista_hint = document.querySelector('.hero-hint'),
+      video_c = document.querySelector('.celda.centro video'),
       ESC0 = 0.62, ESC1 = 3.4, tick = false;
 
   function entre(v, a, b) { return Math.max(0, Math.min(1, (v - a) / (b - a))); }
 
   function zoom(p) {
     if (!rej) return;
-    rej.style.transform = 'translate(-50%,-50%) scale(' + (ESC0 + (ESC1 - ESC0) * p) + ')';
+    /* o zoom completa em ~72% do trajeto; o resto é o payoff: vídeo em tela
+       cheia, limpo, rodando — o véu só entra nos últimos 15% */
+    var q = entre(p, 0, 0.72);
+    rej.style.transform = 'translate(-50%,-50%) scale(' + (ESC0 + (ESC1 - ESC0) * q) + ')';
     /* o conteúdo recua e some, dando lugar à imagem */
     var f = entre(p, 0.15, 0.55);
     contenido.style.transform = 'scale(' + (1 - 0.08 * f) + ')';
     contenido.style.opacity = 1 - f;
-    /* véu fecha a cena para a transição de seção */
-    velo.style.opacity = entre(p, 0.55, 1) * 0.55;
+    /* véu SÓ no finalzinho (últimos ~15%) — o payoff do vídeo fica limpo */
+    velo.style.opacity = entre(p, 0.85, 1) * 0.4;
+    /* o vídeo central sai de .78 para brilho pleno enquanto vira tela cheia */
+    if (video_c) video_c.style.filter = 'brightness(' + (0.78 + 0.22 * entre(p, 0.3, 0.65)) + ')';
     /* vizinhas escurecem; a central mantém o brilho */
     rej.style.setProperty('--vec', 0.92 - 0.37 * p);
     cabecera.style.opacity = 1 - entre(p, 0.5, 0.85);
@@ -668,11 +695,15 @@ def montar():
     body = BODY.replace('__KMARK__', KMARK)
     for k, v in IMG.items():
         body = body.replace(f'__IMG_{k}__', v)
+    body = (f'<div style="display:none" id="datos"></div>' + body) if False else body
     faltantes = [t for t in ('__IMG_', '__KMARK__', '__FONTS__') if t in body or t in css]
     if faltantes:
         raise SystemExit(f'token não substituído: {faltantes}')
     return (f'<title>Kasteller Revestimientos — superficies que definen espacios</title>\n'
-            f'<style>{css}</style>\n{body}')
+            f'<style>{css}</style>\n'
+            f'<script>document.addEventListener("DOMContentLoaded",function(){{}});</script>\n'
+            + body.replace('<main id="inicio">',
+                           f'<main id="inicio" data-video="{VIDEO}" data-poster="{IMG["ks-hero"]}">'))
 
 
 out = HERE / 'kasteller-site.html'
