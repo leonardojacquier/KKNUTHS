@@ -81,6 +81,12 @@ def analyze_hand(hand: CanonicalHand) -> dict:
     if hand.net_won is not None:  # fonte-resumo (CSV) já traz o líquido pronto
         net = round(hand.net_won, 2)
 
+    # `or 1` era uma bomba: print sem o nível legível saía com big_blind 0, e
+    # cada stack virava o próprio número de fichas rotulado como bb (caso real:
+    # 98.331 fichas viraram '98331bb'). Profundidade sem big blind não é
+    # calculável — e um número inventado é pior que campo vazio, porque o
+    # coach raciocina em cima dele.
+    bb_conhecido = bool(hand.stakes.big_blind)
     bb = hand.stakes.big_blind or 1
 
     # contexto de stacks EM BB — sem isto o LLM estimava o stack do herói (caso
@@ -95,12 +101,18 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         (p.position or p.name[:8]): round(p.stack / bb, 1) for p in hand.players
     }
 
-    # 0.0bb com ficha na mesa é escala errada, não stack zerado — e '0.0' lido
-    # como número de verdade faz o coach raciocinar sobre um spot que não
-    # existe. Caso real: print com blinds em fichas e stacks em bb; tudo virou
-    # zero e o coach pediu ao aluno o stack que estava na foto.
-    escala_suspeita = any(
-        p.stack and round(p.stack / bb, 1) == 0.0 for p in hand.players)
+    # O mais fundo da mesa com menos de 2bb é impossível na prática: quem
+    # postou o blind já tem 1bb, e abaixo disso a mão nem se joga. Quando
+    # aparece, a escala está furada — não é uma mesa de stacks curtos.
+    # Caso real: print com blinds em fichas e stacks em bb virou tudo 0.0, e
+    # o coach pediu ao aluno o stack que estava na foto.
+    mais_fundo = max((p.stack or 0) for p in hand.players) if hand.players else 0
+    escala_suspeita = bool(mais_fundo) and (
+        not bb_conhecido or mais_fundo < 2 * bb)
+    if escala_suspeita:
+        # não entregar número inventado: campo vazio o coach respeita
+        hero_stack_bb = effective_bb = None
+        stacks_bb = {}
 
     # spots também em BB (o modelo raciocina em BB, não em fichas)
     for s in spots:
@@ -122,10 +134,13 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         "hero_stack_bb": hero_stack_bb,
         "effective_bb": effective_bb,
         "stacks_bb": stacks_bb,
-        **({"stacks_ilegiveis": "Os stacks vieram numa escala inconsistente "
-            "com o big blind e NÃO são confiáveis (0.0bb aqui não quer dizer "
-            "stack zerado). Não raciocine sobre profundidade: peça ao aluno o "
-            "stack efetivo em bb."} if escala_suspeita else {}),
+        **({"stacks_ilegiveis": "A profundidade NÃO pôde ser calculada: "
+            + ("o big blind não foi lido na imagem." if not bb_conhecido else
+               "os stacks estão numa escala inconsistente com o big blind.")
+            + " Por isso hero_stack_bb/effective_bb/stacks_bb vêm vazios — não "
+            "invente um valor nem trate os números de fichas como bb. Analise "
+            "o que dá sem profundidade e peça ao aluno o stack efetivo em bb."}
+           if escala_suspeita else {}),
         "final_board": hand.final_board,
         "pot_total": round(pot, 2),
         # Print de MEIO de mão: o pote reconstruído pela soma das ações é

@@ -38,6 +38,28 @@ O caminho inverso (blinds em bb, stacks em fichas) **não** é corrigido: não
 existe limiar seguro que separe isso de um cash deep legítimo. Consertar só
 o que é provavelmente impossível.
 
+## O terceiro modo: big blind zero
+Achado na varredura das 17 mãos de visão. Print sem o nível legível saía com
+`big_blind: 0`, e `bb = hand.stakes.big_blind or 1` fazia cada stack virar o
+próprio número de fichas rotulado como bb — **98.331 fichas viraram
+"98331bb"** (Leo, 09/07, GGPoker).
+
+Isto é pior que os zeros: `0.0` parece defeito, `98331bb` parece número. O
+coach raciocinaria sobre uma mesa hiper-deep que não existe.
+
+Regra nova: **profundidade sem big blind não é calculável**, e campo vazio é
+melhor que número inventado. `hero_stack_bb`, `effective_bb` e `stacks_bb`
+saem vazios com `stacks_ilegiveis` explicando por quê.
+
+## O limiar: 2bb no mais fundo
+O mais fundo da mesa com menos de 2bb é impossível — quem postou o blind já
+tem 1bb, e abaixo disso a mão nem se joga. Pega também o caso ambíguo (cash
+09/07: bb 200 com stacks 244.3 e 95.7 = 1.2bb).
+
+Repare na assimetria deliberada: o **flag** é largo (2bb), a **correção
+automática** é estreita (maior stack < 1bb). Sinalizar de menos custa uma
+pergunta ao aluno; corrigir errado grava um número falso no banco.
+
 ## As outras duas camadas
 - **Prompt da visão** exige uma unidade só e explica o caso das duas
   escalas. A guarda conserta o estrago; o prompt evita que aconteça.

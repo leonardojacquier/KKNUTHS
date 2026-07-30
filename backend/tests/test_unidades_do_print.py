@@ -144,3 +144,46 @@ def test_pote_lido_menor_que_a_soma_e_erro_de_leitura_e_e_ignorado():
     dados["total_pot"] = 2.0
     ctx = analyzer.analyze_hand(_snapshot_to_canonical(dados, fingerprint="y"))
     assert "pot_na_tela" not in ctx, "mão não perde ficha; a soma manda"
+
+
+def _mesa(bb, stacks, **kw):
+    return CanonicalHand(
+        hand_id="x", site="PPPoker", format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=bb / 2 if bb else 0, big_blind=bb),
+        hero="h", hero_cards=["9s", "9d"],
+        players=[PlayerSeat(seat=i + 1, name=f"p{i}", stack=s, is_hero=(i == 0))
+                 for i, s in enumerate(stacks)], **kw)
+
+
+def test_big_blind_zero_nao_vira_stack_de_98mil_bb():
+    """Caso real (09/07, print de GGPoker): o nível não foi lido, big_blind
+    saiu 0, e `bb = big_blind or 1` fez 98.331 fichas virarem '98331bb'. Um
+    número inventado é pior que campo vazio — o coach raciocina em cima."""
+    ctx = analyzer.analyze_hand(_mesa(0, [98331, 54000, 31000]))
+    assert ctx["hero_stack_bb"] is None
+    assert ctx["effective_bb"] is None
+    assert ctx["stacks_bb"] == {}
+    assert "big blind não foi lido" in ctx["stacks_ilegiveis"]
+
+
+def test_mesa_com_o_mais_fundo_abaixo_de_2bb_e_escala_furada():
+    """Caso real (09/07, cash): bb 200 com stacks 244.3 e 95.7 — 1.2bb no
+    mais fundo. Impossível: quem postou o blind já tem 1bb."""
+    ctx = analyzer.analyze_hand(_mesa(200, [95.7, 244.3]))
+    assert "stacks_ilegiveis" in ctx
+    assert "escala inconsistente" in ctx["stacks_ilegiveis"]
+    assert ctx["hero_stack_bb"] is None
+
+
+def test_mesa_de_stack_curto_de_verdade_passa():
+    """4bb no mais fundo é hyper turbo real, não defeito de leitura."""
+    ctx = analyzer.analyze_hand(_mesa(1000, [2500, 4000, 3100]))
+    assert "stacks_ilegiveis" not in ctx
+    assert ctx["hero_stack_bb"] == 2.5
+
+
+def test_mesa_saudavel_mantem_os_numeros():
+    ctx = analyzer.analyze_hand(_mesa(2400, [188467, 90000, 42000]))
+    assert "stacks_ilegiveis" not in ctx
+    assert ctx["hero_stack_bb"] == 78.5
+    assert ctx["stacks_bb"]
