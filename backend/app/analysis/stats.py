@@ -9,6 +9,18 @@ from dataclasses import dataclass, field
 
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
+# Fontes que trazem a SESSÃO INTEIRA. VPIP/PFR só significam alguma coisa
+# numa amostra onde as mãos foldadas TAMBÉM estão — e ninguém manda o replay
+# de uma mão que largou no pré. Replay avulso e print são escolhidos a dedo:
+# medir frequência neles mede o gosto do aluno, não o jogo dele.
+#
+# Caso real: o Ricardo tinha VPIP 94.3% no perfil, calculado sobre 53 replays
+# que ele mesmo escolheu mandar. O coach disse a ele, no meio de uma análise,
+# "seu VPIP tá em 93,6%, joga MUITO lixo". O VPIP de verdade dele, em 406.639
+# mãos, é 26% — ele mandou o print pra ferramenta no mesmo dia.
+FONTES_COMPLETAS = {"txt", "text", "csv", "phh", "pdf"}
+MINIMO_PARA_PERFIL = 30
+
 
 @dataclass
 class PlayerStats:
@@ -21,10 +33,32 @@ class PlayerStats:
     label: str = "amostra insuficiente"
     detail: dict = field(default_factory=dict)
 
+    @property
+    def publicavel(self) -> bool:
+        """Perfil que pode ser DITO ao aluno. Amostra escolhida a dedo não
+        vira frequência — melhor não ter perfil que ter um errado."""
+        return self.hands >= MINIMO_PARA_PERFIL and not self.detail.get(
+            "amostra_viesada")
 
-def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) -> PlayerStats:
+
+def amostra_completa(hands: list[CanonicalHand]) -> list[CanonicalHand]:
+    """Só as mãos que vieram de export de sessão inteira."""
+    return [h for h in hands if (h.source_format or "txt") in FONTES_COMPLETAS]
+
+
+def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
+                         somente_amostra_completa: bool = True) -> PlayerStats:
     """Stats de `player`; com player=None usa o herói de cada mão — correto para
-    histórico cumulativo, onde o nick do herói varia entre salas."""
+    histórico cumulativo, onde o nick do herói varia entre salas.
+
+    Por padrão mede só sobre export de sessão inteira: frequência tirada de
+    replay avulso/print é um artefato da escolha do aluno.
+    """
+    descartadas = 0
+    if somente_amostra_completa:
+        completas = amostra_completa(hands)
+        descartadas = len(hands) - len(completas)
+        hands = completas
     n = 0
     vpip_h = pfr_h = three_bet_h = 0
     three_bet_opps = 0
@@ -84,7 +118,13 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) 
                     post_calls += 1
 
     stats = PlayerStats(player=player or "hero", hands=n)
+    if descartadas:
+        stats.detail["maos_fora_da_amostra"] = descartadas
     if n == 0:
+        if descartadas:
+            stats.detail["amostra_viesada"] = True
+            stats.label = ("sem amostra de sessão — só mãos avulsas, que não "
+                           "medem frequência")
         return stats
 
     stats.vpip = round(100 * vpip_h / n, 1)
@@ -92,12 +132,14 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None) 
     stats.three_bet = round(100 * three_bet_h / three_bet_opps, 1) if three_bet_opps else 0.0
     stats.af = round((post_bets + post_raises) / post_calls, 2) if post_calls else float(post_bets + post_raises)
     stats.label = _label(stats)
-    stats.detail = {
+    # update, não atribuição: `maos_fora_da_amostra` é gravado antes daqui e
+    # sobrescrevê-lo apagava justamente o rastro de que houve filtro
+    stats.detail.update({
         "post_bets": post_bets,
         "post_raises": post_raises,
         "post_calls": post_calls,
         "three_bet_opps": three_bet_opps,
-    }
+    })
     return stats
 
 

@@ -403,7 +403,17 @@ def _process_upload_inner(
     chart_specs: list = []
     marcar(telegram_id, "Montando o relatório do torneio"
            if is_tournament else "Escrevendo a análise")
-    coaching = coach(structured, stats.__dict__, lang=lang, key_hands=key_hands,
+    # perfil só vai pro coach se for dizível. Amostra escolhida a dedo dava
+    # VPIP 94% pra quem joga 26%, e o coach repetia isso como fato na análise.
+    perfil = stats.__dict__ if stats.publicavel else {
+        "indisponivel": True,
+        "por_que": ("O aluno só mandou mãos avulsas (replay/print), que ele "
+                    "escolheu — não dá pra tirar VPIP/PFR/3-bet daí. NÃO cite "
+                    "nenhuma frequência do jogo dele nem rótulo de estilo. "
+                    "Se o estilo importar pra resposta, peça um export da "
+                    "sessão inteira."),
+        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+    coaching = coach(structured, perfil, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs)
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
