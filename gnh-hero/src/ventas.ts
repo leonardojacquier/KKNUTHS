@@ -121,16 +121,52 @@ const ALIAS: Record<string, string[]> = {
   regua: ['regla'], alisadora: ['allanadora'], acabadora: ['allanadora'],
   serra: ['cortadora'], caminhao: ['camion'], rolo: ['rodillo'],
   estaca: ['pilotes', 'hincadora'], andaime: ['plataforma'],
+  // variantes PT/ES que aparecieron en las búsquedas reales del sitio
+  escavadora: ['excavadora', 'miniexcavadora'], miniescavadeira: ['miniexcavadora'],
+  retroescavadora: ['retroexcavadora'],
+  tesoura: ['tijera'], plataformas: ['plataforma', 'tijera', 'mastil'],
+  elevatoria: ['plataforma', 'elevadora'], elevador: ['plataforma', 'elevadora'],
+  munck: ['grua', 'camion'], munk: ['grua', 'camion'], guincho: ['grua'],
+  reboco: ['revoque', 'proyectora'], revoque: ['proyectora', 'mortero'],
+  projetora: ['proyectora'], projecao: ['proyeccion', 'proyectora'],
+  furadeira: ['perforadora'], perfuratriz: ['perforadora'],
+  concreteira: ['central', 'mezcladora'], bomba: ['bombeadora', 'transportadora'],
+  esteira: ['orugas'], lagarta: ['orugas'],
+  transpalete: ['transpaleta'], garfo: ['montacargas'],
+  telescopica: ['telescopico', 'manipulador'], manipulador: ['telescopico'],
+}
+
+/** ¿'a' y 'b' difieren en UN caracter como máximo? (distancia de edición ≤ 1).
+ *  Corta apenas pasa de 1 — no hace falta la matriz completa. */
+function casiIgual(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0, j = 0, dif = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue }
+    if (++dif > 1) return false
+    if (a.length > b.length) i++
+    else if (a.length < b.length) j++
+    else { i++; j++ }
+  }
+  return dif + (a.length - i) + (b.length - j) <= 1
 }
 
 // expande un término con alias + radicales (plural/terminaciones) — estilo Google
 function variantsOf(t: string): string[] {
   const out = new Set<string>([t])
   for (const a of ALIAS[t] ?? []) out.add(a)
-  // tipeo parcial: 'escav' ya activa la llave 'escavadeira' (y sus alias)
-  if (t.length >= 4) {
+  // tipeo parcial: 'esc' ya activa la llave 'escavadeira' (y sus alias).
+  // Con umbral 4 el cliente que escribía 'esc'/'exc' no llegaba a la máquina.
+  if (t.length >= 3) {
     for (const k of Object.keys(ALIAS)) {
       if (k.startsWith(t)) { out.add(k); for (const a of ALIAS[k]) out.add(a) }
+    }
+  }
+  // un error de tipeo no puede costar la visita: 'esxa' → 'esca…' → excavadora.
+  // Solo si nada coincidió antes, para no ensuciar búsquedas que ya funcionan.
+  if (t.length >= 4 && out.size === 1) {
+    for (const k of Object.keys(ALIAS)) {
+      if (casiIgual(t, k.slice(0, t.length))) { out.add(k); for (const a of ALIAS[k]) out.add(a) }
     }
   }
   for (const w of [...out]) {
