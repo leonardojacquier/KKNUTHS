@@ -47,15 +47,21 @@ def _e_analise_de_mao(texto: str) -> bool:
     return any(s in t for s in _STREETS) and bool(re.search(r"\d[\d.,]*\s*bb", t))
 
 
-def judge_answer(texto: str) -> list[str]:
+def judge_answer(texto: str, conversa: bool = False) -> list[str]:
     """Problemas de FORMA numa resposta do coach (lista vazia = passou).
-    Função pura — é o contrato que o prompt promete ao aluno."""
+    Função pura — é o contrato que o prompt promete ao aluno.
+
+    `conversa=True` para turno de follow-up. O selo de veredito é o cabeçalho
+    da ANÁLISE entregue, não de toda resposta: quando o aluno pergunta "não
+    seria melhor o shove de 11bb?", a resposta certa explica a alternativa —
+    carimbar ✅/🟡/❌ na primeira linha ali é ruído, não contrato.
+    """
     t = (texto or "").strip()
     if not t:
         return ["resposta vazia"]
     probs: list[str] = []
 
-    if _e_analise_de_mao(t):
+    if _e_analise_de_mao(t) and not conversa:
         primeira = t.split("\n", 1)[0]
         if not any(primeira.startswith(s) for s in _SELOS):
             probs.append("análise de mão SEM selo de veredito na 1ª linha")
@@ -147,15 +153,36 @@ def main() -> int:
     for r in rows:
         for turno in ((r.get("state") or {}).get("history") or []):
             if turno.get("a"):
-                pares.append({**turno, "telegram_id": r["telegram_id"]})
+                pares.append({**turno, "telegram_id": r["telegram_id"],
+                              "conversa": True})
     pares = pares[:40]
+
+    # As ANÁLISES entregues — o artefato que o contrato do selo descreve. O
+    # juiz lia só o histórico de conversa, que é follow-up puro, e cobrava
+    # dali um selo que nunca deveria estar lá: dois falsos positivos por dia
+    # e a análise de verdade nunca auditada.
+    analises = (repo.client.table("hand_analysis")
+                .select("summary,created_at")
+                .order("created_at", desc=True).limit(25).execute().data) or []
+    for a in analises:
+        texto = str(a.get("summary") or "")
+        if not texto or texto.startswith("[Follow-up]"):
+            continue
+        pares.append({"q": "(análise entregue)", "a": texto,
+                      "conversa": False})
 
     achados: list[str] = []
     for p in pares:
-        for prob in judge_answer(str(p.get("a") or "")):
-            achados.append(f"{prob} — «{str(p.get('q') or '')[:50]}…»")
+        origem = "conversa" if p.get("conversa") else "análise"
+        for prob in judge_answer(str(p.get("a") or ""), conversa=p["conversa"]):
+            achados.append(f"[{origem}] {prob} — "
+                           f"«{str(p.get('q') or '')[:50]}…»")
 
-    nota = _nota_llm(pares)
+    # a nota de clareza também via só conversa. Mistura os dois artefatos,
+    # senão a nota mede o papo e não o produto.
+    amostra = ([p for p in pares if p["conversa"]][:3]
+               + [p for p in pares if not p["conversa"]][:3])
+    nota = _nota_llm(amostra or pares)
     repo.log_event(0, "output_judge", "output_judge", {
         "respostas": len(pares), "problemas": len(achados),
         "nota_clareza": (nota or {}).get("nota"),
