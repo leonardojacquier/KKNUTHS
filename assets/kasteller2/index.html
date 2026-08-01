@@ -489,11 +489,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script>
 gsap.registerPlugin(ScrollTrigger);
-/* el .webm (662 KB) venía en el paquete pero nunca se usaba: se servía
-   siempre el .mp4 (847 KB). Elegimos por soporte del navegador. */
-const KASTELLER_LOOP = document.createElement("video")
-  .canPlayType('video/webm; codecs="vp9"')
-  ? "video/kasteller-hero.webm" : "video/kasteller-hero.mp4";
+/* SIEMPRE mp4 (H.264): decodificación por hardware en todos los aparatos.
+   No confiar en canPlayType para webm — Safari de iPhone (17.4+) responde
+   "maybe" para VP9 pero en muchos iPhone la reproducción real falla y la
+   celda queda NEGRA (visto en producción el 01/08). */
+const KASTELLER_LOOP = "video/kasteller-hero.mp4";
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (!reduced) document.documentElement.classList.add('js');
 
@@ -545,7 +545,8 @@ for (let r = 1; r <= ROWS; r++) for (let c = 1; c <= COLS; c++) {
        nunca é trocado (trocar src de vídeo visível = frame preto = piscada) */
     const v = document.createElement('video');
     v.muted = true; v.loop = true; v.autoplay = !reduced; v.playsInline = true;
-    v.setAttribute('playsinline','');
+    v.setAttribute('playsinline',''); v.setAttribute('muted','');
+    v.setAttribute('webkit-playsinline',''); v.preload = 'auto';
     v.src = KASTELLER_LOOP;
     /* poster: com autoplay bloqueado (modo economia de bateria no iPhone é o
        caso clássico) a célula mostrava um quadrado PRETO — agora mostra um
