@@ -245,9 +245,22 @@
   .ruler::before{content:'';position:absolute;inset:0;
     background:repeating-linear-gradient(to right,rgba(255,255,255,.6) 0 1px,transparent 1px 96px)}
   .track-wrap{position:relative}
-  .proyectos.sticky-mode .proy-sticky{position:sticky;top:0;height:100vh;overflow:hidden}
+  /* overflow:hidden na section criaria um scroll container e mataria o sticky —
+     o recorte do track fica no .proy-sticky, que já é overflow:hidden */
+  .proyectos.sticky-mode{overflow:visible}
+  .proyectos.sticky-mode .proy-sticky{position:sticky;top:0;height:100vh;overflow:hidden;
+    display:flex;flex-direction:column}
   .proyectos.sticky-mode .pad{padding:12vh 8vw 5vh}
   .proyectos.sticky-mode .track{padding-bottom:0}
+  /* no pin, as fotos crescem até preencher a altura da tela — a largura fixa
+     deixava uma faixa preta embaixo em monitor alto */
+  .proyectos.sticky-mode .track-wrap{flex:1;min-height:0;margin-bottom:7vh}
+  .proyectos.sticky-mode .track{height:100%}
+  .proyectos.sticky-mode .proj{width:var(--fotoW,clamp(240px,26vw,420px));
+    display:flex;flex-direction:column}
+  .proyectos.sticky-mode .proj .ph{flex:1;min-height:0;position:relative}
+  /* img absoluta: a largura intrínseca da foto não pode ditar a largura da célula */
+  .proyectos.sticky-mode .proj .ph img{position:absolute;inset:0}
   .track{display:flex;gap:2.4vw;padding:0 8vw 5vh;will-change:transform}
   .proj{flex:0 0 auto;width:clamp(240px,26vw,420px);opacity:.95}
   .proj .ph{overflow:hidden;aspect-ratio:3/4.2}
@@ -791,10 +804,17 @@ const track = document.getElementById('track');
 if (!reduced && innerWidth > 820) {
   const proySec = document.querySelector('.proyectos');
   proySec.classList.add('sticky-mode');
+  /* a altura da foto vem do flex (preenche a tela); a largura é derivada dela
+     aqui, porque CSS não resolve o ciclo altura→largura dentro do pin */
+  const fitFotos = () => {
+    const h = track.querySelector('.ph').getBoundingClientRect().height;
+    if (h > 100) track.style.setProperty('--fotoW', (h * 3 / 4.2).toFixed(1) + 'px');
+  };
+  fitFotos();
   const dist = () => Math.max(0, track.scrollWidth - innerWidth);
   const setProyH = () => { proySec.style.height = (innerHeight + dist()) + 'px'; };
   setProyH();
-  addEventListener('resize', () => { setProyH(); ScrollTrigger.refresh(); });
+  addEventListener('resize', () => { fitFotos(); setProyH(); ScrollTrigger.refresh(); });
   gsap.to(track, {
     x: () => -dist(), ease: "none",
     scrollTrigger: {
