@@ -100,6 +100,12 @@
     display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr);
     gap:1.5vmax;will-change:transform;
   }
+  /* celular em pé: 3 colunas x 5 filas — o mosaico preenche a tela na vertical
+     (o 5x3 de desktop deixava ~140px de barra preta acima e abaixo) */
+  @media (orientation:portrait) and (max-width:860px){
+    .grid{width:112vmax;height:165vmax;
+      grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr)}
+  }
   .cell{overflow:hidden;position:relative;background:#131110;
     transform:translateZ(0);backface-visibility:hidden}
   html.js img.fade{opacity:0;transition:opacity .55s ease}
@@ -526,9 +532,12 @@ const photos = [
 ];
 const grid = document.getElementById('grid');
 let p = 0;
-for (let r = 1; r <= 3; r++) for (let c = 1; c <= 5; c++) {
+const PORTRAIT = matchMedia('(orientation: portrait)').matches && innerWidth <= 860;
+const ROWS = PORTRAIT ? 5 : 3, COLS = PORTRAIT ? 3 : 5;
+const CR = PORTRAIT ? 3 : 2, CC = PORTRAIT ? 2 : 3;   // célula do vídeo
+for (let r = 1; r <= ROWS; r++) for (let c = 1; c <= COLS; c++) {
   const cell = document.createElement('div');
-  const isCenter = (r === 2 && c === 3);
+  const isCenter = (r === CR && c === CC);
   cell.className = 'cell' + (isCenter ? ' cell--center' : '');
   cell.style.gridColumn = c; cell.style.gridRow = r;
   if (isCenter) {
@@ -538,7 +547,16 @@ for (let r = 1; r <= 3; r++) for (let c = 1; c <= 5; c++) {
     v.muted = true; v.loop = true; v.autoplay = !reduced; v.playsInline = true;
     v.setAttribute('playsinline','');
     v.src = KASTELLER_LOOP;
-    if (!reduced) v.play().catch(()=>{});
+    /* poster: com autoplay bloqueado (modo economia de bateria no iPhone é o
+       caso clássico) a célula mostrava um quadrado PRETO — agora mostra um
+       frame do vídeo. E o primeiro toque/rolagem tenta tocar de novo. */
+    v.poster = "video/poster.jpg";
+    if (!reduced) {
+      v.play().catch(()=>{});
+      const kick = () => { if (v.paused) v.play().catch(()=>{}); };
+      addEventListener('touchstart', kick, { passive: true, once: true });
+      addEventListener('scroll', kick, { passive: true, once: true });
+    }
     cell.appendChild(v);
     /* upgrade online: testa os clipes num vídeo INVISÍVEL; quando um estiver
        100% pronto, entra por crossfade por cima — troca sem nenhum flash */
@@ -599,6 +617,7 @@ if (!reduced) {
        escala final: célula central cobre a tela — ambas recalculam no resize */
     .fromTo("#grid",
       { scale: () => { const m = Math.max(innerWidth, innerHeight);
+          if (PORTRAIT) return innerHeight / (1.65 * m);   /* llena la altura */
           return Math.min(innerWidth / (1.65 * m), innerHeight / (1.12 * m)) * .97; } },
       { scale: () => { const m = Math.max(innerWidth, innerHeight);
           return (m / (0.318 * m)) * 1.06; },
