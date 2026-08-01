@@ -100,11 +100,12 @@
   .unicci-link:hover{background:#E10600;color:#000}
   .unicci-link:hover i{background:#000}
   .unicci-link small{font-size:8px;letter-spacing:.2em;opacity:.65;font-weight:300}
-  @media(max-width:860px){.top-left .unicci-link{display:none}}
-  .overlay .unicci-link{align-self:flex-start;margin-top:18px;padding:13px 26px;
-    font-size:12px;opacity:0;transform:translateY(24px);transition:opacity .5s,transform .5s}
-  .overlay.open .unicci-link{opacity:1;transform:none}
-
+  /* celular: o chip fica na barra, entre a logo e o botão Menú */
+  @media(max-width:860px){
+    .top-left{gap:12px}
+    .top-left .unicci-link{padding:8px 13px;font-size:10px;letter-spacing:.2em;gap:7px}
+  }
+  
   /* ================= HERO: PIN + SCROLL-ZOOM ================= */
   /* pin 100% nativo: seção alta + sticky. O compositor segura o palco sozinho —
      sem troca relative/fixed (flash) e sem reposicionamento via JS (jitter). */
@@ -363,7 +364,7 @@
   <div class="top-left">
     <a class="logo" href="#top" aria-label="Kasteller"><img src="img/kasteller-blanco.png" alt="Kasteller Revestimientos" style="height:28px;width:auto;display:block"></a>
     <a class="unicci-link" href="https://wa.me/595985869600?text=Hola%2C%20quiero%20conocer%20la%20l%C3%ADnea%20UNICCI%20(punta%20de%20stock)"
-       target="_blank" rel="noopener"><i></i>UNICCI<small>PUNTA DE STOCK</small></a>
+       target="_blank" rel="noopener"><i></i>UNICCI</a>
   </div>
   <nav class="desktop">
     <a href="#categorias">Colecciones</a>
@@ -377,8 +378,6 @@
 </header>
 
 <div class="overlay" id="overlay">
-  <a class="unicci-link" href="https://wa.me/595985869600?text=Hola%2C%20quiero%20conocer%20la%20l%C3%ADnea%20UNICCI%20(punta%20de%20stock)"
-     target="_blank" rel="noopener"><i></i>UNICCI<small>PUNTA DE STOCK</small></a>
   <a href="#categorias">Colecciones</a>
   <a href="#materiales">Materiales</a>
   <a href="#proyectos">Proyectos</a>
@@ -584,6 +583,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script>
 gsap.registerPlugin(ScrollTrigger);
+/* iPhone/Safari restaura a rolagem anterior ao recarregar: o visitante voltava
+   no meio da página em vez de abrir no mosaico. Sem hash, começa do topo. */
+try { history.scrollRestoration = 'manual'; } catch (e) {}
+if (!location.hash) scrollTo(0, 0);
+addEventListener('pageshow', (e) => { if (e.persisted && !location.hash) scrollTo(0, 0); });
 /* SIEMPRE mp4 (H.264): decodificación por hardware en todos los aparatos.
    No confiar en canPlayType para webm — Safari de iPhone (17.4+) responde
    "maybe" para VP9 pero en muchos iPhone la reproducción real falla y la
