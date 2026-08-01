@@ -88,6 +88,23 @@
   .overlay .k-water{position:absolute;right:-6vw;bottom:-8vh;opacity:.07;height:60vh}
   @media(max-width:860px){nav.desktop,.cta-header{display:none}.burger{display:block}}
 
+  
+  /* UNICCI — línea punta de stock: negro con marco fino rojo */
+  .top-left{display:flex;align-items:center;gap:clamp(16px,2.2vw,30px)}
+  .unicci-link,.overlay a.unicci-link{display:inline-flex;align-items:center;gap:9px;
+    background:#000;text-decoration:none;font-family:'Inter',system-ui,sans-serif;
+    border:1px solid #E10600;color:#fff;padding:10px 20px;font-size:11px;
+    letter-spacing:.26em;text-transform:uppercase;font-weight:500;white-space:nowrap;
+    transition:background .3s,color .3s,box-shadow .3s}
+  .unicci-link i{width:6px;height:6px;background:#E10600;flex:none}
+  .unicci-link:hover{background:#E10600;color:#000}
+  .unicci-link:hover i{background:#000}
+  .unicci-link small{font-size:8px;letter-spacing:.2em;opacity:.65;font-weight:300}
+  @media(max-width:860px){.top-left .unicci-link{display:none}}
+  .overlay .unicci-link{align-self:flex-start;margin-top:18px;padding:13px 26px;
+    font-size:12px;opacity:0;transform:translateY(24px);transition:opacity .5s,transform .5s}
+  .overlay.open .unicci-link{opacity:1;transform:none}
+
   /* ================= HERO: PIN + SCROLL-ZOOM ================= */
   /* pin 100% nativo: seção alta + sticky. O compositor segura o palco sozinho —
      sem troca relative/fixed (flash) e sem reposicionamento via JS (jitter). */
@@ -343,7 +360,11 @@
 <body>
 
 <header id="siteHeader" class="band">
-  <a class="logo" href="#top" aria-label="Kasteller"><img src="img/kasteller-blanco.png" alt="Kasteller Revestimientos" style="height:28px;width:auto;display:block"></a>
+  <div class="top-left">
+    <a class="logo" href="#top" aria-label="Kasteller"><img src="img/kasteller-blanco.png" alt="Kasteller Revestimientos" style="height:28px;width:auto;display:block"></a>
+    <a class="unicci-link" href="https://wa.me/595985869600?text=Hola%2C%20quiero%20conocer%20la%20l%C3%ADnea%20UNICCI%20(punta%20de%20stock)"
+       target="_blank" rel="noopener"><i></i>UNICCI<small>PUNTA DE STOCK</small></a>
+  </div>
   <nav class="desktop">
     <a href="#categorias">Colecciones</a>
     <a href="#materiales">Materiales</a>
@@ -356,6 +377,8 @@
 </header>
 
 <div class="overlay" id="overlay">
+  <a class="unicci-link" href="https://wa.me/595985869600?text=Hola%2C%20quiero%20conocer%20la%20l%C3%ADnea%20UNICCI%20(punta%20de%20stock)"
+     target="_blank" rel="noopener"><i></i>UNICCI<small>PUNTA DE STOCK</small></a>
   <a href="#categorias">Colecciones</a>
   <a href="#materiales">Materiales</a>
   <a href="#proyectos">Proyectos</a>
@@ -570,10 +593,20 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (!reduced) document.documentElement.classList.add('js');
 
 /* ---------- imágenes (placeholders con fallback) ---------- */
-const U = id => `https://drive.google.com/thumbnail?id=${id}&sz=w1400`; /* banco de imagens oficial Roca */
+/* fotos: primeiro a cópia LOCAL (img/fotos/<id>.jpg, versionada no repo);
+   se ainda não existir, cai para o Drive; por último, placeholder.
+   Drive não é CDN — limita requisições e pode ficar lento. */
+const DRIVE = id => `https://drive.google.com/thumbnail?id=${id}&sz=w1400`;
+const U = id => `img/fotos/${id}.jpg`;
+const cargaFoto = (img, id, ph) => {
+  img.src = U(id);
+  img.onerror = () => {
+    img.onerror = () => { img.onerror = null; img.src = ph; };
+    img.src = DRIVE(id);
+  };
+};
 document.querySelectorAll('img[data-src]').forEach((img,i) => {
-  img.src = U(img.dataset.src);
-  img.onerror = () => { img.onerror = null; img.src = `https://picsum.photos/seed/ks${i}/1100/900`; };
+  cargaFoto(img, img.dataset.src, `https://picsum.photos/seed/ks${i}/1100/900`);
 });
 
 /* imagem só aparece quando pronta (fade), nunca "pipoca" */
@@ -657,8 +690,7 @@ for (let r = 1; r <= ROWS; r++) for (let c = 1; c <= COLS; c++) {
     const dim = document.createElement('div'); dim.className = 'dim'; cell.appendChild(dim);
   } else {
     const img = document.createElement('img');
-    img.src = U(photos[p++ % photos.length]);
-    img.onerror = () => { img.onerror = null; img.src = `https://picsum.photos/seed/kh${r}${c}/900/700`; };
+    cargaFoto(img, photos[p++ % photos.length], `https://picsum.photos/seed/kh${r}${c}/900/700`);
     img.alt = "";
     fadeImg(img);
     cell.appendChild(img);
@@ -813,6 +845,8 @@ const sbInsert = (table, row) => {
   } catch (e) {}
 };
 const KT = (type, detail) => sbInsert("kasteller_events", { type, detail: detail || "", path: location.pathname, session_id: SID });
+document.querySelectorAll('.unicci-link').forEach(a =>
+  a.addEventListener('click', () => KT('unicci', 'header')));
 const once = {};
 const KT1 = (type, detail) => { const k = type + '|' + (detail || ''); if (!once[k]) { once[k] = 1; KT(type, detail); } };
 
