@@ -1544,6 +1544,29 @@ def charts_from_tool_call(name: str, args: dict, result) -> tuple | None:
     return None
 
 
+_SELOS_DE_VEREDITO = ("✅", "🟡", "❌")
+
+
+def _montar_resposta(parts: list[str]) -> str:
+    """Junta os blocos de texto do loop de tools SEM a narração de bastidor.
+
+    O coach escreve uma frase antes de cada chamada de tool ("Deixa eu
+    conferir o EV desse shove...") e a análise de verdade — a que começa
+    pelo selo — só vem no turno final. Juntar tudo enterrava o selo na
+    3ª linha e, com duas rodadas de tools, duplicava o preâmbulo. O juiz
+    da saída mediu: era o defeito de forma nº 1 das análises entregues.
+
+    Regra: se algum bloco começa pelo selo, a resposta começa NELE. Sem
+    selo em bloco nenhum (rodadas esgotadas, resposta de conversa), nada é
+    descartado — o texto pré-tools continua sendo a rede de segurança.
+    """
+    limpos = [x.strip() for x in parts if x.strip()]
+    for i, p in enumerate(limpos):
+        if p.startswith(_SELOS_DE_VEREDITO):
+            return "\n\n".join(limpos[i:])
+    return "\n\n".join(limpos)
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1613,7 +1636,7 @@ def coach(
             )
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                final = _montar_resposta(parts)
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -1637,7 +1660,7 @@ def coach(
             messages.append({"role": "user", "content": tool_results})
 
         # rodadas esgotadas: entrega o que já foi escrito em vez de jogar fora
-        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        final = _montar_resposta(parts)
         return final or fallback
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
@@ -1903,7 +1926,7 @@ def followup(
             )
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                final = _montar_resposta(parts)
                 return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
@@ -1924,7 +1947,7 @@ def followup(
                         {"type": "tool_result", "tool_use_id": block.id, "content": out}
                     )
             messages.append({"role": "user", "content": tool_results})
-        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        final = _montar_resposta(parts)
         return final or _force_text(
             client, settings.analysis_model, system_blocks, messages)
     except Exception as exc:
@@ -1983,7 +2006,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
             )
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
-                final = "\n\n".join(x.strip() for x in parts if x.strip())
+                final = _montar_resposta(parts)
                 return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
@@ -2004,7 +2027,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
                         {"type": "tool_result", "tool_use_id": block.id, "content": out}
                     )
             messages.append({"role": "user", "content": tool_results})
-        final = "\n\n".join(x.strip() for x in parts if x.strip())
+        final = _montar_resposta(parts)
         return final or _force_text(
             client, settings.analysis_model, system_blocks, messages)
     except Exception as exc:
