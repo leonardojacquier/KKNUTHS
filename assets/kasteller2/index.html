@@ -90,7 +90,7 @@
 
   
   /* UNICCI — línea punta de stock: negro con marco fino rojo */
-  .top-left{display:flex;align-items:center;gap:clamp(16px,2.2vw,30px)}
+  .top-left{display:flex;align-items:center;gap:clamp(18px,4vw,58px)}
   .unicci-link,.overlay a.unicci-link{display:inline-flex;align-items:center;gap:9px;
     background:#000;text-decoration:none;font-family:'Inter',system-ui,sans-serif;
     border:1px solid #E10600;color:#fff;padding:10px 20px;font-size:11px;
@@ -100,6 +100,10 @@
   .unicci-link:hover{background:#E10600;color:#000}
   .unicci-link:hover i{background:#000}
   .unicci-link small{font-size:8px;letter-spacing:.2em;opacity:.65;font-weight:300}
+  /* faixa branca (repouso): chip vazado, letras pretas, marco rojo se mantiene */
+  header.band .unicci-link{background:transparent;color:#000}
+  header.band .unicci-link:hover{background:#E10600;color:#fff}
+  header.band .unicci-link:hover i{background:#fff}
   /* celular: o chip fica na barra, entre a logo e o botão Menú */
   @media(max-width:860px){
     .top-left{gap:12px}
