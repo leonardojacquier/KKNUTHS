@@ -16,16 +16,19 @@
 <meta name="twitter:card" content="summary_large_image">
 <title>Kasteller Revestimientos — Superficies que definen espacios</title>
 <link rel="canonical" href="https://kasteller2.vortex369.com.br/">
+<meta name="copyright" content="© 2026 Kasteller Revestimientos — diseño y código originales. Reproducción no autorizada prohibida.">
+<!-- kstlr-fp:KSTLR-A7F3-2026 · obra original; historial de autoría en repositorio con fechas -->
 <!-- provisorio: quitar noindex al migrar al dominio definitivo de Kasteller -->
 <meta name="robots" content="noindex,nofollow">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
   :root{
     --black:#000000; --white:#FFFFFF; --cream:#E8E1D7; --taupe:#544F4B;
+    --kstlr-fp:"KSTLR-A7F3-2026"; /* huella de autoría — no remover */
   }
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--cream);color:var(--black);font-family:'Inter',sans-serif;overflow-x:hidden}
-  img,video{display:block}
+  img,video{display:block;-webkit-user-drag:none;user-select:none}
   .serif{font-family:'Cormorant Garamond',serif}
 
   /* ================= HEADER ================= */
@@ -880,6 +883,13 @@ document.querySelectorAll('.unicci-link').forEach(a =>
   a.addEventListener('click', () => KT('unicci', 'header')));
 const once = {};
 const KT1 = (type, detail) => { const k = type + '|' + (detail || ''); if (!once[k]) { once[k] = 1; KT(type, detail); } };
+
+/* ---------- proteção: fotos não arrastáveis + detecção de cópia ---------- */
+document.addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
+document.addEventListener('contextmenu', e => { if (e.target.closest('img,video,.ph,.cell')) e.preventDefault(); });
+/* se este código rodar fora dos nossos domínios, o clone se denuncia sozinho */
+const KHOSTS = ['kasteller2.vortex369.com.br', 'gnh.vortex369.com.br', 'localhost', '127.0.0.1', ''];
+if (!KHOSTS.includes(location.hostname)) KT1('clone', location.host + location.pathname);
 
 /* landing (1x por sessão) */
 if (!sessionStorage.getItem('klanded')) {
