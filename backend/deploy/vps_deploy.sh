@@ -113,9 +113,13 @@ CRON_JORNADAS="0 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python sc
 # Telegram, então passam alegremente com o bot mudo. Só fala quando há
 # problema: webhook registrado ou getMe falhando = certeza; silêncio humano
 # longo em horário ativo = suspeita.
+CRON_LINGUA="40 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/linguista.py >> /var/log/poker-linguista.log 2>&1"
+# LINGUISTA (7h40, antes do juiz das 8h): IA propoe termos calcados que
+# leu nas analises do dia; o dono aprova via /termo; corretor e juiz
+# executam. A IA nunca edita o prompt nem aprova a si mesma.
 CRON_RECEB="7 * * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/sonda_recebimento.py >> /var/log/poker-recebimento.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas\|poker-recebimento\|sonda_recebimento" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ; echo "$CRON_RECEB" ) | crontab -
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas\|poker-recebimento\|sonda_recebimento\|poker-linguista\|linguista.py" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ; echo "$CRON_RECEB" ; echo "$CRON_LINGUA" ) | crontab -
 
 # 7b. E2E pós-deploy: a conta-teste usa o bot de verdade (dorme sem credenciais
 #     no .env). Em background, com folga pro bot terminar de subir.

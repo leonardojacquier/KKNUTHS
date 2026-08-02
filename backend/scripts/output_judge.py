@@ -55,7 +55,8 @@ def _e_analise_de_mao(texto: str) -> bool:
     return any(s in t for s in _STREETS) and bool(re.search(r"\d[\d.,]*\s*bb", t))
 
 
-def judge_answer(texto: str, conversa: bool = False) -> list[str]:
+def judge_answer(texto: str, conversa: bool = False,
+                 calques_extra: tuple = ()) -> list[str]:
     """Problemas de FORMA numa resposta do coach (lista vazia = passou).
     Função pura — é o contrato que o prompt promete ao aluno.
 
@@ -86,7 +87,7 @@ def judge_answer(texto: str, conversa: bool = False) -> list[str]:
     for frase in _ADJETIVOS:
         if frase in baixo:
             probs.append(f"auto-elogio proibido: '{frase}'")
-    for c in _CALQUES:
+    for c in _CALQUES + tuple(calques_extra):
         if c in baixo:
             probs.append(f"calque proibido: '{c.strip()}'")
     if _FULL_CRU.search(t):
@@ -193,10 +194,19 @@ def main() -> int:
         pares.append({"q": "(análise entregue)", "a": texto,
                       "conversa": False})
 
+    # glossário vivo: termos que o dono aprovou como 'vigiar' via /termo
+    try:
+        from app.agent.termos import vigiados
+
+        extra = tuple(vigiados())
+    except Exception:
+        extra = ()
+
     achados: list[str] = []
     for p in pares:
         origem = "conversa" if p.get("conversa") else "análise"
-        for prob in judge_answer(str(p.get("a") or ""), conversa=p["conversa"]):
+        for prob in judge_answer(str(p.get("a") or ""), conversa=p["conversa"],
+                                 calques_extra=extra):
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
 

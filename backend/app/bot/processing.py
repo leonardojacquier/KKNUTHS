@@ -1342,6 +1342,56 @@ _NOME_CLUBE = {"suprema": "Suprema", "clubgg": "ClubGG", "wepoker": "WePoker",
                "ggpoker": "GGPoker"}
 
 
+def termo_reply(args: list[str]) -> str:
+    """/termo — o portão de aprovação do glossário vivo (só o dono).
+
+    O linguista propõe de madrugada; aqui o dono decide com um toque:
+      /termo               lista pendentes e aprovados
+      /termo ok N          aprova como 'vigiar' (o juiz acusa quando sair)
+      /termo ok N corrigir aprova como troca automática na entrega
+      /termo nao N         descarta a proposta
+    """
+    repo = get_repository()
+    if not repo.enabled:
+        return "Sem banco agora — tenta de novo em instantes."
+    t = repo.client.table("glossario")
+
+    if args and args[0].lower() in ("ok", "nao", "não"):
+        if len(args) < 2 or not args[1].isdigit():
+            return "Uso: /termo ok N [corrigir]  ·  /termo nao N"
+        alvo = int(args[1])
+        linha = (t.select("*").eq("id", alvo).execute().data or [None])[0]
+        if not linha:
+            return f"Não achei proposta #{alvo}."
+        if args[0].lower() != "ok":
+            t.delete().eq("id", alvo).execute()
+            return f"🗑 Descartado: «{linha['errado']}»."
+        tipo = "corrigir" if (len(args) > 2
+                              and args[2].lower() == "corrigir") else "vigiar"
+        t.update({"aprovado": True, "tipo": tipo}).eq("id", alvo).execute()
+        acao = ("trocado automaticamente na entrega" if tipo == "corrigir"
+                else "o juiz acusa quando aparecer")
+        return (f"✅ «{linha['errado']}» → «{linha['certo']}» aprovado "
+                f"({acao}). Vale em até 10 min.")
+
+    linhas = (t.select("id,errado,certo,tipo,aprovado")
+              .order("id", desc=True).limit(30).execute().data) or []
+    pend = [x for x in linhas if not x["aprovado"]]
+    aprov = [x for x in linhas if x["aprovado"]]
+    out = []
+    if pend:
+        out.append("⏳ *Esperando seu veredito:*")
+        out += [f"#{x['id']}  «{x['errado']}» → «{x['certo']}»" for x in pend]
+        out.append("\n/termo ok N · /termo ok N corrigir · /termo nao N")
+    else:
+        out.append("Nenhuma proposta pendente.")
+    if aprov:
+        out.append(f"\n📗 Aprovados ({len(aprov)}):")
+        out += [f"• «{x['errado']}» → «{x['certo']}» ({x['tipo']})"
+                for x in aprov[:10]]
+    return "\n".join(out)
+
+
 def replay_fallback_text(site: str | None = None,
                          chave_ilegivel: bool = False) -> str:
     """Mensagem para replay que não dá para puxar automático.

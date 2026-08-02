@@ -38,13 +38,58 @@ _TROCAS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+# ---- glossário vivo (tabela `glossario`) -----------------------------------
+# O linguista propõe, o dono aprova via /termo, e daqui pra frente o termo é
+# executado deterministicamente: tipo 'corrigir' entra nas trocas da entrega,
+# tipo 'vigiar' entra na lista do juiz. Cache de 10 min: o glossário muda
+# poucas vezes por dia e a entrega não pode esperar um select por resposta.
+_CACHE: dict = {"ate": 0.0, "corrigir": [], "vigiar": []}
+_TTL = 600.0
+
+
+def _regex_literal(errado: str) -> re.Pattern:
+    """Palavra/expressão literal com borda — 'carta alta' não casa 'encarta'."""
+    return re.compile(r"(?<!\w)" + re.escape(errado) + r"(?!\w)", re.I)
+
+
+def _carregar_glossario() -> None:
+    import time
+
+    if time.time() < _CACHE["ate"]:
+        return
+    _CACHE["ate"] = time.time() + _TTL
+    try:
+        from app.db import get_repository
+
+        repo = get_repository()
+        if not repo.enabled:
+            return
+        linhas = (repo.client.table("glossario")
+                  .select("errado,certo,tipo").eq("aprovado", True)
+                  .execute().data) or []
+    except Exception:
+        return  # sem banco, o glossário fixo continua valendo
+    _CACHE["corrigir"] = [(_regex_literal(l["errado"]), l["certo"])
+                          for l in linhas if l["tipo"] == "corrigir"]
+    _CACHE["vigiar"] = [l["errado"].lower()
+                        for l in linhas if l["tipo"] == "vigiar"]
+
+
+def vigiados() -> list[str]:
+    """Termos aprovados como 'vigiar' — o juiz soma à lista fixa dele."""
+    _carregar_glossario()
+    return list(_CACHE["vigiar"])
+
+
 def corrigir(texto: str) -> str:
-    """Aplica as trocas mecânicas. Devolve o texto (intacto se nada casou)."""
+    """Aplica as trocas mecânicas (fixas + glossário aprovado no banco).
+    Devolve o texto (intacto se nada casou)."""
     if not texto:
         return texto
+    _carregar_glossario()
     saida = texto
     trocas: list[str] = []
-    for padrao, sub in _TROCAS:
+    for padrao, sub in _TROCAS + _CACHE["corrigir"]:
         novo = padrao.sub(sub, saida)
         if novo != saida:
             trocas.append(padrao.pattern[:40])

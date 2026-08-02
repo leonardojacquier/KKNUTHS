@@ -1156,6 +1156,24 @@ async def cmd_quem(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, txt)
 
 
+async def cmd_termo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/termo — aprova/descarta termos do glossário vivo. Só o dono."""
+    from app.bot.processing import termo_reply
+    from app.quota import ADMIN_TELEGRAM_ID
+
+    tg_id = update.effective_user.id
+    await _log(update, "termo_cmd", admin_ok=(tg_id == ADMIN_TELEGRAM_ID))
+    if tg_id != ADMIN_TELEGRAM_ID:
+        return
+    try:
+        txt = await asyncio.to_thread(termo_reply, list(ctx.args or []))
+    except Exception as exc:
+        await update.message.reply_text(
+            f"/termo quebrou: {type(exc).__name__}: {exc}"[:600])
+        raise
+    await _safe_reply(update.message, txt)
+
+
 async def cmd_planode(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """/planode — lista os alunos e muda o plano de um deles. Só o dono.
 
@@ -1821,6 +1839,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))
     app.add_handler(CommandHandler("prova", cmd_prova))
     app.add_handler(CommandHandler("quem", cmd_quem))
+    app.add_handler(CommandHandler("termo", cmd_termo))
     app.add_handler(CommandHandler("planode", cmd_planode))
     app.add_handler(CommandHandler("spot", cmd_spot))
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
