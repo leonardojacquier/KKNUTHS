@@ -1890,7 +1890,7 @@ def test_juiz_da_saida():
         "✅ Você jogou bem — 3-bet e c-bet no board certo\n\n"
         "✅ *Pré* — 3-bet A♠K♠ de BB: contra o open do CO, +EV.\n"
         "✅ *Flop* A♦7♣2♠ — c-bet 4bb: top par (você tinha 78%).\n"
-        "🟡 *Turn* 5♥ — check atrás perde 1 rodada de valor.\n\n"
+        "🟡 *Turn* 5♥ — check behind perde 1 street de valor.\n\n"
         "A que mais pesou: o check do turn custou ~3bb."
     )
     assert judge_answer(boa) == []

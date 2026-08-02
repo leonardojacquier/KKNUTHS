@@ -77,3 +77,13 @@ def test_cheio_de_legitimo_nao_dispara():
     """'board cheio de draws' é português normal — só rank antes acusa."""
     assert not any("cheio de" in p for p in judge_answer(
         "O board estava cheio de draws e o pote cheio de fichas."))
+
+
+def test_check_atras_e_check_behind():
+    """Dono (02/08): 'check atrás normalmente se fala check behind'."""
+    assert "'check atrás'" in TERMOS_REGRA
+    assert _depois_de_proibidos("'check atrás'")
+    probs = judge_answer("🟡 Deu check atrás no turn com o full.")
+    assert any("check atrás" in p for p in probs)
+    assert not any("calque" in p for p in judge_answer(
+        "✅ Deu check behind no turn — linha padrão."))
