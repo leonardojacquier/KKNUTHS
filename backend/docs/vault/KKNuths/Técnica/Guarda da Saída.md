@@ -57,3 +57,22 @@ no ar.
 
 Relacionado: [[Testes e Qualidade]] · [[Coerência Gráfico-Análise]] ·
 [[Portal Admin e Métricas]]
+
+## As quatro camadas da linguagem (02/08)
+Mesma filosofia aplicada à terminologia, depois que "7 cheio de 2" e
+"aumentou" chegaram ao aluno:
+
+1. **Prompt** (`TERMOS_REGRA`) — previne: calques proibidos com a forma
+   certa ao lado. Estático, protegido pelo portão de testes.
+2. **Corretor** (`app/agent/termos.py`) — conserta na entrega: só a troca
+   que um regex acerta em 100% dos casos ('check atrás'→'check behind').
+   Determinístico, roda nos 6 loops de tools e na simplificação.
+3. **Juiz** (8h) — vigia regressão e os termos ambíguos ('passou',
+   'sequência'), que trocar errado seria pior que avisar.
+4. **Linguista** (7h40, IA barata) — *aprende*: lê as análises do dia,
+   propõe calques novos na tabela `glossario`; o dono aprova com
+   `/termo ok N [corrigir]`; corretor e juiz leem o aprovado em 10 min.
+
+Fronteira dura do desenho: **a IA propõe, nunca aprova nem edita o
+prompt**. Aprender = acumular dados; proposta ruim descartada custa zero,
+prompt editado errado contamina toda análise em silêncio.
