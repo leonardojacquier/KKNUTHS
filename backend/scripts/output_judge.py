@@ -40,6 +40,10 @@ _CALQUES = ("par grande", "par alto", "mão grande", "sequência de cor",
 # carta escrita sem ícone: rank maiúsculo + naipe minúsculo ('Kh', '10d').
 # 'As' fica de fora de propósito — é artigo em português e daria falso positivo.
 _CARTA_CRUA = re.compile(r"\b(?:10|[KQJT98765432])[shdc]\b|\bA[hdc]\b")
+# 'sevens full of twos' traduzido ao pé da letra: '7 cheio de 2'. O certo em
+# BR é 'full de 7 com 2'. Regex exige rank antes do 'cheio' para não acusar
+# uso legítimo ('board cheio de draws').
+_FULL_CRU = re.compile(r"\b(?:10|[AKQJT2-9])\s+chei[oa]s?\s+de\b", re.I)
 _STREETS = ("flop", "turn", "river", "pré-flop", "pre-flop")
 
 
@@ -85,6 +89,9 @@ def judge_answer(texto: str, conversa: bool = False) -> list[str]:
     for c in _CALQUES:
         if c in baixo:
             probs.append(f"calque proibido: '{c.strip()}'")
+    if _FULL_CRU.search(t):
+        probs.append("full house nomeado como 'X cheio de Y' "
+                     "(o certo é 'full de X com Y')")
     cruas = set(_CARTA_CRUA.findall(t))
     if cruas:
         probs.append(f"carta sem ícone de naipe: {', '.join(sorted(cruas)[:4])}")

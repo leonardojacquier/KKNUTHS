@@ -59,3 +59,21 @@ def test_simplificacao_e_para_quem_joga_nao_para_leigo():
     assert "não é profissional" in fonte
     assert "NÃO infantilize" in fonte
     assert "TERMOS_REGRA" in fonte, "o glossário vale na simplificação também"
+
+
+def test_full_house_nao_e_cheio_de_nada():
+    """Caso real (02/08): '7 cheio de 2' numa análise — tradução literal de
+    'sevens full of twos'. Em BR é 'full de 7 com 2'."""
+    assert "'X cheio de Y'" in TERMOS_REGRA
+    assert _depois_de_proibidos("'X cheio de Y'")
+    probs = judge_answer("Ele tinha 7 cheio de 2, o full máximo ali.")
+    assert any("cheio de" in p for p in probs)
+    # 'A cheia de' e plural também são o mesmo calque
+    assert any("cheio de" in p for p in judge_answer(
+        "Você mostrou A cheia de K no showdown."))
+
+
+def test_cheio_de_legitimo_nao_dispara():
+    """'board cheio de draws' é português normal — só rank antes acusa."""
+    assert not any("cheio de" in p for p in judge_answer(
+        "O board estava cheio de draws e o pote cheio de fichas."))
