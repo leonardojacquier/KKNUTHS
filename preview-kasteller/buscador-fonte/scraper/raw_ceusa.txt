@@ -1,0 +1,209 @@
+COMMUNITY SGR NAT|community-sgr-nat-80x80|80X80-9,0|NATURAL|SGR|PORCELANATO ESMALTADO|6|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062566_2b72b4d532.jpg
+PULPIS|pulpis-100x100|100X100-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004319_cf2f7ee320.jpg
+RESORT BL HARD|resort-bl-hard-20x20|20,1X20,1-7,4|HARD|BL|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062633_c32f800b30.jpg
+NOBLE QUARTZO SBE NAT|noble-quartzo-sbe-nat-120x120|120X120-9,2|NATURAL|SBE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5047023_36714bf825.jpg
+CONFETE WH NAT|confete-wh-nat-100x100|100X100-9,0|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041209_da98cd7342.jpg
+ARENITO SGR NAT|arenito-sgr-nat-90x90|87,7X87,7-9,5|NATURAL|SGR|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ARENITOSGRNAT_90_X90_2_8d5bd64c8b.jpg
+VANCOUVER|vancouver-100x100|100X100-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041011_706801b295.jpg
+PATINA|patina-30x120|28,8X119-9,0|RÚSTICO|BRANCO|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008166_0304d871fa.jpg
+CARRARA POL|carrara-pol-120x120|120X120-9,2|POLIDO|WH|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008696_0d4aa5f966.jpg
+LAPA WH MATTE|lapa-wh-matte-60x60|58,4X58,4-13,0|MATTE|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/LAPAWHMATTE_60x60_1_7285ae8d15.jpg
+RESORT BL LUX|resort-bl-lux-20x20|20,1X20,1-7,4|LUX|BL|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062634_d766df4e8b.jpg
+DINDA WH MLX|dinda-wh-mlx-40x120|40,0X120,0-10,5|MATTE/LUX|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062697_A_1_965909911a.jpg
+TRAVERTINO|travertino-100x100|100X100-9,0|ACETINADO|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004309_2c1475fcae.jpg
+CANELA ANTIQUE NO NAT|canela-antique-no-nat-30x120|29,1X117,0-9,0|NATURAL|NO|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CANELAANTIQUENONAT_30_X120_2_9458e8b404.jpg
+GOLDEN FANTASY WH NAT|golden-fantasy-wh-nat-60x120|58,4X117,0-9,0|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/GOLDENFANTASYWHNAT_60_X120_2_e86e8d6f89.jpg
+PORT NOIR BK NAT DD|port-noir-bk-nat-dd-120x120|120X120-8,0|NATURAL|BK|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/PORTNOIRBKNATDD_120_X120_2_2131ef5214.jpg
+TULHA|tulha-30x120|28,8X119-9,0|RÚSTICO|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008146_ea1845fa05.jpg
+LADRILHO MARROQUINO BL NAT|ladrilho-marroquino-bl-nat-60x60|58,4X58,4-9,5|NATURAL|BL|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/LADRILHOMARROQUINOBLNAT_60x60_2_30183d8998.jpg
+GALAXYA OG NAT|galaxya-og-nat-100x100|100X100-9,0|NATURAL|OG|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062446_110a43277a.jpg
+ZIGUE CHEVRON NO MATTE|zigue-chevron-no-matte-30x120|28,8X119-10,4|MATTE|NO|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5045301_f56241d0d2.jpg
+GRIS SGR NAT|gris-sgr-nat-100x100|100X100-9,0|NATURAL|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062677_A_1_77c1d6bc0b.jpg
+TORONTO BW NAT|toronto-bw-nat-90x90|87,7X87,7-9,5|NATURAL|BW|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/TORONTOBWNAT_87x87_2_c2d84a17cf.jpg
+MOULAGE SBE MLX|moulage-sbe-mlx-60x60|58,4X58,4-10,5|MLX|SBE|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062577_ac52c43cc2.jpg
+FRISADO LISO|frisado-liso-30x120|28,8X119-9,6|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008108_998ffef54a.jpg
+MEDITERRÂNEO|mediterrâneo-60x60|58,4X58,4-9,5|ACETINADO|COLORIDO|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062590_dc0863f040.jpg
+ADRIÁTICO|adriático-60x60|58,4X58,4-9,5|ACETINADO|COLORIDO|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062588_14695cb43b.jpg
+LADRILHO MINAS|ladrilho-minas-60x60|58,4X58,4-9,5|ACETINADO|COLORIDO|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062593_c4b67c86b4.jpg
+FRISADO|frisado-30x120|28,8X119-9,6|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008110_b95e7e129d.jpg
+OLIVA|oliva-30x120|28,8X119-9,0|RÚSTICO|VERDE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008165_3233f0f62d.jpg
+RESORT BE NAT|resort-be-nat-100x100|100X100-9,0|NATURAL|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062631_b226b8dd4d.jpg
+CALACATA ROYAL WH NAT|calacata-royal-wh-nat-90x90|87,7X87,7-9,5|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CALACATAROYALWHNAT_90_X90_2_2cd16a672b.jpg
+FLAKES BE NAT|flakes-be-nat-120x120|120X120-9,2|NATURAL|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062640_93cce97e4b.jpg
+SK8 GR HARD|sk8-gr-hard-100x100|100X100-9,0|HARD|DGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062488_af6acc1cc0.jpg
+SK8 GR NAT|sk8-gr-nat-100x100|100X100-9,0|NATURAL|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062490_e6ee6db3ec.jpg
+TRAVERTINO VEINS BE HARD|travertino-veins-be-hard-90x90|90,0X90,0-9,5|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/travetino_veins_be_nat_87x87_2_p1_c8ba495408.png
+VENICE GR HARD|venice-gr-hard-120x120|120X120-9,2|HARD|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5047020_67b3f86475.jpg
+PULSE YL MATTE|pulse-yl-matte-60x60|58,4X58,4-11,0|MATTE|YL|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062442_3158dbb7b4.jpg
+ITALIAN DAYS LINE OFW LUX|italian-days-line-ofw-lux-10x20|9,9X20,1-7,4|LUX|OFW|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_LINE_OFW_LUX_10_X20_F1_ea628e3304.jpg
+PULPIS|pulpis-80x80|80X80-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5042031_d187138278.jpg
+SK8 DGR NAT|sk8-dgr-nat-100x100|100X100-9,0|NATURAL|DGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062491_9d1a4be18c.jpg
+INVERTIDO FENDI|invertido-fendi-8x25|8,2X25,9-10,0|BRILHANTE|BE|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062601_62cf037c7c.jpg
+WIND HARD|wind-hard-80x80|80X80-9,0|HARD|CINZA|PORCELANATO ESMALTADO|6|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062584_d5592cb0d2.jpg
+DEMOLIÇAO HARD|demolicao-hard-30x120|28,8X119-9,0|HARD|MARROM|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008140_b353068550.jpg
+PARALELO WOOD NO MATTE|paralelo-wood-no-matte-30x120|28,8X119-9,6|MATTE|NO|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5045303_ffb8082cf6.jpg
+CALACATA ROYAL WH POL|calacata-royal-wh-pol-90x90|90,0X90,0-8,0|POLIDO|WH|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CALACATAROYALWHNAT_90_X90_1_59a82a111b.jpg
+BRISE|brise-30x120|28,8X119-10,8|ACETINADO|CINZA|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008115_d155d536da.jpg
+REFUGIO|refugio-30x120|28,8X119-9,0|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008160_4a28c9c838.jpg
+TRAVERTINO VEINS BE NAT|travertino-veins-be-nat-90x90|90,0X90,0-9,5|NATURAL|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/travetino_veins_be_nat_87x87_2_p1_c8ba495408.png
+INVERTIDO BRANCO|invertido-branco-8x25|8,2X25,9-10,0|BRILHANTE|BRANCO|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062598_b085a66764.jpg
+TALC|talc-80x80|80X80-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008651_263a6346c1.jpg
+GROOVE MIX MATTE|groove-mix-matte-100x100|100X100-10,0|MATTE|MIX|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062568_04e0dc7efb.jpg
+DALIA BRANCO|dalia-branco-45x65|43,7X63,1-10,0|ACETINADO|BRANCO|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008428_765bda1289.jpg
+WIND ACETINADO|wind-acetinado-80x80|80X80-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008689_e03c874443.jpg
+ITALIAN DAYS CORNER MIX LUX|italian-days-corner-mix-lux-10x10|9,95X9,95-7,4|LUX|MIX|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062705_A_1_841158af49.jpg
+COLONIAL DREAM BE NAT|colonial-dream-be-nat-100x100|100X100-9,0|NATURAL|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062560_5b78eeb54e.jpg
+ISABELA WH MATTE|isabela-wh-matte-10x10|9,95X9,95-8,1|MATTE|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062538_208e49de6e.jpg
+ITALIAN DAYS ORNAMENTO MIX LUX|italian-days-ornamento-mix-lux-10x20|9,9X20,1-7,4|LUX|MIX|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062706_A_1_67ec07b42c.jpg
+COLONIAL DREAM BE HARD|colonial-dream-be-hard-100x100|100X100-9,0|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062561_e4536b6acd.jpg
+AMUR|amur-60x60|58,4X58,4-9,5|ACETINADO|COLORIDO|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062586_1b00a3ba95.jpg
+TALC HARD|talc-hard-80x80|80X80-9,0|HARD|CINZA|PORCELANATO ESMALTADO|6|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062583_322b3711f5.jpg
+COMMUNITY DECOR SGR MATTE|community-decor-sgr-matte-80x80|80X80-9,0|MATTE|SGR|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062565_790627d5b5.jpg
+DEMOLIÇAO FRISADO|demolicao-frisado-30x120|28,8X119-9,6|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008129_facd58af00.jpg
+CIMENTO|cimento-80x80|80X80-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008691_063488be72.jpg
+BRANCO|branco-80x80|80X80-9,0|ACETINADO|BRANCO|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008670_b5ebcc05c7.jpg
+RIMINI POLIDO|rimini-polido-100x100|100X100-9,0|POLIDO|BRANCO|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004370_821773c9c5.jpg
+STREET GR HARD|street-gr-hard-120x120|120X120-9,2|HARD|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062657_A_1_57865d7fc7.jpg
+VANCOUVER|vancouver-80x80|80X80-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5042021_b5b2891b23.jpg
+TIJOLETAS SGR MATTE|tijoletas-sgr-matte-45x65|43,7X63,1-10,0|MATTE|SGR|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/TIJOLETASSGRMATTE_45_X65_2_6356abbd8c.jpg
+EASY OFW NAT|easy-ofw-nat-10x10|9,95X9,95-7,4|NATURAL|OFW|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062615_46d3d3527d.jpg
+INVERTIDO PRETO|invertido-preto-8x25|8,2X25,9-10,0|BRILHANTE|PRETO|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062597_ecb7371227.jpg
+FLAKES BL NAT|flakes-bl-nat-120x120|120X120-9,2|NATURAL|BL|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062641_5044cd6110.jpg
+ISABELA DECOR BW MATTE|isabela-decor-bw-matte-10x10|9,95X9,95-8,1|MATTE|BW|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062533_a2df8b4dfa.jpg
+ITALIAN DAYS BL LUX|italian-days-bl-lux-10x20|9,9X20,1-7,4|LUX|BL|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062707_A_1_46076a92a3.jpg
+CARTELA GN LUX|cartela-gn-lux-8x25|8,2X25,7-7,4|LUX|GN|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062701_A_1_dfc4ed65c3.jpg
+CARTELA OFW LUX|cartela-ofw-lux-8x25|8,2X25,7-7,4|LUX|OFW|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062702_A_1_1b46887daf.jpg
+PISCIS GN HARD|piscis-gn-hard-15x15|15X15-7,4|HARD|GN|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062635_2c4a276818.jpg
+SK8 DGR HARD|sk8-dgr-hard-100x100|100X100-9,0|HARD|DGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062489_5ad319734a.jpg
+ITALIAN DAYS DEC 1 MIX LUX|italian-days-dec-1-mix-lux-20x20|20,1X20,1-7,4|LUX|MIX|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062708_A_1_b573913bcb.jpg
+GOLDEN FANTASY SGN NAT|golden-fantasy-sgn-nat-120x120|120X120-9,2|NATURAL|SGN|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062669_A_1_782155e279.jpg
+RESORT BE HARD|resort-be-hard-20x20|20,1X20,1-7,4|HARD|BE|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062630_4f33e20355.jpg
+TIJOLETAS WH MATTE|tijoletas-wh-matte-45x65|43,7X63,1-10,0|MATTE|WH|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/TIJOLETASWHMATTE_45_X65_2_9d7da4b491.jpg
+OKOBO SBE NAT|okobo-sbe-nat-30x120|29,1X117,0-9,0|NATURAL|SBE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062439_f17dd5a312.jpg
+CHAKRA OFW NAT|chakra-ofw-nat-120x120|120X120-9,2|NATURAL|OFW|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5047026_e8023900f3.jpg
+BRECCIA AL NAT|breccia-al-nat-120x120|120X120-9,2|NATURAL|AL|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062500_57d33581e0.jpg
+BORGONHA RD MLX|borgonha-rd-mlx-15x15|15X15-7,4|MLX|RD|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062698_A_1_007866365b.jpg
+ITALIAN DAYS DEC 2 MIX LUX|italian-days-dec-2-mix-lux-20x20|20,1X20,1-7,4|LUX|MIX|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062709_A_1_cec3de3bdc.jpg
+NATURAL GLAM BW MLX DD|natural-glam-bw-mlx-dd-120x120|120X120-9,2|MLX|BW|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062712_A_1_b32d63f749.jpg
+CASTLE BK NAT|castle-bk-nat-120x120|120X120-9,2|NATURAL|BK|PORCELANATO ESMALTADO|4|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062662_A_1_2fe98d9de5.jpg
+ITALIAN DAYS OFW LUX|italian-days-ofw-lux-20x20|20,1X20,1-7,4|LUX|OFW|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_OFW_LUX_20x20_F1_aab36d2e2b.jpg
+GOLDEN FANTASY WH NAT|golden-fantasy-wh-nat-120x120|120X120-9,2|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062672_A_1_765058bd2e.jpg
+IPE|ipe-30x120|28,8X119-9,0|ACETINADO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008145_7dedaeec59.jpg
+FILETADO|filetado-45x65|43,7X63,1-9,8|ACETINADO|BE|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008181_3952fda194.jpg
+QUEBEC|quebec-100x100|100X100-9,0|ACETINADO|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004320_cc1638c80e.jpg
+CIMENTO HARD|cimento-hard-80x80|80X80-9,0|HARD|CINZA|PORCELANATO ESMALTADO|6|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062582_cbd522faa5.jpg
+QUEBEC POLIDO|quebec-polido-100x100|100X100-9,0|POLIDO|BE|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004379_c0f0bc5296.jpg
+PULPIS POLIDO|pulpis-polido-100x100|100X100-9,0|POLIDO|CINZA|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004378_f314399148.jpg
+DARK STONE DGR NAT|dark-stone-dgr-nat-100x100|100X100-9,0|NATURAL|DGR|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062690_A_1_ce6ee891c6.jpg
+BOSQUE|bosque-30x120|28,8X119-9,0|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008170_b8e778b7e0.jpg
+ESCACILHADO PALHA|escacilhado-palha-45x65|43,7X63,1-9,8|RÚSTICO|OFW|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008446_624519826c.jpg
+PATCH MIX MLX DD|patch-mix-mlx-dd-120x120|120X120-9,2|MLX|MIX|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062710_A_1_af66da1274.jpg
+FILETADO STONE|filetado-stone-45x65|43,7X63,1-10,8|ACETINADO|BE|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008198_b08e152682.jpg
+NAVONA OFW NAT|navona-ofw-nat-60x120|58,4X117,0-9,0|NATURAL|OFW|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008717_a53ffa5cd5.jpg
+CASTLE DECOR GD MLX|castle-decor-gd-mlx-10x40|9,82X40,0-7,4|MLX|GD|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062664_A_1_7c3c6844a5.jpg
+CONFETE GR NAT|confete-gr-nat-100x100|100X100-9,0|NATURAL|GR|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041208_7d6404e393.jpg
+RIMINI|rimini-80x80|80X80-9,0|ACETINADO|BRANCO|PORCELANATO ESMALTADO|5|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5042061_28fe6e8b11.jpg
+CAVA DI GRE MIX HARD DD|cava-di-gre-mix-hard-dd-120x120|120X120-9,2|HARD|MIX|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062653_A_1_2dc2257461.jpg
+NATURAL GLAM GN MLX DD|natural-glam-gn-mlx-dd-120x120|120X120-9,2|MLX|GN|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062688_A_1_b7ade59c29.jpg
+CARTELA BL LUX|cartela-bl-lux-8x25|8,2X25,7-7,4|LUX|BL|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062699_A_1_fc2e5a9ec2.jpg
+CARTELA OG LUX|cartela-og-lux-8x25|8,2X25,7-7,4|LUX|OG|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062703_A_1_4e36155f97.jpg
+TIJOLETAS BW MATTE|tijoletas-bw-matte-45x65|43,7X63,1-10,0|MATTE|BW|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/TIJOLETABWMATTE_45_X65_1_10b47042ab.jpg
+CHAKRA OFW POL|chakra-ofw-pol-120x120|120X120-9,2|POLIDO|OFW|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5048011_cfbbc633f0.jpg
+DEMETER BW HARD|demeter-bw-hard-30x120|29,1X117,0-9,0|HARD|BW|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062571_45e84b3798.jpg
+URBE SGR NAT|urbe-sgr-nat-90x90|90,0X90,0-8,0|NATURAL|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_SGR_NAT_90_X90_1_21c885a19d.jpg
+URBE WH NAT|urbe-wh-nat-90x90|90,0X90,0-8,0|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_WH_NAT_90_X90_1_6641e09f09.jpg
+URBE BE NAT|urbe-be-nat-90x90|90,0X90,0-8,0|NATURAL|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_BE_NAT_90_X90_2_fda8911312.jpg
+URBE SGR HARD|urbe-sgr-hard-120x120|120X120-8,0|HARD|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_SGR_HARD_120_X120_2_f95c5f4fbc.jpg
+URBE WH NAT|urbe-wh-nat-120x120|120X120-8,0|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_WH_NAT_120_X120_1b_bb65c84924.jpg
+TORONTO BW POL|toronto-bw-pol-90x90|90,0X90,0-8,0|POLIDO|BW|PORCELANATO ESMALTADO POLIDO|4|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/toronto_bw_nat_87x87_2_p1_0eaa3664b7.png
+STATUARIO WH NAT|statuario-wh-nat-90x90|90,0X90,0-9,5|NATURAL|WH|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/statuario_wh_nat_87x87_2_p1_3ac77bedfe.png
+STATUARIO WH POL|statuario-wh-pol-90x90|90,0X90,0-8,0|POLIDO|WH|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/statuario_wh_nat_87x87_2_p1_3ac77bedfe.png
+DINDA MIX MLX|dinda-mix-mlx-40x120|40,0X120,0-10,5|MATTE/LUX|MIX|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/DINDA_MIX_NAT_32_X100_1_d5981abeeb.jpg
+COLONIAL DREAM OFW NAT|colonial-dream-ofw-nat-100x100|100X100-9,0|NATURAL|OFW|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062562_403b9894b7.jpg
+SENA|sena-60x60|58,4X58,4-9,5|ACETINADO|COLORIDO|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062589_1bae628c4b.jpg
+DEMOLIÇAO|demolicao-30x120|28,8X119-9,0|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008140_b353068550.jpg
+FLAKES GR NAT|flakes-gr-nat-120x120|120X120-9,2|NATURAL|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062644_5f460d55d0.jpg
+PARALELO MARBLE OFW MATTE|paralelo-marble-ofw-matte-30x120|28,8X119-9,6|MATTE|OFW|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5045304_84f41c69ac.jpg
+CANELA ANTIQUE NO HARD|canela-antique-no-hard-30x120|29,1X117,0-9,0|HARD|NO|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CANELAANTIQUENONAT_30_X120_2_9458e8b404.jpg
+RESORT BE HARD|resort-be-hard-100x100|100X100-9,0|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062629_d85b534fd5.jpg
+ARENITO SGR HARD|arenito-sgr-hard-90x90|87,7X87,7-9,5|HARD|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ARENITOSGRNAT_90_X90_2_8d5bd64c8b.jpg
+LADRILHO MARROQUINO BL HARD|ladrilho-marroquino-bl-hard-60x60|58,4X58,4-9,5|HARD|BL|PORCELANATO ESMALTADO|6|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/LADRILHOMARROQUINOBLNAT_60x60_2_30183d8998.jpg
+DARK STONE DGR HARD|dark-stone-dgr-hard-100x100|100X100-9,0|HARD|DGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062689_A_1_c1081a73ec.jpg
+BRICOLA|bricola-30x120|28,8X119-9,0|ACETINADO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008159_f93be911ce.jpg
+URBE BE HARD|urbe-be-hard-90x90|90,0X90,0-8,0|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_BE_HARD_90_X90_1_69ebf13ac1.jpg
+DALIA NERO|dalia-nero-45x65|43,7X63,1-10,0|ACETINADO|CHUMBO|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008429_10315f571f.jpg
+ESCACILHADO GRAFITE|escacilhado-grafite-45x65|43,7X63,1-9,8|RÚSTICO|CINZA|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008444_b5355a7d4b.jpg
+ESCACILHADO CHUMBO|escacilhado-chumbo-45x65|43,7X63,1-9,8|RÚSTICO|CHUMBO|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008445_f514debc16.jpg
+DUNA ACETINADO|duna-acetinado-35x65|33,8X64,3-8,5|ACETINADO|BE|AZULEJO|1|PEQUENO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5032725_74148ccb17.jpg
+FILETADO EXTINT|filetado-extint-45x65|43,7X63,1-10,0|ACETINADO|MARROM|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008174_b28ab14315.jpg
+FILETADO BRANCO|filetado-branco-45x65|43,7X63,1-10,0|ACETINADO|BRANCO|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008186_4c08646e6c.jpg
+CONFETE COLOR MIX NAT|confete-color-mix-nat-100x100|100X100-9,0|NATURAL|MIX|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041207_248553bcaf.jpg
+CHALE|chale-30x120|28,8X119-9,0|RÚSTICO|MARROM|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008112_12b6b86049.jpg
+CONFETE PK NAT|confete-pk-nat-100x100|100X100-9,0|NATURAL|PK|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041210_c32c06fb64.jpg
+EASY RD NAT|easy-rd-nat-10x10|9,95X9,95-7,4|NATURAL|RD|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062616_b20b2ce226.jpg
+DARK STONE DGR NAT|dark-stone-dgr-nat-120x120|120X120-9,2|NATURAL|DGR|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/DARKSTONEDGRNAT_120x120_2_65c86a1ba0.jpg
+ISABELA DECOR WH MATTE|isabela-decor-wh-matte-10x10|9,95X9,95-8,1|MATTE|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062535_6f48fd6ee1.jpg
+ISABELA DECOR MIX MATTE|isabela-decor-mix-matte-10x10|9,95X9,95-8,1|MATTE|MIX|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062534_9616f39d6d.jpg
+ISABELA MIX MATTE|isabela-mix-matte-10x10|9,95X9,95-8,1|MATTE|MIX|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062537_057d745a34.jpg
+ISABELA BW MATTE|isabela-bw-matte-10x10|9,95X9,95-8,1|MATTE|BW|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062536_20aecd87c6.jpg
+PISCIS GN NAT|piscis-gn-nat-15x15|15X15-7,4|NATURAL|GN|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062636_167d63026f.jpg
+FLAKES SBE NAT|flakes-sbe-nat-120x120|120X120-9,2|NATURAL|SBE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062646_2bfb3b4e4c.jpg
+RESORT BE NAT|resort-be-nat-20x20|20,1X20,1-7,4|NATURAL|BE|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062632_16848cb1a6.jpg
+GOLDEN FANTASY SGN POL|golden-fantasy-sgn-pol-120x120|120X120-9,2|POLIDO|SGN|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062670_A_1_85c8686aed.jpg
+GOLDEN FANTASY WH POL|golden-fantasy-wh-pol-120x120|120X120-9,2|POLIDO|WH|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062673_A_1_dccb5fe640.jpg
+PATCH OFW MLX DD|patch-ofw-mlx-dd-120x120|120X120-9,2|MLX|OFW|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062711_A_1_0b45fd01bd.jpg
+CAVA DI GRE MIX NAT DD|cava-di-gre-mix-nat-dd-120x120|120X120-9,2|NATURAL|MIX|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062654_A_1_21332f84de.jpg
+NATURAL GLAM WH MLX DD|natural-glam-wh-mlx-dd-120x120|120X120-9,2|MLX|WH|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062713_A_1_de4af86376.jpg
+CALACATA ROYAL WH NAT|calacata-royal-wh-nat-120x120|120X120-9,2|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CALACATAROYALWHNAT_120_X120_1_38460841f5.jpg
+CARTELA DPR LUX|cartela-dpr-lux-8x25|8,2X25,7-7,4|LUX|DPR|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062700_A_1_1c5002c553.jpg
+ITALIAN DAYS LADRILHO DECOR OFW NAT|italian-days-ladrilho-decor-ofw-nat-60x60|58,4X58,4-9,5|NATURAL|OFW|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_LADRILHO_DECOR_OFW_NAT_60_X60_1_49b1ac43b8.jpg
+ITALIAN DAYS LADRILHO BORDER OFW NAT|italian-days-ladrilho-border-ofw-nat-60x60|58,4X58,4-9,5|NATURAL|OFW|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_LADRILHO_BORDER_OFW_NAT_60_X60_1_fbd44278c0.jpg
+LAPA BW MATTE|lapa-bw-matte-60x60|58,4X58,4-13,0|MATTE|BW|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/LAPABWMATTE_60x60_1_b7e4663d96.jpg
+CALACATA ROYAL WH POL|calacata-royal-wh-pol-120x120|120X120-9,2|POLIDO|WH|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CALACATAROYALWHNAT_120_X120_1_38460841f5.jpg
+ARENITO SGR NAT|arenito-sgr-nat-120x120|120X120-9,2|NATURAL|SGR|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ARENITOSGRNAT_120_X120_2_450d10ba1f.jpg
+ITALIAN DAYS LADRILHO LINE OFW NAT|italian-days-ladrilho-line-ofw-nat-20x20|20,1X20,1-7,4|NATURAL|OFW|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_LADRILHO_LINE_OFW_NAT_20_X20_1_456bcfc9fd.jpg
+CALACATA ROYAL WH NAT|calacata-royal-wh-nat-90x180|90X180-8,0|NATURAL|WH|PORCELANATO ESMALTADO|6|LASTRAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/CALACATAROYALWHNAT_90_X180_2_ea48d8352d.jpg
+ITALIAN DAYS LADRILHO LINE OFW LUX|italian-days-ladrilho-line-ofw-lux-20x20|20,1X20,1-7,4|LUX|OFW|PORCELANATO ESMALTADO|4|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/ITALIAN_DAYS_LADRILHO_LINE_OFW_LUX_20_X20_1_3342049cf2.jpg
+LADRILHO MARROQUINO MIX NAT|ladrilho-marroquino-mix-nat-60x60|58,4X58,4-9,5|NATURAL|MIX|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/LADRILHOMARROQUINOMIXNAT_60x60_2_7723fd332f.jpg
+MC PETIT POA SBL LUX|mc-petit-poa-sbl-lux-31x33|31,2X33,0-5,9|LUX|SBL|PORCELANATO ESMALTADO|3|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/MCPETITPOASBLLUX_31_X33_1_6cc25ec6e2.png
+GOLDEN FANTASY SGN NAT|golden-fantasy-sgn-nat-60x120|58,4X117,0-9,0|NATURAL|SGN|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/GOLDENFANTASYSGNNAT_60_X120_2_caf2cc53f5.jpg
+MC PETIT POA SGN LUX|mc-petit-poa-sgn-lux-31x33|31,2X33,0-5,9|LUX|SGN|PORCELANATO ESMALTADO|3|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/MCPETITPOASGNLUX_31_X33_1_1bd8123574.png
+NEX LADRILHO URBANO SGR NAT|nex-ladrilho-urbano-sgr-nat-20x20|20,1X20,1-7,4|NATURAL|SGR|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/NEXLADRILHOURBANOSGRNAT_20_X20_1_e3a06997a9.jpg
+MC PETIT POA WH LUX|mc-petit-poa-wh-lux-31x33|31,2X33,0-5,9|LUX|WH|PORCELANATO ESMALTADO|3|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/MCPETITPOAWHLUX_31x33_1_7ccaed7d8a.png
+PORT NOIR BK ACT DD|port-noir-bk-act-dd-120x270|120X270-8,0|ACETINADO|BK|PORCELANATO ESMALTADO|4|LASTRAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/PORTNOIRBKNATDD_120_X120_2_c631519283.jpg
+RIMINI|rimini-100x100|100X100-9,0|ACETINADO|BRANCO|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004308_5b3852cc0d.jpg
+PULPIS BEGE|pulpis-bege-100x100|100X100-9,0|ACETINADO|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004323_69ac739681.jpg
+CIMENTO|cimento-100x100|100X100-9,0|ACETINADO|CINZA|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004316_460852b9b1.jpg
+PULPIS BEGE POLIDO|pulpis-bege-polido-100x100|100X100-9,0|POLIDO|BE|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5004384_ae3327596f.jpg
+CARRARA NAT|carrara-nat-120x120|120X120-9,2|NATURAL|WH|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008696_0d4aa5f966.jpg
+VANCOUVER POLIDO|vancouver-polido-100x100|100X100-9,0|POLIDO|CINZA|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5041013_6635a5f4e6.jpg
+CARRARA|carrara-60x120|58,4X117,0-9,0|ACETINADO|BRANCO|PORCELANATO ESMALTADO|4|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008719_6cb6ca6474.jpg
+ZIGUE CHEVRON GR MATTE|zigue-chevron-gr-matte-30x120|28,8X119-10,4|MATTE|GR|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5045300_ab7b1c9493.jpg
+PULSE WH MATTE|pulse-wh-matte-60x60|58,4X58,4-11,0|MATTE|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062441_1a7858119f.jpg
+TEXTURIZE GR MATTE|texturize-gr-matte-30x120|29,1X117,0-9,0|MATTE|GR|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062445_2a0637c170.jpg
+TEXTURIZE WH MATTE|texturize-wh-matte-30x120|29,1X117,0-9,0|MATTE|WH|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062444_68ba5512e1.jpg
+PULSE BL MATTE|pulse-bl-matte-60x60|58,4X58,4-11,0|MATTE|BL|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062443_f769d9bb80.jpg
+COMMUNITY SGR HARD|community-sgr-hard-80x80|80X80-9,0|HARD|SGR|PORCELANATO ESMALTADO|6|MÉDIO FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062567_7964c965e2.jpg
+COMMUNITY DECOR MIX MATTE|community-decor-mix-matte-80x80|80X80-9,0|MATTE|MIX|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062564_924dc0e2cd.jpg
+DEMETER BW NAT|demeter-bw-nat-30x120|29,1X117,0-9,0|NATURAL|BW|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062570_1a9080e12b.jpg
+MOULAGE BL MLX|moulage-bl-mlx-60x60|58,4X58,4-10,5|MLX|BL|PORCELANATO ESMALTADO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/MOULAGE_BL_60_X_60_964b36637c.jpg
+INVERTIDO AZUL|invertido-azul-8x25|8,2X25,9-10,0|BRILHANTE|AZUL|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062599_b762cd2415.jpg
+INVERTIDO AMARELO|invertido-amarelo-8x25|8,2X25,9-10,0|BRILHANTE|AMARELO|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062595_8b7a37aa67.jpg
+INVERTIDO VERDE|invertido-verde-8x25|8,2X25,9-10,0|BRILHANTE|VERDE|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062600_9feae0fd7d.jpg
+INVERTIDO CINZA|invertido-cinza-8x25|8,2X25,9-10,0|BRILHANTE|CINZA|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062596_47fb263aa7.jpg
+RETRO GN NAT|retro-gn-nat-20x20|20,1X20,1-7,4|NATURAL|GN|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062621_0fe0cbe526.jpg
+INVERTIDO ROSA|invertido-rosa-8x25|8,2X25,9-10,0|BRILHANTE|ROSA|AZULEJO|1|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062602_9cb08ff408.jpg
+RETRO BL NAT|retro-bl-nat-20x20|20,1X20,1-7,4|NATURAL|BL|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062620_5cd6e145e1.jpg
+FLAKES BE HARD|flakes-be-hard-120x120|120X120-9,2|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062639_4d5ffde757.jpg
+FLAKES GN NAT|flakes-gn-nat-120x120|120X120-9,2|NATURAL|GN|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062642_6d413585ac.jpg
+FLAKES GR HARD|flakes-gr-hard-120x120|120X120-9,2|HARD|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062643_5ef58893f8.jpg
+FLAKES MIX NAT|flakes-mix-nat-120x120|120X120-9,2|NATURAL|MIX|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062645_afac1ce333.jpg
+URBE SGR HARD|urbe-sgr-hard-90x90|90,0X90,0-8,0|HARD|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_SGR_NAT_90_X90_2_97a6a4374e.jpg
+URBE BE HARD|urbe-be-hard-120x120|120X120-8,0|HARD|BE|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_BE_HARD_120_X120_1_458bc6ce79.jpg
+URBE SGR NAT|urbe-sgr-nat-120x120|120X120-8,0|NATURAL|SGR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_SGR_NAT_120_X120_2_51a7592563.jpg
+URBE BE NAT|urbe-be-nat-120x120|120X120-8,0|NATURAL|BE|PORCELANATO ESMALTADO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/URBE_BE_NAT_120_X120_2_2d0ed51bce.jpg
+ARCOS CHUMBO|arcos-chumbo-45x65|43,7X63,1-11,5|ACETINADO|CINZA|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008498_421faf2e75.jpg
+ARCOS FENDI|arcos-fendi-45x65|43,7X63,1-11,5|ACETINADO|MARROM|AZULEJO|2|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008479_33e0ff1326.jpg
+BARDIGLIO SGR POL|bardiglio-sgr-pol-60x120|58,4X117,0-9,0|POLIDO|SGR|PORCELANATO ESMALTADO POLIDO|5|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5008766_f066b4029a.jpg
+BRASILIDADE MIX NAT|brasilidade-mix-nat-100x100|100X100-9,0|NATURAL|MIX|PORCELANATO ESMALTADO|5|PEÇAS ESPECIAIS E PISCINAS|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062525_fdf2b6085b.jpg
+LENDARIA GR HARD|lendaria-gr-hard-30x120|29,1X117,0-9,0|HARD|GR|PORCELANATO ESMALTADO|6|GRANDE FMT|https://ceusa-site-strapi.prd.cloud.dex.co/assets/5062438_8894a12adf.jpg

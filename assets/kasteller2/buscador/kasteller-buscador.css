@@ -1,0 +1,123 @@
+/* ===== KASTELLER — Buscador de productos (namespace .kb-) =====
+   Usa as variáveis da página se existirem; senão, cai na paleta oficial. */
+.kb{
+  --kb-black:var(--black,#000000);
+  --kb-white:var(--white,#FFFFFF);
+  --kb-cream:var(--cream,#E8E1D7);
+  --kb-taupe:var(--taupe,#544F4B);
+  background:var(--kb-cream);color:var(--kb-black);
+  padding:16vh 8vw;position:relative;
+}
+.kb *{box-sizing:border-box}
+.kb__eyebrow{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--kb-taupe);margin-bottom:34px;font-family:'Inter',sans-serif}
+.kb__eyebrow i{width:8px;height:8px;background:var(--kb-taupe);flex:none}
+.kb h2{font-family:'Cormorant Garamond',serif;font-weight:400;
+  font-size:clamp(32px,4.4vw,60px);line-height:1.1;max-width:18ch;margin:0 0 6vh}
+
+/* ---- barra de busca ---- */
+.kb__barwrap{position:relative;max-width:820px}
+.kb__bar{
+  display:flex;align-items:center;gap:14px;
+  border-bottom:2px solid var(--kb-black);padding:6px 2px 14px;
+}
+.kb__bar svg{width:22px;height:22px;flex:none;opacity:.7}
+.kb__input{
+  flex:1;border:0;background:transparent;outline:none;
+  font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,32px);
+  color:var(--kb-black);min-width:0;
+}
+.kb__input::placeholder{color:rgba(84,79,75,.45)}
+.kb__count{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--kb-taupe);white-space:nowrap}
+
+/* ---- sugestões de tags (aparecem enquanto digita) ---- */
+.kb__sugs{
+  position:absolute;top:100%;left:0;right:0;z-index:30;
+  background:var(--kb-white);box-shadow:0 24px 60px rgba(0,0,0,.14);
+  display:none;padding:18px 20px;max-height:340px;overflow:auto;
+}
+.kb__sugs.open{display:block}
+.kb__sug-group{font-family:'Inter',sans-serif;font-size:9px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--kb-taupe);margin:12px 0 8px}
+.kb__sug-group:first-child{margin-top:0}
+.kb__sug{
+  display:inline-block;margin:0 8px 8px 0;padding:8px 14px;cursor:pointer;
+  font-family:'Inter',sans-serif;font-size:13px;color:var(--kb-black);
+  background:var(--kb-cream);border:1px solid transparent;transition:.2s;
+}
+.kb__sug:hover{border-color:var(--kb-taupe)}
+.kb__sug b{font-weight:600}
+
+/* ---- chips de filtros ativos ---- */
+.kb__chips{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0;min-height:0}
+.kb__chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--kb-black);color:var(--kb-white);
+  font-family:'Inter',sans-serif;font-size:12px;letter-spacing:.06em;
+  padding:9px 14px;cursor:pointer;border:0;
+}
+.kb__chip small{opacity:.55;letter-spacing:.14em;text-transform:uppercase;font-size:9px}
+.kb__chip:hover{background:var(--kb-taupe)}
+.kb__chip::after{content:'×';font-size:15px;line-height:1;opacity:.7}
+.kb__clear{background:none;border:0;cursor:pointer;font-family:'Inter',sans-serif;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--kb-taupe);text-decoration:underline;padding:9px 4px}
+
+/* ---- grid de resultados ---- */
+.kb__grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:2.2vw;margin-top:7vh;
+}
+.kb__card{
+  text-decoration:none;color:var(--kb-black);display:block;
+  opacity:0;transform:translateY(18px);
+  animation:kbIn .5s ease forwards;
+}
+@keyframes kbIn{to{opacity:1;transform:none}}
+.kb__ph{aspect-ratio:1/1.15;overflow:hidden;background:#161412;position:relative}
+.kb__ph img{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform .7s cubic-bezier(.22,1,.36,1),opacity .45s ease;opacity:0}
+.kb__ph img.ok{opacity:1}
+.kb__card:hover .kb__ph img{transform:scale(1.05)}
+/* placeholder elegante quando o produto ainda não tem foto */
+.kb__ph--txt{display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#1a1815,#2e2a26)}
+.kb__ph--txt span{font-family:'Cormorant Garamond',serif;color:var(--kb-cream);
+  font-size:22px;text-align:center;padding:0 18px;line-height:1.3}
+.kb__marca{
+  position:absolute;top:12px;left:12px;background:var(--kb-white);color:var(--kb-black);
+  font-family:'Inter',sans-serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  padding:5px 9px;
+}
+.kb__info{padding:14px 2px 0}
+.kb__nombre{font-family:'Cormorant Garamond',serif;font-size:21px;line-height:1.15}
+.kb__meta{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.08em;
+  color:var(--kb-taupe);margin-top:5px;text-transform:uppercase}
+
+/* ---- estado vazio ---- */
+.kb__empty{display:none;margin-top:7vh;max-width:52ch}
+.kb__empty.show{display:block}
+.kb__empty p{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,2.6vw,32px);
+  line-height:1.25;margin:0 0 22px}
+.kb__empty a{
+  display:inline-flex;align-items:center;gap:10px;font-family:'Inter',sans-serif;
+  border:1px solid var(--kb-black);color:var(--kb-black);text-decoration:none;
+  padding:14px 28px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;transition:.25s;
+}
+.kb__empty a:hover{background:var(--kb-black);color:var(--kb-white)}
+
+.kb__more{display:block;margin:7vh auto 0;background:none;cursor:pointer;
+  border:1px solid var(--kb-black);color:var(--kb-black);padding:15px 34px;
+  font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;transition:.25s}
+.kb__more:hover{background:var(--kb-black);color:var(--kb-white)}
+.kb__more[hidden]{display:none}
+
+@media(max-width:700px){
+  .kb{padding:12vh 6vw}
+  .kb__grid{grid-template-columns:repeat(2,1fr);gap:4vw}
+  .kb__count{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .kb__card{animation:none;opacity:1;transform:none}
+}

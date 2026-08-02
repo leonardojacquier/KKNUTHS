@@ -21,6 +21,7 @@
 <!-- provisorio: quitar noindex al migrar al dominio definitivo de Kasteller -->
 <meta name="robots" content="noindex,nofollow">
 <link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="buscador/kasteller-buscador.css">
 <style>
   :root{
     --black:#000000; --white:#FFFFFF; --cream:#E8E1D7; --taupe:#544F4B;
@@ -391,6 +392,7 @@
   </div>
   <nav class="desktop">
     <a href="#categorias">Colecciones</a>
+    <a href="#buscador">Catálogo</a>
     <a href="#materiales">Materiales</a>
     <a href="#proyectos">Proyectos</a>
     <a href="#proceso">Proceso</a>
@@ -402,6 +404,7 @@
 
 <div class="overlay" id="overlay">
   <a href="#categorias">Colecciones</a>
+  <a href="#buscador">Catálogo</a>
   <a href="#materiales">Materiales</a>
   <a href="#proyectos">Proyectos</a>
   <a href="#proceso">Proceso</a>
@@ -497,6 +500,35 @@
       <p>Mosaicos, maderas técnicas y superficies de autor.</p>
     </a>
   </div>
+</section>
+
+<!-- ============ BUSCADOR DE PRODUCTOS (módulo independente) ============ -->
+<section class="kb" id="buscador" data-whatsapp="https://wa.me/595985869600">
+  <div class="kb__eyebrow"><i></i>Catálogo</div>
+  <h2>Buscá entre todas las marcas que representamos.</h2>
+
+  <div class="kb__barwrap">
+    <div class="kb__bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+      </svg>
+      <input class="kb__input" type="search" autocomplete="off" spellcheck="false"
+             placeholder="mármol, 120x120, madera, Roca, cocina..."
+             aria-label="Buscar productos">
+      <span class="kb__count"></span>
+    </div>
+    <div class="kb__sugs" role="listbox"></div>
+    <div class="kb__chips"></div>
+  </div>
+
+  <div class="kb__grid"></div>
+
+  <div class="kb__empty">
+    <p>No encontramos esa combinación en el catálogo online — pero el showroom guarda mucho más.</p>
+    <a href="https://wa.me/595985869600" target="_blank" rel="noopener"><span>Consultar por WhatsApp</span></a>
+  </div>
+
+  <button class="kb__more" hidden>Ver más productos</button>
 </section>
 
 <!-- ============ MATERIALES ============ -->
@@ -965,6 +997,20 @@ form.addEventListener('submit', e => {
   waOpen(d.nombre, d.producto);               // abre já, dentro do gesto (o fetch keepalive completa mesmo assim)
   btn.disabled = false; closeLead(); form.reset();
 });
+
+/* o buscador (módulo externo) procura window.KT para registrar eventos */
+window.KT = KT;
+
+/* o grid do buscador entra depois (fetch) e muda a altura da página —
+   os gatilhos de scroll precisam remedir, senão o pin das obras desloca */
+if (window.ResizeObserver && typeof ScrollTrigger !== 'undefined') {
+  let kbT;
+  new ResizeObserver(() => {
+    clearTimeout(kbT);
+    kbT = setTimeout(() => ScrollTrigger.refresh(), 250);
+  }).observe(document.body);
+}
 </script>
+<script defer src="buscador/kasteller-buscador.js"></script>
 </body>
 </html>
