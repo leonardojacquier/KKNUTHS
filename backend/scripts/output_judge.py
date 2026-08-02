@@ -30,9 +30,13 @@ _SELOS = ("✅", "🟡", "❌")
 # auto-elogio que o prompt proíbe (o selo já fala por si)
 _ADJETIVOS = ("resumo brutal", "verdade honesta", "papo reto", "na lata",
               "sem enrolação", "sem rodeios")
-# calques que não existem no poker BR (regra V3/TERMOS_REGRA)
+# calques que não existem no poker BR (regra V3/TERMOS_REGRA). Os quatro
+# últimos vieram MEDIDOS das análises reais de julho: aumentou 8x, carta
+# alta 7x, sequência 7x — vazavam porque 'aumentar' estava na lista de
+# permitidos do prompt e ninguém vigiava os outros.
 _CALQUES = ("par grande", "par alto", "mão grande", "sequência de cor",
-            "stack fundo", "como valor", " rua ", " etapa ", "igualar o")
+            "stack fundo", "como valor", " rua ", " etapa ", "igualar o",
+            "aumentou", "aumentar", "sequência", "carta alta")
 # carta escrita sem ícone: rank maiúsculo + naipe minúsculo ('Kh', '10d').
 # 'As' fica de fora de propósito — é artigo em português e daria falso positivo.
 _CARTA_CRUA = re.compile(r"\b(?:10|[KQJT98765432])[shdc]\b|\bA[hdc]\b")

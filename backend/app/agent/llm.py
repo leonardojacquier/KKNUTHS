@@ -616,15 +616,20 @@ TOOLS = [
 # Glossário de terminologia — REGRA DURA, usado em todas as camadas de texto
 # (análise, por-mão, simplificação). O modelo inventa calques se deixar.
 TERMOS_REGRA = (
-    "TERMINOLOGIA (regra dura): use os termos consagrados do poker BR. "
-    "FICAM EM INGLÊS: top pair, overpair, kicker, flush draw, gutshot, OESD, "
-    "set, fold equity, equity, cooler, bad beat, blockers, range, c-bet, "
-    "3-bet, 4-bet, all-in, heads-up, multiway, squeeze, limp. "
-    "PORTUGUÊS CONSAGRADO: pagar (call), largar/foldar, aumentar, trinca, "
+    "TERMINOLOGIA (regra dura): escreva como grinder BR fala na mesa. "
+    "FICAM EM INGLÊS: top pair, overpair, kicker, flush, flush draw, draw, "
+    "gutshot, OESD, straight, high card, set, fold equity, equity, cooler, "
+    "bad beat, blockers, range, board, check, open, raise ('deu raise', "
+    "'raise pra 3bb'), c-bet, 3-bet, 4-bet, shove/jam, all-in, heads-up, "
+    "multiway, squeeze, limp. "
+    "PORTUGUÊS CONSAGRADO: pagar (call), largar/foldar, trinca, "
     "dominado/dominação, apostar por valor, blefar. "
     "CALQUES PROIBIDOS (não existem no poker BR): 'par grande', 'mão grande', "
     "'par alto', 'domínio' (é DOMINADO/dominação), 'como valor' (é POR "
-    "valor), 'sequência de cor', 'igualar' (é pagar), 'rua'/'etapa'/'rodada' "
+    "valor), 'aumentar'/'aumentou'/'aumento' (é RAISE — 'deu raise', "
+    "'3-betou'), 'sequência'/'sequência de cor' (é STRAIGHT), 'carta alta' "
+    "(é HIGH CARD: 'A high', 'K high'), 'passou'/'passar a vez' (é CHECK: "
+    "'deu check'), 'igualar' (é pagar), 'rua'/'etapa'/'rodada' "
     "para street (diga STREET, ou nomeie: no flop, no turn, no river), "
     "'stack fundo'/'pilha' (diga DEEP: 'jogando deep', '100bb deep'). "
     "REGISTRO: sempre 'você' — nunca 'tu/teu/te contigo' misturado. "
@@ -1755,12 +1760,19 @@ def simplify(text: str) -> str | None:
             max_tokens=700,
             temperature=0.2,
             system=(
-                "Você é um coach de poker explicando para alguém que NUNCA "
-                "estudou o jogo. Reescreva a explicação abaixo mantendo o mesmo "
-                "veredito e a mesma ideia: frases curtas, UMA analogia do dia a "
-                "dia, no máximo 1 número — e diga o que ele significa. "
-                + TERMOS_REGRA + " "
-                "Português informal, até ~120 palavras, formato Telegram (sem "
+                "Você é um coach de poker reescrevendo uma análise para um "
+                "aluno que JOGA, mas não é profissional: ele conhece as regras "
+                "e o básico, só não domina o vocabulário técnico nem as "
+                "contas. NÃO infantilize — nada de analogia de padaria nem de "
+                "explicar o que é um flop. Mantenha o mesmo veredito e a mesma "
+                "conclusão. Os termos técnicos FICAM (é assim que ele aprende "
+                "o idioma da mesa); os menos óbvios ganham uma explicação "
+                "curta entre parênteses na primeira vez — 'OESD (straight "
+                "draw pelas duas pontas)' — termo trivial (fold, all-in, "
+                "flop) não ganha parêntese. Até 2-3 números, cada um com o "
+                "que significa na prática ('pedia 30% = precisa ganhar 1 em "
+                "cada 3'). " + TERMOS_REGRA + " "
+                "Português informal, até ~150 palavras, formato Telegram (sem "
                 "cabeçalhos). Nunca mencione que isto é uma reescrita."
             ),
             messages=[{"role": "user", "content": text[:6000]}],
