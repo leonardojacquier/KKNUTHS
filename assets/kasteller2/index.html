@@ -78,8 +78,9 @@
   .burger{display:none;background:none;border:0;color:var(--white);z-index:95;cursor:pointer;
     font-size:11px;letter-spacing:.24em;text-transform:uppercase;padding:10px}
   .overlay{
-    /* abaixo do header (90): o botão Menú/Cerrar precisa continuar tocável */
-    position:fixed;inset:0;z-index:89;background:var(--black);
+    /* acima do header, com botão Cerrar próprio — fechar não pode depender
+       de stacking do header (no iOS o Cerrar da barra ficava soterrado) */
+    position:fixed;inset:0;z-index:96;background:var(--black);
     display:flex;flex-direction:column;justify-content:center;padding:0 10vw;gap:6px;
     clip-path:inset(0 0 100% 0);transition:clip-path .7s cubic-bezier(.76,0,.24,1);
   }
@@ -90,6 +91,13 @@
     opacity:0;transform:translateY(24px);transition:opacity .5s,transform .5s;
   }
   .overlay.open a{opacity:1;transform:none}
+  /* fechar DENTRO do overlay: não depende do header ficar por cima (iOS) */
+  .overlay__close{position:absolute;top:22px;right:36px;background:none;border:0;
+    color:var(--cream);font-family:'Inter',sans-serif;font-size:11px;
+    letter-spacing:.24em;text-transform:uppercase;padding:14px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .4s .3s}
+  .overlay__close::after{content:'✕';font-size:14px;letter-spacing:0}
+  .overlay.open .overlay__close{opacity:1}
   .overlay .k-water{position:absolute;right:-6vw;bottom:-8vh;opacity:.07;height:60vh}
   @media(max-width:860px){nav.desktop,.cta-header{display:none}.burger{display:block}}
 
@@ -404,6 +412,7 @@
 </header>
 
 <div class="overlay" id="overlay">
+  <button class="overlay__close" id="overlayClose" aria-label="Cerrar menú">Cerrar</button>
   <a href="#categorias">Colecciones</a>
   <a href="#buscador">Catálogo</a>
   <a href="#materiales">Materiales</a>
@@ -891,6 +900,9 @@ burger.addEventListener('click', () => {
 overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
   overlay.classList.remove('open'); burger.textContent = 'Menú';
 }));
+document.getElementById('overlayClose').addEventListener('click', () => {
+  overlay.classList.remove('open'); burger.textContent = 'Menú';
+});
 
 /* ================= ANALYTICS + LEADS (Supabase, INSERT-only) ================= */
 const SB_URL = "https://tqvrsusrbnyahpxhnwxe.supabase.co";
