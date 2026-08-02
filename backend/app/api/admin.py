@@ -21,7 +21,11 @@ from app.db import get_repository
 
 router = APIRouter()
 
-_ERROR_EVENTS = ("upload_failed", "error")
+_ERROR_EVENTS = ("upload_failed", "error", "entrega_falha",
+                 "sem_mao_na_conversa")
+# o que conta como MÃO enviada (funil por usuário)
+_MAO_EVENTS = ("upload", "print_recebido", "upload_recebido",
+               "replay_pppoker", "replay_suprema")
 
 
 def _q(fn, default):
@@ -29,6 +33,48 @@ def _q(fn, default):
         return fn()
     except Exception:
         return default
+
+
+def _detalhe(r) -> dict:
+    d = r.get("detail") or {}
+    if isinstance(d, str):
+        try:
+            d = json.loads(d)
+        except Exception:
+            return {}
+    return d if isinstance(d, dict) else {}
+
+
+def somar_custos(events: list[dict], month_start: str) -> dict:
+    """Custo de LLM a partir dos eventos custo_llm (função pura).
+
+    Devolve mes/hoje em US$, por tarefa e por telegram_id — a régua que
+    decide preço, que o dono hoje só via pelo /quem no Telegram."""
+    agora = datetime.now(timezone.utc)
+    hoje = agora.date().isoformat()
+    mes = dia = 0.0
+    por_tarefa: dict[str, float] = defaultdict(float)
+    por_tg: dict[int, float] = defaultdict(float)
+    for r in events:
+        if r.get("event") != "custo_llm":
+            continue
+        d = _detalhe(r)
+        usd = d.get("usd")
+        if not isinstance(usd, (int, float)):
+            continue
+        ts = str(r.get("created_at") or "")
+        if ts >= month_start:
+            mes += usd
+            por_tarefa[str(d.get("tarefa") or "outro")] += usd
+            tg = r.get("telegram_id")
+            if isinstance(tg, int) and tg > 0:
+                por_tg[tg] += usd
+        if ts[:10] == hoje:
+            dia += usd
+    return {"mes": round(mes, 2), "hoje": round(dia, 2),
+            "por_tarefa": dict(sorted(por_tarefa.items(),
+                                      key=lambda kv: -kv[1])),
+            "por_tg": dict(por_tg)}
 
 
 def _collect() -> dict:
@@ -59,32 +105,45 @@ def _collect() -> dict:
                 .order("created_at", desc=True).limit(5000).execute().data, []) or []
 
     per_user: dict[int, dict] = defaultdict(
-        lambda: {"eventos": 0, "uploads": 0, "erros": 0, "ultimo": "", "ref": ""})
+        lambda: {"eventos": 0, "maos": 0, "perguntas": 0, "drills": 0,
+                 "erros": 0, "ultimo": "", "ref": ""})
     daily: dict[str, dict] = defaultdict(lambda: {"eventos": 0, "usuarios": set()})
     by_type: dict[str, int] = defaultdict(int)
+    refs: dict[str, int] = defaultdict(int)
+    entrega = {"ok": 0, "falha": 0, "remediada": 0}
     errors: list[dict] = []
     active7: set[int] = set()
+    juiz: dict | None = None
 
     for r in events:
         tg = r.get("telegram_id")
         ev = r.get("event") or "?"
         ts = str(r.get("created_at") or "")
         by_type[ev] += 1
-        if tg:
+        if ev == "entrega_ok":
+            entrega["ok"] += 1
+        elif ev == "entrega_falha":
+            entrega["falha"] += 1
+        elif ev == "entrega_remediada":
+            entrega["remediada"] += 1
+        if ev == "output_judge" and juiz is None:  # events vêm desc: 1º = último
+            juiz = _detalhe(r)
+        if isinstance(tg, int) and tg > 0:
             u = per_user[tg]
             u["eventos"] += 1
             u["ultimo"] = max(u["ultimo"], ts)
-            if ev == "upload":
-                u["uploads"] += 1
+            if ev in _MAO_EVENTS:
+                u["maos"] += 1
+            if ev == "followup":
+                u["perguntas"] += 1
+            if ev == "drill_answer":
+                u["drills"] += 1
             if ev in _ERROR_EVENTS:
                 u["erros"] += 1
             if ev == "start":
-                try:
-                    d = r.get("detail") or {}
-                    d = json.loads(d) if isinstance(d, str) else d
-                    u["ref"] = u["ref"] or str(d.get("ref") or "")
-                except Exception:
-                    pass
+                origem = str(_detalhe(r).get("ref") or "") or "direto"
+                u["ref"] = u["ref"] or origem
+                refs[origem] += 1
             if ts >= d7:
                 active7.add(tg)
             day = ts[:10]
@@ -93,6 +152,8 @@ def _collect() -> dict:
                 daily[day]["usuarios"].add(tg)
         if ev in _ERROR_EVENTS:
             errors.append(r)
+
+    custos = somar_custos(events, month_start)
 
     # análises usadas no mês por usuário (cota)
     usage = _q(lambda: c.table("usage_events").select("user_id")
@@ -105,6 +166,18 @@ def _collect() -> dict:
     profiles = _q(lambda: c.table("player_stats")
                   .select("user_id, hands, vpip, pfr, three_bet, af, label, updated_at")
                   .order("updated_at", desc=True).limit(20).execute().data, []) or []
+
+    licoes = _q(lambda: c.table("licoes")
+                .select("id,titulo,categoria,ev_bb,publicada")
+                .order("id", desc=True).limit(50).execute().data, []) or []
+
+    # nome em TODA linha: users é a fonte da verdade (o username do
+    # bot_events falta em evento antigo/de sistema — era por isso que o
+    # portal mostrava IDs crus)
+    nome_por_tg = {u["telegram_id"]: (u.get("username") or str(u["telegram_id"]))
+                   for u in users if u.get("telegram_id")}
+    nome_por_uid = {u["id"]: (u.get("username") or str(u.get("telegram_id")))
+                    for u in users}
 
     days = []
     for i in range(13, -1, -1):
@@ -120,6 +193,9 @@ def _collect() -> dict:
         "per_user": dict(per_user), "used_by_uid": dict(used_by_uid),
         "errors": errors[:30], "errors30": len(errors), "days": days,
         "recent": recent, "profiles": profiles, "d14": d14,
+        "custos": custos, "entrega": entrega, "refs": dict(refs),
+        "juiz": juiz or {}, "licoes": licoes,
+        "nome_por_tg": nome_por_tg, "nome_por_uid": nome_por_uid,
     }
 
 
@@ -155,6 +231,8 @@ color:var(--mut);font-style:normal}
 .bar b{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;
 color:var(--gold)}
 .bwrap{padding-bottom:26px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.cols{grid-template-columns:1fr}}
 """
 
 
@@ -170,12 +248,13 @@ async def admin(key: str = Query(default="")) -> str:
         body = "<div class='warn'>Banco indisponível — configure SUPABASE_URL/KEY.</div>"
         return f"<style>{_CSS}</style><div class='wrap'><h1>KKNuths — Gestão</h1>{body}</div>"
 
-    # ------- tabela de usuários: quem entrou, acessos, análises, erros -------
+    # ------- tabela de usuários: quem entrou, funil, custo, erros -------
     user_rows = []
     for u in m["users"]:
         tg = u.get("telegram_id")
         pu = m["per_user"].get(tg, {})
         used = m["used_by_uid"].get(u.get("id"), 0)
+        custo = m["custos"]["por_tg"].get(tg, 0.0)
         nome = u.get("username") or str(tg)
         user_rows.append(
             f"<tr><td>{esc(str(nome))}</td>"
@@ -183,12 +262,15 @@ async def admin(key: str = Query(default="")) -> str:
             f"<td class='n'>{esc(str(u.get('created_at') or '')[:10])}</td>"
             f"<td>{esc(str(u.get('plan') or 'free'))}</td>"
             f"<td class='n'>{pu.get('eventos', 0)}</td>"
-            f"<td class='n'>{pu.get('uploads', 0)}</td>"
+            f"<td class='n'>{pu.get('maos', 0)}</td>"
+            f"<td class='n'>{pu.get('perguntas', 0)}</td>"
+            f"<td class='n'>{pu.get('drills', 0)}</td>"
             f"<td class='n'>{used}</td>"
+            f"<td class='n'>US$ {custo:.2f}</td>"
             f"<td class='n{' err' if pu.get('erros') else ''}'>{pu.get('erros', 0)}</td>"
             f"<td class='n'>{esc(str(pu.get('ultimo') or '')[:16])}</td></tr>"
         )
-    users_tbl = "".join(user_rows) or "<tr><td colspan=9>nenhum usuário ainda</td></tr>"
+    users_tbl = "".join(user_rows) or "<tr><td colspan=12>nenhum usuário ainda</td></tr>"
 
     # ------------------- atividade diária (14 dias, barras) -------------------
     max_ev = max((d["eventos"] for d in m["days"]), default=1) or 1
@@ -198,10 +280,16 @@ async def admin(key: str = Query(default="")) -> str:
         for d in m["days"]
     )
 
+    def _quem(r) -> str:
+        """Nome SEMPRE: users é a fonte da verdade; o username do evento é
+        reserva; ID cru só em último caso — era a reclamação nº 1 do dono."""
+        tg = r.get("telegram_id")
+        return str(m["nome_por_tg"].get(tg) or r.get("username") or tg or "?")
+
     # ------------------------------ erros ------------------------------
     error_rows = "".join(
         f"<tr><td class='n'>{esc(str(r.get('created_at') or '')[:16])}</td>"
-        f"<td>{esc(str(r.get('username') or r.get('telegram_id') or '?'))}</td>"
+        f"<td>{esc(_quem(r))}</td>"
         f"<td class='err'>{esc(str(r.get('event')))}</td>"
         f"<td>{esc(str(r.get('detail') or '')[:120])}</td></tr>"
         for r in m["errors"]
@@ -213,20 +301,47 @@ async def admin(key: str = Query(default="")) -> str:
     ) or "<tr><td colspan=2>sem eventos</td></tr>"
 
     profile_rows = "".join(
-        f"<tr><td class='n'>{p.get('hands') or 0}</td>"
+        f"<tr><td>{esc(str(m['nome_por_uid'].get(p.get('user_id')) or '?'))}</td>"
+        f"<td class='n'>{p.get('hands') or 0}</td>"
         f"<td class='n'>{p.get('vpip') or 0}</td><td class='n'>{p.get('pfr') or 0}</td>"
         f"<td class='n'>{p.get('three_bet') or 0}</td><td class='n'>{p.get('af') or 0}</td>"
         f"<td>{esc(str(p.get('label') or ''))}</td></tr>"
         for p in m["profiles"]
-    ) or "<tr><td colspan=6>sem perfis ainda</td></tr>"
+    ) or "<tr><td colspan=7>sem perfis ainda</td></tr>"
 
     event_rows = "".join(
         f"<tr><td class='n'>{esc(str(r.get('created_at') or '')[:16])}</td>"
-        f"<td>{esc(str(r.get('username') or r.get('telegram_id') or '?'))}</td>"
+        f"<td>{esc(_quem(r))}</td>"
         f"<td>{esc(str(r.get('event')))}</td>"
         f"<td>{esc(str(r.get('detail') or '')[:90])}</td></tr>"
         for r in m["recent"]
     ) or "<tr><td colspan=4>sem eventos</td></tr>"
+
+    # custo por tarefa, origem dos starts, lições
+    custo_rows = "".join(
+        f"<tr><td>{esc(t)}</td><td class='n'>US$ {v:.2f}</td></tr>"
+        for t, v in m["custos"]["por_tarefa"].items()
+    ) or "<tr><td colspan=2>sem custo no mês</td></tr>"
+
+    ref_rows = "".join(
+        f"<tr><td>{esc(o)}</td><td class='n'>{n}</td></tr>"
+        for o, n in sorted(m["refs"].items(), key=lambda kv: -kv[1])
+    ) or "<tr><td colspan=2>nenhum /start em 30 dias</td></tr>"
+
+    licao_rows = "".join(
+        f"<tr><td class='n'>#{x['id']}</td><td>{esc(str(x['titulo']))}</td>"
+        f"<td>{esc(str(x['categoria']))}</td>"
+        f"<td class='n'>{(x.get('ev_bb') or 0):+.1f}bb</td>"
+        f"<td>{'📤 publicada' if x.get('publicada') else 'na estante'}</td></tr>"
+        for x in m["licoes"][:12]
+    ) or ("<tr><td colspan=5>biblioteca vazia — o destilador roda às "
+          "9h15 UTC</td></tr>")
+
+    ent = m["entrega"]
+    pedidos = ent["ok"] + ent["falha"]
+    entrega_pct = f"{round(100 * ent['ok'] / pedidos)}%" if pedidos else "—"
+    juiz_nota = m["juiz"].get("nota_clareza")
+    n_pub = sum(1 for x in m["licoes"] if x.get("publicada"))
 
     return f"""<style>{_CSS}</style>
 <div class="wrap">
@@ -238,19 +353,35 @@ async def admin(key: str = Query(default="")) -> str:
   <div class="kpi"><b>{m['active7']}</b><span>ativos (7 dias)</span></div>
   <div class="kpi"><b>{m['hands']}</b><span>mãos no banco</span></div>
   <div class="kpi"><b>{m['analyses30']}</b><span>análises (30 dias)</span></div>
+  <div class="kpi"><b>US$ {m['custos']['mes']:.2f}</b><span>custo LLM no mês · hoje US$ {m['custos']['hoje']:.2f}</span></div>
+  <div class="kpi"><b>{entrega_pct}</b><span>entrega 1ª (30d) · {ent['remediada']} remediadas</span></div>
+  <div class="kpi"><b>{juiz_nota if juiz_nota is not None else '—'}</b><span>clareza (juiz, última)</span></div>
+  <div class="kpi"><b>{len(m['licoes'])}</b><span>lições na estante · {n_pub} publicadas</span></div>
   <div class="kpi err"><b>{m['errors30']}</b><span>erros (30 dias)</span></div>
 </div>
 
-<h2>Usuários — quem entrou e o que fez</h2>
+<h2>Usuários — funil e custo por pessoa (30 dias)</h2>
 <div class="tbl"><table>
 <tr><th>Usuário</th><th>Origem</th><th>Entrou em</th><th>Plano</th><th>Interações</th>
-<th>Uploads</th><th>Análises (mês)</th><th>Erros</th><th>Última atividade (UTC)</th></tr>
+<th>Mãos</th><th>Perguntas</th><th>Drills</th><th>Análises (mês)</th>
+<th>Custo (mês)</th><th>Erros</th><th>Última atividade (UTC)</th></tr>
 {users_tbl}</table></div>
 
 <h2>Atividade diária — 14 dias (interações)</h2>
 <div class="bwrap"><div class="bars">{bars}</div></div>
 
-<h2>Erros — 30 dias (uploads rejeitados + exceções)</h2>
+<h2>Custo de LLM por tarefa (mês) · Origem dos /start (30d)</h2>
+<div class="cols">
+<div class="tbl"><table><tr><th>Tarefa</th><th>US$</th></tr>{custo_rows}</table></div>
+<div class="tbl"><table><tr><th>Origem</th><th>Starts</th></tr>{ref_rows}</table></div>
+</div>
+
+<h2>Biblioteca de lições (últimas)</h2>
+<div class="tbl"><table>
+<tr><th>#</th><th>Título</th><th>Categoria</th><th>EV</th><th>Status</th></tr>
+{licao_rows}</table></div>
+
+<h2>Erros — 30 dias (uploads rejeitados + falhas de entrega)</h2>
 <div class="tbl"><table>
 <tr><th>Quando (UTC)</th><th>Usuário</th><th>Tipo</th><th>Detalhe</th></tr>
 {error_rows}</table></div>
@@ -260,7 +391,7 @@ async def admin(key: str = Query(default="")) -> str:
 
 <h2>Perfis de jogadores (performance)</h2>
 <div class="tbl"><table>
-<tr><th>Mãos</th><th>VPIP%</th><th>PFR%</th><th>3-bet%</th><th>AF</th><th>Estilo</th></tr>
+<tr><th>Aluno</th><th>Mãos</th><th>VPIP%</th><th>PFR%</th><th>3-bet%</th><th>AF</th><th>Estilo</th></tr>
 {profile_rows}</table></div>
 
 <h2>Últimas 25 interações</h2>
