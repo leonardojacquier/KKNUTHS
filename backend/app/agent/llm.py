@@ -1568,11 +1568,13 @@ def _montar_resposta(parts: list[str]) -> str:
     selo em bloco nenhum (rodadas esgotadas, resposta de conversa), nada é
     descartado — o texto pré-tools continua sendo a rede de segurança.
     """
+    from app.agent.termos import corrigir
+
     limpos = [x.strip() for x in parts if x.strip()]
     for i, p in enumerate(limpos):
         if p.startswith(_SELOS_DE_VEREDITO):
-            return "\n\n".join(limpos[i:])
-    return "\n\n".join(limpos)
+            return corrigir("\n\n".join(limpos[i:]))
+    return corrigir("\n\n".join(limpos))
 
 
 def coach(
@@ -1781,7 +1783,9 @@ def simplify(text: str) -> str | None:
             messages=[{"role": "user", "content": text[:6000]}],
         )
         out = "".join(b.text for b in resp.content if b.type == "text").strip()
-        return out or None
+        from app.agent.termos import corrigir
+
+        return corrigir(out) or None
     except Exception:
         return None
 
