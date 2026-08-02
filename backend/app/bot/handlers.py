@@ -1174,6 +1174,24 @@ async def cmd_termo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, txt)
 
 
+async def cmd_licoes(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/licoes — biblioteca de lições anônimas. Só o dono."""
+    from app.bot.processing import licoes_reply
+    from app.quota import ADMIN_TELEGRAM_ID
+
+    tg_id = update.effective_user.id
+    await _log(update, "licoes_cmd", admin_ok=(tg_id == ADMIN_TELEGRAM_ID))
+    if tg_id != ADMIN_TELEGRAM_ID:
+        return
+    try:
+        txt = await asyncio.to_thread(licoes_reply, list(ctx.args or []))
+    except Exception as exc:
+        await update.message.reply_text(
+            f"/licoes quebrou: {type(exc).__name__}: {exc}"[:600])
+        raise
+    await _safe_reply(update.message, txt)
+
+
 async def cmd_planode(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """/planode — lista os alunos e muda o plano de um deles. Só o dono.
 
@@ -1723,10 +1741,13 @@ async def on_post_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None
             png = await asyncio.to_thread(render_share_card, spot)
             import io as _ioS
             await _log(update, "share_card")
+            # ?start=card — quem chegar por este link vira `start` com
+            # ref='card': é O sensor do único loop de crescimento que existe.
+            # Sem ele, o card podia estar trazendo gente e ninguém saberia.
             await query.message.reply_photo(
                 photo=_ioS.BytesIO(png),
                 caption="📣 Encaminha pro grupo e vê quem acerta o spot. "
-                        "Cada um responde no t.me/KKNUts_BOT 😉")
+                        "Cada um responde no t.me/KKNUts_BOT?start=card 😉")
         except Exception:
             await query.message.reply_text("Não consegui montar o card agora.")
         return
@@ -1840,6 +1861,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("prova", cmd_prova))
     app.add_handler(CommandHandler("quem", cmd_quem))
     app.add_handler(CommandHandler("termo", cmd_termo))
+    app.add_handler(CommandHandler("licoes", cmd_licoes))
     app.add_handler(CommandHandler("planode", cmd_planode))
     app.add_handler(CommandHandler("spot", cmd_spot))
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))

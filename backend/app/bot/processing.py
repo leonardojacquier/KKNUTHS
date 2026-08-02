@@ -1392,6 +1392,46 @@ def termo_reply(args: list[str]) -> str:
     return "\n".join(out)
 
 
+def licoes_reply(args: list[str]) -> str:
+    """/licoes — a biblioteca de lições anônimas (só o dono).
+
+    O destilador estoca em silêncio; publicar é decisão humana:
+      /licoes              lista as mais novas
+      /licoes N            mostra a lição inteira (pronta pra copiar)
+      /licoes N publicada  marca como usada
+    """
+    repo = get_repository()
+    if not repo.enabled:
+        return "Sem banco agora — tenta de novo em instantes."
+    t = repo.client.table("licoes")
+
+    if args and args[0].isdigit():
+        alvo = int(args[0])
+        linha = (t.select("*").eq("id", alvo).execute().data or [None])[0]
+        if not linha:
+            return f"Não achei a lição #{alvo}."
+        if len(args) > 1 and args[1].lower() == "publicada":
+            t.update({"publicada": True}).eq("id", alvo).execute()
+            return f"📤 Lição #{alvo} marcada como publicada."
+        return (f"📖 *#{linha['id']} — {linha['titulo']}* "
+                f"({linha['categoria']}, {linha['ev_bb']:+.1f}bb)\n\n"
+                f"{linha['spot']}\n\n{linha['licao']}\n\n"
+                f"Pra marcar como usada: /licoes {linha['id']} publicada")
+
+    linhas = (t.select("id,titulo,categoria,ev_bb,publicada")
+              .order("id", desc=True).limit(15).execute().data) or []
+    if not linhas:
+        return ("Biblioteca vazia por enquanto — o destilador roda todo dia "
+                "às 9h15 UTC sobre as análises das últimas 24h.")
+    out = ["📚 *Biblioteca de lições* (mais novas primeiro):"]
+    for x in linhas:
+        marca = "📤" if x["publicada"] else "•"
+        out.append(f"{marca} #{x['id']} {x['titulo']} "
+                   f"({x['categoria']}, {x['ev_bb']:+.1f}bb)")
+    out.append("\n/licoes N mostra a lição inteira.")
+    return "\n".join(out)
+
+
 def replay_fallback_text(site: str | None = None,
                          chave_ilegivel: bool = False) -> str:
     """Mensagem para replay que não dá para puxar automático.
