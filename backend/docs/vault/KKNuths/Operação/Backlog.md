@@ -15,7 +15,7 @@ tags: [kknuths, operacao, backlog]
       (ela nunca rodou; a de jornadas cobre o essencial)
 
 ## Curto prazo
-- [ ] DNS vorte369.com.br → VPS + Caddy (comando já fornecido)
+- [ ] DNS poker.vortex369.com.br → VPS + Caddy (comando já fornecido)
 - [ ] Foto de perfil do bot via @BotFather (avatar pronto)
 - [ ] Repo privado + rotação de todas as chaves do início
 - [ ] Instagram: publicar os 3 posts de teste; medir 3-4 dias

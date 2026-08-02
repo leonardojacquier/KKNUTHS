@@ -4,7 +4,7 @@ tags: [kknuths, tecnica, operacao]
 # Infraestrutura e Deploy
 
 - VPS GNH: app em `/opt/poker-bot`, pm2 (`poker-bot` = bot, `poker-web` =
-  portal :8014 atrás do Caddy → vorte369.com.br)
+  portal :8014 atrás do Caddy → poker.vortex369.com.br)
 - **Deploy automático**: cron 2min roda `deploy/auto_update.sh` (rsync
   --delete com excludes: .env, venv, .git, .oneshot-done, calibration.json)
   → `deploy/vps_deploy.sh` (pytest como GATE; falhou = não sobe) → pm2 restart

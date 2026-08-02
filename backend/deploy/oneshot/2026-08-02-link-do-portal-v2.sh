@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# "E o portal de gestão, onde está?" — testa o /admin de dentro da VPS e
-# manda o link PRONTO (com a chave) pro dono no Telegram. A chave viaja só
-# do .env da VPS pro chat privado dele — nunca pelo repositório.
+# v2: o primeiro rodou testando "vorte369" — erro de digitação que nasceu no
+# vault e se espalhou. O domínio certo, conforme deploy/README.md, é
+# poker.vortex369.com.br. Este roda de novo com o alvo correto.
 set -uo pipefail
 cd /opt/poker-bot || exit 1
 
