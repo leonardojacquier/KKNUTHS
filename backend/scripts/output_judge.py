@@ -146,8 +146,18 @@ def main() -> int:
         print("sem Supabase")
         return 0
 
+    # JANELA de 24h nos dois artefatos: o texto gravado é imutável, então
+    # auditar "os últimos N" faz o mesmo estoque antigo reprovar todo dia —
+    # depois do conserto do preâmbulo, o juiz seguiu apontando 5 análises
+    # pré-conserto como se fossem o produto corrente. O juiz é diário; cada
+    # rodada mede o que foi ENTREGUE desde a anterior, não o museu.
+    from datetime import datetime, timedelta, timezone
+
+    day_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
     rows = (repo.client.table("conversation_state")
             .select("telegram_id,state,updated_at")
+            .gte("updated_at", day_ago)
             .order("updated_at", desc=True).limit(20).execute().data) or []
     pares: list[dict] = []
     for r in rows:
@@ -163,6 +173,7 @@ def main() -> int:
     # e a análise de verdade nunca auditada.
     analises = (repo.client.table("hand_analysis")
                 .select("summary,created_at")
+                .gte("created_at", day_ago)
                 .order("created_at", desc=True).limit(25).execute().data) or []
     for a in analises:
         texto = str(a.get("summary") or "")
@@ -190,7 +201,9 @@ def main() -> int:
 
     ruim = len(achados) or ((nota or {}).get("nota") or 10) < 7
     if ruim and settings.telegram_bot_token:
-        l = [f"🧪 Juiz da saída — {len(pares)} respostas auditadas"]
+        n_analises = sum(1 for p in pares if not p["conversa"])
+        l = [f"🧪 Juiz da saída — {len(pares)} respostas das últimas 24h "
+             f"({n_analises} análises)"]
         if nota:
             l.append(f"Nota de clareza: {nota.get('nota')}/10")
             if nota.get("pior"):

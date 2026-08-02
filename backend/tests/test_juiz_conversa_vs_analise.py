@@ -49,3 +49,19 @@ def test_o_juiz_le_os_dois_artefatos():
     assert "hand_analysis" in fonte, "as análises entregues têm que entrar"
     assert "conversation_state" in fonte
     assert "[Follow-up]" in fonte, "follow-up gravado em hand_analysis não é análise"
+
+
+def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
+    """O texto gravado é imutável: auditar 'os últimos N' faz o mesmo estoque
+    antigo reprovar todo dia. Caso real: um dia depois do conserto do
+    preâmbulo, o juiz reportou 5 análises 'sem selo' — todas de ANTES do
+    deploy. As pós-conserto estavam limpas, e a nota não media o produto
+    corrente."""
+    import inspect
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    assert "day_ago" in fonte
+    assert fonte.count('gte("updated_at", day_ago)') == 1, "janela na conversa"
+    assert fonte.count('gte("created_at", day_ago)') == 1, "janela nas análises"
