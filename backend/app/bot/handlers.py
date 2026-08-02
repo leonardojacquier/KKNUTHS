@@ -881,6 +881,18 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Print da mesa enviado como foto (não como arquivo)."""
+    # Compartilhar direto do app do clube manda a imagem PROMOCIONAL (mesa
+    # vazia) com o link do replay na legenda. A mão está no link; a foto é
+    # propaganda. Ler a foto gastava uma análise da cota pra responder "a
+    # imagem não veio legível" — com o replay inteiro a um parser de
+    # distância. Caso real: 3x com o dono antes de alguém perceber.
+    from app.bot.processing import replay_link_info
+
+    rl = replay_link_info(update.message.caption or "", legenda=True)
+    if rl:
+        await _tratar_replay(update, rl)
+        return
+
     await _log(update, "print_recebido")
     aviso = await update.message.reply_text("✅ Recebido. Lendo o print…")
     photo = update.message.photo[-1]  # maior resolução
@@ -1414,6 +1426,37 @@ def _normalize_force_word(text: str) -> str:
 _FORCE_WORDS = {"analisar", "analise", "pronto"}
 
 
+async def _tratar_replay(update: Update, rl: dict) -> None:
+    """Caminho único do link de replay — mensagem de texto OU legenda de
+    foto compartilhada pelo app do clube."""
+    tg_user = update.effective_user
+    from app.bot.processing import LAST_UPLOAD_KIND, replay_fallback_text
+
+    if rl["site"] in ("pppoker", "suprema") and rl["share_key"]:
+        fmt = f"{rl['site']}_replay"
+        await update.message.reply_text(
+            "🔗 Achei o link do replay! Puxando a mão e analisando… 🃏")
+        reply = await asyncio.to_thread(
+            process_upload, rl["share_key"], fmt,
+            tg_user.id, _uname(tg_user), "pt", None)
+        # share_key no evento: sondas/diagnóstico acham a mão certa (o
+        # fluxo antigo só deixava rastro quando caía no followup)
+        await _log(update, f"replay_{rl['site']}",
+                   share_key=rl["share_key"][:120])
+        await _safe_reply(update.message, reply,
+                          kind=LAST_UPLOAD_KIND.get(tg_user.id))
+        await _send_pending_charts(update.message, tg_user.id)
+        return
+    # link de PPPoker que caiu aqui é BUG meu, não limite do produto:
+    # registro a url para conseguir consertar o padrão depois. Sem isto
+    # o evento dizia só 'replay_link' e a falha era indiagnosticável.
+    ilegivel = rl["site"] == "pppoker"
+    await _log(update, "replay_link", site=rl["site"],
+               chave_ilegivel=ilegivel, url=rl["url"][:300])
+    await update.message.reply_markdown(
+        replay_fallback_text(rl["site"], chave_ilegivel=ilegivel))
+
+
 async def _route_text(update: Update, text: str) -> None:
     """Roteia texto (digitado ou transcrito de voz): hand history ou follow-up.
 
@@ -1430,29 +1473,7 @@ async def _route_text(update: Update, text: str) -> None:
     # PPPoker: puxa a mão sozinho (JSON no CDN) e analisa. Outros: instrução.
     rl = replay_link_info(text)
     if rl:
-        if rl["site"] in ("pppoker", "suprema") and rl["share_key"]:
-            fmt = f"{rl['site']}_replay"
-            await update.message.reply_text(
-                "🔗 Achei o link do replay! Puxando a mão e analisando… 🃏")
-            reply = await asyncio.to_thread(
-                process_upload, rl["share_key"], fmt,
-                tg_user.id, _uname(tg_user), "pt", None)
-            # share_key no evento: sondas/diagnóstico acham a mão certa (o
-            # fluxo antigo só deixava rastro quando caía no followup)
-            await _log(update, f"replay_{rl['site']}",
-                       share_key=rl["share_key"][:120])
-            await _safe_reply(update.message, reply,
-                              kind=LAST_UPLOAD_KIND.get(tg_user.id))
-            await _send_pending_charts(update.message, tg_user.id)
-            return
-        # link de PPPoker que caiu aqui é BUG meu, não limite do produto:
-        # registro a url para conseguir consertar o padrão depois. Sem isto
-        # o evento dizia só 'replay_link' e a falha era indiagnosticável.
-        ilegivel = rl["site"] == "pppoker"
-        await _log(update, "replay_link", site=rl["site"],
-                   chave_ilegivel=ilegivel, url=rl["url"][:300])
-        await update.message.reply_markdown(
-            replay_fallback_text(rl["site"], chave_ilegivel=ilegivel))
+        await _tratar_replay(update, rl)
         return
 
     raw_len = len(text)

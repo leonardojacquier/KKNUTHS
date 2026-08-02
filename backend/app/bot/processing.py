@@ -1291,10 +1291,14 @@ _REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "pppoker.club",
                  "gg.poker")
 
 
-def replay_link_info(text: str) -> dict | None:
+def replay_link_info(text: str, legenda: bool = False) -> dict | None:
     """Detecta link de replay de clube na mensagem. Retorna
     {'site', 'share_key'} ou None. Só dispara quando a mensagem É o link
-    (não quando cita uma url no meio de uma pergunta longa)."""
+    (não quando cita uma url no meio de uma pergunta longa).
+
+    `legenda=True` para caption de foto compartilhada: ali a regra do
+    "mensagem é só o link" não vale — o app do clube escreve o texto
+    promocional dele em volta do link, e o aluno não controla isso."""
     import re as _re
 
     t = (text or "").strip()
@@ -1313,7 +1317,7 @@ def replay_link_info(text: str) -> dict | None:
     host = _re.sub(r'^https?://([^/]+).*', r'\1', url).lower()
     if not any(h in host for h in _REPLAY_HOSTS):
         return None
-    if len(t) > len(raw) + 40:
+    if not legenda and len(t) > len(raw) + 40:
         return None
     from app.parsers.pppoker_replay import share_key_from_url
 
