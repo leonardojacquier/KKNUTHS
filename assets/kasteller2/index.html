@@ -78,7 +78,8 @@
   .burger{display:none;background:none;border:0;color:var(--white);z-index:95;cursor:pointer;
     font-size:11px;letter-spacing:.24em;text-transform:uppercase;padding:10px}
   .overlay{
-    position:fixed;inset:0;z-index:92;background:var(--black);
+    /* abaixo do header (90): o botão Menú/Cerrar precisa continuar tocável */
+    position:fixed;inset:0;z-index:89;background:var(--black);
     display:flex;flex-direction:column;justify-content:center;padding:0 10vw;gap:6px;
     clip-path:inset(0 0 100% 0);transition:clip-path .7s cubic-bezier(.76,0,.24,1);
   }
