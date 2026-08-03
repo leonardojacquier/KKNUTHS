@@ -53,9 +53,47 @@ SINONIMOS = {
     'gran formato': ['formato grande', 'lastra', 'placa grande', 'big slab'],
 }
 
+# ESTILO / CARÁTER — classificado a partir de visual + acabado + cor + formato.
+# Cada regra: (condição sobre o produto) -> palavras de estilo (ES + PT).
+# Ficam nas TAGS (buscáveis: "sofisticado", "clasico", "rustico"...).
+def estilos_de(p, tags, usos):
+    look, acab = p.get('look', ''), p.get('acabado', '')
+    e = set()
+    if look == 'mármol':
+        e |= {'elegante', 'clasico', 'classico', 'sofisticado', 'atemporal'}
+        if acab == 'polido':
+            e |= {'lujo', 'luxo', 'lujoso', 'glamour'}
+    if look == 'madera':
+        e |= {'calido', 'acogedor', 'aconchegante', 'natural', 'atemporal'}
+    if look == 'piedra':
+        e |= {'natural', 'organico', 'rustico', 'atemporal'}
+    if look == 'cemento':
+        e |= {'industrial', 'moderno', 'minimalista', 'contemporaneo', 'urbano'}
+    if look == 'ladrillo':
+        e |= {'rustico', 'industrial', 'vintage', 'artesanal'}
+    if look == 'metal':
+        e |= {'industrial', 'moderno', 'vanguardista'}
+    if look == 'artesanal':
+        e |= {'artesanal', 'hecho a mano', 'feito a mao', 'boho'}
+    if acab == 'polido':
+        e |= {'sofisticado', 'brillante', 'refinado'}
+    if acab in ('mate', 'acetinado'):
+        e |= {'sobrio', 'minimalista', 'moderno', 'discreto'}
+    if 'gran formato' in usos:
+        e |= {'sofisticado', 'moderno', 'lujo', 'luxo'}
+    if 'negro' in tags:
+        e |= {'dramatico', 'sofisticado', 'elegante'}
+    if 'blanco' in tags:
+        e |= {'luminoso', 'clean', 'minimalista', 'clasico', 'classico'}
+    if 'beige' in tags or 'crema' in tags:
+        e |= {'calido', 'neutro', 'atemporal', 'acogedor', 'aconchegante'}
+    if 'gris' in tags:
+        e |= {'moderno', 'neutro', 'urbano'}
+    return e
+
 # sinônimos dos ambientes novos
 SIN_AMBIENTE = {
-    'cocina':     ['cozinha', 'kitchen', 'mesada'],
+    'cocina':     ['cozinha', 'cozina', 'kitchen', 'mesada'],  # "cozina": typo real capturado
     'baño':       ['banheiro', 'bano', 'banho', 'bathroom', 'lavabo', 'sanitario'],
     'living':     ['sala', 'estar', 'salon', 'comedor', 'sala de estar'],
     'dormitorio': ['quarto', 'habitacion', 'cuarto', 'bedroom', 'suite'],
@@ -107,6 +145,9 @@ for p in productos:
     for clave, sines in list(SINONIMOS.items()) + list(SIN_AMBIENTE.items()):
         if clave in base:
             agrega(tags, *sines)
+
+    # --- estilo / caráter ---
+    agrega(tags, *sorted(estilos_de(p, tags, usos)))
 
 with open(RUTA, 'w', encoding='utf-8') as f:
     json.dump(raw, f, ensure_ascii=False, separators=(',', ':'))
