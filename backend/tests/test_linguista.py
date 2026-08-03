@@ -82,3 +82,23 @@ def test_linguista_nunca_toca_no_prompt():
 
     assert ".write" not in fonte
     assert not _re.search(r"(?<!url)open\(", fonte), "sem escrita em arquivo"
+
+
+def test_direcao_invertida_e_barrada():
+    """1ª rodada real (03/08): o modelo propôs traduzir top pair, flush
+    draw, gutshot e nut flush PARA português — a direção oposta à política,
+    com 'par alto' (calque proibido) como sugestão. O portão humano segurou;
+    o filtro agora barra antes de virar notificação."""
+    ruins = [
+        {"errado": "top pair", "certo": "par alto / par da mesa"},
+        {"errado": "flush draw", "certo": "naipe / draw de naipe"},
+        {"errado": "gutshot", "certo": "reta interna"},
+        {"errado": "nut flush", "certo": "melhor flush"},
+        {"errado": "trinca", "certo": "set"},          # consagrado PT
+    ]
+    assert filtrar(ruins) == []
+
+
+def test_calque_de_verdade_continua_passando():
+    ok = [{"errado": "mão de ferro", "certo": "nuts", "exemplo": "..."}]
+    assert len(filtrar(ok)) == 1

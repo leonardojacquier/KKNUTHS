@@ -70,10 +70,20 @@ def propostas_do_modelo(textos: list[str]) -> list[dict]:
 
 
 def filtrar(achados: list) -> list[dict]:
-    """Só proposta bem formada e inédita entra (função pura, testável)."""
+    """Só proposta bem formada, inédita e NA DIREÇÃO CERTA entra.
+
+    Caso real (1ª rodada, 03/08): o modelo barato propôs traduzir top pair,
+    flush draw, gutshot e nut flush PARA português — a direção exatamente
+    oposta à política, e um dos 'certos' era 'par alto', que é calque
+    PROIBIDO. O portão humano segurou (zero aprovadas), mas o filtro tem
+    que barrar isso antes de virar notificação: a política da casa mora
+    aqui em código, não na boa vontade do modelo.
+    """
     from app.agent.llm import TERMOS_REGRA
 
-    ja_tratados = TERMOS_REGRA.lower()
+    regra = TERMOS_REGRA.lower()
+    ingles = regra.split("ficam em inglês:", 1)[-1].split("português", 1)[0]
+    consagrado_ate_proibidos = regra.split("calques proibidos", 1)[0]
     out, vistos = [], set()
     for a in achados or []:
         errado = str((a or {}).get("errado") or "").strip().lower()
@@ -82,7 +92,20 @@ def filtrar(achados: list) -> list[dict]:
             continue
         if errado == certo.lower() or errado in vistos:
             continue
-        if f"'{errado}'" in ja_tratados:   # o prompt já proíbe este
+        if f"'{errado}'" in regra:         # o prompt já proíbe este
+            continue
+        # direção invertida: propor trocar um termo da lista do INGLÊS (ou
+        # qualquer termo já sancionado) é o modelo remando contra a política.
+        # Basta UMA palavra do termo pertencer ao vocabulário inglês da regra
+        # ('nut flush' não está listado inteiro, mas 'flush' está).
+        palavras_ingles = set(ingles.replace(",", " ").replace("(", " ")
+                              .replace(")", " ").split())
+        if errado in consagrado_ate_proibidos or \
+                any(p in palavras_ingles for p in errado.split()):
+            continue
+        # o 'certo' não pode ser um calque que a própria regra proíbe
+        if any(f"'{c}'" in regra.split("calques proibidos", 1)[-1]
+               for c in (certo.lower(),)) or "par alto" in certo.lower():
             continue
         vistos.add(errado)
         out.append({"errado": errado, "certo": certo[:80],
