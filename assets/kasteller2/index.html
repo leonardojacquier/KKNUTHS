@@ -295,9 +295,13 @@
   .marquee__track{--mgap:2.6vw;display:flex;align-items:center;gap:var(--mgap);
     width:max-content;padding:6px 0;animation:marq 19s linear infinite;
     will-change:transform}
-  .marquee:hover .marquee__track{animation-play-state:paused}
+  .marquee:hover .marquee__track,
+  /* fora da tela a animação segue queimando compositor no celular */
+  .marquee:not(.on) .marquee__track{animation-play-state:paused}
   .chip-marca{flex:0 0 auto;background:#fff;border-radius:6px;padding:14px 26px;
     display:flex;align-items:center;justify-content:center;height:76px}
+  /* os width/height do <img> dão o aspect-ratio antes do byte chegar: sem eles
+     cada logo que carregava redimensionava o chip e o loop de -50% saltava */
   .chip-marca img{height:40px;width:auto;max-width:190px;object-fit:contain;
     filter:grayscale(1);opacity:.92;transition:filter .35s,opacity .35s}
   .chip-marca:hover img{filter:none;opacity:1}
@@ -307,7 +311,7 @@
     .marcas .cab{margin-bottom:4vh}
     .marquee{-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);
       mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
-    .marquee__track{--mgap:14px;animation-duration:11s}
+    .marquee__track{--mgap:14px;animation-duration:26s}
     .chip-marca{height:54px;padding:10px 16px;border-radius:5px}
     .chip-marca img{height:26px;max-width:150px}
   }
@@ -583,26 +587,26 @@
   </div>
   <div class="marquee" aria-label="Marcas representadas">
     <div class="marquee__track">
-      <div class="chip-marca"><img src="img/marcas/client-1.png" alt="Roca Cerámica" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-3.png" alt="Incepa" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-4.png" alt="Portinari" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-6.png" alt="Castelatto" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-7.png" alt="Mondialle" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-8.png" alt="Pasinato" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-9.png" alt="Villagres" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-11.png" alt="Castelli Porcelanato" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-12.png" alt="Ceusa" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-13.png" alt="Telhas Perkus" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-1.png" alt="Roca Cerámica" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-3.png" alt="Incepa" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-4.png" alt="Portinari" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-6.png" alt="Castelatto" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-7.png" alt="Mondialle" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-8.png" alt="Pasinato" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-9.png" alt="Villagres" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-11.png" alt="Castelli Porcelanato" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-12.png" alt="Ceusa" loading="lazy"></div>
-      <div class="chip-marca"><img src="img/marcas/client-13.png" alt="Telhas Perkus" loading="lazy"></div>
+      <div class="chip-marca"><img src="img/marcas/client-1.webp" alt="Roca Cerámica" width="400" height="88" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-3.webp" alt="Incepa" width="400" height="137" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-4.webp" alt="Portinari" width="400" height="93" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-6.webp" alt="Castelatto" width="400" height="90" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-7.webp" alt="Mondialle" width="400" height="115" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-8.webp" alt="Pasinato" width="400" height="110" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-9.webp" alt="Villagres" width="400" height="115" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-11.webp" alt="Castelli Porcelanato" width="359" height="140" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-12.webp" alt="Ceusa" width="400" height="100" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca"><img src="img/marcas/client-13.webp" alt="Telhas Perkus" width="400" height="82" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-1.webp" alt="" width="400" height="88" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-3.webp" alt="" width="400" height="137" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-4.webp" alt="" width="400" height="93" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-6.webp" alt="" width="400" height="90" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-7.webp" alt="" width="400" height="115" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-8.webp" alt="" width="400" height="110" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-9.webp" alt="" width="400" height="115" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-11.webp" alt="" width="359" height="140" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-12.webp" alt="" width="400" height="100" decoding="async" fetchpriority="low"></div>
+      <div class="chip-marca" aria-hidden="true"><img src="img/marcas/client-13.webp" alt="" width="400" height="82" decoding="async" fetchpriority="low"></div>
     </div>
   </div>
 </section>
@@ -647,7 +651,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script>
-gsap.registerPlugin(ScrollTrigger);
+/* o CDN do GSAP é a 1ª linha do script: se ele não chegar, um "gsap is not
+   defined" aqui derrubava TODO o script inline (vídeo, analytics, lead). */
+const HAS_GSAP = typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined';
+if (HAS_GSAP) gsap.registerPlugin(ScrollTrigger);
 /* iPhone/Safari restaura a rolagem anterior ao recarregar: o visitante voltava
    no meio da página em vez de abrir no mosaico. Sem hash, começa do topo. */
 try { history.scrollRestoration = 'manual'; } catch (e) {}
@@ -660,6 +667,19 @@ addEventListener('pageshow', (e) => { if (e.persisted && !location.hash) scrollT
 const KASTELLER_LOOP = "video/kasteller-hero.mp4";
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (!reduced) document.documentElement.classList.add('js');
+
+/* marquee de marcas: só anima na tela. Fica aqui em cima, antes de
+   qualquer chamada a gsap — se o CDN cair, o carrossel segue rodando */
+(() => {
+  const mq = document.querySelector('.marquee');
+  if (!mq) return;
+  if (!('IntersectionObserver' in window)) { mq.classList.add('on'); return; }
+  new IntersectionObserver(
+    es => es.forEach(e => mq.classList.toggle('on', e.isIntersecting)),
+    { rootMargin: '120px 0px' }
+  ).observe(mq);
+})();
+
 
 /* ---------- imágenes (placeholders con fallback) ---------- */
 /* fotos: primeiro a cópia LOCAL (img/fotos/<id>.jpg, versionada no repo);
