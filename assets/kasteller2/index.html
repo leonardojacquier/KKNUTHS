@@ -383,6 +383,21 @@
     background:linear-gradient(160deg,rgba(232,225,215,.10),rgba(0,0,0,.28));
     mix-blend-mode:overlay}
   .f-map:hover iframe{filter:invert(1) grayscale(.75) contrast(.92) brightness(1.1)}
+  /* o endereço é o mesmo da GNH, então o Google rotula o ponto com a ficha
+     dela. Nosso marcador fica no centro exato — onde o embed crava o pino
+     do ?q= — e cobre pino e etiqueta com a marca certa. */
+  .f-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-66%);z-index:2;
+    pointer-events:none;display:flex;align-items:center;gap:11px;
+    background:var(--cream);color:var(--black);padding:11px 17px 11px 13px;
+    box-shadow:0 6px 26px rgba(0,0,0,.6)}
+  .f-pin::after{content:"";position:absolute;left:50%;top:100%;width:15px;height:20px;
+    background:var(--cream);transform:translateX(-50%);
+    clip-path:polygon(0 0,100% 0,50% 100%)}
+  .f-pin svg{height:22px;width:auto;display:block;fill:var(--black);flex:0 0 auto}
+  .f-pin b{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    font-weight:500;line-height:1.2;white-space:nowrap}
+  .f-pin i{display:block;font-style:normal;font-size:9px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--taupe);margin-top:3px;white-space:nowrap}
   .f-dir{position:absolute;right:12px;bottom:12px;z-index:2;
     display:inline-flex;align-items:center;gap:8px;
     background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
@@ -401,6 +416,10 @@
     .f-brand img{max-width:200px}
     .f-map{max-width:none;margin-top:26px}
     .f-map iframe{height:180px}
+    .f-pin{padding:12px 13px 12px 10px;gap:9px}
+    .f-pin svg{height:18px}
+    .f-pin b{font-size:9.5px}
+    .f-pin i{font-size:8px;letter-spacing:.1em}
     .f-cols{gap:8vw 12vw}
     .f-bottom{margin-top:7vh}
   }
@@ -678,7 +697,11 @@
       <div class="f-map">
         <iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"
           title="Mapa del showroom Kasteller — Av. República del Perú km 7, Ciudad del Este"
-          src="https://www.google.com/maps?q=Av.%20Rep%C3%BAblica%20del%20Per%C3%BA%20km%207%2C%20Ciudad%20del%20Este%2C%20Paraguay&output=embed"></iframe>
+          src="https://www.google.com/maps?q=Av.%20Rep%C3%BAblica%20del%20Per%C3%BA%20km%207%2C%20Ciudad%20del%20Este%2C%20Paraguay&z=16&output=embed"></iframe>
+        <div class="f-pin" aria-hidden="true">
+          <svg viewBox="0 0 113 126"><path d="M50 0 H93 L43 63 L93 126 H50 L0 63 Z"/><path d="M0 0 H37 L0 43 Z"/><path d="M0 83 L37 126 H0 Z"/></svg>
+          <span><b>Kasteller</b><i>Showroom · Av. Perú km 7</i></span>
+        </div>
         <a class="f-dir" target="_blank" rel="noopener"
           href="https://www.google.com/maps/dir/?api=1&destination=Av.%20Rep%C3%BAblica%20del%20Per%C3%BA%20km%207%2C%20Ciudad%20del%20Este%2C%20Paraguay">Cómo llegar
           <svg class="f-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
