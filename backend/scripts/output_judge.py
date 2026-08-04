@@ -184,7 +184,7 @@ def main() -> int:
     # dali um selo que nunca deveria estar lá: dois falsos positivos por dia
     # e a análise de verdade nunca auditada.
     analises = (repo.client.table("hand_analysis")
-                .select("summary,created_at")
+                .select("summary,created_at,modelo")
                 .gte("created_at", day_ago)
                 .order("created_at", desc=True).limit(25).execute().data) or []
     for a in analises:
@@ -192,7 +192,9 @@ def main() -> int:
         if not texto or texto.startswith("[Follow-up]"):
             continue
         pares.append({"q": "(análise entregue)", "a": texto,
-                      "conversa": False})
+                      "conversa": False,
+                      "modelo": (a.get("modelo") or "?").replace(
+                          "claude-", "")})
 
     # glossário vivo: termos que o dono aprovou como 'vigiar' via /termo
     try:
@@ -204,11 +206,25 @@ def main() -> int:
 
     achados: list[str] = []
     for p in pares:
-        origem = "conversa" if p.get("conversa") else "análise"
+        origem = ("conversa" if p.get("conversa")
+                  else f"análise·{p.get('modelo', '?')}")
         for prob in judge_answer(str(p.get("a") or ""), conversa=p["conversa"],
                                  calques_extra=extra):
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
+
+    # A/B do roteamento por complexidade: com 2+ modelos escrevendo análise
+    # na janela, cada um ganha nota PRÓPRIA de clareza — é esta comparação
+    # que decide se o modelo barato fica ou sai.
+    por_modelo: dict[str, list[dict]] = {}
+    for p in pares:
+        if not p.get("conversa"):
+            por_modelo.setdefault(p.get("modelo", "?"), []).append(p)
+    notas_por_modelo: dict[str, object] = {}
+    if len(por_modelo) >= 2:
+        for m, grupo in por_modelo.items():
+            nm = _nota_llm(grupo[:5])
+            notas_por_modelo[m] = (nm or {}).get("nota")
 
     # a nota de clareza também via só conversa. Mistura os dois artefatos,
     # senão a nota mede o papo e não o produto.
@@ -218,9 +234,12 @@ def main() -> int:
     repo.log_event(0, "output_judge", "output_judge", {
         "respostas": len(pares), "problemas": len(achados),
         "nota_clareza": (nota or {}).get("nota"),
+        "nota_por_modelo": notas_por_modelo or None,
         "detalhe": achados[:10]})
 
-    ruim = len(achados) or ((nota or {}).get("nota") or 10) < 7
+    # com A/B rodando, o juiz SEMPRE fala — comparação silenciosa não decide
+    ruim = len(achados) or ((nota or {}).get("nota") or 10) < 7 \
+        or bool(notas_por_modelo)
     if ruim and settings.telegram_bot_token:
         n_analises = sum(1 for p in pares if not p["conversa"])
         l = [f"🧪 Juiz da saída — {len(pares)} respostas das últimas 24h "
@@ -229,6 +248,11 @@ def main() -> int:
             l.append(f"Nota de clareza: {nota.get('nota')}/10")
             if nota.get("pior"):
                 l.append(f"Pior ponto: {nota['pior']}")
+        if notas_por_modelo:
+            l.append("⚖️ A/B por modelo: " + " · ".join(
+                f"{m}: {v if v is not None else '?'}/10 "
+                f"({len(por_modelo[m])} análises)"
+                for m, v in sorted(notas_por_modelo.items())))
         if achados:
             l.append(f"\n{len(achados)} problema(s) de forma:")
             l += [f"• {a}" for a in achados[:8]]

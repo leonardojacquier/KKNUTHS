@@ -78,3 +78,27 @@ def test_analise_gravada_leva_o_modelo():
     assert "modelo" in inspect.getsource(repository.Repository.save_hand_analysis)
     fonte = inspect.getsource(processing._process_upload_inner)
     assert "modelo=modelo_escolhido or settings_rt.analysis_model" in fonte
+
+
+def test_juiz_da_nota_por_modelo():
+    """Com o roteamento ligado, a comparação Sonnet vs Opus é o que decide
+    se a economia fica — e comparação silenciosa não decide nada: com 2+
+    modelos na janela, o juiz SEMPRE reporta."""
+    import inspect
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    assert "notas_por_modelo" in fonte
+    assert "modelo" in fonte.split('select("summary,created_at,modelo")')[0] \
+        or 'select("summary,created_at,modelo")' in fonte
+    assert "bool(notas_por_modelo)" in fonte, "A/B ativo força o relatório"
+
+
+def test_achado_do_juiz_diz_o_modelo():
+    import inspect
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    assert "análise·" in fonte, "problema de forma atribuído ao modelo certo"
