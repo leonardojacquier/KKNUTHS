@@ -1972,6 +1972,11 @@ def followup(
     except Exception as exc:
         logging.getLogger("llm").warning(
             "resposta do coach falhou (%s): %s", type(exc).__name__, exc)
+        # o MOTIVO vai pro evento followup_failed — 5 falhas em 7 dias
+        # (Ricardo 3x, o usuário novo na 1ª pergunta) e o banco só tinha a
+        # pergunta: a causa morria neste log de processo
+        global LAST_FOLLOWUP_ERROR
+        LAST_FOLLOWUP_ERROR = f"{type(exc).__name__}: {exc}"[:300]
         return None
 
 
@@ -2052,6 +2057,11 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
     except Exception as exc:
         logging.getLogger("llm").warning(
             "resposta do coach falhou (%s): %s", type(exc).__name__, exc)
+        # o MOTIVO vai pro evento followup_failed — 5 falhas em 7 dias
+        # (Ricardo 3x, o usuário novo na 1ª pergunta) e o banco só tinha a
+        # pergunta: a causa morria neste log de processo
+        global LAST_FOLLOWUP_ERROR
+        LAST_FOLLOWUP_ERROR = f"{type(exc).__name__}: {exc}"[:300]
         return None
 
 
@@ -2317,6 +2327,9 @@ def _coerir_unidades(stakes, players) -> bool:
 
 # última exceção da visão — vai para a nota do upload_failed (legível por SQL)
 LAST_VISION_ERROR: str | None = None
+
+# última exceção do followup — vai pro detail do evento followup_failed
+LAST_FOLLOWUP_ERROR: str | None = None
 
 
 def _fingerprint(content: bytes) -> str:

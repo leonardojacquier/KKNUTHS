@@ -988,8 +988,11 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     _stash_charts(telegram_id, chart_specs, ctx.get("user_id"))
     if not answer:
         if repo.enabled:
+            from app.agent import llm as _llm
+
             repo.log_event(telegram_id, username, "followup_failed",
-                           {"q": question[:300]})
+                           {"q": question[:300],
+                            "motivo": _llm.LAST_FOLLOWUP_ERROR})
         # Se a API caiu (crédito, chave, limite), o aluno merece a verdade:
         # "me embananei" joga a culpa numa confusão do coach que não houve.
         from app.agent.saude import recado_recente
