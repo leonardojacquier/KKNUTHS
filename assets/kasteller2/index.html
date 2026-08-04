@@ -373,10 +373,9 @@
     stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;opacity:.6;transition:opacity .3s}
   .f-col>a:hover .f-ico{opacity:1}
 
-  /* mapa: OpenStreetMap em vez do Google — o embed do Google sempre desenha
-     alguma etiqueta no pino (ficha do endereço ou coordenadas) e não dá pra
-     removê-la; o do OSM só desenha ruas. Invertido/dessaturado entra no preto
-     do site; o overlay creme costura a cor da marca por cima */
+  /* mapa: o embed do Google vem claro — invertido e dessaturado entra no
+     preto do site; o pino é a ficha da Transcamilo (a empresa cadastrada
+     no ponto do showroom) */
   .f-map{position:relative;margin-top:30px;max-width:460px;
     border:1px solid rgba(232,225,215,.14);overflow:hidden}
   .f-map iframe{width:100%;height:210px;border:0;display:block;
@@ -385,21 +384,6 @@
     background:linear-gradient(160deg,rgba(232,225,215,.10),rgba(0,0,0,.28));
     mix-blend-mode:overlay}
   .f-map:hover iframe{filter:invert(1) grayscale(.75) contrast(.92) brightness(1.1)}
-  /* o endereço é o mesmo da GNH, então o Google rotula o ponto com a ficha
-     dela. Nosso marcador fica no centro exato — onde o embed crava o pino
-     do ?q= — e cobre pino e etiqueta com a marca certa. */
-  .f-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);z-index:2;
-    pointer-events:none;display:flex;align-items:center;gap:11px;
-    background:var(--cream);color:var(--black);padding:11px 17px 11px 13px;
-    box-shadow:0 6px 26px rgba(0,0,0,.6)}
-  .f-pin::after{content:"";position:absolute;left:50%;top:100%;width:14px;height:15px;
-    background:var(--cream);transform:translateX(-50%);
-    clip-path:polygon(0 0,100% 0,50% 100%)}
-  .f-pin svg{height:22px;width:auto;display:block;fill:var(--black);flex:0 0 auto}
-  .f-pin b{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
-    font-weight:500;line-height:1.2;white-space:nowrap}
-  .f-pin i{display:block;font-style:normal;font-size:9px;letter-spacing:.13em;
-    text-transform:uppercase;color:var(--taupe);margin-top:3px;white-space:nowrap}
   .f-dir{position:absolute;right:12px;bottom:12px;z-index:2;
     display:inline-flex;align-items:center;gap:8px;
     background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
@@ -418,10 +402,6 @@
     .f-brand img{max-width:200px}
     .f-map{max-width:none;margin-top:26px}
     .f-map iframe{height:180px}
-    .f-pin{padding:12px 13px 12px 10px;gap:9px}
-    .f-pin svg{height:18px}
-    .f-pin b{font-size:9.5px}
-    .f-pin i{font-size:8px;letter-spacing:.1em}
     .f-cols{gap:8vw 12vw}
     .f-bottom{margin-top:7vh}
   }
@@ -699,11 +679,7 @@
       <div class="f-map">
         <iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"
           title="Mapa del showroom Kasteller — Av. República del Perú km 7, Ciudad del Este"
-          src="https://www.openstreetmap.org/export/embed.html?bbox=-54.666924%2C-25.496733%2C-54.656204%2C-25.492333&layer=mapnik"></iframe>
-        <div class="f-pin" aria-hidden="true">
-          <svg viewBox="0 0 113 126"><path d="M50 0 H93 L43 63 L93 126 H50 L0 63 Z"/><path d="M0 0 H37 L0 43 Z"/><path d="M0 83 L37 126 H0 Z"/></svg>
-          <span><b>Kasteller</b><i>Showroom · Av. Perú km 7</i></span>
-        </div>
+          src="https://www.google.com/maps?q=Transcamilo%2C%20Ciudad%20del%20Este%2C%20Paraguay&z=17&output=embed"></iframe>
         <a class="f-dir" target="_blank" rel="noopener"
           href="https://maps.app.goo.gl/o4vYcH5A46Do2GfG8">Cómo llegar
           <svg class="f-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
