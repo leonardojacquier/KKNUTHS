@@ -43,7 +43,22 @@
       .catch(function () { cb({ productos: [] }); });
   }
 
-  carga(function (data) {
+  /* o catálogo pesa ~1 MB: só baixa quando a seção se aproxima (600px antes)
+     ou no primeiro toque no campo — o que vier primeiro. Sem isso ele entrava
+     na carga inicial da página inteira, mesmo pra quem nunca rola até aqui. */
+  function cuandoHagaFalta(cb) {
+    var hecho = false;
+    var go = function () { if (!hecho) { hecho = true; carga(cb); } };
+    if (!('IntersectionObserver' in window)) return go();
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { io.disconnect(); go(); } });
+    }, { rootMargin: '600px 0px' });
+    io.observe(root);
+    root.addEventListener('focusin', go, { once: true });
+    if (location.hash === '#buscador') go();
+  }
+
+  cuandoHagaFalta(function (data) {
     var productos = (data.productos || []).map(function (pr, i) {
       var hay = [pr.nombre, pr.marca, pr.linea, pr.tipo, pr.look, pr.acabado, pr.formato]
         .concat(pr.tags || [], pr.usos || []).map(norm).join(' ');
