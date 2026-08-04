@@ -22,6 +22,10 @@ class Settings:
         self.anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
         self.analysis_model: str = os.getenv("ANALYSIS_MODEL", "claude-opus-4-8")
         self.cheap_model: str = os.getenv("CHEAP_MODEL", "claude-haiku-4-5-20251001")
+        # roteamento por complexidade: mão de decisão única pré-flop pode ir
+        # num modelo mais barato (ex.: claude-sonnet-5). VAZIO = desligado —
+        # só liga depois que o juiz comparar a clareza por modelo.
+        self.simple_hand_model: str = os.getenv("SIMPLE_HAND_MODEL", "")
 
         # Embeddings (Anthropic não tem; Voyage ou OpenAI). Dim casa com vector(N).
         self.voyage_api_key: str = os.getenv("VOYAGE_API_KEY", "")

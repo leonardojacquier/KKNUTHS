@@ -213,6 +213,7 @@ class Repository:
         structured: dict,
         summary: str,
         embedding: list[float] | None = None,
+        modelo: str | None = None,
     ) -> Optional[str]:
         if not self._guard():
             return None
@@ -225,6 +226,7 @@ class Repository:
                     "mistakes": structured.get("spots"),
                     "summary": summary,
                     "embedding": embedding,
+                    "modelo": modelo,
                 }
             )
             .execute()

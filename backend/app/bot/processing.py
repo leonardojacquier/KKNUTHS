@@ -413,8 +413,17 @@ def _process_upload_inner(
                     "Se o estilo importar pra resposta, peça um export da "
                     "sessão inteira."),
         "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+    # roteamento por complexidade (atras de flag; vazio = tudo no modelo
+    # cheio). Mao de decisao unica pre-flop pode ir num modelo mais barato —
+    # o juiz compara a clareza POR MODELO antes de a flag ligar de verdade.
+    from app.agent.llm import mao_simples
+
+    settings_rt = get_settings()
+    modelo_escolhido = (settings_rt.simple_hand_model
+                       if settings_rt.simple_hand_model and not is_tournament
+                       and mao_simples(structured) else None)
     coaching = coach(structured, perfil, lang=lang, key_hands=key_hands,
-                     collect_charts=chart_specs)
+                     collect_charts=chart_specs, model=modelo_escolhido)
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
     # mão única (replay da PPPoker, .txt, print legível): o FILME da mão
@@ -488,7 +497,9 @@ def _process_upload_inner(
     if user and hand_row_ids and hand_row_ids[0]:
         try:
             embedding = embed_text(coaching)
-            repo.save_hand_analysis(hand_row_ids[0], structured, coaching, embedding)
+            repo.save_hand_analysis(
+                hand_row_ids[0], structured, coaching, embedding,
+                modelo=modelo_escolhido or settings_rt.analysis_model)
         except Exception as exc:
             log.warning("falha ao gravar análise/embedding: %s", exc)
 

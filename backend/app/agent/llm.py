@@ -936,6 +936,22 @@ def _is_transient(exc) -> bool:
                                 "temporarily", "connection error", "529", "503"))
 
 
+# TTL do cache: 1h em vez dos 5min padrão. Medido (01-03/08): 53% de TODO o
+# custo de LLM era reescrita do prefixo de 16k tokens — o aluno analisa 15
+# mãos na manhã com intervalos de 10-40min, e cada intervalo >5min esfriava
+# o cache (28 esfriadas em 3 dias = US$ 2,89). Escrita de 1h custa 2x em vez
+# de 1,25x, mas UMA reescrita evitada já paga a diferença. O prefixo é igual
+# para todos os alunos, então um esquenta o cache pro outro.
+_CACHE_TTL = {"type": "ephemeral", "ttl": "1h"}
+_BETA_TTL = "extended-cache-ttl-2025-04-11"
+_TTL_OK = True  # se a API rejeitar o ttl, cai pro padrão e não tenta mais
+
+
+def _bloco_cacheado(system: str) -> list[dict]:
+    cc = dict(_CACHE_TTL) if _TTL_OK else {"type": "ephemeral"}
+    return [{"type": "text", "text": system, "cache_control": cc}]
+
+
 def _create(client, **kw):
     """client.messages.create resiliente: retry com backoff em erro transitório
     (overloaded/rate-limit/5xx) e fallback se o modelo rejeitar temperature.
@@ -945,6 +961,8 @@ def _create(client, **kw):
     model = kw.get("model")
     if model in _NO_TEMP:
         kw.pop("temperature", None)
+    # cache de 1h exige o header beta; sem custo quando o system não usa ttl
+    kw.setdefault("extra_headers", {}).setdefault("anthropic-beta", _BETA_TTL)
     log = logging.getLogger("llm")
     delay = 1.0
     for attempt in range(4):
@@ -965,6 +983,17 @@ def _create(client, **kw):
             if "temperature" in msg and kw.pop("temperature", None) is not None:
                 _NO_TEMP.add(model)
                 log.warning("modelo %s rejeita temperature; seguindo sem", model)
+                continue
+            # API rejeitou o ttl de 1h -> volta pro cache padrão de 5min na
+            # mesma chamada e desliga o ttl no processo (sem quebrar o aluno)
+            if "ttl" in msg and isinstance(kw.get("system"), list):
+                global _TTL_OK
+                _TTL_OK = False
+                for bloco in kw["system"]:
+                    if isinstance(bloco, dict) and "ttl" in (
+                            bloco.get("cache_control") or {}):
+                        bloco["cache_control"] = {"type": "ephemeral"}
+                log.warning("API rejeitou cache ttl 1h; caindo pro padrão")
                 continue
             if _is_transient(exc) and attempt < 3:
                 log.warning("LLM transitório (%s) tentativa %d/4: %s",
@@ -1577,12 +1606,29 @@ def _montar_resposta(parts: list[str]) -> str:
     return corrigir("\n\n".join(limpos))
 
 
+def mao_simples(structured: dict) -> bool:
+    """Mão de decisão ÚNICA e pré-flop — o caso que um modelo mais barato
+    resolve com os números do solver já prontos no contexto.
+
+    Conservador de propósito: qualquer decisão pós-flop, multiway no spot,
+    ou ICM salvo → vai pro modelo cheio. Barato errando caro sai mais caro.
+    """
+    spots = structured.get("spots") or []
+    if structured.get("payouts_salvos"):
+        return False
+    decisoes = [s for s in spots if s.get("street")]
+    if len(decisoes) > 1:
+        return False
+    return all(s.get("street") == "preflop" for s in decisoes)
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
     lang: str = "pt",
     key_hands: list[dict] | None = None,
     collect_charts: list | None = None,
+    model: str | None = None,
 ) -> str:
     """Gera o coaching via Claude. Cai no resumo determinístico se o LLM indisponível.
 
@@ -1631,13 +1677,12 @@ def coach(
 
         # prompt caching: system + tools são idênticos em toda chamada -> cache
         # da Anthropic corta o custo das leituras repetidas (TTL ~5 min).
-        system_blocks = [
-            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
-        ]
+        system_blocks = _bloco_cacheado(system)
+        modelo_da_analise = model or settings.analysis_model
         parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
         for _ in range(MAX_TOOL_ROUNDS):
             resp = _create(client,
-                model=settings.analysis_model,
+                model=modelo_da_analise,
                 max_tokens=1500,
                 temperature=0.2,  # coach não pode mudar de veredito por sorteio
                 system=system_blocks,
@@ -1909,9 +1954,7 @@ def followup(
                 else ""
             )
         )
-        system_blocks = [
-            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
-        ]
+        system_blocks = _bloco_cacheado(system)
         ctx_text = "Contexto da análise em discussão:\n" + json.dumps(
             context, ensure_ascii=False, indent=2
         )
@@ -2008,9 +2051,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
             "à real — e a lição principal.\n"
             "Seja curto (max ~1500 caracteres) e use a linguagem acessível da regra 6."
         )
-        system_blocks = [
-            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
-        ]
+        system_blocks = _bloco_cacheado(system)
         messages = [
             {
                 "role": "user",
