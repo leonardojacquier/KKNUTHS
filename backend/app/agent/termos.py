@@ -35,6 +35,16 @@ _TROCAS: list[tuple[re.Pattern, str]] = [
     # 6bb' / 'para 3x'): 'a pressão aumentou' fica intacta
     (re.compile(r"\bre-?aumentou\s+(pra|para)\b", re.I), r"deu re-raise \1"),
     (re.compile(r"\baumentou\s+(pra|para)\b", re.I), r"deu raise \1"),
+    # carta crua vira carta com ícone: 'Kh' -> 'K♥' (regra da casa; o juiz
+    # acusava e o Sonnet escorregou na 1ª rodada do A/B). Duas exclusões de
+    # português: 'As' (artigo) fica fora — espadas só de 2 a K; e o ás não
+    # converte antes de pontuação, senão a interjeição 'Ah,' vira 'A♥,'.
+    (re.compile(r"\b((?:10|[KQJT98765432]))s\b"), r"\1♠"),
+    (re.compile(r"\b((?:10|[KQJT98765432]))h\b"), r"\1♥"),
+    (re.compile(r"\b((?:10|[KQJT98765432]))d\b"), r"\1♦"),
+    (re.compile(r"\b((?:10|[KQJT98765432]))c\b"), r"\1♣"),
+    (re.compile(r"\bA([hdc])\b(?![,.!?…])"),
+     lambda m: "A" + {"h": "♥", "d": "♦", "c": "♣"}[m.group(1)]),
 ]
 
 

@@ -102,3 +102,39 @@ def test_achado_do_juiz_diz_o_modelo():
 
     fonte = inspect.getsource(output_judge.main)
     assert "análise·" in fonte, "problema de forma atribuído ao modelo certo"
+
+
+def test_carta_crua_ganha_icone_na_entrega():
+    """1ª rodada do A/B: o Sonnet escreveu 'Jh, Kh' cru. A regra da casa
+    (ícone de naipe) agora é aplicada na entrega, deterministicamente."""
+    from app.agent.termos import corrigir
+
+    assert corrigir("Com Jh e Kh no flop 9s 4d 2c.") \
+        == "Com J♥ e K♥ no flop 9♠ 4♦ 2♣."
+    assert corrigir("O Ah no river fechou o flush.") \
+        == "O A♥ no river fechou o flush."
+
+
+def test_portugues_nao_vira_carta():
+    from app.agent.termos import corrigir
+
+    for frase in ("Ah, entendi o spot!",       # interjeição
+                  "As blinds subiram rápido.",  # artigo
+                  "Ah… foi cooler mesmo."):
+        assert corrigir(frase) == frase, frase
+
+
+def test_analise_sem_selo_ganha_selo_de_emergencia():
+    """O selo é a regra de ouro; se o modelo esquecer, a linha é gerada à
+    parte (modelo barato) e PREPENDADA — nunca reescrevendo a análise."""
+    import inspect
+
+    from app.agent import llm
+
+    fonte = inspect.getsource(llm.coach)
+    assert "_selo_de_emergencia" in fonte
+    assert "key_hands is None" in fonte, "relatório de torneio fica de fora"
+    fonte_selo = inspect.getsource(llm._selo_de_emergencia)
+    assert "cheap_model" in fonte_selo
+    assert 'startswith(_SELOS_DE_VEREDITO)' in fonte_selo, \
+        "resposta que não é um selo é descartada, não prependada"

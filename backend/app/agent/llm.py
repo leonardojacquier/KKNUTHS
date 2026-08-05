@@ -1622,6 +1622,32 @@ def mao_simples(structured: dict) -> bool:
     return all(s.get("street") == "preflop" for s in decisoes)
 
 
+def _selo_de_emergencia(client, texto: str) -> str | None:
+    """Gera SÓ a linha do selo para uma análise que saiu sem ele.
+
+    1ª rodada do A/B: o Sonnet entregou análise sem o selo na 1ª linha — a
+    regra de ouro do produto. Reescrever a análise para consertar arriscaria
+    mudar conteúdo; aqui o modelo barato lê e devolve APENAS a linha
+    '✅/🟡/❌ + 3-6 palavras', que é prependada deterministicamente."""
+    try:
+        settings = get_settings()
+        resp = _create(client,
+            model=settings.cheap_model,
+            max_tokens=60,
+            temperature=0.0,
+            system=("Leia a análise de poker e devolva APENAS a primeira "
+                    "linha que falta nela: o selo do veredito, exatamente "
+                    "'✅ Você jogou bem' ou '🟡 Dava pra jogar melhor' ou "
+                    "'❌ Jogada cara', seguido de ' — ' e 3-6 palavras "
+                    "resumindo. NADA além dessa linha."),
+            messages=[{"role": "user", "content": texto[:3000]}])
+        linha = "".join(b.text for b in resp.content
+                        if b.type == "text").strip().split("\n")[0]
+        return linha if linha.startswith(_SELOS_DE_VEREDITO) else None
+    except Exception:
+        return None
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1692,6 +1718,11 @@ def coach(
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
                 final = _montar_resposta(parts)
+                if final and key_hands is None and \
+                        not final.startswith(_SELOS_DE_VEREDITO):
+                    selo = _selo_de_emergencia(client, final)
+                    if selo:
+                        final = selo + "\n\n" + final
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -1716,6 +1747,11 @@ def coach(
 
         # rodadas esgotadas: entrega o que já foi escrito em vez de jogar fora
         final = _montar_resposta(parts)
+        if final and key_hands is None and \
+                not final.startswith(_SELOS_DE_VEREDITO):
+            selo = _selo_de_emergencia(client, final)
+            if selo:
+                final = selo + "\n\n" + final
         return final or fallback
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico
