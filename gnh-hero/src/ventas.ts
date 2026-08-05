@@ -267,9 +267,6 @@ function initBuscador(): void {
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
 interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string }
 const FEATURED: Featured[] = [
-  // PROMO ACTIVA — al vencer, borrar esta línea y restaurar el slide estático
-  // de ventas/index.html + el preload del <head> a plataformas-o14 (ver comentario allí).
-  { name: 'Plataforma Eléctrica', tag: '20% OFF solo por esta semana — plataforma electro-hidráulica de elevación de personal, al mejor precio.', img: '../img/prod/promo-plataforma-o.jpg', imgMobile: '../img/prod/promo-plataforma-mobile-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central-o.jpg', cat: 'equipos', bleed: true },
@@ -657,16 +654,8 @@ function renderCatalog(): void {
 
 /* ---------- promoções (oculta se vazio) ---------- */
 interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string }
-const PROMOS: Promo[] = [
-  {
-    badge: '20% OFF · solo por esta semana',
-    title: 'Plataforma Eléctrica al mejor precio',
-    text: 'Plataforma electro-hidráulica de elevación de personal para trabajo en altura: mástil de aluminio, chasis con ruedas y estabilizadores. Promoción por tiempo limitado — consultá disponibilidad y altura de trabajo.',
-    img: '../img/prod/promo-plataforma-art.jpg',
-    url: '/promo/plataforma-electrica/',
-    cta: 'Ver la promoción',
-  },
-]
+// Promoción Plataforma Eléctrica cancelada — sección oculta hasta la próxima campaña.
+const PROMOS: Promo[] = []
 
 function renderPromos(): void {
   const el = document.getElementById('promos')!
