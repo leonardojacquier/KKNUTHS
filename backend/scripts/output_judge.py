@@ -103,29 +103,30 @@ def judge_answer(texto: str, conversa: bool = False,
     return probs
 
 
-def _nota_llm(pares: list[dict]) -> dict | None:
-    """Nota 0-10 de clareza pelas respostas reais (modelo barato, sem tools).
-    None se não houver chave — a checagem determinística já rodou."""
+def _nota_uma(par: dict) -> dict | None:
+    """Nota 0-10 de UMA resposta (modelo barato). None sem chave/falha.
+
+    Por resposta, não por janela: a nota individual acumula em histórico e
+    a 'nota geral' vira média móvel de 7 dias — o 3.5 de 05/08 era UMA
+    conversa ruim pesando a janela inteira de n=2 e soando como colapso."""
     settings = get_settings()
-    if not settings.anthropic_api_key or not pares:
+    if not settings.anthropic_api_key:
         return None
     try:
         import anthropic
 
-        amostra = "\n\n---\n\n".join(
-            f"PERGUNTA: {p.get('q','')[:200]}\nRESPOSTA: {str(p.get('a',''))[:1200]}"
-            for p in pares[:6])
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         resp = client.messages.create(
-            model=settings.cheap_model, max_tokens=500, temperature=0,
+            model=settings.cheap_model, max_tokens=200, temperature=0,
             system=(
-                "Você audita um coach de poker. Para o conjunto de respostas "
-                "abaixo, dê uma nota 0-10 de CLAREZA no critério do aluno: "
-                "(a) dá pra saber se ele jogou certo ou errado? (b) cada "
-                "decisão tem um número? (c) é curta e sem enrolação? "
-                "Responda SÓ JSON: {\"nota\": 8.5, \"pior\": \"o que mais "
-                "atrapalha, 1 frase\", \"exemplo\": \"trecho curto\"}"),
-            messages=[{"role": "user", "content": amostra}])
+                "Você audita UMA resposta de um coach de poker. Nota 0-10 de "
+                "CLAREZA no critério do aluno: (a) dá pra saber se jogou "
+                "certo ou errado? (b) cada decisão tem um número? (c) curta "
+                "e sem enrolação? Responda SÓ JSON: "
+                "{\"nota\": 8.5, \"pior\": \"1 frase ou null\"}"),
+            messages=[{"role": "user", "content":
+                       f"PERGUNTA: {par.get('q', '')[:200]}\n"
+                       f"RESPOSTA: {str(par.get('a', ''))[:1500]}"}])
         # o cron também gasta: sem isto o custo total do produto fica menor
         # do que a fatura, que é o jeito clássico de se enganar sozinho
         from app.agent import custo
@@ -134,9 +135,29 @@ def _nota_llm(pares: list[dict]) -> dict | None:
         txt = "".join(b.text for b in resp.content if b.type == "text").strip()
         if txt.startswith("```"):
             txt = txt.split("```", 2)[1].removeprefix("json").strip()
-        return json.loads(txt)
+        d = json.loads(txt)
+        return {"nota": round(float(d.get("nota")), 1),
+                "pior": d.get("pior")}
     except Exception:
         return None
+
+
+def agregar_notas(avaliadas: list[dict]) -> dict:
+    """Média da janela, média por modelo (análises) e a pior resposta.
+    Função pura — as três leituras saem das MESMAS notas individuais."""
+    com_nota = [a for a in avaliadas if a.get("nota") is not None]
+    if not com_nota:
+        return {"media": None, "n": 0, "por_modelo": {}, "pior": None}
+    media = round(sum(a["nota"] for a in com_nota) / len(com_nota), 1)
+    grupos: dict[str, list[float]] = {}
+    for a in com_nota:
+        if not a.get("conversa"):
+            grupos.setdefault(a.get("modelo", "?"), []).append(a["nota"])
+    por_modelo = {m: {"media": round(sum(v) / len(v), 1), "n": len(v)}
+                  for m, v in grupos.items()}
+    pior = min(com_nota, key=lambda a: a["nota"])
+    return {"media": media, "n": len(com_nota),
+            "por_modelo": por_modelo, "pior": pior}
 
 
 def notify_admin(token: str, text: str) -> bool:
@@ -213,57 +234,74 @@ def main() -> int:
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
 
-    # A/B do roteamento por complexidade: com 2+ modelos escrevendo análise
-    # na janela, cada um ganha nota PRÓPRIA de clareza — é esta comparação
-    # que decide se o modelo barato fica ou sai.
-    por_modelo: dict[str, list[dict]] = {}
-    for p in pares:
-        if not p.get("conversa"):
-            por_modelo.setdefault(p.get("modelo", "?"), []).append(p)
-    notas_por_modelo: dict[str, object] = {}
-    if len(por_modelo) >= 2:
-        for m, grupo in por_modelo.items():
-            nm = _nota_llm(grupo[:5])
-            notas_por_modelo[m] = (nm or {}).get("nota")
+    # nota POR RESPOSTA (teto de 15 por rodada, custo Haiku): cada nota vira
+    # evento `nota_resposta` — o histórico que dá a média móvel de 7 dias e
+    # o A/B por modelo, tudo das mesmas notas individuais.
+    avaliadas: list[dict] = []
+    for p in pares[:15]:
+        n = _nota_uma(p)
+        avaliadas.append({**p, "nota": (n or {}).get("nota"),
+                          "pior": (n or {}).get("pior")})
+        if n:
+            repo.log_event(0, "output_judge", "nota_resposta", {
+                "tipo": "conversa" if p.get("conversa") else "análise",
+                "modelo": p.get("modelo"), "nota": n["nota"],
+                "pior": str(n.get("pior") or "")[:160]})
+    agr = agregar_notas(avaliadas)
+    notas_por_modelo = (agr["por_modelo"]
+                        if len(agr["por_modelo"]) >= 2 else {})
 
-    # a nota de clareza também via só conversa. Mistura os dois artefatos,
-    # senão a nota mede o papo e não o produto.
-    amostra = ([p for p in pares if p["conversa"]][:3]
-               + [p for p in pares if not p["conversa"]][:3])
-    nota = _nota_llm(amostra or pares)
+    # média móvel: as notas individuais dos últimos 7 dias
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    hist = (repo.client.table("bot_events").select("detail")
+            .eq("event", "nota_resposta").gte("created_at", week_ago)
+            .limit(500).execute().data) or []
+    notas7 = []
+    for h in hist:
+        d = h.get("detail") or {}
+        d = json.loads(d) if isinstance(d, str) else d
+        if isinstance(d.get("nota"), (int, float)):
+            notas7.append(float(d["nota"]))
+    media7 = round(sum(notas7) / len(notas7), 1) if notas7 else None
+
     repo.log_event(0, "output_judge", "output_judge", {
         "respostas": len(pares), "problemas": len(achados),
-        "nota_clareza": (nota or {}).get("nota"),
+        "nota_clareza": agr["media"], "media_7d": media7,
         "nota_por_modelo": notas_por_modelo or None,
         "detalhe": achados[:10]})
 
     # com A/B rodando, o juiz SEMPRE fala — comparação silenciosa não decide
-    ruim = len(achados) or ((nota or {}).get("nota") or 10) < 7 \
+    ruim = len(achados) or (agr["media"] or 10) < 7 \
         or bool(notas_por_modelo)
     if ruim and settings.telegram_bot_token:
         n_analises = sum(1 for p in pares if not p["conversa"])
         l = [f"🧪 Juiz da saída — {len(pares)} respostas das últimas 24h "
              f"({n_analises} análises)"]
-        if nota:
-            # nota de LLM sobre 2 respostas é opinião sobre uma anedota — o
-            # 3.5 de 05/08 era um turno de conversa pesando a janela inteira
+        if agr["media"] is not None:
+            # duas leituras: a janela (o dia) e a média móvel (o produto).
+            # Janela de n<4 é anedota — o 3.5 de 05/08 era UMA conversa ruim
             sal = (" ⚠️ amostra pequena — leia com sal"
                    if len(pares) < 4 else "")
-            l.append(f"Nota de clareza: {nota.get('nota')}/10 "
-                     f"(sobre {len(pares)} resposta(s)){sal}")
-            if nota.get("pior"):
-                l.append(f"Pior ponto: {nota['pior']}")
+            l.append(f"Nota do dia: {agr['media']}/10 "
+                     f"(n={agr['n']}){sal}"
+                     + (f" · média 7 dias: {media7}/10 "
+                        f"(n={len(notas7)})" if media7 is not None else ""))
+            pior = agr["pior"]
+            if pior and pior["nota"] < 7:
+                quem = ("conversa" if pior.get("conversa")
+                        else f"análise·{pior.get('modelo', '?')}")
+                l.append(f"Pior resposta ({pior['nota']}/10, {quem}): "
+                         f"{pior.get('pior') or 'sem detalhe'}")
         if notas_por_modelo:
             l.append("⚖️ A/B por modelo: " + " · ".join(
-                f"{m}: {v if v is not None else '?'}/10 "
-                f"({len(por_modelo[m])} análises)"
+                f"{m}: {v['media']}/10 ({v['n']} análises)"
                 for m, v in sorted(notas_por_modelo.items())))
         if achados:
             l.append(f"\n{len(achados)} problema(s) de forma:")
             l += [f"• {a}" for a in achados[:8]]
         notify_admin(settings.telegram_bot_token, "\n".join(l))
     print(f"juiz: {len(pares)} respostas, {len(achados)} problemas, "
-          f"nota {(nota or {}).get('nota')}")
+          f"nota {agr['media']} (7d: {media7})")
     return 0
 
 

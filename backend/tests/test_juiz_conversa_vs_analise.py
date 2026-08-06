@@ -90,3 +90,40 @@ def test_conversa_manda_responder_antes_de_confirmar():
     fonte = inspect.getsource(llm.followup)
     assert "RESPONDA PRIMEIRO" in fonte
     assert "NÃO narre bastidor de busca" in fonte
+
+
+def test_agregar_notas_da_as_tres_leituras_das_mesmas_notas():
+    """Pedido do dono (06/08): nota POR resposta + nota geral. A média da
+    janela, o A/B por modelo e a pior resposta saem das MESMAS notas
+    individuais — e cada nota vira evento, alimentando a média de 7 dias."""
+    from scripts.output_judge import agregar_notas
+
+    avaliadas = [
+        {"nota": 9.0, "conversa": False, "modelo": "opus-4-8"},
+        {"nota": 8.0, "conversa": False, "modelo": "opus-4-8"},
+        {"nota": 7.0, "conversa": False, "modelo": "sonnet-5"},
+        {"nota": 3.0, "conversa": True, "pior": "enrolou"},
+        {"nota": None, "conversa": True},          # avaliação falhou
+    ]
+    agr = agregar_notas(avaliadas)
+    assert agr["media"] == 6.8 and agr["n"] == 4
+    assert agr["por_modelo"] == {"opus-4-8": {"media": 8.5, "n": 2},
+                                 "sonnet-5": {"media": 7.0, "n": 1}}
+    assert agr["pior"]["nota"] == 3.0, "a conversa ruim é apontada, não a média"
+
+
+def test_sem_nenhuma_nota_nao_inventa_media():
+    from scripts.output_judge import agregar_notas
+
+    assert agregar_notas([{"nota": None}])["media"] is None
+
+
+def test_cada_nota_vira_evento_e_a_media_movel_vem_do_historico():
+    import inspect
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    assert '"nota_resposta"' in fonte, "nota individual gravada como evento"
+    assert "media7" in fonte and "days=7" in fonte
+    assert "média 7 dias" in fonte, "o relatório mostra o produto, não só o dia"
