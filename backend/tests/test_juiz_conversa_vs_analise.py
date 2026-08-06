@@ -65,3 +65,28 @@ def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
     assert "day_ago" in fonte
     assert fonte.count('gte("updated_at", day_ago)') == 1, "janela na conversa"
     assert fonte.count('gte("created_at", day_ago)') == 1, "janela nas análises"
+
+
+def test_nota_sobre_amostra_pequena_vem_com_aviso():
+    """05/08: nota 3.5 sobre DUAS respostas — um turno de conversa pesou a
+    janela inteira e soou como colapso do produto. Nota agora diz o n, e
+    n<4 leva o aviso de sal."""
+    import inspect
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    assert "amostra pequena" in fonte
+    assert "len(pares) < 4" in fonte
+
+
+def test_conversa_manda_responder_antes_de_confirmar():
+    """Caso real (7-2 por voz): a 1ª resposta gastou o turno pedindo
+    confirmação e narrando busca falhada ('não consegui puxar a mão')."""
+    import inspect
+
+    from app.agent import llm
+
+    fonte = inspect.getsource(llm.followup)
+    assert "RESPONDA PRIMEIRO" in fonte
+    assert "NÃO narre bastidor de busca" in fonte

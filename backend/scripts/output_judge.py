@@ -245,7 +245,12 @@ def main() -> int:
         l = [f"🧪 Juiz da saída — {len(pares)} respostas das últimas 24h "
              f"({n_analises} análises)"]
         if nota:
-            l.append(f"Nota de clareza: {nota.get('nota')}/10")
+            # nota de LLM sobre 2 respostas é opinião sobre uma anedota — o
+            # 3.5 de 05/08 era um turno de conversa pesando a janela inteira
+            sal = (" ⚠️ amostra pequena — leia com sal"
+                   if len(pares) < 4 else "")
+            l.append(f"Nota de clareza: {nota.get('nota')}/10 "
+                     f"(sobre {len(pares)} resposta(s)){sal}")
             if nota.get("pior"):
                 l.append(f"Pior ponto: {nota['pior']}")
         if notas_por_modelo:
