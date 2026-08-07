@@ -266,12 +266,13 @@ function initBuscador(): void {
 // bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
 // eyebrow: reemplaza el rótulo "Línea destacada"; launch:true lo pinta como sticker rojo
+// seal: [texto grande, texto chico] — carimbo circular a la derecha del banner
 // url/cta: el botón principal lleva a una landing propia en vez de abrir WhatsApp directo
-interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string; eyebrow?: string; launch?: boolean; url?: string; cta?: string }
+interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string; eyebrow?: string; launch?: boolean; url?: string; cta?: string; seal?: [string, string] }
 const FEATURED: Featured[] = [
   // LANZAMIENTO ACTIVO — al terminar, borrar esta línea y restaurar el slide estático
   // de ventas/index.html + el preload del <head> a plataformas-o14 (ver comentario allí).
-  { name: 'Generador 38 kVA', tag: 'Motor Ricardo, ¡pronta entrega! Ahora en GNH — vení a conocerlo en nuestro Show Room.', cat: 'equipos', bleed: true, videoWebm: '../video/generador.webm', videoMp4: '../video/generador.mp4', poster: '../img/prod/generador-poster.jpg', eyebrow: 'Lanzamiento', launch: true, url: '/promo/generador-38kva/', cta: 'Ver el lanzamiento' },
+  { name: 'Generador 38 kVA', tag: 'Motor Ricardo, ¡pronta entrega! Ahora en GNH — vení a conocerlo en nuestro Show Room.', cat: 'equipos', bleed: true, videoWebm: '../video/generador.webm', videoMp4: '../video/generador.mp4', poster: '../img/prod/generador-poster.jpg', eyebrow: 'Lanzamiento', launch: true, seal: ['Pronta<br>entrega', 'Ya en stock'], url: '/promo/generador-38kva/', cta: 'Ver el lanzamiento' },
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central-o.jpg', cat: 'equipos', bleed: true },
@@ -294,6 +295,7 @@ function renderHeroCarousel(): void {
           <div class="vh-media">${f.videoMp4
             ? `<video class="vh-el" muted loop playsinline preload="metadata" poster="${f.poster || ''}"><source src="${f.videoWebm}" type="video/webm"><source src="${f.videoMp4}" type="video/mp4"></video>`
             : `<picture>${f.imgMobile ? `<source media="(max-width: 760px)" srcset="${f.imgMobile.replace('.jpg', '.webp')}" type="image/webp"><source media="(max-width: 760px)" srcset="${f.imgMobile}">` : ''}<source srcset="${f.img!.replace('.jpg', '.webp')}" type="image/webp"><img class="vh-el" src="${f.img}" alt="${f.name}" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}></picture>`}</div>
+          ${f.seal ? `<div class="vh-seal" aria-hidden="true"><b>${f.seal[0]}</b><i>${f.seal[1]}</i></div>` : ''}
           <div class="vh-inner">
             <div class="vh-copy">
               <span class="vh-eyebrow${f.launch ? ' is-launch' : ''}">${f.eyebrow ?? 'Línea destacada'}</span>

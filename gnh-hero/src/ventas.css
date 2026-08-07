@@ -45,6 +45,37 @@
   max-width: 72rem; margin: 0 auto; padding: 0 24px;
   display: flex; align-items: center;
 }
+
+/* ---- sello: carimbo circular a la derecha, para el gancho comercial ---- */
+.vh-seal {
+  position: absolute; right: clamp(74px, 9vw, 132px); top: clamp(46px, 12%, 104px); z-index: 3;
+  width: clamp(132px, 14vw, 178px); aspect-ratio: 1; border-radius: 50%;
+  display: grid; place-content: center; text-align: center; pointer-events: none;
+  background: radial-gradient(circle at 34% 28%, #F43F5E, #E11D48 62%, #B4123B);
+  color: #fff; font-family: 'Satoshi', sans-serif;
+  box-shadow: 0 26px 56px -16px rgba(225,29,72,.85), inset 0 0 0 2px rgba(255,255,255,.34);
+  rotate: -9deg;
+}
+/* anillo interior fino: le da el aire de sello estampado */
+.vh-seal::after {
+  content: ''; position: absolute; inset: 11px; border-radius: 50%;
+  border: 1px dashed rgba(255,255,255,.45);
+}
+.vh-seal b {
+  display: block; font-weight: 900; line-height: .94; text-transform: uppercase;
+  font-size: clamp(19px, 2.1vw, 27px); letter-spacing: -.01em;
+}
+.vh-seal i {
+  display: block; font-style: normal; font-weight: 700; text-transform: uppercase;
+  font-size: clamp(8.5px, .82vw, 10.5px); letter-spacing: .2em; opacity: .92; margin-top: 5px;
+}
+/* entra con un golpe cada vez que el slide vuelve a estar activo */
+@keyframes vh-seal-in {
+  from { opacity: 0; scale: .55; rotate: -30deg; }
+  60%  { opacity: 1; scale: 1.09; rotate: -4deg; }
+  to   { opacity: 1; scale: 1; rotate: -9deg; }
+}
+.vh-slide.is-active .vh-seal { animation: vh-seal-in .72s cubic-bezier(.22,.9,.3,1.2) both; }
 .vh-copy { max-width: 480px; padding-bottom: 34px; }
 .vh-eyebrow { font-family: 'Satoshi', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #ff9a4d; }
 /* etiqueta de lanzamiento: sticker rojo. Naranja no — es el color del CTA que
@@ -114,9 +145,16 @@ a.vh-cta { text-decoration: none; }
   .vh-title { font-size: clamp(30px, 8vw, 44px); }
   .vh-desc { font-size: 15px; }
   .vh-arrow { display: none; }
+  /* el copy se alinea abajo en móvil: el sello sube para no chocar */
+  .vh-seal { top: 14px; right: 12px; width: clamp(104px, 29vw, 132px); }
+  .vh-seal::after { inset: 9px; }
+  /* el clamp de escritorio caía en su mínimo y el texto tocaba el anillo */
+  .vh-seal b { font-size: 15.5px; }
+  .vh-seal i { font-size: 7.5px; letter-spacing: .14em; margin-top: 4px; }
   .vh-seg { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .vh-slide.is-active .vh-seal { animation: none; }
   .vh-slide { transition: none; }
   .vh-media img { animation: none; }
   .vh-seg.is-active .vh-seg-fill { animation: none; width: 100%; }
