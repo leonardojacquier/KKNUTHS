@@ -617,6 +617,63 @@ class Repository:
         ).execute()
         return res.data or []
 
+    # --------------------- memória COLETIVA (entre alunos) -------------
+    # Tudo o mais aqui é por aluno: match_hand_analysis trava em user_id, o
+    # caderno também. Isto é o único caminho que atravessa alunos — o que o
+    # coach aprendeu com as 194 mãos do Ricardo chegando na 4ª do Antonio.
+    @_safe([])
+    def buscar_conhecimento(self, embedding: list[float], limit: int = 3,
+                            min_alunos: int = 1) -> list[dict]:
+        if not self._guard() or not embedding:
+            return []
+        res = self.client.rpc(
+            "match_conhecimento",
+            {"p_query": embedding, "p_limit": limit,
+             "p_min_alunos": min_alunos},
+        ).execute()
+        return res.data or []
+
+    @_safe(None)
+    def salvar_conhecimento(self, kind: str, titulo: str, gatilho: str,
+                            texto: str, embedding: list[float] | None,
+                            categoria: str | None = None,
+                            ev_bb: float | None = None,
+                            alunos: int = 1,
+                            origem: dict | None = None) -> dict | None:
+        if not self._guard():
+            return None
+        linha = {"kind": kind, "titulo": titulo[:200], "gatilho": gatilho[:400],
+                 "texto": texto[:1200], "categoria": categoria,
+                 "ev_bb": ev_bb, "alunos": max(1, int(alunos)),
+                 "origem": origem or {}}
+        if embedding:
+            linha["embedding"] = embedding
+        res = self.client.table("conhecimento").insert(linha).execute()
+        return (res.data or [None])[0]
+
+    @_safe([])
+    def listar_conhecimento(self, limit: int = 100) -> list[dict]:
+        if not self._guard():
+            return []
+        res = (self.client.table("conhecimento")
+               .select("id, kind, titulo, gatilho, texto, categoria, ev_bb, "
+                       "alunos, usos, created_at")
+               .order("alunos", desc=True).limit(limit).execute())
+        return res.data or []
+
+    @_safe(None)
+    def marcar_uso_conhecimento(self, ids: list[str]) -> None:
+        """Conta quantas vezes cada saber foi injetado numa análise.
+
+        Sem isso não dá para saber se a memória coletiva serve para alguma
+        coisa — é a diferença entre 'temos uma base' e 'a base é usada'.
+        """
+        if not self._guard() or not ids:
+            return None
+        self.client.rpc("incrementar_uso_conhecimento",
+                        {"p_ids": ids}).execute()
+        return None
+
 
 @lru_cache
 def get_repository() -> Repository:

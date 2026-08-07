@@ -216,3 +216,61 @@ create table if not exists pending_sims (
     updated_at  timestamptz not null default now()
 );
 alter table public.pending_sims enable row level security;
+
+-- MEMÓRIA COLETIVA: o que o coach aprendeu com TODOS os alunos.
+-- Todo o resto do produto é por aluno (match_hand_analysis trava em
+-- user_id, player_notes idem), então o que um aluno ensinou nunca chegava
+-- no outro: o tema "3-bet" aparecia no caderno de 4 alunos distintos e
+-- nenhum deles se beneficiava disso. Esta é a única tabela que atravessa
+-- alunos — e por isso é anônima por construção: quem escreve generaliza, e
+-- o destilador descarta (não "corrige") saber que cite nome.
+create table if not exists conhecimento (
+    id           uuid primary key default gen_random_uuid(),
+    kind         text not null check (kind in ('padrao', 'playbook')),
+    titulo       text not null,
+    gatilho      text not null,           -- quando este saber se aplica
+    texto        text not null,           -- o saber, com o número que prova
+    categoria    text,                    -- preflop|flop|turn|river|icm
+    ev_bb        numeric,
+    alunos       int  not null default 1, -- de quantos alunos distintos veio
+    usos         int  not null default 0, -- quantas vezes foi injetado
+    embedding    vector(1536),
+    origem       jsonb not null default '{}'::jsonb,
+    created_at   timestamptz not null default now(),
+    updated_at   timestamptz not null default now()
+);
+create index if not exists conhecimento_embedding_idx
+    on conhecimento using ivfflat (embedding vector_cosine_ops)
+    with (lists = 20);
+create index if not exists conhecimento_kind_idx on conhecimento (kind);
+alter table public.conhecimento enable row level security;
+
+-- busca GLOBAL — de propósito SEM p_user_id. É o oposto de
+-- match_hand_analysis, e é essa diferença que faz a ferramenta aprender com
+-- os usuários (plural) em vez de sobre cada um em separado.
+create or replace function public.match_conhecimento(
+    p_query vector, p_limit integer default 4, p_min_alunos integer default 1)
+returns table (id uuid, kind text, titulo text, gatilho text, texto text,
+               categoria text, ev_bb numeric, alunos int, similarity real)
+language sql stable
+set search_path to 'public', 'pg_temp'
+as $$
+    select c.id, c.kind, c.titulo, c.gatilho, c.texto, c.categoria,
+           c.ev_bb, c.alunos, 1 - (c.embedding <=> p_query) as similarity
+    from conhecimento c
+    where c.embedding is not null and c.alunos >= p_min_alunos
+    order by c.embedding <=> p_query
+    limit p_limit;
+$$;
+
+-- "temos uma base" e "a base é usada" são coisas diferentes: sem contador
+-- não dá para descobrir que a memória virou outro /ask que ninguém chama.
+create or replace function public.incrementar_uso_conhecimento(p_ids uuid[])
+returns void
+language sql volatile
+set search_path to 'public', 'pg_temp'
+as $$
+    update public.conhecimento
+       set usos = usos + 1, updated_at = now()
+     where id = any(p_ids);
+$$;

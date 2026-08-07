@@ -400,6 +400,20 @@ def _process_upload_inner(
         saved = repo.get_user_meta(user["id"], "payouts")
         if saved and saved.get("valores"):
             structured["payouts_salvos"] = saved
+    # MEMÓRIA: o que o coach já viu — as mãos parecidas deste aluno e os
+    # padrões destilados de TODOS. Sem isto, 385 análises indexadas ficavam
+    # só sendo escritas (o único leitor era /ask, usado zero vezes) e o
+    # aprendizado de um aluno nunca chegava no outro.
+    saberes_usados: list[str] = []
+    try:
+        from app.agent.memoria import montar as montar_memoria
+
+        bloco, saberes_usados = montar_memoria(
+            structured, repo, user["id"] if user else None, embed_text)
+        structured.update(bloco)
+    except Exception as exc:
+        log.warning("memória do coach falhou: %s", exc)
+
     chart_specs: list = []
     marcar(telegram_id, "Montando o relatório do torneio"
            if is_tournament else "Escrevendo a análise")
@@ -519,6 +533,14 @@ def _process_upload_inner(
             PENDING_DOCS[telegram_id] = (_time.time(), _docs)
         except Exception as exc:
             log.warning("relatório mão a mão falhou: %s", exc)
+
+    # conta o uso dos saberes coletivos: é o que vai dizer, daqui a um mês,
+    # se a memória serviu — ou se virou outro /ask que ninguém chama
+    if saberes_usados:
+        try:
+            repo.marcar_uso_conhecimento(saberes_usados)
+        except Exception:
+            log.debug("marcar uso do conhecimento falhou", exc_info=True)
 
     # ---- base de conhecimento ----
     if user and hand_row_ids and hand_row_ids[0]:
