@@ -486,13 +486,25 @@ def _process_upload_inner(
                                {"trecho": vazias[0]})
             # "cooler de river" numa mão em que o aluno nunca esteve na
             # frente: a trajetória prova que a virada não existiu
-            from app.analysis.historia import narrou_azar_inexistente
+            from app.analysis.historia import (citou_showdown_errado,
+                                               narrou_azar_inexistente)
 
             trecho = narrou_azar_inexistente(coaching, historia)
             if trecho and repo.enabled:
                 repo.log_event(telegram_id, username, "narrativa_enganosa",
                                {"trecho": trecho[:200],
                                 "equity": (historia or {}).get("equity_pct")})
+            # "o vilão apareceu com 77" quando ele mostrou 7♦2♦: as cartas
+            # do showdown são dado gravado — citar errado inverte o desfecho
+            # da mão na cabeça do aluno (caso real: narrou derrota numa mão
+            # que ele GANHOU)
+            erro_sd = citou_showdown_errado(coaching, hands[0]) if hands \
+                else None
+            if erro_sd and repo.enabled:
+                repo.log_event(telegram_id, username, "showdown_errado",
+                               {"citado": erro_sd["citado"],
+                                "reais": erro_sd["reais"],
+                                "trecho": erro_sd["trecho"][:200]})
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 

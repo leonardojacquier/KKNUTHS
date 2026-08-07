@@ -59,7 +59,13 @@ def historia_do_resultado(h) -> dict | None:
     river_virou = (eq["turn"] > 50) != (eq["river"] > 50)
 
     if ganhou:
-        leitura = "Você ganhou o pote — narre o resultado sem drama."
+        viloes_txt = "; ".join(
+            f"{n} mostrou {' '.join(c)}" for n, c in viloes.items())
+        leitura = (
+            f"Você GANHOU este pote — o showdown confirmou sua mão melhor "
+            f"({viloes_txt}, tudo PIOR que a sua). PROIBIDO narrar derrota, "
+            "dizer que a mão dele te bate, ou que ele 'apareceu com' uma "
+            "combinação que ganha: ele apareceu com a mão que PERDEU.")
     elif not na_frente:
         leitura = (
             f"Você esteve ATRÁS em todas as ruas (pré {eq['pre']}%, flop "
@@ -89,6 +95,61 @@ def historia_do_resultado(h) -> dict | None:
                                  for n, c in viloes.items()},
         "leitura": leitura,
     }
+
+
+# "o vilão apareceu com 77" — verbos de SHOWDOWN seguidos de notação de mão.
+# Ranks em MAIÚSCULA de propósito: com re.I, a palavra "as" ("apareceu com
+# as cartas...") viraria A♠ e o detector acusaria frase inocente.
+_CITA_SHOWDOWN = re.compile(
+    r"(?:apareceu|mostrou|abriu|revelou|virou)\s+(?:com\s+)?(?:exatamente\s+)?"
+    r"\*{0,2}((?:10|[AKQJT98765432]){2}[so]?)\b")
+
+
+def citou_showdown_errado(texto: str, h) -> dict | None:
+    """A mão que o texto diz que apareceu no showdown bate com a que veio?
+
+    Caso real (07/08): o vilão mostrou 7♦2♦ (72s) e a análise fechou com "o
+    vilão apareceu com 77 exatos numa das duas combinações que faltavam" —
+    narrou derrota numa mão que o aluno GANHOU, contradizendo o showdown
+    gravado duas linhas acima. Cartas viradas são dado, não interpretação:
+    citar errado é mentira que a máquina prova.
+
+    Devolve {"citado", "reais", "trecho"} na primeira citação que não bate
+    com NENHUMA mão mostrada (nem a do herói — citar a própria mão certa é
+    legítimo). None se não há citação ou todas conferem.
+    """
+    if not texto:
+        return None
+    from app.analysis.pushfold import canonical_hand
+
+    shown = dict(getattr(h, "shown_cards", None) or {})
+    reais = set()
+    for cs in shown.values():
+        if len(cs or []) == 2:
+            try:
+                reais.add(canonical_hand(list(cs)))
+            except Exception:
+                pass
+    hero_cards = list(getattr(h, "hero_cards", None) or [])
+    if len(hero_cards) == 2:
+        try:
+            reais.add(canonical_hand(hero_cards))
+        except Exception:
+            pass
+    if not reais:
+        return None
+    # "72s" e "72o" citados sem sufixo viram "72": aceita os dois lados
+    aceitas = reais | {r.rstrip("so") for r in reais}
+    for m in _CITA_SHOWDOWN.finditer(texto):
+        citado = m.group(1).replace("10", "T").upper().replace("S", "s") \
+            if m.group(1)[-1] in "so" else m.group(1).replace("10", "T")
+        citado = citado[:2].upper() + citado[2:]
+        if citado in aceitas or citado.rstrip("so") in aceitas:
+            continue
+        i = max(0, m.start() - 60)
+        return {"citado": citado, "reais": sorted(reais),
+                "trecho": texto[i:m.end() + 60]}
+    return None
 
 
 def narrou_azar_inexistente(texto: str, historia: dict | None) -> str | None:

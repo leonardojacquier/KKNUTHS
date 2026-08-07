@@ -123,3 +123,77 @@ def test_o_prompt_manda_seguir_a_conta():
     assert "NA MESA" in fonte and "seu par" in fonte
     # e o pronome do azar: quem virou teve SORTE
     assert "pronome do azar" in fonte
+
+
+# ---- a mão do full house (07/08, 12:47): narrou derrota numa mão GANHA ----
+# A♠7♠ em 2♣7♣7♥A♣10♥ = full de 7 com A; vilão mostrou 7♦2♦ = full de 7 com
+# 2; collected no nome do herói. A análise fechou com "o vilão apareceu com
+# 77 exatos numa das duas combinações que faltavam" — cooler invertido numa
+# mão vencida, contradizendo o showdown gravado duas linhas acima.
+
+MAO_FULL = SimpleNamespace(
+    hero="KKNUThS", hero_cards=["As", "7s"],
+    final_board=["2c", "7c", "7h", "Ac", "Th"],
+    shown_cards={"arisn": ["2d", "7d"]},
+    collected={"KKNUThS": 32132600},
+)
+
+TEXTO_INVERTIDO = (
+    "*A conta que mais pesa:* seu full house full de 7 com A no river só "
+    "perde pra quadra de 7 (impossível, você tem um), 1010 e AA — o vilão "
+    "apareceu com 77 exatos numa das duas combinações que faltavam.")
+
+
+def test_mao_ganha_tem_leitura_de_vitoria():
+    from app.analysis.historia import historia_do_resultado
+
+    h = historia_do_resultado(MAO_FULL)
+    assert h["ganhou"]
+    assert h["equity_pct"]["river"] == 100
+    assert "GANHOU" in h["leitura"] and "PROIBIDO narrar derrota" in h["leitura"]
+    assert "2d 7d" in h["leitura"], "a mão real do vilão vai na leitura"
+    assert h["sua_mao_final"] == "full house (7 cheio de A)"
+    assert h["mao_final_dos_viloes"]["arisn"] == "full house (7 cheio de 2)"
+
+
+def test_showdown_citado_errado_e_flagrado():
+    from app.analysis.historia import citou_showdown_errado
+
+    erro = citou_showdown_errado(TEXTO_INVERTIDO, MAO_FULL)
+    assert erro is not None
+    assert erro["citado"] == "77"
+    assert "72s" in erro["reais"]
+    assert "apareceu com 77" in erro["trecho"]
+
+
+def test_showdown_citado_certo_passa():
+    from app.analysis.historia import citou_showdown_errado
+
+    ok = ("O vilão mostrou 72s e o full dele era menor — seu 7 cheio de A "
+          "leva. Você mostrou A7s e arrastou o pote.")
+    assert citou_showdown_errado(ok, MAO_FULL) is None
+    # falar de range ("range dele tem 77+") não é citar showdown
+    assert citou_showdown_errado("o range de raise dele é 77+, AQ+",
+                                 MAO_FULL) is None
+    # e a palavra "as" minúscula nunca vira A♠ ("apareceu com as cartas")
+    assert citou_showdown_errado("ele apareceu com as cartas viradas",
+                                 MAO_FULL) is None
+
+
+def test_sem_showdown_nao_ha_o_que_conferir():
+    from app.analysis.historia import citou_showdown_errado
+
+    sem = SimpleNamespace(hero="X", hero_cards=[], final_board=[],
+                          shown_cards={}, collected={})
+    assert citou_showdown_errado(TEXTO_INVERTIDO, sem) is None
+    assert citou_showdown_errado("", MAO_FULL) is None
+
+
+def test_showdown_errado_vira_evento():
+    import inspect
+
+    from app.bot import processing
+
+    fonte = inspect.getsource(processing._process_upload_inner)
+    assert "citou_showdown_errado" in fonte
+    assert "showdown_errado" in fonte
