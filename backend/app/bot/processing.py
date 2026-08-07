@@ -414,6 +414,28 @@ def _process_upload_inner(
     except Exception as exc:
         log.warning("memória do coach falhou: %s", exc)
 
+    # A HISTÓRIA DO RESULTADO vem da conta, não da imaginação. Sem isto o
+    # coach fechou uma mão dominada (29% pré, 0% no turn) com "cooler de
+    # river" e chamou os dois pares DA MESA de "seus dois pares" — o aluno
+    # que sabe jogar lê isso e perde a confiança no resto da análise.
+    historia = None
+    if hands and not is_tournament:
+        try:
+            from app.analysis.historia import historia_do_resultado
+
+            historia = historia_do_resultado(hands[0])
+            if historia:
+                structured["historia_do_resultado"] = historia
+                structured["instrucao_historia"] = (
+                    "A trajetória acima é CONTA FEITA rua a rua contra as "
+                    "cartas reais do showdown. O parágrafo final sobre o "
+                    "desfecho segue a 'leitura' à risca — quem estava na "
+                    "frente em cada rua não é opinião. Cite as mãos finais "
+                    "pelos nomes dados (sua_mao_final: dois pares da MESA "
+                    "não são 'seus dois pares').")
+        except Exception as exc:
+            log.warning("história do resultado falhou: %s", exc)
+
     chart_specs: list = []
     marcar(telegram_id, "Montando o relatório do torneio"
            if is_tournament else "Escrevendo a análise")
@@ -462,6 +484,15 @@ def _process_upload_inner(
             if vazias and repo.enabled:
                 repo.log_event(telegram_id, username, "conta_sem_numero",
                                {"trecho": vazias[0]})
+            # "cooler de river" numa mão em que o aluno nunca esteve na
+            # frente: a trajetória prova que a virada não existiu
+            from app.analysis.historia import narrou_azar_inexistente
+
+            trecho = narrou_azar_inexistente(coaching, historia)
+            if trecho and repo.enabled:
+                repo.log_event(telegram_id, username, "narrativa_enganosa",
+                               {"trecho": trecho[:200],
+                                "equity": (historia or {}).get("equity_pct")})
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 
