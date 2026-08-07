@@ -272,7 +272,7 @@ interface Featured { name: string; tag: string; cat: string; bleed?: boolean; im
 const FEATURED: Featured[] = [
   // LANZAMIENTO ACTIVO — al terminar, borrar esta línea y restaurar el slide estático
   // de ventas/index.html + el preload del <head> a plataformas-o14 (ver comentario allí).
-  { name: 'Generador 38 kVA', tag: 'Motor Ricardo, ¡pronta entrega! Ahora en GNH — vení a conocerlo en nuestro Show Room.', cat: 'equipos', bleed: true, videoWebm: '../video/generador.webm', videoMp4: '../video/generador.mp4', poster: '../img/prod/generador-poster.jpg', eyebrow: 'Lanzamiento', launch: true, seal: ['Pronta<br>entrega', 'Ya en stock'], url: '/promo/generador-38kva/', cta: 'Ver el lanzamiento' },
+  { name: 'Generador 38 kVA', tag: 'Motor Ricardo, ¡pronta entrega! Ahora en GNH — vení a conocerlo en nuestro Show Room.', cat: 'equipos', bleed: true, videoWebm: '../video/generador.webm', videoMp4: '../video/generador.mp4', poster: '../img/prod/generador-poster-v2.jpg', eyebrow: 'Lanzamiento', launch: true, seal: ['Pronta<br>entrega', 'Ya en stock'], url: '/promo/generador-38kva/', cta: 'Ver el lanzamiento' },
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central-o.jpg', cat: 'equipos', bleed: true },
@@ -670,7 +670,7 @@ const PROMOS: Promo[] = [
     badge: 'Lanzamiento',
     title: 'Generador 38 kVA con Motor Ricardo',
     text: 'Grupo electrógeno diésel trifásico de 38 kVA, cabina súper silenciosa y tablero ATS para arranque automático ante un corte. Pronta entrega — vení a conocerlo en nuestro Show Room.',
-    img: '../img/prod/generador-art.jpg',
+    img: '../img/prod/generador-art-v2.jpg',
     url: '/promo/generador-38kva/',
     cta: 'Ver el lanzamiento',
   },
