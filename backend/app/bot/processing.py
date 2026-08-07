@@ -1409,10 +1409,12 @@ def termo_reply(args: list[str]) -> str:
 def licoes_reply(args: list[str]) -> str:
     """/licoes — biblioteca + fila da "lição do dia" (só o dono).
 
-    O destilador estoca; o dono aprova; o cron das 11h envia UMA por dia:
+    O destilador estoca; o dono aprova e a lição SAI NA HORA:
       /licoes            lista (fila primeiro)
       /licoes N          mostra a lição inteira
-      /licoes N ok       aprova → entra na fila de envio
+      /licoes N ok       aprova e ENVIA agora (ou enfileira se saiu uma há
+                         menos de 6h — trava anti-rajada)
+      /licoes N ja       envia agora ignorando a trava
       /licoes N nao      tira da fila (volta pra estante)
     """
     repo = get_repository()
@@ -1431,17 +1433,47 @@ def licoes_reply(args: list[str]) -> str:
                 return f"Lição #{alvo} já foi enviada em "\
                        f"{str(linha['enviada_em'])[:10]} — não repete."
             t.update({"aprovada": True}).eq("id", alvo).execute()
-            fila = (t.select("id", count="exact").eq("aprovada", True)
-                    .is_("enviada_em", "null").execute().count or 0)
-            return (f"✅ #{alvo} na fila. Sai às 11h (BRT) do próximo dia "
-                    f"livre. Fila: {fila} lição(ões).")
+            # aprovar DISPARA na hora — o dono aprovava e esperava até o
+            # outro dia sem ver nada acontecer. A trava anti-rajada segura
+            # a 2ª aprovação seguida pra não virar 3 pushes no aluno.
+            from app.bot.licao_envio import (
+                JANELA_ANTI_RAJADA_H, enviar_licao,
+                horas_desde_o_ultimo_envio, pode_disparar_agora,
+            )
+
+            horas = horas_desde_o_ultimo_envio(repo)
+            if not pode_disparar_agora(horas):
+                fila = (t.select("id", count="exact").eq("aprovada", True)
+                        .is_("enviada_em", "null").execute().count or 0)
+                return (f"✅ #{alvo} aprovada, mas saiu lição há "
+                        f"{horas:.1f}h — pra não metralhar o aluno, esta vai "
+                        f"na FILA (sai 11h BRT). Fila: {fila}.\n"
+                        f"_Se quiser mandar agora mesmo: /licoes {alvo} ja_")
+            token = get_settings().telegram_bot_token
+            r = enviar_licao(repo, token, linha)
+            return (f"📤 #{alvo} ENVIADA agora para {r['enviados']} aluno(s).\n"
+                    f"_{linha['titulo']}_\n\n"
+                    + (f"Fila: {r['fila']} aprovada(s) — sai 11h BRT."
+                       if r["fila"] else
+                       f"Fila vazia (próxima aprovação dispara em "
+                       f"{JANELA_ANTI_RAJADA_H:.0f}h)."))
+        if acao == "ja":
+            # escape hatch: ignora a trava anti-rajada de propósito
+            if linha.get("enviada_em"):
+                return f"Lição #{alvo} já foi enviada — não repete."
+            from app.bot.licao_envio import enviar_licao
+
+            t.update({"aprovada": True}).eq("id", alvo).execute()
+            r = enviar_licao(repo, get_settings().telegram_bot_token, linha)
+            return (f"📤 #{alvo} enviada agora (forçado) para "
+                    f"{r['enviados']} aluno(s).")
         if acao in ("nao", "não"):
             t.update({"aprovada": False}).eq("id", alvo).execute()
             return f"↩️ #{alvo} saiu da fila (segue na estante)."
         return (f"📖 *#{linha['id']} — {linha['titulo']}* "
                 f"({linha['categoria']}, {linha['ev_bb']:+.1f}bb)\n\n"
                 f"{linha['spot']}\n\n{linha['licao']}\n\n"
-                f"Aprovar pro envio diário: /licoes {linha['id']} ok")
+                f"Aprovar e ENVIAR agora: /licoes {linha['id']} ok")
 
     linhas = (t.select("id,titulo,categoria,ev_bb,aprovada,enviada_em")
               .order("id", desc=True).limit(20).execute().data) or []

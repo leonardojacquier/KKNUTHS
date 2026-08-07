@@ -52,14 +52,17 @@ def test_so_sai_o_que_foi_aprovado_e_nunca_repete():
 
 def test_fila_vazia_avisa_o_dono_e_nao_incomoda_o_aluno():
     fonte = inspect.getsource(main)
-    bloco = fonte[fonte.index("if not licao:"):fonte.index("texto = texto_da_licao")]
+    bloco = fonte[fonte.index("if not licao:"):fonte.index("enviar_licao(")]
     assert "ADMIN_ID" in bloco, "o dono é avisado"
     assert "return 0" in bloco, "e o cron sai sem mandar nada pro aluno"
-    assert "for u in users" not in bloco, "aluno não recebe nada"
+    assert "enviar_licao(repo" not in bloco, "aluno não recebe nada"
 
 
 def test_marca_como_enviada_depois_de_enviar():
-    fonte = inspect.getsource(main)
+    """O envio mora em app/bot/licao_envio (comando e cron compartilham)."""
+    from app.bot.licao_envio import enviar_licao
+
+    fonte = inspect.getsource(enviar_licao)
     assert "enviada_em" in fonte and "publicada" in fonte
     assert fonte.index("for u in users") < fonte.index('"enviada_em":'), \
         "marca DEPOIS do envio — falha no meio não perde a lição"
