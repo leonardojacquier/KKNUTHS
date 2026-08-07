@@ -1030,6 +1030,11 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     persist_conversation(telegram_id)
 
     if repo.enabled:
+        # a RESPOSTA também. Só a pergunta ficava gravada, então o portal
+        # mostrava o que o aluno perguntou e nada do que o coach respondeu —
+        # metade da conversa, e a metade que diz se o coach prestou.
+        repo.log_event(telegram_id, username, "followup_resposta",
+                       {"q": question[:300], "r": (answer or "")[:900]})
         # insight importante -> base de conhecimento (buscável via /ask)
         if ctx.get("hand_row_id"):
             try:

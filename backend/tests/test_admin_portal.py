@@ -166,6 +166,195 @@ def test_o_bot_empurrar_nao_conta_como_o_aluno_estar_ativo():
     assert "ev not in _SO_RECEBEU" in inspect.getsource(admin._dossie)
 
 
+def test_dossie_traz_a_coluna_que_o_filtro_le():
+    """Regressão real (07/08): o dossiê pedia 'event,detail,created_at' e o
+    filtro lia telegram_id, que não vinha. Resultado: 'nenhuma ação
+    registrada' para gente que tinha feito sete coisas. A consulta tem que
+    trazer TODA coluna que a regra usa."""
+    import inspect
+
+    from app.api.admin import _dossie, e_acao_de_gente
+
+    assert "telegram_id,event,detail,created_at" in inspect.getsource(_dossie)
+    # e a prova do porquê: linha no formato do select, sem telegram_id, some
+    linha = {"event": "upload", "detail": {}, "created_at": "2026-08-06"}
+    assert not e_acao_de_gente(linha)
+    assert e_acao_de_gente({**linha, "telegram_id": 42})
+
+
+def test_pergunta_casa_com_a_resposta_do_coach():
+    """Metade da conversa não serve: sem a resposta não dá para saber se o
+    coach prestou. Pergunta e resposta são dois eventos, casados pelo texto."""
+    from app.api.admin import _perguntas_com_resposta
+
+    eventos = [
+        {"event": "followup_resposta", "created_at": "2026-08-07T10:00",
+         "detail": {"q": "vale 3-bet?", "r": "Vale: você tem fold equity."}},
+        {"event": "followup", "created_at": "2026-08-07T10:00",
+         "detail": {"q": "vale 3-bet?"}},
+        {"event": "followup", "created_at": "2026-08-06T09:00",
+         "detail": {"q": "pergunta antiga sem resposta gravada"}},
+        {"event": "followup_failed", "created_at": "2026-08-05T08:00",
+         "detail": {"q": "essa quebrou", "motivo": "429 rate limit"}},
+    ]
+    qa = _perguntas_com_resposta(eventos)
+    assert [x["q"] for x in qa] == ["vale 3-bet?",
+                                    "pergunta antiga sem resposta gravada",
+                                    "essa quebrou"]
+    assert qa[0]["r"] == "Vale: você tem fold equity."
+    assert qa[1]["r"] == ""          # histórico: nunca foi gravada
+    assert qa[2]["falhou"] and "429" in qa[2]["motivo"]
+
+
+def test_treino_mostra_se_a_escolha_estava_certa():
+    """'respondeu: call' sem o veredito não diz nada. Os dois eventos são
+    ligados pelo hand_id."""
+    from app.api.admin import _treinos
+
+    eventos = [
+        {"event": "drill_verdict", "created_at": "2026-08-06T13:20",
+         "detail": {"cat": "river", "hand_id": "demo-site", "verdict": "boa"}},
+        {"event": "drill_answer", "created_at": "2026-08-06T13:20",
+         "detail": {"choice": "call", "hand_id": "demo-site"}},
+    ]
+    t = _treinos(eventos)
+    assert len(t) == 1
+    assert t[0]["escolha"] == "call"
+    assert t[0]["veredito"] == "boa"
+    assert t[0]["cat"] == "river"
+
+
+def test_caixa_do_treino_conta_o_botao_treinar():
+    """'1 quiz respondido / 0 quiz recebidos' parecia impossível — o treino
+    veio do botão 'treinar', não do quiz das 19h. Duas coisas diferentes
+    chamadas 'quiz' na mesma tela."""
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin._dossie)
+    assert 'ev == "go_treino"' in fonte
+    assert 'agg["treino_btn"] += 1' in fonte
+    tela = inspect.getsource(admin.admin_usuario)
+    # o número da caixa soma as duas origens, e o rótulo não diz mais "quiz"
+    assert 'agg["quiz"] + agg["treino_btn"]' in tela
+    assert "treinos que o bot serviu" in tela
+    assert "treinos respondidos" in tela
+
+
+def test_cada_caixa_abre_a_lista_que_ela_promete():
+    """Número que não abre obriga a confiar nele. Clicar tem que mostrar as
+    linhas que formam aquele número."""
+    import inspect
+
+    from app.api import admin
+
+    assert admin._FOCOS == ("maos", "perguntas", "treinos", "quiz", "erros")
+    tela = inspect.getsource(admin.admin_usuario)
+    for alvo in admin._FOCOS:
+        assert f'"{alvo}"' in tela or f"'{alvo}'" in tela, alvo
+    assert "&ver=" in tela
+    # e o filtro não pode custar ida ao banco: só mexe no que já veio
+    foco = inspect.getsource(admin._bloco_foco)
+    assert "table(" not in foco and "execute()" not in foco
+
+
+def test_nenhuma_tela_puxa_o_embedding_do_banco():
+    """O embedding é um vetor de 1536 números que nunca aparece na tela.
+    Trazer ele engorda toda resposta do portal à toa — e é o tipo de coisa
+    que entra sem ninguém ver num `select('*')`."""
+    import inspect
+    import re
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin)
+    # hand_analysis é a tabela que carrega o vetor: nela, select('*') puxa
+    # o embedding junto sem ninguém perceber
+    pedidos = re.findall(r'table\("hand_analysis"\)\s*\.select\(\s*([^)]*)\)',
+                         fonte)
+    assert pedidos, "ninguém mais lê hand_analysis? revisar este teste"
+    for sel in pedidos:
+        assert "embedding" not in sel and "*" not in sel, sel
+
+
+def test_mao_abre_inteira_e_exige_chave():
+    """A mão é dado de aluno: análise, cartas, resultado. Sem chave, 401."""
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin.admin_mao)
+    assert "summary,ev_loss,mistakes,modelo,created_at" in fonte
+    assert "token inválido" in fonte
+
+    get_settings.cache_clear()
+    c = TestClient(app)
+    assert c.get("/admin/mao?id=abc").status_code == 401
+    assert c.get("/admin/mao?key=errado&id=abc").status_code == 401
+
+
+def test_mao_nao_conta_duas_vezes_pelo_canal_que_chegou():
+    """'replay_pppoker' e 'print_recebido' são o CANAL da mesma mão, gravados
+    ao lado do 'upload'. Contando os dois, o Ricardo aparecia com 194 mãos
+    tendo 92 no banco — o número mais visível do painel, dobrado."""
+    from app.api.admin import _MAO_EVENTS
+
+    assert _MAO_EVENTS == ("upload",)
+    for canal in ("replay_pppoker", "replay_suprema", "print_recebido"):
+        assert canal not in _MAO_EVENTS, canal
+
+
+def test_dossie_conta_maos_no_banco_e_nao_no_evento():
+    """Um export de sessão é 1 envio e 159 mãos; reenviar o mesmo arquivo
+    soma evento sem criar mão. Contar evento responde outra pergunta."""
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin._dossie)
+    assert 'table("hands").select("id", count="exact")' in fonte
+    assert 'eq("user_id", u["id"])' in fonte
+    tela = inspect.getsource(admin.admin_usuario)
+    assert "mãos no banco" in tela and "envios analisados" in tela
+
+
+def test_painel_avisa_quando_a_varredura_corta_o_mes():
+    """Bater o teto não dá erro: a consulta vem ordenada do mais novo e CORTA
+    o resto. Os números encolhem sozinhos e eu leria isso como 'os alunos
+    usaram menos'. Número incompleto tem que se anunciar."""
+    import inspect
+
+    from app.api import admin
+
+    coleta = inspect.getsource(admin._collect)
+    assert "truncou = len(events) >= _TETO_EVENTOS" in coleta
+    assert '"truncou": truncou' in coleta
+    tela = inspect.getsource(admin.admin)
+    assert "incompletos" in tela and "_TETO_EVENTOS" in tela
+
+
+def test_erro_mostra_o_motivo_que_o_evento_realmente_grava():
+    """upload_failed grava 'note', error grava 'error', entrega_falha grava
+    'faltou' (conferido no banco). Chutar nome de chave rende uma coluna
+    'motivo' vazia — pior que não ter a coluna."""
+    from app.api.admin import _bloco_foco
+
+    d = {"eventos": [
+        {"event": "upload_failed", "created_at": "2026-08-06T12:20",
+         "detail": {"note": "não achei mão no print", "format": "foto"}},
+        {"event": "error", "created_at": "2026-08-06T11:00",
+         "detail": {"error": "timeout na API"}},
+        {"event": "entrega_falha", "created_at": "2026-08-05T10:00",
+         "detail": {"faltou": "gráfico", "pediu": "EV"}},
+    ], "maos": [], "por_mao": {}}
+    out = _bloco_foco("erros", d, "k", 1)
+    assert "não achei mão no print" in out
+    assert "timeout na API" in out
+    assert "pediu EV, faltou gráfico" in out
+    assert "motivo não gravado" not in out
+
+
 def test_diario_esconde_ruido_de_sistema():
     """'custo_llm' sozinho era 346 dos ~500 eventos de 14 dias. Deixar isso na
     linha do tempo é o motivo de 'não fica claro como estão as ações'."""

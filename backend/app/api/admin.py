@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -21,11 +22,18 @@ from app.db import get_repository
 
 router = APIRouter()
 
+# teto da varredura de eventos do painel. Existe para a página não puxar o
+# banco inteiro; quando ele é atingido a página AVISA, em vez de mostrar
+# número menor calado.
+_TETO_EVENTOS = 5000
+
 _ERROR_EVENTS = ("upload_failed", "error", "entrega_falha",
                  "sem_mao_na_conversa")
-# o que conta como MÃO enviada (funil por usuário)
-_MAO_EVENTS = ("upload", "print_recebido", "upload_recebido",
-               "replay_pppoker", "replay_suprema")
+# Um ENVIO analisado = um evento 'upload', e só. 'print_recebido' e
+# 'replay_pppoker/suprema' são o CANAL por onde a mesma mão chegou, gravados
+# ao lado do upload — contar os dois dobrava o número: o Ricardo aparecia
+# com 194 mãos tendo 92 no banco. (conferido no banco em 07/08)
+_MAO_EVENTS = ("upload",)
 # O BOT falando com a pessoa — não é a pessoa usando a ferramenta. Aparece
 # no diário (é contexto), mas NÃO conta como atividade: a lição do dia de
 # 07/08 marcou os 10 alunos como "ativos às 01:54", inclusive quem nunca
@@ -109,7 +117,14 @@ def _collect() -> dict:
     events = _q(lambda: c.table("bot_events")
                 .select("telegram_id, username, event, detail, created_at")
                 .gte("created_at", d30)
-                .order("created_at", desc=True).limit(5000).execute().data, []) or []
+                .order("created_at", desc=True)
+                .limit(_TETO_EVENTOS).execute().data, []) or []
+    # bater o teto não dá erro: a consulta vem ordenada do mais novo pro mais
+    # velho e simplesmente CORTA o resto do mês. Os números encolheriam
+    # sozinhos, sem avisar, e eu leria isso como "os alunos usaram menos".
+    # Hoje são ~1.5k eventos em 14 dias com 10 alunos; o teto chega junto com
+    # o crescimento, que é exatamente quando eu mais vou olhar o painel.
+    truncou = len(events) >= _TETO_EVENTOS
 
     per_user: dict[int, dict] = defaultdict(
         lambda: {"eventos": 0, "maos": 0, "perguntas": 0, "drills": 0,
@@ -204,6 +219,7 @@ def _collect() -> dict:
     return {
         "db": True, "users": users, "hands": hands, "analyses30": analyses30,
         "active7": len(active7), "new7": new7, "by_type": dict(by_type),
+        "truncou": truncou,
         "per_user": dict(per_user), "used_by_uid": dict(used_by_uid),
         "errors": errors[:30], "errors30": len(errors), "days": days,
         "recent": recent, "profiles": profiles, "d14": d14,
@@ -267,6 +283,23 @@ min-width:38px}
 .ato.ok span:last-child{color:var(--felt)}
 .ato.bad span:last-child{color:var(--red)}
 .ato.mid span:last-child{color:var(--gold)}
+a.kpi{display:block;border-bottom:1px solid var(--line);color:inherit}
+a.kpi:hover{background:#1e2621;border-top-color:var(--gold)}
+a.kpi span{color:var(--mut)}
+a.kpi.sel{background:#1e2621;border-top-width:5px;padding-top:12px}
+a.kpi.sel span{color:var(--ink)}
+.limpa{font-size:11px;text-transform:none;letter-spacing:0;margin-left:8px}
+.qa{background:var(--card);border:1px solid var(--line);
+border-left:3px solid var(--felt);padding:10px 14px;margin:8px 0}
+.qa .quando{color:var(--mut);font-size:11px;font-family:ui-monospace,monospace}
+.qa .perg{font-weight:600;margin:4px 0 8px}
+.resp{white-space:pre-wrap;font-size:13.5px;line-height:1.5;color:var(--ink)}
+.resp.mut{color:var(--mut);font-style:italic}
+.resp.bad{color:var(--red)}
+.resp.grande{background:var(--card);border:1px solid var(--line);
+border-left:3px solid var(--felt);padding:14px;font-size:14px}
+pre.raw{background:var(--card);border:1px solid var(--line);padding:12px;
+overflow-x:auto;font-size:12px;color:var(--mut);max-height:420px}
 """
 
 
@@ -275,7 +308,10 @@ min-width:38px}
 # comandos do dono (*_cmd) afoga o que os alunos realmente fizeram.
 _SO_SISTEMA = {"custo_llm", "caderno_auto", "entrega_ok", "licoes_cmd",
                "termo_cmd", "quem_cmd", "planode_cmd", "daily_usage",
-               "output_judge", "nota_resposta", "sonda_recebimento"}
+               "output_judge", "nota_resposta", "sonda_recebimento",
+               # o par da pergunta: guarda a resposta do coach para a tela de
+               # perguntas. No diário seria a mesma pergunta duas vezes.
+               "followup_resposta"}
 
 
 def e_acao_de_gente(e: dict) -> bool:
@@ -424,8 +460,13 @@ def _dossie(tg: int) -> dict:
     if not u:
         return {"db": True, "achou": False}
 
+    # telegram_id VAI no select mesmo já filtrando por ele: e_acao_de_gente()
+    # lê essa coluna, e sem ela o dossiê inteiro dizia "nenhuma ação
+    # registrada" para gente que tinha feito coisas. Coluna que a regra usa
+    # tem que vir na consulta.
     eventos = _q(lambda: c.table("bot_events")
-                 .select("event,detail,created_at").eq("telegram_id", tg)
+                 .select("telegram_id,event,detail,created_at")
+                 .eq("telegram_id", tg)
                  .order("created_at", desc=True).limit(300).execute().data,
                  []) or []
     maos = _q(lambda: c.table("hands")
@@ -440,13 +481,19 @@ def _dossie(tg: int) -> dict:
     por_mao = {}
     for a in (analises or []):
         por_mao.setdefault(a["hand_id"], a)
+    # quantas mãos ESTA pessoa tem de verdade. Contar evento não serve: um
+    # export de sessão é 1 envio e 159 mãos (caso do Odilon), e reenviar o
+    # mesmo arquivo soma evento sem criar mão. Só o banco sabe. count exact
+    # não traz linha nenhuma — é barato.
+    n_maos = _q(lambda: c.table("hands").select("id", count="exact")
+                .eq("user_id", u["id"]).execute().count, 0) or 0
     notas = _q(lambda: repo.get_notes(u["id"], limit=10), []) or []
     perfil = (_q(lambda: c.table("player_stats").select("*")
                .eq("user_id", u["id"]).limit(1).execute().data, [])
               or [None])[0]
 
     agg = {"eventos": len(eventos), "maos": 0, "perguntas": 0, "drills": 0,
-           "erros": 0, "custo": 0.0, "ref": "", "quiz": 0}
+           "erros": 0, "custo": 0.0, "ref": "", "quiz": 0, "treino_btn": 0}
     dias: dict[str, int] = defaultdict(int)
     for e in eventos:
         ev = e.get("event") or ""
@@ -459,6 +506,11 @@ def _dossie(tg: int) -> dict:
             agg["drills"] += 1
         elif ev == "daily_quiz_sent":
             agg["quiz"] += 1
+        elif ev == "go_treino":
+            # o botão "treinar" serve um treino na hora. Sem contar isso, o
+            # painel mostrava "1 respondido / 0 recebidos" e parecia bug —
+            # era o treino do onboarding, que não vem do quiz das 19h.
+            agg["treino_btn"] += 1
         elif ev == "custo_llm":
             usd = _detalhe(e).get("usd")
             if isinstance(usd, (int, float)):
@@ -471,14 +523,267 @@ def _dossie(tg: int) -> dict:
         # empurrou desenhariam uma barra por dia mesmo com ela sumida
         if ts and ev not in _SO_RECEBEU and ev not in _SO_SISTEMA:
             dias[ts[:10]] += 1
+    agg["maos_banco"] = n_maos
     return {"db": True, "achou": True, "u": u, "eventos": eventos,
             "maos": maos, "por_mao": por_mao, "notas": notas,
             "perfil": perfil, "agg": agg, "dias": dias}
 
 
+def _perguntas_com_resposta(eventos: list) -> list[dict]:
+    """Casa cada pergunta do aluno com a resposta que o coach deu.
+
+    A pergunta é gravada ANTES de chamar o LLM (para não sumir se ele cair) e
+    a resposta depois, em 'followup_resposta' — então elas são dois eventos e
+    é aqui que viram uma conversa. Casa pelo texto da pergunta: as duas
+    pontas gravam o mesmo `q`.
+    """
+    respostas: dict[str, str] = {}
+    for e in eventos:
+        if (e.get("event") or "") == "followup_resposta":
+            det = _detalhe(e)
+            q = str(det.get("q") or "")[:120]
+            if q:
+                respostas.setdefault(q, str(det.get("r") or ""))
+    saida = []
+    for e in eventos:
+        ev = e.get("event") or ""
+        if ev not in ("followup", "followup_failed"):
+            continue
+        det = _detalhe(e)
+        q = str(det.get("q") or "")
+        saida.append({
+            "quando": str(e.get("created_at") or ""),
+            "q": q,
+            "r": respostas.get(q[:120], ""),
+            "falhou": ev == "followup_failed",
+            "motivo": str(det.get("motivo") or ""),
+        })
+    return saida
+
+
+def _treinos(eventos: list) -> list[dict]:
+    """Junta a resposta do treino com o veredito que veio depois.
+
+    'drill_answer' (o que a pessoa escolheu) e 'drill_verdict' (se acertou)
+    são eventos separados, ligados pelo hand_id. Separados, a tela mostrava
+    'respondeu: call' sem dizer se call estava certo — que é a única coisa
+    que interessa saber.
+    """
+    veredito: dict[str, dict] = {}
+    for e in eventos:
+        if (e.get("event") or "") == "drill_verdict":
+            det = _detalhe(e)
+            hid = str(det.get("hand_id") or "")
+            veredito.setdefault(hid, det)
+    saida = []
+    for e in eventos:
+        if (e.get("event") or "") != "drill_answer":
+            continue
+        det = _detalhe(e)
+        v = veredito.get(str(det.get("hand_id") or "")) or {}
+        saida.append({
+            "quando": str(e.get("created_at") or ""),
+            "escolha": str(det.get("choice") or "—"),
+            "veredito": str(v.get("verdict") or ""),
+            "cat": str(v.get("cat") or det.get("cat") or ""),
+            "mao": str(det.get("hand_id") or ""),
+        })
+    return saida
+
+
+# as caixas que abrem lista. Cada uma promete um número — clicar tem que
+# mostrar exatamente as linhas que formam aquele número, senão o painel
+# obriga a confiar nele.
+_FOCOS = ("maos", "perguntas", "treinos", "quiz", "erros")
+
+
+def _bloco_foco(ver: str, d: dict, key: str, tg: int) -> str:
+    """A lista da caixa clicada. Zero consulta nova: tudo já veio no dossiê.
+
+    O filtro é de memória de propósito — clicar numa caixa não pode custar
+    uma ida ao banco, senão o portal fica lento na mão de quem está usando.
+    """
+    esc = html.escape
+    if ver not in _FOCOS:
+        return ""
+    eventos = d["eventos"]
+
+    if ver == "perguntas":
+        itens = _perguntas_com_resposta(eventos)
+        if not itens:
+            return "<p class='sub'>nenhuma pergunta ao coach ainda.</p>"
+        out = []
+        for it in itens[:60]:
+            if it["falhou"]:
+                corpo = (f"<div class='resp bad'>falhou — "
+                         f"{esc(it['motivo'] or 'motivo não gravado')}</div>")
+            elif it["r"]:
+                corpo = f"<div class='resp'>{esc(it['r'])}</div>"
+            else:
+                corpo = ("<div class='resp mut'>resposta não gravada — só "
+                         "guardo a partir de 07/08.</div>")
+            out.append(
+                f"<div class='qa'><div class='quando'>"
+                f"{esc(it['quando'][:16].replace('T', ' '))}</div>"
+                f"<div class='perg'>{esc(it['q'])}</div>{corpo}</div>")
+        return "".join(out)
+
+    if ver == "treinos":
+        itens = _treinos(eventos)
+        if not itens:
+            return "<p class='sub'>nenhum treino respondido ainda.</p>"
+        cor = {"boa": "ok", "ruim": "bad", "mista": "mid"}
+        linhas = "".join(
+            f"<tr><td class='n'>{esc(it['quando'][:16].replace('T', ' '))}</td>"
+            f"<td>{esc(it['cat'] or '—')}</td>"
+            f"<td class='n'>{esc(it['escolha'])}</td>"
+            f"<td class='{cor.get(it['veredito'], '')}'>"
+            f"{esc(it['veredito'] or '(sem veredito)')}</td>"
+            f"<td class='n'>{esc(it['mao'][:24] or '—')}</td></tr>"
+            for it in itens[:60])
+        return ("<div class='tbl'><table><tr><th>Quando</th><th>Rua</th>"
+                "<th>Escolheu</th><th>Veredito</th><th>Mão</th></tr>"
+                f"{linhas}</table></div>")
+
+    if ver == "erros":
+        itens = [e for e in eventos if (e.get("event") or "") in _ERROR_EVENTS]
+        if not itens:
+            return "<p class='sub'>nenhum erro — esta pessoa nunca bateu " \
+                   "numa falha.</p>"
+        linhas = []
+        for e in itens[:60]:
+            det = _detalhe(e)
+            # as chaves que cada falha REALMENTE grava (conferido no banco):
+            # upload_failed→note, error→error, entrega_falha→faltou,
+            # sem_mao_na_conversa→chaves. Chutar nome de chave aqui rende
+            # uma coluna "motivo" vazia, que é pior que não ter a coluna.
+            motivo = next(
+                (str(det[k]) for k in
+                 ("note", "error", "motivo", "faltou", "chaves")
+                 if det.get(k)), "")
+            if (e.get("event") or "") == "entrega_falha" and det.get("pediu"):
+                motivo = f"pediu {det['pediu']}, faltou {motivo}"
+            linhas.append(
+                f"<tr><td class='n'>"
+                f"{esc(str(e.get('created_at'))[:16].replace('T', ' '))}</td>"
+                f"<td class='err'>{esc(str(e.get('event')))}</td>"
+                f"<td>{esc(str(motivo)[:300] or '(motivo não gravado)')}</td>"
+                f"</tr>")
+        return ("<div class='tbl'><table><tr><th>Quando</th><th>Falha</th>"
+                f"<th>Motivo</th></tr>{''.join(linhas)}</table></div>")
+
+    if ver == "quiz":
+        itens = [e for e in eventos
+                 if (e.get("event") or "") in ("daily_quiz_sent",
+                                               "licao_recebida", "go_treino")]
+        if not itens:
+            return "<p class='sub'>o bot ainda não empurrou nada para esta " \
+                   "pessoa.</p>"
+        rotulo = {"daily_quiz_sent": "quiz do dia (19h)",
+                  "licao_recebida": "lição do dia",
+                  "go_treino": "abriu treino pelo botão"}
+        linhas = "".join(
+            f"<tr><td class='n'>"
+            f"{esc(str(e.get('created_at'))[:16].replace('T', ' '))}</td>"
+            f"<td>{esc(rotulo.get(str(e.get('event')), str(e.get('event'))))}</td>"
+            f"<td class='n'>{esc(str(_detalhe(e).get('licao') or ''))}</td></tr>"
+            for e in itens[:60])
+        return ("<div class='tbl'><table><tr><th>Quando</th><th>O quê</th>"
+                f"<th>Lição nº</th></tr>{linhas}</table></div>")
+
+    # ver == "maos": a tabela já existe embaixo; aqui ela vira o foco e cada
+    # linha abre a mão inteira
+    if not d["maos"]:
+        return "<p class='sub'>nenhuma mão enviada ainda.</p>"
+    linhas = []
+    for m in d["maos"]:
+        a = d["por_mao"].get(m["id"]) or {}
+        cls, linha = _linha_do_veredito(a.get("summary", ""))
+        cartas = " ".join((m.get("canonical") or {}).get("hero_cards") or [])
+        ev = a.get("ev_loss")
+        linhas.append(
+            f"<tr><td class='n'><a href='/admin/mao?key={esc(key)}"
+            f"&id={esc(str(m['id']))}&tg={tg}'>"
+            f"{esc(str(m.get('created_at'))[:16].replace('T', ' '))}</a></td>"
+            f"<td class='n'>{esc(cartas) or '—'}</td>"
+            f"<td>{esc(str(m.get('site') or ''))[:22]}</td>"
+            f"<td class='n'>"
+            f"{f'{ev:+.1f}bb' if isinstance(ev, (int, float)) else '—'}</td>"
+            f"<td class='{cls}'>{esc(linha) or '(sem análise)'}</td></tr>")
+    return ("<div class='tbl'><table><tr><th>Quando (clique para abrir)</th>"
+            "<th>Cartas</th><th>Sala</th><th>Resultado</th><th>Veredito</th>"
+            f"</tr>{''.join(linhas)}</table></div>")
+
+
+@router.get("/admin/mao", response_class=HTMLResponse)
+async def admin_mao(key: str = Query(default=""),
+                    id: str = Query(default=""),
+                    tg: int = Query(default=0)) -> str:
+    """A mão inteira: o que o coach respondeu, e o que aconteceu na mesa."""
+    settings = get_settings()
+    if not settings.admin_token or key != settings.admin_token:
+        raise HTTPException(status_code=401, detail="token inválido")
+    esc = html.escape
+    volta = (f"<a class='volta' href='/admin/usuario?key={esc(key)}&tg={tg}"
+             f"&ver=maos'>← voltar para as mãos</a>")
+    repo = get_repository()
+    if not repo.enabled:
+        return (f"<style>{_CSS}</style><div class='wrap'>{volta}"
+                "<div class='warn'>Banco indisponível.</div></div>")
+    c = repo.client
+    m = (_q(lambda: c.table("hands")
+            .select("id,hand_id,site,format,canonical,created_at,played_at")
+            .eq("id", id).limit(1).execute().data, []) or [None])[0]
+    if not m:
+        return (f"<style>{_CSS}</style><div class='wrap'>{volta}"
+                "<div class='warn'>Mão não encontrada.</div></div>")
+    # 'embedding' NUNCA entra no select: é um vetor de 1536 números que não
+    # serve para nada nesta tela e engorda a resposta à toa
+    a = (_q(lambda: c.table("hand_analysis")
+           .select("summary,ev_loss,mistakes,modelo,created_at")
+           .eq("hand_id", id).order("created_at", desc=True)
+           .limit(1).execute().data, []) or [None])[0] or {}
+
+    can = m.get("canonical") or {}
+    cartas = " ".join(can.get("hero_cards") or []) or "—"
+    ev = a.get("ev_loss")
+    erros = a.get("mistakes")
+    erros_html = ""
+    if isinstance(erros, list) and erros:
+        erros_html = "<h2>Erros apontados</h2>" + "".join(
+            f"<div class='nota'>{esc(str(x))}</div>" for x in erros)
+    # o resumo é o texto que o aluno recebeu no Telegram, com *negrito*
+    resumo = esc(str(a.get("summary") or "")) or \
+        "(esta mão não tem análise gravada)"
+    resumo = re.sub(r"\*([^*]+)\*", r"<b>\1</b>", resumo)
+
+    ruas = ""
+    if isinstance(can.get("streets"), (list, dict)):
+        ruas = (f"<h2>Como a mão foi</h2><pre class='raw'>"
+                f"{esc(json.dumps(can.get('streets'), ensure_ascii=False, indent=2))[:4000]}"
+                f"</pre>")
+
+    return f"""<style>{_CSS}</style>
+<div class="wrap">
+{volta}
+<h1>♠ {esc(cartas)}</h1>
+<p class="sub">{esc(str(m.get('site') or ''))} ·
+ {esc(str(m.get('format') or ''))} ·
+ {esc(str(m.get('created_at') or '')[:16].replace('T', ' '))} ·
+ resultado <b>{f'{ev:+.1f}bb' if isinstance(ev, (int, float)) else '—'}</b> ·
+ modelo {esc(str(a.get('modelo') or '—').replace('claude-', ''))}</p>
+
+<h2>O que o coach respondeu</h2>
+<div class="resp grande">{resumo}</div>
+{erros_html}
+{ruas}
+</div>"""
+
+
 @router.get("/admin/usuario", response_class=HTMLResponse)
 async def admin_usuario(key: str = Query(default=""),
-                        tg: int = Query(default=0)) -> str:
+                        tg: int = Query(default=0),
+                        ver: str = Query(default="")) -> str:
     settings = get_settings()
     if not settings.admin_token or key != settings.admin_token:
         raise HTTPException(status_code=401, detail="token inválido")
@@ -553,6 +858,46 @@ async def admin_usuario(key: str = Query(default=""),
         f"{esc(str(n.get('note')))}</div>" for n in d["notas"]) or \
         "<p class='sub'>caderno vazio — o coach ainda não destilou nada.</p>"
 
+    # CAIXAS CLICÁVEIS: cada número abre exatamente as linhas que o formam.
+    # Rótulos precisos porque "quiz respondidos: 1 / quiz recebidos: 0"
+    # parecia impossível — eram coisas diferentes com o mesmo nome: o treino
+    # veio do botão "treinar", não do quiz das 19h.
+    ver = ver if ver in _FOCOS else ""
+    base = f"/admin/usuario?key={esc(key)}&tg={tg}"
+    caixas_def = [
+        ("maos", agg.get("maos_banco", 0), "mãos no banco", ""),
+        (None, agg["maos"], "envios analisados", ""),
+        ("perguntas", agg["perguntas"], "perguntas ao coach", ""),
+        ("treinos", agg["drills"], "treinos respondidos", ""),
+        ("quiz", agg["quiz"] + agg["treino_btn"], "treinos que o bot serviu",
+         ""),
+        (None, f"US$ {agg['custo']:.2f}", "custo gerado", ""),
+        ("erros", agg["erros"], "erros", "err"),
+    ]
+    caixas = []
+    for alvo, valor, rotulo, extra in caixas_def:
+        cls = f"kpi {extra}".strip()
+        if not alvo:
+            caixas.append(f"<div class='{cls}'><b>{valor}</b>"
+                          f"<span>{rotulo}</span></div>")
+            continue
+        sel = " sel" if ver == alvo else ""
+        href = base if ver == alvo else f"{base}&ver={alvo}"
+        caixas.append(f"<a class='{cls}{sel}' href='{href}'><b>{valor}</b>"
+                      f"<span>{rotulo} ›</span></a>")
+    caixas = "".join(caixas)
+
+    titulo_foco = {"maos": "As mãos, uma a uma",
+                   "perguntas": "As perguntas — e o que o coach respondeu",
+                   "treinos": "Os treinos respondidos",
+                   "quiz": "O que o bot serviu para esta pessoa",
+                   "erros": "As falhas que esta pessoa encontrou"}
+    foco_html = ""
+    if ver:
+        foco_html = (f"<h2>{titulo_foco[ver]} "
+                     f"<a class='limpa' href='{base}'>× limpar</a></h2>"
+                     f"{_bloco_foco(ver, d, key, tg)}")
+
     p = d["perfil"]
     perfil_html = (
         f"<div class='tbl'><table><tr><th>Mãos</th><th>VPIP%</th>"
@@ -574,15 +919,8 @@ async def admin_usuario(key: str = Query(default=""),
  · entrou {esc(str(u.get('created_at') or '')[:10])}
  · origem <b>{esc(agg['ref'] or '—')}</b></p>
 
-<div class="grid">
-  <div class="kpi"><b>{agg['maos']}</b><span>mãos enviadas</span></div>
-  <div class="kpi"><b>{agg['perguntas']}</b><span>perguntas ao coach</span></div>
-  <div class="kpi"><b>{agg['drills']}</b><span>quiz respondidos</span></div>
-  <div class="kpi"><b>{agg['quiz']}</b><span>quiz recebidos</span></div>
-  <div class="kpi"><b>US$ {agg['custo']:.2f}</b><span>custo gerado</span></div>
-  <div class="kpi err"><b>{agg['erros']}</b><span>erros</span></div>
-</div>
-
+<div class="grid">{caixas}</div>
+{foco_html}
 <h2>Atividade — 14 dias (só o que a pessoa fez; sem contar o quiz
  automático e a lição que o bot empurra)</h2>
 <div class="bwrap"><div class="bars">{''.join(barras)}</div></div>
@@ -729,10 +1067,18 @@ async def admin(key: str = Query(default="")) -> str:
     juiz_nota = m["juiz"].get("nota_clareza")
     n_pub = sum(1 for x in m["licoes"] if x.get("publicada"))
 
+    aviso_teto = ("<div class='warn'>⚠️ Bati o teto de "
+                  f"{_TETO_EVENTOS} eventos na varredura de 30 dias: os "
+                  "números abaixo estão <b>incompletos</b> (falta a parte "
+                  "mais antiga do mês). Hora de somar no banco em vez de "
+                  "contar linha por linha aqui.</div>") if m.get("truncou") \
+        else ""
+
     return f"""<style>{_CSS}</style>
 <div class="wrap">
 <h1>♠ KKNuths — Portal de Gestão</h1>
 <p class="sub">Atualizado agora · dados do Supabase · north star: análises/usuário ativo/semana</p>
+{aviso_teto}
 <div class="grid">
   <div class="kpi"><b>{len(m['users'])}</b><span>usuários totais</span></div>
   <div class="kpi"><b>{m['new7']}</b><span>novos (7 dias)</span></div>
@@ -752,8 +1098,8 @@ async def admin(key: str = Query(default="")) -> str:
 <h2>Usuários — funil e custo por pessoa (30 dias)</h2>
 <div class="tbl"><table>
 <tr><th>Usuário</th><th>Origem</th><th>Entrou em</th><th>Plano</th><th>Interações</th>
-<th>Mãos</th><th>Perguntas</th><th>Drills</th><th>Análises (mês)</th>
-<th>Custo (mês)</th><th>Erros</th><th>Última atividade (UTC)</th></tr>
+<th>Envios</th><th>Perguntas</th><th>Treinos</th><th>Análises (mês)</th>
+<th>Custo (mês)</th><th>Erros</th><th>Última ação (UTC)</th></tr>
 {users_tbl}</table></div>
 
 <h2>Atividade diária — 14 dias (interações)</h2>
