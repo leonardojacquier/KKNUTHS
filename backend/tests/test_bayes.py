@@ -1216,9 +1216,11 @@ def test_leitura_deterministica_da_mao_feita():
     assert describe_hand(["Kh", "Ts"], board) == "dois pares (J e 10), kicker K"
     assert describe_hand(["Ad", "Qc"], board) == "par de J, kicker A"
     assert describe_hand(["Jc", "2c"], board) == "trinca de J"
-    assert describe_hand(["Th", "Tc"], board) == "full house (10 cheio de J)"
+    # "X cheio de Y" e "sequência" são calques que TERMOS_REGRA proíbe — o
+    # desenho escrevia assim porque não passa pelo corretor (07/08)
+    assert describe_hand(["Th", "Tc"], board) == "full de 10 com J (trinca de 10)"
     assert describe_hand(["Ah", "Kd"], ["9s", "9h", "9c", "As", "3d"]) \
-        == "full house (9 cheio de A)"      # o cooler TT vs AK do 999-A-3
+        == "full de 9 com A (trinca de 9)"      # o cooler TT vs AK do 999-A-3
     assert describe_hand(["Kh", "Ts"], ["Js"]) is None  # sem 5 cartas
 
     h = CanonicalHand(
@@ -1240,8 +1242,8 @@ def test_leitura_deterministica_da_mao_feita():
         "shown_cards": {"ImperadorJuju": ["Jd", "Kh"]},
     })
     bs = analyze_hand(h2)["hand_by_street"]
-    assert bs["ImperadorJuju"]["flop"] == "sequência até A"   # pronta no flop
-    assert bs["ImperadorJuju"]["river"] == "sequência até A"  # e segue no river
+    assert bs["ImperadorJuju"]["flop"] == "straight até A"   # pronta no flop
+    assert bs["ImperadorJuju"]["river"] == "straight até A"  # e segue no river
     assert bs["heroi"]["flop"] == "par de A, kicker Q"
     assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
 
@@ -1256,8 +1258,8 @@ def test_leitura_de_mao_hipotetica_e_textura():
 
     board = ["Th", "8d", "As", "5c", "Kh"]  # a mão real do erro
     r = hand_on_board(["Qs", "Jd"], board)
-    assert r["por_street"]["river"] == "sequência até A"
-    assert r["por_street"]["flop"] == "carta alta A"       # nada no flop
+    assert r["por_street"]["river"] == "straight até A"
+    assert r["por_street"]["flop"] == "A high"             # nada no flop
     assert r["textura_do_board"]["flush_possivel"] is False
     assert "IMPOSSÍVEL" in r["textura_do_board"]["nota"]
 
@@ -1270,7 +1272,7 @@ def test_leitura_de_mao_hipotetica_e_textura():
 
     # dispatch aceita 'QJ' numa string só e cartas com ícone
     d = _dispatch("leitura_de_mao", {"cards": "QJ", "board": board})
-    assert d["por_street"]["river"] == "sequência até A"
+    assert d["por_street"]["river"] == "straight até A"
     d2 = _dispatch("leitura_de_mao",
                    {"cards": ["Q♠", "J♦"], "board": ["10♥", "8♦", "A♠"]})
     assert d2["mao"] == "Q♠ J♦"

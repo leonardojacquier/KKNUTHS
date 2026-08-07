@@ -50,7 +50,8 @@ def test_as_maos_finais_tem_nome_certo():
     estrago — o campo dá o nome pronto para o coach citar."""
     h = historia_do_resultado(MAO_A4)
     assert "dois pares" in h["sua_mao_final"]
-    assert "full house" in h["mao_final_dos_viloes"]["ImperadorJuju"]
+    assert h["mao_final_dos_viloes"]["ImperadorJuju"] == \
+        "full de 10 com 5 (trinca de 10)"
     # o SB que mostrou UMA carta não entra: equity contra meia mão é chute
     assert "Caio@vaicurintia" not in h["mao_final_dos_viloes"]
 
@@ -152,8 +153,8 @@ def test_mao_ganha_tem_leitura_de_vitoria():
     assert h["equity_pct"]["river"] == 100
     assert "GANHOU" in h["leitura"] and "PROIBIDO narrar derrota" in h["leitura"]
     assert "2d 7d" in h["leitura"], "a mão real do vilão vai na leitura"
-    assert h["sua_mao_final"] == "full house (7 cheio de A)"
-    assert h["mao_final_dos_viloes"]["arisn"] == "full house (7 cheio de 2)"
+    assert h["sua_mao_final"] == "full de 7 com A (trinca de 7)"
+    assert h["mao_final_dos_viloes"]["arisn"] == "full de 7 com 2 (trinca de 7)"
 
 
 def test_showdown_citado_errado_e_flagrado():
@@ -197,3 +198,69 @@ def test_showdown_errado_vira_evento():
     fonte = inspect.getsource(processing._process_upload_inner)
     assert "citou_showdown_errado" in fonte
     assert "showdown_errado" in fonte
+
+
+def _mao_do_full():
+    """A mão de 07/08 12:47 como CanonicalHand, para rodar o FILME nela."""
+    from app.models.canonical import CanonicalHand
+
+    return CanonicalHand(**{
+        "game": "NLHE", "hero": "KKNUThS", "site": "PPPoker",
+        "format": "tournament",
+        "stakes": {"small_blind": 1.0, "big_blind": 2.0, "ante": 0.25,
+                   "currency": "USD"},
+        "hand_id": "t",
+        "players": [
+            {"name": "KKNUThS", "seat": 5, "stack": 100.0, "is_hero": True,
+             "position": "SB"},
+            {"name": "arisn", "seat": 0, "stack": 100.0, "is_hero": False,
+             "position": "BTN"}],
+        "streets": [{"name": "preflop", "board": [], "actions": []},
+                    {"name": "flop", "board": ["2c", "7c", "7h"],
+                     "actions": []},
+                    {"name": "turn", "board": ["Ac"], "actions": []},
+                    {"name": "river", "board": ["Th"], "actions": []}],
+        "hero_cards": ["As", "7s"],
+        "final_board": ["2c", "7c", "7h", "Ac", "Th"],
+        "shown_cards": {"arisn": ["2d", "7d"]},
+        "collected": {"KKNUThS": 160.0}, "total_pot": 160.0,
+    })
+
+
+def test_o_desenho_e_a_historia_contam_a_MESMA_coisa():
+    """O filme acertou tudo ("7 cheio de 2" / "7 cheio de A" / VOCÊ leva) e o
+    texto do modelo, na MESMA mensagem, inventou um 77. As duas camadas
+    determinísticas saem de describe_hand — se divergirem um dia, o aluno vê
+    duas versões do mesmo showdown lado a lado, que foi o estrago aqui.
+    """
+    from app.analysis.historia import historia_do_resultado
+    from app.bot.processing import film_bands
+
+    h = _mao_do_full()
+    banda = [b for b in film_bands(h) if b.get("name") == "Resultado"][0]
+    hist = historia_do_resultado(h)
+
+    # o herói leva o pote nas duas leituras
+    assert hist["ganhou"]
+    assert any("VOCÊ leva o pote" in l for l in banda["lines"])
+
+    # e as mãos finais têm o MESMO nome nas duas
+    assert hist["sua_mao_final"] == "full de 7 com A (trinca de 7)"
+    assert any(hist["sua_mao_final"] in l for l in banda["lines"])
+    revelado = {r["who"]: r["desc"] for r in banda["reveals"]}
+    assert revelado["arisn (BTN) mostra"] == "full de 7 com 2 (trinca de 7)"
+    assert hist["mao_final_dos_viloes"]["arisn"] == \
+        revelado["arisn (BTN) mostra"]
+
+
+def test_a_nomenclatura_do_full_house_esta_certa():
+    """'7 cheio de 2' = trinca de 7 + par de 2 (sevens full of twos). Os dois
+    têm trinca de 7 (duas na mesa, uma de cada); decide o PAR que acompanha."""
+    from app.analysis.equity import describe_hand
+
+    board = ["2c", "7c", "7h", "Ac", "Th"]
+    assert describe_hand(["2d", "7d"], board) == "full de 7 com 2 (trinca de 7)"
+    assert describe_hand(["As", "7s"], board) == "full de 7 com A (trinca de 7)"
+    # e o desempate é o par: A > 2, então o herói leva
+    from app.analysis.equity import equity_vs_hands
+    assert equity_vs_hands(["As", "7s"], [["2d", "7d"]], board) == 1.0

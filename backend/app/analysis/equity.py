@@ -195,18 +195,24 @@ def describe_hand(hole: list[str], board: list[str]) -> str | None:
     if cat == 7:
         return f"quadra de {rn(sc[1])}"
     if cat == 6:
-        return f"full house ({rn(sc[1])} cheio de {rn(sc[2])})"
+        # "7 cheio de 2" é calque de 'sevens full of twos' e está PROIBIDO
+        # em TERMOS_REGRA desde antes — mas esta função escreve direto na
+        # imagem, que não passa pelo corretor. Resultado: o desenho falava a
+        # língua que o resto do produto bane. A trinca vai explícita porque
+        # foi exatamente aí que a leitura se perdeu num full contra full.
+        return (f"full de {rn(sc[1])} com {rn(sc[2])} "
+                f"(trinca de {rn(sc[1])})")
     if cat == 5:
-        return f"flush, maior carta {rn(sc[1])}"
+        return f"flush de {rn(sc[1])}"
     if cat == 4:
-        return f"sequência até {rn(sc[1])}"
+        return f"straight até {rn(sc[1])}"
     if cat == 3:
         return f"trinca de {rn(sc[1])}"
     if cat == 2:
         return f"dois pares ({rn(sc[1])} e {rn(sc[2])}), kicker {rn(sc[3])}"
     if cat == 1:
         return f"par de {rn(sc[1])}, kicker {rn(sc[2])}"
-    return f"carta alta {rn(sc[1])}"
+    return f"{rn(sc[1])} high"
 
 
 _SUIT_ICON = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
