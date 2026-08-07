@@ -117,6 +117,10 @@ CRON_LINGUA="40 7 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scr
 # LINGUISTA (7h40, antes do juiz das 8h): IA propoe termos calcados que
 # leu nas analises do dia; o dono aprova via /termo; corretor e juiz
 # executam. A IA nunca edita o prompt nem aprova a si mesma.
+CRON_LICAODIA="0 14 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/licao_do_dia.py >> /var/log/poker-licaodia.log 2>&1"
+# LICAO DO DIA (14h UTC = 11h BRT, longe do quiz das 19h): manda UMA licao
+# da fila APROVADA pelo dono. Fila vazia = silencio pro aluno e aviso pro
+# dono. Reativa quem so recebe quiz e convida a 1a mao.
 CRON_ANOMALIA="0 21 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/anomalias.py >> /var/log/poker-anomalias.log 2>&1"
 # ANOMALIAS (21h UTC = 18h BRT): vigia deterministico de comportamento —
 # tropecou-e-sumiu, envio repetido, start sem mao, falha em serie. Cala
@@ -125,8 +129,8 @@ CRON_LICOES="15 9 * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scr
 # LICOES (9h15): destila erros/acertos caros do dia em licoes anonimas.
 # Estoca em silencio; publicar e decisao humana via /licoes.
 CRON_RECEB="7 * * * * cd $APP_DIR && PYTHONPATH=$APP_DIR ./venv/bin/python scripts/sonda_recebimento.py >> /var/log/poker-recebimento.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas\|poker-recebimento\|sonda_recebimento\|poker-linguista\|linguista.py\|poker-anomalias\|anomalias.py\|poker-licoes\|destilar_licoes" ; \
-  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ; echo "$CRON_RECEB" ; echo "$CRON_LINGUA" ; echo "$CRON_ANOMALIA" ; echo "$CRON_LICOES" ) | crontab -
+( crontab -l 2>/dev/null | grep -v "poker-weekly\|poker-quiz\|poker-calibrate\|poker-coherence\|poker-e2e\|poker-usage\|poker-judge\|poker-backup\|poker-jornadas\|weekly_report\|daily_quiz\|calibrate_likelihood\|nightly_coherence\|e2e_probe\|daily_usage\|output_judge\|backup_db\|jornadas\|poker-recebimento\|sonda_recebimento\|poker-linguista\|linguista.py\|poker-anomalias\|anomalias.py\|poker-licoes\|destilar_licoes\|poker-licaodia\|licao_do_dia" ; \
+  echo "$CRON_WEEKLY" ; echo "$CRON_QUIZ" ; echo "$CRON_CALIB" ; echo "$CRON_COHER" ; echo "$CRON_E2E" ; echo "$CRON_USAGE" ; echo "$CRON_JUDGE" ; echo "$CRON_BACKUP" ; echo "$CRON_JORNADAS" ; echo "$CRON_RECEB" ; echo "$CRON_LINGUA" ; echo "$CRON_ANOMALIA" ; echo "$CRON_LICOES" ; echo "$CRON_LICAODIA" ) | crontab -
 
 # 7b. E2E pós-deploy: a conta-teste usa o bot de verdade (dorme sem credenciais
 #     no .env). Em background, com folga pro bot terminar de subir.

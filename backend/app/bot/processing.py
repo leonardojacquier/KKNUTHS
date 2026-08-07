@@ -1407,12 +1407,13 @@ def termo_reply(args: list[str]) -> str:
 
 
 def licoes_reply(args: list[str]) -> str:
-    """/licoes — a biblioteca de lições anônimas (só o dono).
+    """/licoes — biblioteca + fila da "lição do dia" (só o dono).
 
-    O destilador estoca em silêncio; publicar é decisão humana:
-      /licoes              lista as mais novas
-      /licoes N            mostra a lição inteira (pronta pra copiar)
-      /licoes N publicada  marca como usada
+    O destilador estoca; o dono aprova; o cron das 11h envia UMA por dia:
+      /licoes            lista (fila primeiro)
+      /licoes N          mostra a lição inteira
+      /licoes N ok       aprova → entra na fila de envio
+      /licoes N nao      tira da fila (volta pra estante)
     """
     repo = get_repository()
     if not repo.enabled:
@@ -1424,25 +1425,51 @@ def licoes_reply(args: list[str]) -> str:
         linha = (t.select("*").eq("id", alvo).execute().data or [None])[0]
         if not linha:
             return f"Não achei a lição #{alvo}."
-        if len(args) > 1 and args[1].lower() == "publicada":
-            t.update({"publicada": True}).eq("id", alvo).execute()
-            return f"📤 Lição #{alvo} marcada como publicada."
+        acao = args[1].lower() if len(args) > 1 else ""
+        if acao == "ok":
+            if linha.get("enviada_em"):
+                return f"Lição #{alvo} já foi enviada em "\
+                       f"{str(linha['enviada_em'])[:10]} — não repete."
+            t.update({"aprovada": True}).eq("id", alvo).execute()
+            fila = (t.select("id", count="exact").eq("aprovada", True)
+                    .is_("enviada_em", "null").execute().count or 0)
+            return (f"✅ #{alvo} na fila. Sai às 11h (BRT) do próximo dia "
+                    f"livre. Fila: {fila} lição(ões).")
+        if acao in ("nao", "não"):
+            t.update({"aprovada": False}).eq("id", alvo).execute()
+            return f"↩️ #{alvo} saiu da fila (segue na estante)."
         return (f"📖 *#{linha['id']} — {linha['titulo']}* "
                 f"({linha['categoria']}, {linha['ev_bb']:+.1f}bb)\n\n"
                 f"{linha['spot']}\n\n{linha['licao']}\n\n"
-                f"Pra marcar como usada: /licoes {linha['id']} publicada")
+                f"Aprovar pro envio diário: /licoes {linha['id']} ok")
 
-    linhas = (t.select("id,titulo,categoria,ev_bb,publicada")
-              .order("id", desc=True).limit(15).execute().data) or []
+    linhas = (t.select("id,titulo,categoria,ev_bb,aprovada,enviada_em")
+              .order("id", desc=True).limit(20).execute().data) or []
     if not linhas:
         return ("Biblioteca vazia por enquanto — o destilador roda todo dia "
                 "às 9h15 UTC sobre as análises das últimas 24h.")
-    out = ["📚 *Biblioteca de lições* (mais novas primeiro):"]
-    for x in linhas:
-        marca = "📤" if x["publicada"] else "•"
-        out.append(f"{marca} #{x['id']} {x['titulo']} "
-                   f"({x['categoria']}, {x['ev_bb']:+.1f}bb)")
-    out.append("\n/licoes N mostra a lição inteira.")
+    fila = [x for x in linhas if x.get("aprovada") and not x.get("enviada_em")]
+    enviadas = [x for x in linhas if x.get("enviada_em")]
+    estante = [x for x in linhas if not x.get("aprovada")
+               and not x.get("enviada_em")]
+
+    def _linha(x, marca):
+        return (f"{marca} #{x['id']} {x['titulo']} "
+                f"({x['categoria']}, {x['ev_bb']:+.1f}bb)")
+
+    out = []
+    if fila:
+        out.append(f"🚀 *Na fila de envio ({len(fila)}):*")
+        out += [_linha(x, "•") for x in fila]
+    else:
+        out.append("🚀 *Fila de envio VAZIA* — nada sai amanhã.")
+    if estante:
+        out.append(f"\n📚 *Na estante ({len(estante)}, esperando seu ok):*")
+        out += [_linha(x, "•") for x in estante[:10]]
+    if enviadas:
+        out.append(f"\n📤 *Já enviadas:* "
+                   + ", ".join(f"#{x['id']}" for x in enviadas[:10]))
+    out.append("\n/licoes N pra ler · /licoes N ok pra mandar pra fila")
     return "\n".join(out)
 
 
