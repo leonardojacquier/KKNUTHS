@@ -47,11 +47,12 @@
 }
 .vh-copy { max-width: 480px; padding-bottom: 34px; }
 .vh-eyebrow { font-family: 'Satoshi', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #ff9a4d; }
-/* etiqueta de lanzamiento: pill sólido, para que el estreno se lea antes que el título */
+/* etiqueta de lanzamiento: sticker rojo. Naranja no — es el color del CTA que
+   viene justo debajo, y dos naranjas apilados se anulaban entre sí */
 .vh-eyebrow.is-launch {
-  display: inline-block; background: #F26D21; color: #fff; font-weight: 800;
+  display: inline-block; background: #E11D48; color: #fff; font-weight: 800;
   padding: 6px 14px; border-radius: 100px; font-size: 12px; letter-spacing: .18em;
-  box-shadow: 0 10px 26px -10px rgba(242,109,33,.75);
+  box-shadow: 0 10px 26px -10px rgba(225,29,72,.8);
 }
 .vh-title { font-family: 'Satoshi', sans-serif; font-weight: 800; font-size: clamp(36px, 5.4vw, 62px); line-height: .98; letter-spacing: -.02em; text-transform: uppercase; color: #fff; margin-top: 10px; }
 .vh-desc { color: rgba(255,255,255,.78); font-size: 17px; line-height: 1.55; margin-top: 14px; max-width: 420px; }
@@ -396,8 +397,6 @@ a.vh-cta { text-decoration: none; }
   letter-spacing: .06em; text-transform: uppercase; padding: 5px 12px; border-radius: 100px;
   margin-bottom: 10px;
 }
-/* estreno: naranja de marca — el rojo queda reservado para descuento */
-.v-promo-badge.is-launch { background: #F26D21; }
 .v-promo-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .v-promo-cta, .v-promo-wa {
   display: inline-flex; align-items: center; min-height: 42px; padding: 9px 20px;

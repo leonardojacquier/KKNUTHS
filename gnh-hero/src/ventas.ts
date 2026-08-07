@@ -265,7 +265,7 @@ function initBuscador(): void {
    ============================================================ */
 // bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
-// eyebrow: reemplaza el rótulo "Línea destacada"; launch:true lo pinta como pill naranja
+// eyebrow: reemplaza el rótulo "Línea destacada"; launch:true lo pinta como sticker rojo
 // url/cta: el botón principal lleva a una landing propia en vez de abrir WhatsApp directo
 interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string; eyebrow?: string; launch?: boolean; url?: string; cta?: string }
 const FEATURED: Featured[] = [
@@ -662,12 +662,10 @@ function renderCatalog(): void {
 }
 
 /* ---------- promoções (oculta se vazio) ---------- */
-// launch:true → etiqueta naranja (estreno) en vez del rojo de descuento
-interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string; launch?: boolean }
+interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string }
 const PROMOS: Promo[] = [
   {
     badge: 'Lanzamiento',
-    launch: true,
     title: 'Generador 38 kVA con Motor Ricardo',
     text: 'Grupo electrógeno diésel trifásico de 38 kVA, cabina súper silenciosa y tablero ATS para arranque automático ante un corte. Pronta entrega — vení a conocerlo en nuestro Show Room.',
     img: '../img/prod/generador-art.jpg',
@@ -686,7 +684,7 @@ function renderPromos(): void {
         <article class="v-promo${p.img ? ' has-img' : ''}">
           ${p.img ? `<a class="v-promo-art" href="${p.url ?? '#'}"><img src="${p.img}" alt="${p.title}" loading="lazy"></a>` : ''}
           <div class="v-promo-body">
-            ${p.badge ? `<span class="v-promo-badge${p.launch ? ' is-launch' : ''}">${p.badge}</span>` : ''}
+            ${p.badge ? `<span class="v-promo-badge">${p.badge}</span>` : ''}
             <h3>${p.title}</h3><p>${p.text}</p>
             <div class="v-promo-actions">
               ${p.url ? `<a class="v-promo-cta" href="${p.url}">${p.cta ?? 'Ver más'} →</a>` : ''}
