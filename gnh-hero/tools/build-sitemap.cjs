@@ -40,7 +40,11 @@ function collect(root) {
   const promoDir = path.join(root, 'promo')
   if (fs.existsSync(promoDir)) {
     for (const d of fs.readdirSync(promoDir, { withFileTypes: true })) {
-      if (d.isDirectory() && fs.existsSync(path.join(promoDir, d.name, 'index.html'))) {
+      const idx = path.join(promoDir, d.name, 'index.html')
+      if (d.isDirectory() && fs.existsSync(idx)) {
+        // campaña terminada = noindex: incluirla haría que Search Console la
+        // reporte como "URL enviada marcada como noindex"
+        if (/<meta\s+name=["']robots["'][^>]*noindex/i.test(fs.readFileSync(idx, 'utf8'))) continue
         urls.push({ loc: `/promo/${d.name}/`, freq: 'weekly', pri: '0.9' })
       }
     }

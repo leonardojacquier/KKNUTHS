@@ -1,14 +1,38 @@
 ---
 titulo: Promoções e campanhas
 tags: [gnh, promo, marketing, utm]
-atualizado: 2026-07-29
+atualizado: 2026-08-07
 ---
 
 # Promoções e campanhas
 
 [[00 - Indice|← Índice]]
 
-## Campanha ativa: Plataforma Eléctrica 20% OFF
+## Campanha ativa: Lanzamiento Generador 38 kVA
+
+| Item | Valor |
+|---|---|
+| Landing | `https://gnhorizons.com/promo/generador-38kva/` |
+| Vídeo | `/video/generador.webm` (705 KB) + `.mp4` (783 KB), 5 s, sem áudio |
+| Pôster / OG | `/img/prod/generador-poster.jpg` · `/img/prod/og-generador-38kva.jpg` (1200×630) |
+| Etiqueta | **Lanzamiento** (laranja da marca — o vermelho fica para desconto) |
+| Início | 07/08/2026 |
+
+### Onde aparece
+
+1. **Primeiro slide do carrossel** em `/ventas/` — vídeo em loop, mudo, com pill
+   *Lanzamiento*; o botão leva à landing (não abre WhatsApp direto)
+2. **Card na seção "Promociones"** do catálogo
+3. **Landing própria** com vídeo, specs essenciais, 3 CTAs de WhatsApp e barra fixa
+
+> [!note] O slide de vídeo é o estático do HTML
+> O primeiro slide vive escrito à mão em `gnh-hero/ventas/index.html` (pinta antes
+> do JS, é o LCP). Trocar a campanha exige mexer **lá e** em `FEATURED`/`PROMOS`
+> do `ventas.ts` — o comentário `LANZAMIENTO ACTIVO` marca os dois pontos.
+
+Links de divulgação com UTM: ver `deploy/LINKS-UTM.md`.
+
+## Campanha encerrada: Plataforma Eléctrica 20% OFF
 
 | Item | Valor |
 |---|---|
@@ -17,6 +41,7 @@ atualizado: 2026-07-29
 | Imagem de preview | `/img/prod/og-promo-plataforma.jpg` (1200×630) |
 | Validade | "solo por esta semana" |
 | Início | 28/07/2026 |
+| **Encerrada** | **05/08/2026 — landing virou `noindex` e aponta para a ficha do produto** |
 
 ### Onde a promoção aparece
 

@@ -265,8 +265,13 @@ function initBuscador(): void {
    ============================================================ */
 // bleed:true  → la imagen cubre TODO el banner (full-bleed, para fotos 21:9 de ambiente)
 // bleed:false → recorte del producto centrado a la derecha (imágenes con fondo transparente)
-interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string }
+// eyebrow: reemplaza el rótulo "Línea destacada"; launch:true lo pinta como pill naranja
+// url/cta: el botón principal lleva a una landing propia en vez de abrir WhatsApp directo
+interface Featured { name: string; tag: string; cat: string; bleed?: boolean; img?: string; imgMobile?: string; videoWebm?: string; videoMp4?: string; poster?: string; eyebrow?: string; launch?: boolean; url?: string; cta?: string }
 const FEATURED: Featured[] = [
+  // LANZAMIENTO ACTIVO — al terminar, borrar esta línea y restaurar el slide estático
+  // de ventas/index.html + el preload del <head> a plataformas-o14 (ver comentario allí).
+  { name: 'Generador 38 kVA', tag: 'Motor Ricardo, ¡pronta entrega! Ahora en GNH — vení a conocerlo en nuestro Show Room.', cat: 'equipos', bleed: true, videoWebm: '../video/generador.webm', videoMp4: '../video/generador.mp4', poster: '../img/prod/generador-poster.jpg', eyebrow: 'Lanzamiento', launch: true, url: '/promo/generador-38kva/', cta: 'Ver el lanzamiento' },
   { name: 'Plataformas', tag: 'Plataforma electro-hidráulica de elevación de personal para trabajos en altura.', img: '../img/prod/plataformas-o.jpg', cat: 'equipos', bleed: true },
   { name: 'Grúas Araña', tag: 'Grúas araña de orugas de 1,5 t a 70 t. Compactas, potentes y de fácil acceso.', cat: 'equipos', bleed: true, videoWebm: '../video/grua.webm', videoMp4: '../video/grua.mp4', poster: '../img/prod/grua-poster.jpg' },
   { name: 'Mini Central de Concreto', tag: 'Mezcla y bombeo de concreto en un solo equipo, con motor Cummins.', img: '../img/prod/mini-central-o.jpg', cat: 'equipos', bleed: true },
@@ -291,11 +296,13 @@ function renderHeroCarousel(): void {
             : `<picture>${f.imgMobile ? `<source media="(max-width: 760px)" srcset="${f.imgMobile.replace('.jpg', '.webp')}" type="image/webp"><source media="(max-width: 760px)" srcset="${f.imgMobile}">` : ''}<source srcset="${f.img!.replace('.jpg', '.webp')}" type="image/webp"><img class="vh-el" src="${f.img}" alt="${f.name}" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}></picture>`}</div>
           <div class="vh-inner">
             <div class="vh-copy">
-              <span class="vh-eyebrow">Línea destacada</span>
+              <span class="vh-eyebrow${f.launch ? ' is-launch' : ''}">${f.eyebrow ?? 'Línea destacada'}</span>
               <h2 class="vh-title">${f.name}</h2>
               <p class="vh-desc">${f.tag}</p>
               <div class="vh-btns">
-                <a class="vh-cta" href="${wa(`Hola, quiero cotizar: ${f.name}`)}" target="_blank" rel="noopener" data-ev="product" data-detail="${f.name}">Cotizar ${icon('arrow', 'vh-cta-i')}</a>
+                ${f.url
+                  ? `<a class="vh-cta" href="${f.url}" data-ev="product" data-detail="${f.name}">${f.cta ?? 'Ver más'} ${icon('arrow', 'vh-cta-i')}</a>`
+                  : `<a class="vh-cta" href="${wa(`Hola, quiero cotizar: ${f.name}`)}" target="_blank" rel="noopener" data-ev="product" data-detail="${f.name}">Cotizar ${icon('arrow', 'vh-cta-i')}</a>`}
                 <button class="vh-cta vh-cta-ghost" data-cat="${f.cat}">Ver productos</button>
               </div>
             </div>
@@ -358,8 +365,10 @@ function renderHeroCarousel(): void {
   segs.forEach((s) => s.addEventListener('click', () => go(Number(s.dataset.i))))
   root.querySelectorAll<HTMLElement>('.vh-cta[data-cat]').forEach((btn) =>
     btn.addEventListener('click', () => selectCategory(btn.dataset.cat || 'equipos', true)))
-  // el slide estático trae el link de WhatsApp sin (ref): lo normaliza acá
+  // el slide estático trae el link de WhatsApp sin (ref): lo normaliza acá.
+  // Solo toca links de WhatsApp — un slide puede apuntar a una landing propia.
   root.querySelectorAll<HTMLAnchorElement>('a.vh-cta[data-detail]').forEach((a) => {
+    if (!a.href.includes('wa.me')) return
     if (!decodeURIComponent(a.href).includes('(ref ')) a.href = wa(`Hola, quiero cotizar: ${a.dataset.detail}`)
   })
 
@@ -653,9 +662,19 @@ function renderCatalog(): void {
 }
 
 /* ---------- promoções (oculta se vazio) ---------- */
-interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string }
-// Promoción Plataforma Eléctrica cancelada — sección oculta hasta la próxima campaña.
-const PROMOS: Promo[] = []
+// launch:true → etiqueta naranja (estreno) en vez del rojo de descuento
+interface Promo { title: string; text: string; url?: string; img?: string; badge?: string; cta?: string; launch?: boolean }
+const PROMOS: Promo[] = [
+  {
+    badge: 'Lanzamiento',
+    launch: true,
+    title: 'Generador 38 kVA con Motor Ricardo',
+    text: 'Grupo electrógeno diésel trifásico de 38 kVA, cabina súper silenciosa y tablero ATS para arranque automático ante un corte. Pronta entrega — vení a conocerlo en nuestro Show Room.',
+    img: '../img/prod/generador-art.jpg',
+    url: '/promo/generador-38kva/',
+    cta: 'Ver el lanzamiento',
+  },
+]
 
 function renderPromos(): void {
   const el = document.getElementById('promos')!
@@ -667,7 +686,7 @@ function renderPromos(): void {
         <article class="v-promo${p.img ? ' has-img' : ''}">
           ${p.img ? `<a class="v-promo-art" href="${p.url ?? '#'}"><img src="${p.img}" alt="${p.title}" loading="lazy"></a>` : ''}
           <div class="v-promo-body">
-            ${p.badge ? `<span class="v-promo-badge">${p.badge}</span>` : ''}
+            ${p.badge ? `<span class="v-promo-badge${p.launch ? ' is-launch' : ''}">${p.badge}</span>` : ''}
             <h3>${p.title}</h3><p>${p.text}</p>
             <div class="v-promo-actions">
               ${p.url ? `<a class="v-promo-cta" href="${p.url}">${p.cta ?? 'Ver más'} →</a>` : ''}

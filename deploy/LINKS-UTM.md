@@ -28,6 +28,21 @@ Regras de ouro:
 | Mandar o catálogo por WhatsApp | `https://gnhorizons.com/ventas/?utm_source=whatsapp&utm_medium=chat&utm_campaign=catalogo` |
 | Post de produto no Instagram | `https://gnhorizons.com/ventas/?utm_source=instagram&utm_medium=social&utm_campaign=catalogo` |
 
+## Campanha ativa: Lanzamiento Generador 38 kVA
+
+Landing: `https://gnhorizons.com/promo/generador-38kva/` · campanha: `generador-38kva`
+
+| Onde postar | Link para colar |
+|---|---|
+| Instagram (bio/stories) | `https://gnhorizons.com/promo/generador-38kva/?utm_source=instagram&utm_medium=social&utm_campaign=generador-38kva` |
+| Facebook | `https://gnhorizons.com/promo/generador-38kva/?utm_source=facebook&utm_medium=social&utm_campaign=generador-38kva` |
+| WhatsApp (status e clientes) | `https://gnhorizons.com/promo/generador-38kva/?utm_source=whatsapp&utm_medium=chat&utm_campaign=generador-38kva` |
+| LinkedIn | `https://gnhorizons.com/promo/generador-38kva/?utm_source=linkedin&utm_medium=social&utm_campaign=generador-38kva` |
+| E-mail / lista | `https://gnhorizons.com/promo/generador-38kva/?utm_source=email&utm_medium=firma&utm_campaign=generador-38kva` |
+
+O evento `landing` da página grava `generador-instagram`, `generador-facebook` etc.,
+então dá para ver **por rede** quantos chegaram — e `promo` conta quem clicou no WhatsApp.
+
 ## Impressos (cartão, banner, embalagem)
 
 Gerar QR code apontando para:
