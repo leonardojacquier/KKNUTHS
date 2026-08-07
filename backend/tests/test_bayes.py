@@ -1,6 +1,8 @@
 """Shrinkage bayesiano: números honestos com amostra pequena (fase 1)."""
 from pathlib import Path
 
+import pytest
+
 from app.analysis.bayes import bayes_stats, fmt_rate, shrunk_af, shrunk_rate
 from app.analysis.stats import compute_player_stats
 from app.parsers import parse_text
@@ -1789,7 +1791,12 @@ def test_motor_allin_cobre_todos_os_spots():
          "vilao_pos": "CO", "cards": ["Ah", "Js"]}
     d = _dispatch("ev_allin", a)
     assert d["mao"] == "AJo" and d["decisao"] == "all-in"
-    assert d["ev_da_mao_bb"] > 0 and d["melhores"]
+    # os dois baselines, cada um com o nome do que é. 'ev_da_mao_bb' era
+    # ambíguo: valia o EV absoluto e o coach o citava como "vs foldar",
+    # contradizendo o gráfico ao lado (caso real 07/08).
+    assert d["ev_vs_fold_bb"] > 0 and d["melhores_vs_fold"]
+    assert d["ev_vs_fold_bb"] == pytest.approx(
+        d["ev_absoluto_bb"] - d["fold_ev"], abs=0.011)
     spec = charts_from_tool_call("ev_allin", a, d)
     assert spec[0] == "spot" and spec[1] == "reshove"
     from app.analysis.range_chart import render_spec

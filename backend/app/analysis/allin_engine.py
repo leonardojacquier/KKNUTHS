@@ -62,6 +62,26 @@ def solve_spot(spot: str, hero_pos: str, stack_bb: float,
                ante_bb: float = 0.125, bf: float = 1.0,
                vilao_pos: str | None = None, open_bb: float = 2.2,
                pagaram: int = 0) -> dict | None:
+    """Resolve o spot e ANEXA o EV contra foldar.
+
+    ev_vs_fold sai daqui, num lugar só, porque o solver tem mais de um
+    caminho de saída (o nó de pagar devolve antes do de empurrar) e a versão
+    que só marcava um deles deixava o outro — justamente o call_shove do
+    print — sem o campo. Derivar no fim vale para todos.
+    """
+    sol = _solve_spot(spot, hero_pos, stack_bb, ante_bb, bf, vilao_pos,
+                      open_bb, pagaram)
+    if sol is None:
+        return None
+    f = sol["fold_ev"]
+    sol["ev_vs_fold"] = {h: round(v - f, 3) for h, v in sol["ev"].items()}
+    return sol
+
+
+def _solve_spot(spot: str, hero_pos: str, stack_bb: float,
+                ante_bb: float = 0.125, bf: float = 1.0,
+                vilao_pos: str | None = None, open_bb: float = 2.2,
+                pagaram: int = 0) -> dict | None:
     """Equilíbrio e EV por mão de um all-in pré-flop.
 
     spot: open_shove | reshove | squeeze | call_shove | overcall
@@ -292,6 +312,12 @@ def solve_spot(spot: str, hero_pos: str, stack_bb: float,
         "hands": list(hands), "spot": spot, "hero_pos": hero, "vilao_pos": vil,
         "stack": s, "ante": a, "bf": bf,
         "acao": {h: round(float(f), 3) for h, f in zip(hands, avg_h)},
+        # 'ev' é o EV ABSOLUTO da ação (referência: início da mão). Quase
+        # ninguém quer esse número sozinho: a decisão é ação vs FOLD, e é a
+        # diferença que o gráfico desenha. Deixar só o absoluto aqui fez o
+        # coach escrever "+7.6bb comparado a foldar" ao lado de um gráfico
+        # marcando +8.2 na mesma mão — os dois certos, baselines diferentes.
+        # Quem MOSTRA número usa ev_vs_fold (anexado por solve_spot).
         "ev": {h: round(float(e), 3) for h, e in zip(hands, ev)},
         "call_opener": {h: round(float(f), 3) for h, f in zip(hands, avg_op)},
         "call_atras": {h: round(float(f), 3) for h, f in zip(hands, avg_at)},

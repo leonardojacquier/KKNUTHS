@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 
 from app.analysis.equity import equity_vs_random
 from app.analysis.tools import breakeven_bluff, ev_call, pot_odds, spr
@@ -567,11 +568,14 @@ TOOLS = [
     {
         "name": "ev_allin",
         "description": "MOTOR DE EV DE ALL-IN PRÉ-FLOP: resolve o equilíbrio e devolve o "
-        "EV por mão (em bb, contra foldar) de QUALQUER all-in de stack curto (<=~25bb) — "
-        "e anexa o gráfico. Spots: open_shove (primeiro a agir), reshove (sobre um open), "
+        "EV por mão de QUALQUER all-in de stack curto (<=~25bb) — e anexa o gráfico. "
+        "Spots: open_shove (primeiro a agir), reshove (sobre um open), "
         "squeeze (sobre open + call), call_shove (pagar um all-in), overcall (pagar um "
         "all-in que já foi pago). USE sempre que a decisão do aluno for all-in ou fold "
-        "num desses spots — é a conta que decide, e cite o ev da mão dele. "
+        "num desses spots — é a conta que decide. CITE ev_vs_fold_bb: é o quanto a ação "
+        "rende A MAIS que foldar, é o número que o gráfico desenha, e é o único que "
+        "combina com 'comparado a foldar'. NUNCA chame ev_absoluto_bb de 'vs fold' — "
+        "são baselines diferentes e o aluno vê os dois na mesma tela. "
         "bf>1 aplica pressão de ICM.",
         "input_schema": {
             "type": "object",
@@ -1246,13 +1250,23 @@ def _dispatch(name: str, args: dict):
 
             mao = canonical_hand(cartas)
             out["mao"] = mao
-            out["ev_da_mao_bb"] = sol["ev"].get(mao)
+            # O NÚMERO PARA CITAR é o vs-fold: é o que o gráfico desenha e é
+            # o que decide. O absoluto vai junto com nome que diz o que é —
+            # antes só existia 'ev_da_mao_bb' (absoluto) e o coach escrevia
+            # ele como "comparado a foldar", contradizendo o próprio gráfico.
+            out["ev_vs_fold_bb"] = sol["ev_vs_fold"].get(mao)
+            out["ev_absoluto_bb"] = sol["ev"].get(mao)
             out["frequencia_da_mao"] = sol["acao"].get(mao)
             out["decisao"] = ("all-in" if sol["acao"].get(mao, 0) > 0.5
                               else "fold")
         # top do range pra o coach citar sem despejar 169 mãos
-        top = sorted(sol["ev"].items(), key=lambda kv: -kv[1])[:12]
-        out["melhores"] = {h: v for h, v in top}
+        top = sorted(sol["ev_vs_fold"].items(), key=lambda kv: -kv[1])[:12]
+        out["melhores_vs_fold"] = {h: v for h, v in top}
+        out["como_citar"] = (
+            "ev_vs_fold_bb é quanto a ação rende A MAIS que foldar — é ESTE "
+            "que o gráfico mostra e ESTE que você cita ao dizer 'vs foldar' "
+            "ou 'comparado a foldar'. ev_absoluto_bb é o EV bruto da ação; "
+            "só use se disser explicitamente que é o valor absoluto.")
         return out
     if name == "leitura_de_mao":
         from app.analysis.equity import hand_on_board
@@ -1826,11 +1840,60 @@ def prepare_briefing(ctx: dict, lang: str = "pt") -> str | None:
         return None
 
 
+# A FORMA do 🎈. A análise já sai em português simples e já glosa os números
+# — pedir "mais simples" sem impor forma devolvia um parágrafo quase igual.
+# O que muda de verdade é a ESTRUTURA: veredito numa frase, o porquê em
+# pedaços curtos, UM número. Isso o texto original nunca tem.
+_FORMA_SIMPLES = (
+    "FORMA OBRIGATÓRIA, nesta ordem e sem cabeçalho nenhum: (1) uma frase "
+    "só, começando com 'Em resumo:', dizendo o que ele fez e se foi bom; "
+    "(2) linha vazia; (3) duas ou três linhas começando com '• ', cada uma "
+    "com no máximo 14 palavras, explicando o porquê; (4) linha vazia; "
+    "(5) uma última linha começando com 'O número que importa:' com UM "
+    "número só e o que ele significa na prática. Nada além disso. "
+    "Português informal, formato Telegram. Nunca diga que é uma reescrita."
+)
+
+
+# por que o 🎈 não devolveu nada. "" = deu certo. Existe porque as duas
+# causas pedem respostas OPOSTAS ao aluno: com a API fora o coach não rodou
+# (e dizer "já está simples" seria mentira); com a API de pé e o texto já
+# simples, "me embananei" é que seria mentira.
+LAST_SIMPLIFY_REASON = ""
+
+
+def _palavras(t: str) -> set[str]:
+    """Palavras de 4+ letras, sem acento nem pontuação — o esqueleto do texto."""
+    import unicodedata
+
+    n = unicodedata.normalize("NFKD", (t or "").lower())
+    n = "".join(c for c in n if not unicodedata.combining(c))
+    return {w for w in re.findall(r"[a-z]{4,}", n)}
+
+
+def parecidos(a: str, b: str, teto: float = 0.6) -> bool:
+    """b é só uma maquiagem de a? Compara o vocabulário, não os caracteres.
+
+    Serve ao botão 🎈: reescrever com outras palavras a mesma estrutura não
+    ajuda ninguém. Mede quanto do texto NOVO já estava no velho — assimétrico
+    de propósito: um resumo curto e fiel ao original tem overlap alto e É uma
+    cópia; o contrário (texto novo com muita palavra nova) não é.
+    """
+    pa, pb = _palavras(a), _palavras(b)
+    if not pb:
+        return True
+    return len(pa & pb) / len(pb) > teto
+
+
 def simplify(text: str) -> str | None:
     """Reescreve a última explicação do coach para um iniciante TOTAL.
 
-    Modelo barato, sem tools — resposta rápida. None se o LLM está fora.
+    Modelo barato, sem tools — resposta rápida. None se o LLM está fora OU se
+    não conseguiu ficar mais simples que o original; quem chama distingue os
+    dois casos por LAST_SIMPLIFY_REASON e diz a verdade ao aluno.
     """
+    global LAST_SIMPLIFY_REASON
+    LAST_SIMPLIFY_REASON = "indisponivel"
     set_tarefa("simplificar")
     from app.config import get_settings
 
@@ -1857,16 +1920,42 @@ def simplify(text: str) -> str | None:
                 "draw pelas duas pontas)' — termo trivial (fold, all-in, "
                 "flop) não ganha parêntese. Até 2-3 números, cada um com o "
                 "que significa na prática ('pedia 30% = precisa ganhar 1 em "
-                "cada 3'). " + TERMOS_REGRA + " "
-                "Português informal, até ~150 palavras, formato Telegram (sem "
-                "cabeçalhos). Nunca mencione que isto é uma reescrita."
+                "cada 3'). " + TERMOS_REGRA + " " + _FORMA_SIMPLES
             ),
             messages=[{"role": "user", "content": text[:6000]}],
         )
         out = "".join(b.text for b in resp.content if b.type == "text").strip()
         from app.agent.termos import corrigir
 
-        return corrigir(out) or None
+        out = corrigir(out) or ""
+        # CONFERE em vez de torcer: a análise já sai em português simples e
+        # já explica os números entre parênteses, então "reescreva mais
+        # simples" devolvia quase o mesmo texto e o botão parecia quebrado.
+        # Uma segunda tentativa, com a forma imposta na marra.
+        if out and parecidos(text, out):
+            resp2 = _create(client,
+                model=settings.cheap_model,
+                max_tokens=700,
+                temperature=0.4,
+                system=("Reescreva a análise abaixo SEGUINDO A FORMA À RISCA. "
+                        "A tentativa anterior saiu parecida demais com o "
+                        "original — mude a ESTRUTURA, não só as palavras. "
+                        + _FORMA_SIMPLES + " " + TERMOS_REGRA),
+                messages=[{"role": "user", "content": text[:6000]}],
+            )
+            out2 = "".join(b.text for b in resp2.content
+                           if b.type == "text").strip()
+            out2 = corrigir(out2) or ""
+            if out2 and not parecidos(text, out2):
+                LAST_SIMPLIFY_REASON = ""
+                return out2
+            # não conseguiu simplificar: quem chamou avisa, em vez de mandar
+            # o mesmo texto de novo e o aluno achar que o botão não fez nada
+            LAST_SIMPLIFY_REASON = "ja_simples"
+            return None
+        if out:
+            LAST_SIMPLIFY_REASON = ""
+        return out or None
     except Exception:
         return None
 

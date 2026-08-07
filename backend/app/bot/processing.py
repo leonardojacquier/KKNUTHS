@@ -1155,8 +1155,18 @@ def simplify_last(telegram_id: int, username: str | None) -> str | None:
 
     simple = simplify(str(text))
     if not simple:
+        from app.agent import llm as _llm
         from app.agent.saude import recado_recente
 
+        # duas causas, respostas OPOSTAS: com a API fora o coach nem rodou
+        # ("já está simples" seria mentira); com a API de pé e o texto já
+        # simples, "me embananei" é que seria mentira — e repetir o mesmo
+        # texto faz o aluno achar que o botão quebrou.
+        if _llm.LAST_SIMPLIFY_REASON == "ja_simples":
+            return ("Essa resposta já está no nível mais simples que eu "
+                    "consigo escrever 😅 Me diz qual pedaço ficou confuso "
+                    "que eu destrincho esse — pode ser um termo, uma conta, "
+                    "ou a decisão inteira.")
         return recado_recente() or (
             "Opa, me embananei aqui — toca o botão de novo em um instante? 🙏")
     # a versão simples vira a última fala: dá para simplificar em cadeia e o
@@ -2312,17 +2322,23 @@ def spot_reply(texto: str) -> tuple[str, list[tuple]] | None:
     if not sol:
         return None
     vs = f" contra o {sol['vilao_pos']}" if sol.get("vilao_pos") else ""
-    top = sorted(sol["ev"].items(), key=lambda kv: -kv[1])
-    fronteira = [h for h, v in top if 0 <= v <= 0.4][:6]
+    # tudo aqui é vs FOLDAR, igual ao gráfico logo abaixo. Com o EV absoluto
+    # a legenda dizia "verde = melhor que foldar" ao lado de outro número, e
+    # a "fronteira" saía errada: indiferença é ev == ev do fold (que é
+    # NEGATIVO, ~-0.6bb), não ev perto de zero. KTs aparecia como "quase
+    # indiferente" valendo +0.95bb a mais que foldar — um call óbvio.
+    top = sorted(sol["ev_vs_fold"].items(), key=lambda kv: -kv[1])
+    fronteira = [h for h, v in top if abs(v) <= 0.2][:6]
     linhas = [
         f"⚖️ *{_SPOT_NOME_PT[kind].capitalize()}* — {hero}{vs} · "
         f"{stack:g}bb",
         f"\nEquilíbrio: joga *{sol['acao_pct']:g}%* das mãos · "
         f"pote morto {sol['dead']:g}bb",
-        f"\n*Melhores:* " + ", ".join(f"{h} ({v:+.1f})" for h, v in top[:5]),
+        f"\n*Melhores* (bb a mais que foldar): "
+        + ", ".join(f"{h} ({v:+.1f})" for h, v in top[:5]),
     ]
     if fronteira:
-        linhas.append("*Na fronteira* (quase indiferente): "
+        linhas.append("*Na fronteira* (tanto faz agir ou foldar): "
                       + ", ".join(fronteira))
     linhas.append("\n_Os dois gráficos abaixo: o range do equilíbrio e o EV "
                   "de cada mão em bb (verde = melhor que foldar)._")
