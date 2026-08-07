@@ -30,3 +30,20 @@ jobs:
       - name: Certificado
         run: |
           echo | timeout 15 openssl s_client -connect gnh.vortex369.com.br:443 -servername gnh.vortex369.com.br 2>/dev/null | openssl x509 -noout -subject -dates 2>/dev/null || echo "SEM CERTIFICADO / porta 443 não respondeu"
+
+      - name: Produção gnhorizons.com — campanha no ar?
+        run: |
+          echo "== /ventas/ =="
+          curl -sk -o /tmp/v.html -w "status=%{http_code} tamanho=%{size_download}\n" --max-time 25 https://gnhorizons.com/ventas/ || echo "FALHA"
+          echo "-- marcadores do lançamento no HTML servido --"
+          for m in "Generador 38 kVA" "is-launch" "generador.webm" "Lanzamiento"; do
+            if grep -qF "$m" /tmp/v.html; then echo "OK   encontrado: $m"; else echo "FALTA: $m"; fi
+          done
+          echo "-- bundle JS referenciado --"
+          grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/v.html | head -3
+          echo "== landing =="
+          curl -sk -o /dev/null -w "promo/generador-38kva/ status=%{http_code}\n" --max-time 25 https://gnhorizons.com/promo/generador-38kva/ || echo FALHA
+          echo "== vídeo =="
+          curl -skI --max-time 25 https://gnhorizons.com/video/generador.webm | head -1 || echo FALHA
+          echo "== bundle novo publicado? =="
+          curl -sk -o /dev/null -w "ventas-Dp1pgA83.js status=%{http_code}\n" --max-time 25 https://gnhorizons.com/assets/ventas-Dp1pgA83.js || true
