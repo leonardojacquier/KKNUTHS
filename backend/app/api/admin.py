@@ -26,6 +26,13 @@ _ERROR_EVENTS = ("upload_failed", "error", "entrega_falha",
 # o que conta como MÃO enviada (funil por usuário)
 _MAO_EVENTS = ("upload", "print_recebido", "upload_recebido",
                "replay_pppoker", "replay_suprema")
+# O BOT falando com a pessoa — não é a pessoa usando a ferramenta. Aparece
+# no diário (é contexto), mas NÃO conta como atividade: a lição do dia de
+# 07/08 marcou os 10 alunos como "ativos às 01:54", inclusive quem nunca
+# mandou uma mão. Métrica que sobe sozinha quando eu aperto um botão não
+# mede nada.
+_SO_RECEBEU = ("daily_quiz_sent", "licao_recebida", "convite_primeira_mao",
+               "reanalise_enviada")
 
 
 def _q(fn, default):
@@ -130,8 +137,13 @@ def _collect() -> dict:
             juiz = _detalhe(r)
         if isinstance(tg, int) and tg > 0:
             u = per_user[tg]
-            u["eventos"] += 1
-            u["ultimo"] = max(u["ultimo"], ts)
+            # "interações" tem que ser AÇÃO de gente: custo_llm sozinho é
+            # 458 de ~1500 eventos e inflava a coluna de todo mundo. E o que
+            # o bot ENVIA (quiz, lição) não é a pessoa agindo.
+            agiu = ev not in _SO_SISTEMA and ev not in _SO_RECEBEU
+            if agiu:
+                u["eventos"] += 1
+                u["ultimo"] = max(u["ultimo"], ts)
             if ev in _MAO_EVENTS:
                 u["maos"] += 1
             if ev == "followup":
@@ -144,10 +156,10 @@ def _collect() -> dict:
                 origem = str(_detalhe(r).get("ref") or "") or "direto"
                 u["ref"] = u["ref"] or origem
                 refs[origem] += 1
-            if ts >= d7:
+            if agiu and ts >= d7:
                 active7.add(tg)
             day = ts[:10]
-            if day:
+            if day and agiu:
                 daily[day]["eventos"] += 1
                 daily[day]["usuarios"].add(tg)
         if ev in _ERROR_EVENTS:
@@ -162,7 +174,9 @@ def _collect() -> dict:
     for r in usage:
         used_by_uid[r.get("user_id")] += 1
 
-    recent = events[:25]
+    # filtra ANTES de cortar: contabilidade + cron são ~2/3 dos eventos,
+    # então um [:25] cru devolvia 8 ações de gente e 17 linhas de máquina
+    recent = [r for r in events if e_acao_de_gente(r)][:40]
     profiles = _q(lambda: c.table("player_stats")
                   .select("user_id, hands, vpip, pfr, three_bet, af, label, updated_at")
                   .order("updated_at", desc=True).limit(20).execute().data, []) or []
@@ -240,7 +254,154 @@ a:hover{color:var(--gold);border-bottom-color:var(--gold)}
 .ok{color:var(--felt)}.mid{color:var(--gold)}.bad{color:var(--red)}
 .nota{background:var(--card);border-left:3px solid var(--gold);
 padding:8px 12px;margin:6px 0;font-size:13px}
+.diario{background:var(--card);border:1px solid var(--line);padding:4px 0}
+.dia{background:#0d120f;color:var(--felt);font-size:11.5px;letter-spacing:.08em;
+padding:6px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+text-transform:uppercase;font-weight:600;position:sticky;top:0}
+.ato{display:flex;gap:10px;align-items:baseline;padding:7px 14px;font-size:13.5px;
+border-bottom:1px solid rgba(40,49,43,.5)}
+.ato .hora{color:var(--mut);font-family:ui-monospace,monospace;font-size:11.5px;
+min-width:38px}
+.ato .ico{min-width:20px}
+.ato.mut{opacity:.55}
+.ato.ok span:last-child{color:var(--felt)}
+.ato.bad span:last-child{color:var(--red)}
+.ato.mid span:last-child{color:var(--gold)}
 """
+
+
+# Contabilidade por usuário: tem telegram_id de gente, mas NÃO é ação de
+# gente. custo_llm sozinho é 458 de ~1500 eventos em 14 dias; junto com os
+# comandos do dono (*_cmd) afoga o que os alunos realmente fizeram.
+_SO_SISTEMA = {"custo_llm", "caderno_auto", "entrega_ok", "licoes_cmd",
+               "termo_cmd", "quem_cmd", "planode_cmd", "daily_usage",
+               "output_judge", "nota_resposta", "sonda_recebimento"}
+
+
+def e_acao_de_gente(e: dict) -> bool:
+    """Um aluno fez isso, ou foi o sistema falando sozinho?
+
+    Duas regras, e a segunda é a que dura: `telegram_id <= 0` é a assinatura
+    de TODO cron (deploy, jornadas, anomalias, backup, coherence…). Filtrar
+    por ID em vez de por nome significa que o cron que eu escrever amanhã já
+    nasce fora do feed — sem eu lembrar de vir aqui pôr o nome numa lista.
+    """
+    tg = e.get("telegram_id")
+    if not isinstance(tg, int) or tg <= 0:
+        return False
+    return str(e.get("event") or "") not in _SO_SISTEMA
+
+
+def _repetido(texto: str, tg, ultimo: list) -> bool:
+    """O clique e o efeito do clique são DOIS eventos e UM ato.
+
+    'btn_share' + 'share_card' (e btn_range/range, btn_sim/simular) sempre
+    saem em par: o feed mostrava 'Gerou o card' duas vezes seguidas e parecia
+    que a pessoa fez duas coisas. Só colapsa idênticos CONSECUTIVOS do mesmo
+    aluno — dois quizzes iguais em horas diferentes continuam aparecendo.
+    """
+    chave = (tg, texto)
+    if ultimo and ultimo[0] == chave:
+        return True
+    ultimo[:] = [chave]
+    return False
+
+
+def narrar_evento(e: dict) -> dict | None:
+    """Traduz UM evento para o que a pessoa fez, em português.
+
+    Devolve {icone, texto, classe} ou None se não for ação de gente. É esta
+    função que transforma 'followup {"q":"..."}' em «💬 Perguntou: "..."» —
+    sem ela o portal mostra nome de evento e JSON, que não é legível.
+    """
+    ev = str(e.get("event") or "")
+    if ev in _SO_SISTEMA:
+        return None
+    d = _detalhe(e)
+
+    def _t(txt, icone="•", classe=""):
+        return {"icone": icone, "texto": txt, "classe": classe}
+
+    if ev == "start":
+        origem = d.get("ref") or "direto"
+        return _t(f"Abriu o bot (origem: <b>{html.escape(str(origem))}</b>)",
+                  "🚪")
+    if ev == "upload":
+        site = str(d.get("site") or "?")
+        n = d.get("hands") or 1
+        resta = d.get("quota_remaining")
+        extra = f" · restam {resta} análises" if resta is not None else ""
+        return _t(f"Análise entregue: {n} mão(s) — {html.escape(site)}{extra}",
+                  "✅", "ok")
+    if ev in ("replay_pppoker", "replay_suprema"):
+        sala = "PPPoker" if "pppoker" in ev else "Suprema"
+        return _t(f"Mandou link de replay do {sala}", "🔗")
+    if ev == "replay_link":
+        return _t(f"Mandou link que eu não abro sozinho "
+                  f"({html.escape(str(d.get('site') or '?'))})", "🔗", "mid")
+    if ev == "print_recebido":
+        return _t("Mandou um print da mesa", "📸")
+    if ev == "upload_recebido":
+        return _t("Mandou um arquivo de mãos", "📎")
+    if ev == "voice":
+        return _t("Mandou áudio", "🎤")
+    if ev == "followup":
+        q = str(d.get("q") or "")[:150]
+        return _t(f"Perguntou: <i>“{html.escape(q)}”</i>", "💬")
+    if ev == "followup_failed":
+        q = str(d.get("q") or "")[:90]
+        motivo = str(d.get("motivo") or "sem motivo registrado")[:70]
+        return _t(f"Pergunta FALHOU: <i>“{html.escape(q)}”</i> — "
+                  f"{html.escape(motivo)}", "🚨", "bad")
+    if ev == "daily_quiz_sent":
+        return _t("Recebeu o quiz do dia", "🎯", "mut")
+    if ev == "drill_answer":
+        return _t(f"Respondeu o quiz: <b>"
+                  f"{html.escape(str(d.get('choice') or '?'))}</b>", "🎯")
+    if ev == "drill_verdict":
+        v = str(d.get("verdict") or "?")
+        cls = "ok" if v == "boa" else "bad" if v == "ruim" else "mid"
+        return _t(f"Resultado do quiz: <b>{html.escape(v)}</b> "
+                  f"({html.escape(str(d.get('cat') or ''))})", "🎯", cls)
+    if ev == "licao_recebida":
+        return _t(f"Recebeu a lição #{d.get('licao')}", "📖")
+    if ev == "convite_primeira_mao":
+        return _t("Recebeu o convite à primeira mão", "👋", "mid")
+    if ev == "simplify":
+        return _t("Pediu a versão simples da análise 🎈", "🎈")
+    if ev in ("simular", "btn_sim"):
+        return _t("Abriu o simulador", "🎮")
+    if ev == "sim_done":
+        return _t(f"Terminou a simulação ({d.get('decisoes')} decisões)", "🎮")
+    if ev in ("range", "btn_range"):
+        return _t("Abriu o range do spot", "📊")
+    if ev in ("share_card", "btn_share"):
+        return _t("Gerou o card para compartilhar", "📣", "ok")
+    if ev == "go_treino":
+        return _t("Clicou em treinar", "🎓")
+    if ev == "plano":
+        return _t("Consultou o próprio plano", "💳")
+    if ev == "preparar":
+        return _t("Pediu o briefing pré-torneio", "🧠")
+    if ev == "spot_cmd":
+        return _t("Pediu um spot para treinar", "🎯")
+    if ev == "upload_failed":
+        return _t(f"Envio FALHOU: "
+                  f"{html.escape(str(d.get('note') or '')[:110])}", "🚨", "bad")
+    if ev == "error":
+        return _t(f"Erro: {html.escape(str(d.get('error') or '')[:110])}",
+                  "🚨", "bad")
+    if ev == "sem_mao_na_conversa":
+        return _t("Conversou sem mão aberta (contexto perdido)", "⚠️", "mid")
+    if ev == "entrega_falha":
+        return _t(f"Resposta veio incompleta (faltou "
+                  f"{html.escape(str(d.get('faltou') or ''))})", "⚠️", "mid")
+    if ev == "entrega_remediada":
+        return _t("Resposta incompleta — o guarda consertou", "🔧", "mid")
+    if ev == "reanalise_enviada":
+        return _t("Recebeu uma reanálise (correção nossa)", "🔄", "mid")
+    # evento novo que ainda não traduzi: mostra cru, mas não some
+    return _t(html.escape(ev), "•", "mut")
 
 
 def _linha_do_veredito(summary: str) -> tuple[str, str]:
@@ -306,7 +467,9 @@ def _dossie(tg: int) -> dict:
             agg["erros"] += 1
         if ev == "start" and not agg["ref"]:
             agg["ref"] = str(_detalhe(e).get("ref") or "direto")
-        if ts and ev != "daily_quiz_sent":
+        # o gráfico de hábito mede o que a PESSOA fez: quiz e lição que o bot
+        # empurrou desenhariam uma barra por dia mesmo com ela sumida
+        if ts and ev not in _SO_RECEBEU and ev not in _SO_SISTEMA:
             dias[ts[:10]] += 1
     return {"db": True, "achou": True, "u": u, "eventos": eventos,
             "maos": maos, "por_mao": por_mao, "notas": notas,
@@ -360,11 +523,30 @@ async def admin_usuario(key: str = Query(default=""),
     mao_tbl = "".join(mao_rows) or \
         "<tr><td colspan=6>nenhuma mão enviada ainda</td></tr>"
 
-    ev_rows = "".join(
-        f"<tr><td class='n'>{esc(str(e.get('created_at'))[:16])}</td>"
-        f"<td>{esc(str(e.get('event')))}</td>"
-        f"<td>{esc(str(e.get('detail') or '')[:160])}</td></tr>"
-        for e in d["eventos"][:60])
+    # DIÁRIO: o que a pessoa fez, em português, agrupado por dia. O dump de
+    # nome-de-evento + JSON não dizia nada ("não fica claro como estão as
+    # ações dos usuários" — dono, 07/08).
+    linhas_diario, dia_atual, mostrados, ultimo = [], None, 0, []
+    for e in d["eventos"]:
+        n = narrar_evento(e) if e_acao_de_gente(e) else None
+        if not n or mostrados >= 80:
+            continue
+        if _repetido(n["texto"], tg, ultimo):
+            continue
+        ts = str(e.get("created_at") or "")
+        dia = ts[:10]
+        if dia != dia_atual:
+            dia_atual = dia
+            linhas_diario.append(
+                f"<div class='dia'>{esc(dia[8:10])}/{esc(dia[5:7])}</div>")
+        linhas_diario.append(
+            f"<div class='ato {n['classe']}'>"
+            f"<span class='hora'>{esc(ts[11:16])}</span>"
+            f"<span class='ico'>{n['icone']}</span>"
+            f"<span>{n['texto']}</span></div>")
+        mostrados += 1
+    diario = "".join(linhas_diario) or \
+        "<p class='sub'>nenhuma ação registrada.</p>"
 
     notas_html = "".join(
         f"<div class='nota'><b>{esc(str(n.get('kind')))}</b> — "
@@ -401,8 +583,12 @@ async def admin_usuario(key: str = Query(default=""),
   <div class="kpi err"><b>{agg['erros']}</b><span>erros</span></div>
 </div>
 
-<h2>Atividade — 14 dias (sem contar o quiz automático)</h2>
+<h2>Atividade — 14 dias (só o que a pessoa fez; sem contar o quiz
+ automático e a lição que o bot empurra)</h2>
 <div class="bwrap"><div class="bars">{''.join(barras)}</div></div>
+
+<h2>O que esta pessoa fez — em ordem</h2>
+<div class="diario">{diario}</div>
 
 <h2>Mãos analisadas — as últimas {len(d['maos'])}</h2>
 <div class="tbl"><table>
@@ -415,11 +601,6 @@ async def admin_usuario(key: str = Query(default=""),
 
 <h2>Perfil de jogo</h2>
 {perfil_html}
-
-<h2>Linha do tempo — últimos 60 eventos</h2>
-<div class="tbl"><table>
-<tr><th>Quando (UTC)</th><th>Evento</th><th>Detalhe</th></tr>
-{ev_rows}</table></div>
 </div>"""
 
 
@@ -500,13 +681,27 @@ async def admin(key: str = Query(default="")) -> str:
         for p in m["profiles"]
     ) or "<tr><td colspan=7>sem perfis ainda</td></tr>"
 
-    event_rows = "".join(
-        f"<tr><td class='n'>{esc(str(r.get('created_at') or '')[:16])}</td>"
-        f"<td>{esc(_quem(r))}</td>"
-        f"<td>{esc(str(r.get('event')))}</td>"
-        f"<td>{esc(str(r.get('detail') or '')[:90])}</td></tr>"
-        for r in m["recent"]
-    ) or "<tr><td colspan=4>sem eventos</td></tr>"
+    # A mesma narração do dossiê, aqui com o NOME na frente: a home vira
+    # "quem fez o quê agora", e não um dump de nome-de-evento + JSON.
+    atos, ultimo = [], []
+    for r in m["recent"]:
+        n = narrar_evento(r) if e_acao_de_gente(r) else None
+        if not n or len(atos) >= 40:
+            continue
+        tg = r.get("telegram_id")
+        if _repetido(n["texto"], tg, ultimo):
+            continue
+        ts = str(r.get("created_at") or "")
+        quem = esc(_quem(r))
+        if isinstance(tg, int) and tg > 0:
+            quem = f"<a href='/admin/usuario?key={esc(key)}&amp;tg={tg}'>" \
+                   f"{quem}</a>"
+        atos.append(
+            f"<div class='ato {n['classe']}'>"
+            f"<span class='hora'>{esc(ts[5:16].replace('T', ' '))}</span>"
+            f"<span class='ico'>{n['icone']}</span>"
+            f"<span><b>{quem}</b> · {n['texto']}</span></div>")
+    feed = "".join(atos) or "<p class='sub'>sem ações registradas.</p>"
 
     # custo por tarefa, origem dos starts, lições
     custo_rows = "".join(
@@ -551,6 +746,9 @@ async def admin(key: str = Query(default="")) -> str:
   <div class="kpi err"><b>{m['errors30']}</b><span>erros (30 dias)</span></div>
 </div>
 
+<h2>O que acabou de acontecer</h2>
+<div class="diario">{feed}</div>
+
 <h2>Usuários — funil e custo por pessoa (30 dias)</h2>
 <div class="tbl"><table>
 <tr><th>Usuário</th><th>Origem</th><th>Entrou em</th><th>Plano</th><th>Interações</th>
@@ -585,8 +783,4 @@ async def admin(key: str = Query(default="")) -> str:
 <tr><th>Aluno</th><th>Mãos</th><th>VPIP%</th><th>PFR%</th><th>3-bet%</th><th>AF</th><th>Estilo</th></tr>
 {profile_rows}</table></div>
 
-<h2>Últimas 25 interações</h2>
-<div class="tbl"><table>
-<tr><th>Quando (UTC)</th><th>Usuário</th><th>Evento</th><th>Detalhe</th></tr>
-{event_rows}</table></div>
 </div>"""
