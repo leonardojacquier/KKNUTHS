@@ -95,3 +95,53 @@ def test_portal_mostra_as_visoes_novas():
     for pedaco in ("custo LLM no mês", "entrega 1ª", "clareza (juiz",
                    "lições na estante", "Origem dos /start"):
         assert pedaco in fonte, pedaco
+
+
+def test_dossie_exige_token(monkeypatch):
+    """A página do usuário mostra TUDO de uma pessoa — sem chave, 401."""
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ADMIN_TOKEN", "segredo")
+    get_settings.cache_clear()
+    c = TestClient(app)
+    assert c.get("/admin/usuario?tg=42").status_code == 401
+    assert c.get("/admin/usuario?key=errado&tg=42").status_code == 401
+    get_settings.cache_clear()
+
+
+def test_veredito_vira_cor():
+    """O selo já resume a análise — a cor deixa o dossiê legível de relance."""
+    from app.api.admin import _linha_do_veredito
+
+    assert _linha_do_veredito("✅ Você jogou bem — shove\nresto") == \
+        ("ok", "✅ Você jogou bem — shove")
+    assert _linha_do_veredito("❌ Jogada cara")[0] == "bad"
+    assert _linha_do_veredito("🟡 Dava pra jogar melhor")[0] == "mid"
+    assert _linha_do_veredito("")[0] == ""
+    assert _linha_do_veredito(None) == ("", "")
+
+
+def test_nome_na_tabela_leva_ao_dossie():
+    """Sem o link, o dossiê existe e ninguém acha."""
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin.admin)
+    assert "/admin/usuario?key=" in fonte
+    assert "tg=" in fonte
+
+
+def test_dossie_mostra_as_quatro_camadas():
+    """Quem é, o que fez, o que o coach aprendeu, e como joga."""
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin.admin_usuario)
+    for secao in ("Mãos analisadas", "Caderno do coach", "Perfil de jogo",
+                  "Linha do tempo"):
+        assert secao in fonte, secao
+    # o quiz automático não pode inflar o gráfico de hábito
+    assert "sem contar o quiz" in fonte

@@ -233,7 +233,194 @@ color:var(--gold)}
 .bwrap{padding-bottom:26px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:700px){.cols{grid-template-columns:1fr}}
+a{color:var(--felt);text-decoration:none;border-bottom:1px dotted var(--felt)}
+a:hover{color:var(--gold);border-bottom-color:var(--gold)}
+.volta{display:inline-block;margin-bottom:14px;font-size:13px}
+.sel{font-weight:600}
+.ok{color:var(--felt)}.mid{color:var(--gold)}.bad{color:var(--red)}
+.nota{background:var(--card);border-left:3px solid var(--gold);
+padding:8px 12px;margin:6px 0;font-size:13px}
 """
+
+
+def _linha_do_veredito(summary: str) -> tuple[str, str]:
+    """(classe css, 1ª linha) — o selo já é o resumo da análise."""
+    linha = (summary or "").strip().split("\n", 1)[0][:110]
+    cls = ("ok" if linha.startswith("✅") else
+           "bad" if linha.startswith("❌") else
+           "mid" if linha.startswith("🟡") else "")
+    return cls, linha
+
+
+def _dossie(tg: int) -> dict:
+    """Tudo que se sabe sobre UMA pessoa (tolerante a falha, como o resto)."""
+    repo = get_repository()
+    if not repo.enabled:
+        return {"db": False}
+    c = repo.client
+    u = (_q(lambda: c.table("users").select("*")
+            .eq("telegram_id", tg).limit(1).execute().data, []) or [None])[0]
+    if not u:
+        return {"db": True, "achou": False}
+
+    eventos = _q(lambda: c.table("bot_events")
+                 .select("event,detail,created_at").eq("telegram_id", tg)
+                 .order("created_at", desc=True).limit(300).execute().data,
+                 []) or []
+    maos = _q(lambda: c.table("hands")
+              .select("id,hand_id,site,format,canonical,created_at")
+              .eq("user_id", u["id"])
+              .order("created_at", desc=True).limit(25).execute().data,
+              []) or []
+    ids = [m["id"] for m in maos]
+    analises = _q(lambda: c.table("hand_analysis")
+                  .select("hand_id,summary,ev_loss,modelo,created_at")
+                  .in_("hand_id", ids).execute().data, []) if ids else []
+    por_mao = {}
+    for a in (analises or []):
+        por_mao.setdefault(a["hand_id"], a)
+    notas = _q(lambda: repo.get_notes(u["id"], limit=10), []) or []
+    perfil = (_q(lambda: c.table("player_stats").select("*")
+               .eq("user_id", u["id"]).limit(1).execute().data, [])
+              or [None])[0]
+
+    agg = {"eventos": len(eventos), "maos": 0, "perguntas": 0, "drills": 0,
+           "erros": 0, "custo": 0.0, "ref": "", "quiz": 0}
+    dias: dict[str, int] = defaultdict(int)
+    for e in eventos:
+        ev = e.get("event") or ""
+        ts = str(e.get("created_at") or "")
+        if ev in _MAO_EVENTS:
+            agg["maos"] += 1
+        elif ev == "followup":
+            agg["perguntas"] += 1
+        elif ev == "drill_answer":
+            agg["drills"] += 1
+        elif ev == "daily_quiz_sent":
+            agg["quiz"] += 1
+        elif ev == "custo_llm":
+            usd = _detalhe(e).get("usd")
+            if isinstance(usd, (int, float)):
+                agg["custo"] += usd
+        if ev in _ERROR_EVENTS:
+            agg["erros"] += 1
+        if ev == "start" and not agg["ref"]:
+            agg["ref"] = str(_detalhe(e).get("ref") or "direto")
+        if ts and ev != "daily_quiz_sent":
+            dias[ts[:10]] += 1
+    return {"db": True, "achou": True, "u": u, "eventos": eventos,
+            "maos": maos, "por_mao": por_mao, "notas": notas,
+            "perfil": perfil, "agg": agg, "dias": dias}
+
+
+@router.get("/admin/usuario", response_class=HTMLResponse)
+async def admin_usuario(key: str = Query(default=""),
+                        tg: int = Query(default=0)) -> str:
+    settings = get_settings()
+    if not settings.admin_token or key != settings.admin_token:
+        raise HTTPException(status_code=401, detail="token inválido")
+    esc = html.escape
+    d = _dossie(tg)
+    volta = f"<a class='volta' href='/admin?key={esc(key)}'>← voltar</a>"
+    if not d.get("db"):
+        return (f"<style>{_CSS}</style><div class='wrap'>{volta}"
+                "<div class='warn'>Banco indisponível.</div></div>")
+    if not d.get("achou"):
+        return (f"<style>{_CSS}</style><div class='wrap'>{volta}"
+                f"<div class='warn'>Não achei o usuário {tg}.</div></div>")
+
+    u, agg = d["u"], d["agg"]
+    nome = esc(str(u.get("username") or tg))
+
+    # atividade por dia (14 dias) — o retrato do hábito
+    hoje = datetime.now(timezone.utc).date()
+    barras = []
+    maxd = max(list(d["dias"].values()) + [1])
+    for i in range(13, -1, -1):
+        dia = (hoje - timedelta(days=i)).isoformat()
+        n = d["dias"].get(dia, 0)
+        barras.append(
+            f"<div class='bar' style='height:{max(2, int(86 * n / maxd))}px'>"
+            f"<b>{n or ''}</b><i>{dia[5:]}</i></div>")
+
+    mao_rows = []
+    for m in d["maos"]:
+        a = d["por_mao"].get(m["id"]) or {}
+        cls, linha = _linha_do_veredito(a.get("summary", ""))
+        cartas = " ".join((m.get("canonical") or {}).get("hero_cards") or [])
+        ev = a.get("ev_loss")
+        mao_rows.append(
+            f"<tr><td class='n'>{esc(str(m.get('created_at'))[:16])}</td>"
+            f"<td class='n'>{esc(cartas) or '—'}</td>"
+            f"<td>{esc(str(m.get('site') or ''))[:22]}</td>"
+            f"<td class='n'>{f'{ev:+.1f}bb' if isinstance(ev, (int, float)) else '—'}</td>"
+            f"<td class='{cls}'>{esc(linha) or '(sem análise)'}</td>"
+            f"<td>{esc(str(a.get('modelo') or '').replace('claude-',''))}</td>"
+            f"</tr>")
+    mao_tbl = "".join(mao_rows) or \
+        "<tr><td colspan=6>nenhuma mão enviada ainda</td></tr>"
+
+    ev_rows = "".join(
+        f"<tr><td class='n'>{esc(str(e.get('created_at'))[:16])}</td>"
+        f"<td>{esc(str(e.get('event')))}</td>"
+        f"<td>{esc(str(e.get('detail') or '')[:160])}</td></tr>"
+        for e in d["eventos"][:60])
+
+    notas_html = "".join(
+        f"<div class='nota'><b>{esc(str(n.get('kind')))}</b> — "
+        f"{esc(str(n.get('note')))}</div>" for n in d["notas"]) or \
+        "<p class='sub'>caderno vazio — o coach ainda não destilou nada.</p>"
+
+    p = d["perfil"]
+    perfil_html = (
+        f"<div class='tbl'><table><tr><th>Mãos</th><th>VPIP%</th>"
+        f"<th>PFR%</th><th>3-bet%</th><th>AF</th><th>Estilo</th></tr>"
+        f"<tr><td class='n'>{p.get('hands') or 0}</td>"
+        f"<td class='n'>{p.get('vpip') or 0}</td>"
+        f"<td class='n'>{p.get('pfr') or 0}</td>"
+        f"<td class='n'>{p.get('three_bet') or 0}</td>"
+        f"<td class='n'>{p.get('af') or 0}</td>"
+        f"<td>{esc(str(p.get('label') or ''))}</td></tr></table></div>"
+        if p else "<p class='sub'>sem perfil — precisa de export de sessão "
+                  "inteira (replay avulso não mede frequência).</p>")
+
+    return f"""<style>{_CSS}</style>
+<div class="wrap">
+{volta}
+<h1>♠ {nome}</h1>
+<p class="sub">telegram {tg} · plano <b>{esc(str(u.get('plan') or 'free'))}</b>
+ · entrou {esc(str(u.get('created_at') or '')[:10])}
+ · origem <b>{esc(agg['ref'] or '—')}</b></p>
+
+<div class="grid">
+  <div class="kpi"><b>{agg['maos']}</b><span>mãos enviadas</span></div>
+  <div class="kpi"><b>{agg['perguntas']}</b><span>perguntas ao coach</span></div>
+  <div class="kpi"><b>{agg['drills']}</b><span>quiz respondidos</span></div>
+  <div class="kpi"><b>{agg['quiz']}</b><span>quiz recebidos</span></div>
+  <div class="kpi"><b>US$ {agg['custo']:.2f}</b><span>custo gerado</span></div>
+  <div class="kpi err"><b>{agg['erros']}</b><span>erros</span></div>
+</div>
+
+<h2>Atividade — 14 dias (sem contar o quiz automático)</h2>
+<div class="bwrap"><div class="bars">{''.join(barras)}</div></div>
+
+<h2>Mãos analisadas — as últimas {len(d['maos'])}</h2>
+<div class="tbl"><table>
+<tr><th>Quando</th><th>Cartas</th><th>Sala</th><th>Resultado</th>
+<th>Veredito</th><th>Modelo</th></tr>
+{mao_tbl}</table></div>
+
+<h2>Caderno do coach — o que ele aprendeu sobre esta pessoa</h2>
+{notas_html}
+
+<h2>Perfil de jogo</h2>
+{perfil_html}
+
+<h2>Linha do tempo — últimos 60 eventos</h2>
+<div class="tbl"><table>
+<tr><th>Quando (UTC)</th><th>Evento</th><th>Detalhe</th></tr>
+{ev_rows}</table></div>
+</div>"""
 
 
 @router.get("/admin", response_class=HTMLResponse)
@@ -256,8 +443,12 @@ async def admin(key: str = Query(default="")) -> str:
         used = m["used_by_uid"].get(u.get("id"), 0)
         custo = m["custos"]["por_tg"].get(tg, 0.0)
         nome = u.get("username") or str(tg)
+        # o nome vira porta para o dossiê: com 10 usuários, o caso
+        # individual ensina mais que qualquer média (conselho, 02/08)
+        link = f"<a href='/admin/usuario?key={esc(key)}&amp;tg={tg}'>" \
+               f"{esc(str(nome))}</a>"
         user_rows.append(
-            f"<tr><td>{esc(str(nome))}</td>"
+            f"<tr><td>{link}</td>"
             f"<td>{esc(str(pu.get('ref') or '—'))}</td>"
             f"<td class='n'>{esc(str(u.get('created_at') or '')[:10])}</td>"
             f"<td>{esc(str(u.get('plan') or 'free'))}</td>"
