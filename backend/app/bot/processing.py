@@ -433,12 +433,21 @@ def _process_upload_inner(
         try:
             from app.bot.guarda_fatos import conferir_dominancia
 
+            from app.bot.guarda_fatos import conta_sem_numero
+
             coaching, mentiras = conferir_dominancia(
                 coaching, list(hands[0].hero_cards))
             if mentiras and repo.enabled:
                 repo.log_event(telegram_id, username, "fato_corrigido",
                                {"maos": mentiras[:6],
                                 "heroi": list(hands[0].hero_cards)})
+            # "A conta que mais pesa: você paga sempre" — prosa com nome de
+            # conta. Só mede: reescrever prosa de LLM na marra estraga mais
+            # do que conserta, mas a TAXA diz se o prompt está errado.
+            vazias = conta_sem_numero(coaching)
+            if vazias and repo.enabled:
+                repo.log_event(telegram_id, username, "conta_sem_numero",
+                               {"trecho": vazias[0]})
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 

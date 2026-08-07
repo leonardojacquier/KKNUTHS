@@ -138,6 +138,35 @@ def _cauda(trecho: str, citadas: list[str]) -> str:
     return resto if resto.strip() else ""
 
 
+# "A conta que mais pesa:", "a conta:", "fazendo a conta" — o coach ANUNCIA
+# que vai mostrar a matemática
+_ANUNCIA_CONTA = re.compile(
+    r"^[^\n]{0,40}\ba\s+conta\b[^\n]{0,40}:", re.I | re.M)
+_TEM_NUMERO = re.compile(r"[-+−]?\d+[.,]?\d*\s*(bb|%|fichas)|[-+−]\d+[.,]\d|\d+%")
+
+
+def conta_sem_numero(texto: str) -> list[str]:
+    """Parágrafos que se anunciam como 'a conta' e não trazem número nenhum.
+
+    No print de 07/08: "A conta que mais pesa: com KK e stack curto você paga
+    esse all-in sempre, sem pensar duas vezes." Prosa com nome de conta — e
+    era a TERCEIRA vez que o texto dizia a mesma coisa, o que faz o aluno
+    achar que o coach está enrolando.
+
+    Só DETECTA (vira evento). Reescrever prosa de LLM na marra estraga mais
+    do que conserta; o que isto dá é a taxa — se for alta, o prompt está
+    errado e eu conserto lá, com número na mão em vez de impressão.
+    """
+    achados = []
+    for m in _ANUNCIA_CONTA.finditer(texto or ""):
+        # o parágrafo inteiro a partir do anúncio
+        fim = (texto or "").find("\n\n", m.start())
+        trecho = (texto or "")[m.start():fim if fim > 0 else len(texto or "")]
+        if not _TEM_NUMERO.search(trecho):
+            achados.append(trecho[:120].strip())
+    return achados
+
+
 def _pares_que_ganham(hero: list[str]) -> list[str]:
     """Os pares que são favoritos contra o herói (a resposta que a frase
     queria dar). Só pares: é o caso que aparece nessas frases."""

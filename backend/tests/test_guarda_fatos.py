@@ -80,3 +80,29 @@ def test_esta_ligado_na_analise_e_vira_evento():
     fonte = inspect.getsource(processing._process_upload_inner)
     assert "conferir_dominancia" in fonte
     assert "fato_corrigido" in fonte, "erro corrigido tem que virar evento"
+
+
+def test_conta_anunciada_sem_numero_e_flagrada():
+    """"A conta que mais pesa: você paga sempre, sem pensar duas vezes" é
+    prosa com nome de conta — e era a 3ª vez que o texto dizia o mesmo."""
+    from app.bot.guarda_fatos import conta_sem_numero
+
+    ruim = ("A conta que mais pesa: com KK e stack curto você paga esse "
+            "all-in sempre, sem pensar duas vezes.")
+    assert conta_sem_numero(ruim)
+
+    boa = ("A conta que mais pesa: pagar rende +8.2bb a mais que foldar "
+           "contra o range de shove dele.")
+    assert conta_sem_numero(boa) == []
+
+    # texto sem anúncio de conta não é flagrado
+    assert conta_sem_numero("✅ Você jogou bem — pagar KK.") == []
+
+
+def test_conta_vazia_vira_evento():
+    import inspect
+
+    from app.bot import processing
+
+    fonte = inspect.getsource(processing._process_upload_inner)
+    assert "conta_sem_numero" in fonte
