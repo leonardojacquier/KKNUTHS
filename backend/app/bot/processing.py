@@ -424,6 +424,24 @@ def _process_upload_inner(
                        and mao_simples(structured) else None)
     coaching = coach(structured, perfil, lang=lang, key_hands=key_hands,
                      collect_charts=chart_specs, model=modelo_escolhido)
+
+    # CONFERE os fatos que dá para provar: "só te vira favorito com QQ ou AA"
+    # saiu numa análise de KK, e KK ganha de QQ em 80%. O aluno que acredita
+    # passa a foldar KK contra 4-bet. O prompt já proíbe inventar (F1/F4) e
+    # saiu assim mesmo — então a conta confere antes de entregar.
+    if coaching and hands and getattr(hands[0], "hero_cards", None):
+        try:
+            from app.bot.guarda_fatos import conferir_dominancia
+
+            coaching, mentiras = conferir_dominancia(
+                coaching, list(hands[0].hero_cards))
+            if mentiras and repo.enabled:
+                repo.log_event(telegram_id, username, "fato_corrigido",
+                               {"maos": mentiras[:6],
+                                "heroi": list(hands[0].hero_cards)})
+        except Exception as exc:
+            log.warning("guarda de fatos falhou: %s", exc)
+
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
     # mão única (replay da PPPoker, .txt, print legível): o FILME da mão
