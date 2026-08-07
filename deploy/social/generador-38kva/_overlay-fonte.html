@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: 'Disp'; src: url('Outfit-Bold.ttf') format('truetype'); font-weight: 700; }
+@font-face { font-family: 'Body'; src: url('WorkSans-Regular.ttf') format('truetype'); font-weight: 400; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background: transparent; }
+body { font-family: 'Body', sans-serif; -webkit-font-smoothing: antialiased; }
+
+.stage { position: relative; overflow: hidden; }
+.veil { position:absolute; left:0; right:0; bottom:0; pointer-events:none;
+        background: linear-gradient(0deg, rgba(6,10,24,.97) 14%, rgba(6,10,24,.74) 48%, rgba(6,10,24,0) 100%); }
+.top  { position:absolute; left:0; right:0; top:0; pointer-events:none;
+        background: linear-gradient(180deg, rgba(6,10,24,.88) 0%, rgba(6,10,24,0) 100%); }
+/* no 16:9 o texto fica à esquerda: véu lateral em vez de inferior */
+.side { position:absolute; left:0; top:0; bottom:0; pointer-events:none;
+        background: linear-gradient(90deg, rgba(6,10,24,.95) 0%, rgba(6,10,24,.78) 42%, rgba(6,10,24,0) 100%); }
+
+.logo img { width:100%; height:auto; display:block; }
+.pill { display:inline-block; background:#E11D48; color:#fff; font-family:'Disp'; font-weight:700;
+        text-transform:uppercase; border-radius:999px; box-shadow:0 14px 34px -10px rgba(225,29,72,.9); }
+.title { font-family:'Disp'; font-weight:700; color:#fff; text-transform:uppercase;
+         line-height:.96; letter-spacing:-.02em; }
+.desc  { color:rgba(255,255,255,.88); }
+.cta   { display:inline-block; background:#F26D21; color:#fff; font-family:'Disp'; font-weight:700;
+         text-transform:uppercase; border-radius:999px; box-shadow:0 16px 36px -12px rgba(242,109,33,.85); }
+
+.seal { position:absolute; border-radius:50%; color:#fff; text-align:center;
+        display:grid; place-content:center; transform: rotate(-9deg);
+        background: radial-gradient(circle at 34% 28%, #F43F5E, #E11D48 62%, #B4123B);
+        box-shadow: 0 26px 60px -14px rgba(225,29,72,.9), inset 0 0 0 3px rgba(255,255,255,.36); }
+.seal::after { content:''; position:absolute; border-radius:50%; border:2px dashed rgba(255,255,255,.5); }
+.seal b { display:block; font-family:'Disp'; font-weight:700; line-height:.94; text-transform:uppercase; }
+.seal i { display:block; font-family:'Disp'; font-weight:700; font-style:normal; text-transform:uppercase; opacity:.95; }
+</style></head>
+<body>
+<div class="stage" id="stage"></div>
+<script>
+/* Medidas explícitas por formato — escalar tudo por uma constante única
+   fazia o bloco de texto do 16:9 transbordar por cima do logo. */
+const CFG = {
+  vertical: { w:1080, h:1920, pad:76, logo:330, logoTop:74,
+              sealD:360, sealR:56, sealTop:352, sealB:56, sealI:23,
+              copyBottom:132, pillF:30, titleF:112, descF:36, ctaF:31,
+              veil:.44, top:.20, side:0 },
+  cuadrado: { w:1080, h:1080, pad:64, logo:280, logoTop:52,
+              sealD:300, sealR:null, sealTop:120, sealB:47, sealI:19,
+              copyBottom:74, pillF:26, titleF:86, descF:29, ctaF:26,
+              veil:.56, top:.22, side:0 },
+  ancho:    { w:1920, h:1080, pad:104, logo:290, logoTop:64,
+              sealD:352, sealR:130, sealTop:330, sealB:56, sealI:22,
+              copyBottom:96, pillF:27, titleF:92, descF:31, ctaF:27,
+              veil:.30, top:.16, side:.62 },
+};
+const c = CFG[new URLSearchParams(location.search).get('f') || 'vertical'];
+const st = document.getElementById('stage');
+st.style.width = c.w + 'px'; st.style.height = c.h + 'px';
+
+const sealRight = c.sealR ?? c.pad;
+// no 16:9 o texto ocupa a metade esquerda; nos verticais, a largura toda
+const copyRight = c.side ? c.w * .44 : c.pad;
+
+st.innerHTML = `
+  <div class="top" style="height:${c.h * c.top}px"></div>
+  ${c.side ? `<div class="side" style="width:${c.w * c.side}px"></div>` : ''}
+  <div class="veil" style="height:${c.h * c.veil}px"></div>
+  <div class="logo" style="position:absolute; left:${c.pad}px; top:${c.logoTop}px; width:${c.logo}px">
+    <img src="logo-blanca.png" alt="">
+  </div>
+  <div class="seal" style="width:${c.sealD}px; height:${c.sealD}px; right:${sealRight}px; top:${c.sealTop}px">
+    <b style="font-size:${c.sealB}px">Pronta<br>entrega</b>
+    <i style="font-size:${c.sealI}px; letter-spacing:.16em; margin-top:10px">Ya en stock</i>
+  </div>
+  <div style="position:absolute; left:${c.pad}px; right:${copyRight}px; bottom:${c.copyBottom}px">
+    <span class="pill" style="font-size:${c.pillF}px; letter-spacing:.16em; padding:${c.pillF*.45}px ${c.pillF}px">Lanzamiento</span>
+    <div class="title" style="font-size:${c.titleF}px; margin-top:${c.titleF*.24}px">Generador<br>38 kVA</div>
+    <div class="desc" style="font-size:${c.descF}px; line-height:1.4; margin-top:${c.descF*.7}px">
+      Motor Ricardo · Súper silencioso · Tablero ATS<br>
+      <b style="color:#fff">¡Pronta entrega!</b> Vení a conocerlo en el Show Room.
+    </div>
+    <span class="cta" style="font-size:${c.ctaF}px; letter-spacing:.1em; padding:${c.ctaF*.62}px ${c.ctaF*1.25}px; margin-top:${c.ctaF}px">gnhorizons.com</span>
+  </div>`;
+
+const sty = document.createElement('style');
+sty.textContent = `.seal::after{ inset:${Math.round(c.sealD * .075)}px; }`;
+document.head.appendChild(sty);
+document.fonts.ready.then(() => { document.body.dataset.ready = '1'; });
+</script>
+</body></html>
