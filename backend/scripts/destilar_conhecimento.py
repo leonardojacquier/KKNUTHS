@@ -32,6 +32,7 @@ from app.db import get_repository
 
 MIN_ALUNOS = 2          # abaixo disso é anedota, não padrão
 MAX_NOVOS = 6           # por rodada: destilar é barato, revisar não é
+MAX_POR_TEMA = 3        # tema fértil não enche a memória sozinho
 
 _PROMPT = (
     "Você destila PADRÕES DE POKER a partir de observações que um coach "
@@ -44,12 +45,15 @@ _PROMPT = (
     "número que prova (EV em bb, preço em %). Saber sem número é opinião.\n"
     "- se as observações forem vagas ou não tiverem nada em comum de "
     "verdade, recuse: forçar padrão inexistente envenena todas as análises\n"
-    "Responda SÓ JSON:\n"
-    '{"titulo": "curto e concreto", "gatilho": "quando se aplica", '
+    "Um tema pode conter MAIS DE UM padrão distinto — devolva um por "
+    "padrão, no máximo 3, do mais evidente para o menos. Não force: dois "
+    "padrões de verdade valem mais que cinco inventados.\n"
+    "Responda SÓ um array JSON:\n"
+    '[{"titulo": "curto e concreto", "gatilho": "quando se aplica", '
     '"texto": "o que erra + a linha certa + o número", '
     '"categoria": "preflop|flop|turn|river|icm", "ev_bb": -4.2, '
-    '"vale": true}\n'
-    'Sem padrão claro: {"vale": false}.'
+    '"vale": true}]\n'
+    'Sem padrão claro: [].'
 )
 
 _CATEGORIAS = ("preflop", "flop", "turn", "river", "icm")
@@ -62,30 +66,79 @@ _CATEGORIAS = ("preflop", "flop", "turn", "river", "icm")
 MAX_TOKENS = 1400
 
 
-def extrair_json(txt: str) -> dict | None:
-    """O JSON que veio junto com o que o modelo resolveu escrever em volta.
-
-    Três defeitos vistos na primeira rodada em produção, todos aqui:
-      - cerca de código (```json ... ```)
-      - preâmbulo antes do objeto ("Extra data: line 6 column 1")
-      - resposta cortada no meio de uma string (teto de tokens baixo)
-    Do primeiro '{' ao último '}' resolve os dois primeiros; o terceiro não
-    tem conserto na leitura — devolve None e quem chama registra o motivo.
-    """
+def _sem_cerca(txt: str) -> str:
     t = (txt or "").strip()
     if t.startswith("```"):
         partes = t.split("```")
         t = partes[1] if len(partes) > 1 else t
         if t.lstrip().lower().startswith("json"):
             t = t.lstrip()[4:]
-    i, f = t.find("{"), t.rfind("}")
-    if i < 0 or f <= i:
-        return None
+    return t.strip()
+
+
+def _objetos_completos(t: str) -> list[dict]:
+    """Varre contando chaves e devolve só os objetos que FECHARAM.
+
+    Serve ao caso que mais dói: o modelo devolve 4 padrões e o 4º é cortado
+    no teto de tokens. Jogar a resposta inteira fora perderia 3 padrões bons
+    já pagos. Ignora chave dentro de string (e escape) — sem isso um texto
+    com '{' quebra a contagem.
+    """
+    saida: list[dict] = []
+    nivel = inicio = 0
+    dentro_str = escapado = False
+    for i, ch in enumerate(t):
+        if dentro_str:
+            if escapado:
+                escapado = False
+            elif ch == "\\":
+                escapado = True
+            elif ch == '"':
+                dentro_str = False
+            continue
+        if ch == '"':
+            dentro_str = True
+        elif ch == "{":
+            if nivel == 0:
+                inicio = i
+            nivel += 1
+        elif ch == "}":
+            nivel -= 1
+            if nivel == 0:
+                try:
+                    obj = json.loads(t[inicio:i + 1])
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(obj, dict):
+                    saida.append(obj)
+            elif nivel < 0:
+                nivel = 0
+    return saida
+
+
+def extrair_saberes(txt: str) -> list[dict]:
+    """Os padrões que vieram, sejam quantos forem.
+
+    Devolve LISTA porque o modelo devolve lista — e está certo: o tema
+    "3-bet" reúne notas de 4 alunos e contém mesmo vários padrões distintos
+    (fold marginal OOP, call em vez de jam...). A 1ª versão exigia um objeto
+    só e descartava tudo achando que era erro de formato; o erro era meu.
+
+    Aguenta cerca de código, preâmbulo do modelo, objeto solto, array, e
+    array cortado no meio (aproveita os que fecharam).
+    """
+    t = _sem_cerca(txt)
+    if not t:
+        return []
     try:
-        obj = json.loads(t[i:f + 1])
+        obj = json.loads(t)
+        if isinstance(obj, dict):
+            return [obj]
+        if isinstance(obj, list):
+            return [x for x in obj if isinstance(x, dict)]
     except json.JSONDecodeError:
-        return None
-    return obj if isinstance(obj, dict) else None
+        pass
+    return _objetos_completos(t)
 
 
 def cita_nome(texto: str, nomes: list[str]) -> bool:
@@ -209,8 +262,8 @@ def main() -> int:
         except Exception as exc:
             print(f"  falhou na chamada: {exc}")
             continue
-        bruto = extrair_json(txt)
-        if bruto is None:
+        brutos = extrair_saberes(txt)
+        if not brutos:
             ilegiveis += 1
             # o texto cru VAI para o log: sem ele o diagnóstico da primeira
             # rodada foi adivinhação a partir de "line 22 column 5"
@@ -219,20 +272,29 @@ def main() -> int:
                   f" — resposta crua: {txt[:400]!r}")
             continue
         ilegiveis = 0
-        saber = validar(bruto, nomes, n_alunos)
-        if not saber:
-            print("  recusado pelo validador (vago, sem número, ou citou aluno)")
-            continue
-        if saber["titulo"].lower() in existentes:
-            print("  já existe na memória")
-            continue
-        repo.salvar_conhecimento(
-            kind="padrao", embedding=embed_text(
-                f"{saber['gatilho']} {saber['texto']}"),
-            origem={"tema": tema, "notas": len(notas_do_tema)}, **saber)
-        existentes.add(saber["titulo"].lower())
-        novos += 1
-        print(f"  OK ({n_alunos} alunos) — {saber['titulo']}")
+        if resp.stop_reason == "max_tokens":
+            print(f"  (resposta cortada no teto — aproveitando os "
+                  f"{len(brutos)} padrões que fecharam)")
+        # teto por tema: um tema fértil não pode encher a memória sozinho e
+        # deixar os outros 12 de fora nesta rodada
+        for bruto in brutos[:MAX_POR_TEMA]:
+            if novos >= MAX_NOVOS:
+                break
+            saber = validar(bruto, nomes, n_alunos)
+            if not saber:
+                print(f"  recusado: {str(bruto.get('titulo'))[:60]!r} "
+                      "(vago, sem número, ou citou aluno)")
+                continue
+            if saber["titulo"].lower() in existentes:
+                print(f"  já existe: {saber['titulo']}")
+                continue
+            repo.salvar_conhecimento(
+                kind="padrao", embedding=embed_text(
+                    f"{saber['gatilho']} {saber['texto']}"),
+                origem={"tema": tema, "notas": len(notas_do_tema)}, **saber)
+            existentes.add(saber["titulo"].lower())
+            novos += 1
+            print(f"  OK ({n_alunos} alunos) — {saber['titulo']}")
 
     repo.log_event(0, "conhecimento", "conhecimento_destilado",
                    {"novos": novos, "temas": len(grupos)})

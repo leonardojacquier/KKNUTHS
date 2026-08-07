@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from destilar_conhecimento import (MIN_ALUNOS, agrupar_por_tema, cita_nome,
-                                   validar)
+                                   extrair_saberes, validar)
 
 NOMES = ["Ricardo Farah", "Leo", "dscholze1979", "Odilon Godeje"]
 
@@ -114,37 +114,37 @@ def test_json_cortado_no_teto_de_tokens():
     """"Unterminated string starting at: line 22 column 5" — max_tokens=600
     cortava a resposta no meio da string. Não dá erro de API: dá JSON
     quebrado, e o custo já foi pago."""
-    from destilar_conhecimento import MAX_TOKENS, extrair_json
+    from destilar_conhecimento import MAX_TOKENS, extrair_saberes
 
     cortado = '{"titulo": "Overpair curto", "gatilho": "SB 12bb", "texto": "O erro é fol'
-    assert extrair_json(cortado) is None       # ilegível, e assumido como tal
+    assert extrair_saberes(cortado) == []       # ilegível, e assumido como tal
     assert MAX_TOKENS >= 1200, "teto baixo demais volta a cortar"
 
 
 def test_preambulo_antes_do_json():
     """"Extra data: line 6 column 1 (char 22)" — o modelo escreveu prosa
     antes/depois do objeto."""
-    from destilar_conhecimento import extrair_json
+    from destilar_conhecimento import extrair_saberes
 
     sujo = ('Claro! Aqui está o padrão destilado:\n\n'
             '{"titulo": "T", "gatilho": "G", "texto": "X", "vale": true}\n\n'
             'Espero que ajude!')
-    assert extrair_json(sujo) == {"titulo": "T", "gatilho": "G",
-                                  "texto": "X", "vale": True}
+    assert extrair_saberes(sujo) == [{"titulo": "T", "gatilho": "G",
+                                      "texto": "X", "vale": True}]
 
 
 def test_cerca_de_codigo():
-    from destilar_conhecimento import extrair_json
+    from destilar_conhecimento import extrair_saberes
 
     for fence in ('```json\n{"vale": true}\n```', '```\n{"vale": true}\n```'):
-        assert extrair_json(fence) == {"vale": True}
+        assert extrair_saberes(fence) == [{"vale": True}]
 
 
 def test_lixo_total_nao_explode():
-    from destilar_conhecimento import extrair_json
+    from destilar_conhecimento import extrair_saberes
 
     for lixo in ("", None, "não consegui", "[1,2,3]", "{quebrado"):
-        assert extrair_json(lixo) is None
+        assert extrair_saberes(lixo) == []
 
 
 def test_para_de_gastar_quando_a_falha_e_sistemica():
@@ -160,3 +160,63 @@ def test_para_de_gastar_quando_a_falha_e_sistemica():
     # e a resposta crua vai pro log: sem ela o diagnóstico foi adivinhação
     assert "resposta crua" in fonte
     assert "stop_reason" in fonte, "não distingue corte de tokens de lixo"
+
+
+def test_array_de_padroes_e_o_formato_certo():
+    """Resposta REAL da VPS (07/08): o modelo devolveu um array e minha 1ª
+    versão jogou fora achando que era erro de formato. O erro era meu — o
+    tema '3-bet' junta notas de 4 alunos e contém mesmo vários padrões."""
+    real = ('```json\n[\n  {\n    "titulo": "Fold marginal OOP vs 3-bet",\n'
+            '    "gatilho": "Mão marginal fora de posição contra 3-bet",\n'
+            '    "texto": "Limp-call OOP cria spots impossíveis; 3-bet ou '
+            'fold. Custa ~4bb.",\n    "categoria": "preflop",\n'
+            '    "ev_bb": -4.0,\n    "vale": true\n  },\n  {\n'
+            '    "titulo": "Call em vez de jam com 10bb",\n'
+            '    "gatilho": "Stack ~10-12bb no SB",\n'
+            '    "texto": "Pagar open com 10bb perde fold equity; jam. '
+            'Custa 2bb.",\n    "categoria": "preflop",\n'
+            '    "ev_bb": -2.0,\n    "vale": true\n  }\n]\n```')
+    saberes = extrair_saberes(real)
+    assert len(saberes) == 2
+    assert saberes[0]["titulo"] == "Fold marginal OOP vs 3-bet"
+    assert saberes[1]["ev_bb"] == -2.0
+    # e os dois passam no validador
+    for s in saberes:
+        assert validar(s, ["Ricardo Farah", "Leo"], alunos=4) is not None
+
+
+def test_array_cortado_aproveita_os_que_fecharam():
+    """4 padrões e o 4º cortado no teto: jogar tudo fora perderia 3 bons já
+    pagos."""
+    cortado = ('[{"titulo": "A", "gatilho": "g", "texto": "t", "vale": true},'
+               '{"titulo": "B", "gatilho": "g", "texto": "t", "vale": true},'
+               '{"titulo": "C", "gatilho": "g", "texto": "inacaba')
+    s = extrair_saberes(cortado)
+    assert [x["titulo"] for x in s] == ["A", "B"]
+
+
+def test_chave_dentro_de_texto_nao_quebra_a_varredura():
+    """Texto de poker pode conter '{' — a contagem tem que ignorar o que
+    está dentro de string, senão parte os objetos no lugar errado."""
+    tricky = ('[{"titulo": "A", "gatilho": "g", "texto": "use {x} assim", '
+              '"vale": true}, {"titulo": "B", "gatilho": "g", '
+              '"texto": "aspas \\" no meio", "vale": true}, {"cortado')
+    s = extrair_saberes(tricky)
+    assert [x["titulo"] for x in s] == ["A", "B"]
+    assert s[0]["texto"] == "use {x} assim"
+
+
+def test_um_tema_fertil_nao_enche_a_memoria_sozinho():
+    import inspect
+
+    import destilar_conhecimento as d
+
+    assert d.MAX_POR_TEMA <= 3
+    assert "brutos[:MAX_POR_TEMA]" in inspect.getsource(d.main)
+
+
+def test_prompt_pede_array():
+    from destilar_conhecimento import _PROMPT
+
+    assert "array JSON" in _PROMPT and "MAIS DE UM padrão" in _PROMPT
+    assert "Sem padrão claro: []" in _PROMPT
