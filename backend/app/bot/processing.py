@@ -1432,6 +1432,17 @@ def licoes_reply(args: list[str]) -> str:
             if linha.get("enviada_em"):
                 return f"Lição #{alvo} já foi enviada em "\
                        f"{str(linha['enviada_em'])[:10]} — não repete."
+            from app.bot.licao_qualidade import problemas_da_licao
+
+            probs = problemas_da_licao(linha)
+            if probs:
+                # vai pra TODOS de uma vez e leva a assinatura da ferramenta:
+                # aqui o portão para, e o dono decide com o defeito na tela
+                return ("🛑 Não mandei — essa lição tem ponto que queima "
+                        "credibilidade:\n"
+                        + "\n".join(f"• {p}" for p in probs)
+                        + f"\n\nConserta o texto, ou manda assim mesmo com "
+                          f"/licoes {alvo} ja")
             t.update({"aprovada": True}).eq("id", alvo).execute()
             # aprovar DISPARA na hora — o dono aprovava e esperava até o
             # outro dia sem ver nada acontecer. A trava anti-rajada segura
@@ -1470,9 +1481,15 @@ def licoes_reply(args: list[str]) -> str:
         if acao in ("nao", "não"):
             t.update({"aprovada": False}).eq("id", alvo).execute()
             return f"↩️ #{alvo} saiu da fila (segue na estante)."
+        from app.bot.licao_qualidade import problemas_da_licao
+
+        probs = problemas_da_licao(linha)
+        aviso = ("\n\n⚠️ *Antes de mandar pra todo mundo:*\n"
+                 + "\n".join(f"• {p}" for p in probs)) if probs else ""
         return (f"📖 *#{linha['id']} — {linha['titulo']}* "
                 f"({linha['categoria']}, {linha['ev_bb']:+.1f}bb)\n\n"
-                f"{linha['spot']}\n\n{linha['licao']}\n\n"
+                f"{linha['spot']}\n\n{linha['licao']}"
+                f"{aviso}\n\n"
                 f"Aprovar e ENVIAR agora: /licoes {linha['id']} ok")
 
     linhas = (t.select("id,titulo,categoria,ev_bb,aprovada,enviada_em")
