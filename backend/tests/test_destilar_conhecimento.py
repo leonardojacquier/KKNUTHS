@@ -104,3 +104,59 @@ def test_o_modelo_nao_recebe_identidade():
     assert "SEM user_id no prompt" in fonte
     corpo = fonte.split("corpo =")[1].split("try:")[0]
     assert "user_id" not in corpo and "username" not in corpo
+
+
+# ---- as três falhas REAIS da 1ª rodada na VPS (07/08) ----
+# Os seis temas morreram no parse, um a um, cada um pagando uma chamada.
+# Cada teste abaixo é um dos erros que apareceram no terminal.
+
+def test_json_cortado_no_teto_de_tokens():
+    """"Unterminated string starting at: line 22 column 5" — max_tokens=600
+    cortava a resposta no meio da string. Não dá erro de API: dá JSON
+    quebrado, e o custo já foi pago."""
+    from destilar_conhecimento import MAX_TOKENS, extrair_json
+
+    cortado = '{"titulo": "Overpair curto", "gatilho": "SB 12bb", "texto": "O erro é fol'
+    assert extrair_json(cortado) is None       # ilegível, e assumido como tal
+    assert MAX_TOKENS >= 1200, "teto baixo demais volta a cortar"
+
+
+def test_preambulo_antes_do_json():
+    """"Extra data: line 6 column 1 (char 22)" — o modelo escreveu prosa
+    antes/depois do objeto."""
+    from destilar_conhecimento import extrair_json
+
+    sujo = ('Claro! Aqui está o padrão destilado:\n\n'
+            '{"titulo": "T", "gatilho": "G", "texto": "X", "vale": true}\n\n'
+            'Espero que ajude!')
+    assert extrair_json(sujo) == {"titulo": "T", "gatilho": "G",
+                                  "texto": "X", "vale": True}
+
+
+def test_cerca_de_codigo():
+    from destilar_conhecimento import extrair_json
+
+    for fence in ('```json\n{"vale": true}\n```', '```\n{"vale": true}\n```'):
+        assert extrair_json(fence) == {"vale": True}
+
+
+def test_lixo_total_nao_explode():
+    from destilar_conhecimento import extrair_json
+
+    for lixo in ("", None, "não consegui", "[1,2,3]", "{quebrado"):
+        assert extrair_json(lixo) is None
+
+
+def test_para_de_gastar_quando_a_falha_e_sistemica():
+    """Na 1ª rodada, seis temas falharam em sequência e cada um pagou uma
+    chamada. Dois ilegíveis seguidos não é azar — é o formato."""
+    import inspect
+
+    import destilar_conhecimento as d
+
+    fonte = inspect.getsource(d.main)
+    assert "if ilegiveis >= 2:" in fonte
+    assert "ilegiveis = 0" in fonte, "o contador tem que zerar no sucesso"
+    # e a resposta crua vai pro log: sem ela o diagnóstico foi adivinhação
+    assert "resposta crua" in fonte
+    assert "stop_reason" in fonte, "não distingue corte de tokens de lixo"

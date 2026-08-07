@@ -53,10 +53,39 @@ _PROMPT = (
 )
 
 _CATEGORIAS = ("preflop", "flop", "turn", "river", "icm")
-# nome próprio: maiúscula no meio da frase que não seja começo nem sigla de
-# poker. É o filtro final do anonimato — o prompt pede, isto confere.
-_SIGLAS_OK = {"UTG", "MP", "CO", "BTN", "SB", "BB", "EV", "ICM", "GTO", "3",
-              "4", "AA", "KK", "QQ", "JJ", "TT", "PKO", "MTT", "SPR", "OESD"}
+
+# 1400 e não 600: copiei o teto do destilador de lições, mas o JSON dele é
+# curto e o meu pede gatilho + texto detalhado. Na 1ª rodada real os SEIS
+# temas morreram com "Unterminated string" por volta do char 1600 — que é
+# exatamente 600 tokens de português. Truncar no meio da string não dá erro
+# da API: dá JSON quebrado, e o custo já foi pago.
+MAX_TOKENS = 1400
+
+
+def extrair_json(txt: str) -> dict | None:
+    """O JSON que veio junto com o que o modelo resolveu escrever em volta.
+
+    Três defeitos vistos na primeira rodada em produção, todos aqui:
+      - cerca de código (```json ... ```)
+      - preâmbulo antes do objeto ("Extra data: line 6 column 1")
+      - resposta cortada no meio de uma string (teto de tokens baixo)
+    Do primeiro '{' ao último '}' resolve os dois primeiros; o terceiro não
+    tem conserto na leitura — devolve None e quem chama registra o motivo.
+    """
+    t = (txt or "").strip()
+    if t.startswith("```"):
+        partes = t.split("```")
+        t = partes[1] if len(partes) > 1 else t
+        if t.lstrip().lower().startswith("json"):
+            t = t.lstrip()[4:]
+    i, f = t.find("{"), t.rfind("}")
+    if i < 0 or f <= i:
+        return None
+    try:
+        obj = json.loads(t[i:f + 1])
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
 
 
 def cita_nome(texto: str, nomes: list[str]) -> bool:
@@ -147,12 +176,21 @@ def main() -> int:
 
     client = anthropic.Anthropic(api_key=s.anthropic_api_key)
     novos = 0
+    ilegiveis = 0
     # tema com mais alunos primeiro: é onde a evidência é mais forte
     ordem = sorted(grupos.items(),
                    key=lambda kv: -len({x.get("user_id") for x in kv[1]}))
-    for tema, notas_do_tema in ordem:
+    for i, (tema, notas_do_tema) in enumerate(ordem, 1):
         if novos >= MAX_NOVOS:
             break
+        # PARA de gastar quando o problema é sistêmico. Na 1ª rodada real os
+        # seis temas falharam no parse, um atrás do outro, cada um pagando
+        # uma chamada. Dois seguidos ilegíveis não é azar: é o formato.
+        if ilegiveis >= 2:
+            print("abortando: 2 respostas ilegíveis seguidas — problema de "
+                  "formato, não de conteúdo. Nada mais será gasto.")
+            break
+        print(f"[{i}/{len(ordem)}] tema {tema}...", flush=True)
         n_alunos = len({x.get("user_id") for x in notas_do_tema})
         # SEM user_id no prompt: o modelo não precisa saber de quem é, e o
         # que ele não recebe não vaza
@@ -160,7 +198,7 @@ def main() -> int:
                           for x in notas_do_tema[:12])
         try:
             resp = client.messages.create(
-                model=s.cheap_model, max_tokens=600, temperature=0.2,
+                model=s.cheap_model, max_tokens=MAX_TOKENS, temperature=0.2,
                 system=_PROMPT,
                 messages=[{"role": "user",
                            "content": f"Tema: {tema}\nObservações de "
@@ -168,17 +206,25 @@ def main() -> int:
             )
             txt = "".join(b.text for b in resp.content
                           if b.type == "text").strip()
-            bruto = json.loads(re.sub(r"^```\w*|```$", "", txt,
-                                      flags=re.M).strip())
         except Exception as exc:
-            print(f"tema {tema}: falhou ({exc})")
+            print(f"  falhou na chamada: {exc}")
             continue
+        bruto = extrair_json(txt)
+        if bruto is None:
+            ilegiveis += 1
+            # o texto cru VAI para o log: sem ele o diagnóstico da primeira
+            # rodada foi adivinhação a partir de "line 22 column 5"
+            cortado = resp.stop_reason == "max_tokens"
+            print(f"  ilegível{' (cortado no teto de tokens)' if cortado else ''}"
+                  f" — resposta crua: {txt[:400]!r}")
+            continue
+        ilegiveis = 0
         saber = validar(bruto, nomes, n_alunos)
         if not saber:
-            print(f"tema {tema}: recusado")
+            print("  recusado pelo validador (vago, sem número, ou citou aluno)")
             continue
         if saber["titulo"].lower() in existentes:
-            print(f"tema {tema}: já existe")
+            print("  já existe na memória")
             continue
         repo.salvar_conhecimento(
             kind="padrao", embedding=embed_text(
@@ -186,7 +232,7 @@ def main() -> int:
             origem={"tema": tema, "notas": len(notas_do_tema)}, **saber)
         existentes.add(saber["titulo"].lower())
         novos += 1
-        print(f"tema {tema}: OK ({n_alunos} alunos) — {saber['titulo']}")
+        print(f"  OK ({n_alunos} alunos) — {saber['titulo']}")
 
     repo.log_event(0, "conhecimento", "conhecimento_destilado",
                    {"novos": novos, "temas": len(grupos)})
