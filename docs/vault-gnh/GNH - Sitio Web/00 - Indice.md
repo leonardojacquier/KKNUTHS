@@ -32,7 +32,8 @@ status: em produção
 | [[09 - Operacao diaria]] | Receitas do dia a dia: publicar, adicionar produto, trocar promoção |
 | [[10 - Pendencias e roadmap]] | O que falta, em ordem de impacto |
 | [[11 - Decisoes]] | Decisões tomadas e o porquê — para não revisitar |
-| [[12 - Glossario]] | Termos que aparecem na documentação |
+| [[12 - Glossario]]
+- [[13 - Plano - Painel e Central de Campanhas]] 🆕 *(aguardando aprovação)* | Termos que aparecem na documentação |
 
 ---
 
