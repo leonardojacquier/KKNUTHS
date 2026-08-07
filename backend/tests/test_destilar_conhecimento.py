@@ -220,3 +220,53 @@ def test_prompt_pede_array():
 
     assert "array JSON" in _PROMPT and "MAIS DE UM padrão" in _PROMPT
     assert "Sem padrão claro: []" in _PROMPT
+
+
+def test_estatistica_de_jogador_nao_vira_padrao_coletivo():
+    """Achado da 1ª rodada boa (07/08): entrou "VPIP extremo (~90%+)" como
+    saber global. Dois defeitos num só:
+
+    (a) erro de CATEGORIA — VPIP descreve uma pessoa, não uma situação; o
+        gatilho tem que ser um spot reconhecível na mão à frente;
+    (b) o número era LIXO conhecido — as notas gravaram "VPIP 93%" de
+        amostras de replay/print escolhidas a dedo, exatamente o que o
+        produto se recusa a mostrar ao aluno ("VPIP 94% pra quem joga 26%").
+    """
+    from destilar_conhecimento import sobre_perfil_individual
+
+    ruim = {"vale": True,
+            "titulo": "VPIP extremo (~90%+) com seleção invertida",
+            "gatilho": "Sessão com VPIP >90% em amostra >40 mãos",
+            "texto": "Entra em quase tudo (VPIP 93%+) mas folda premium. "
+                     "Reduzir VPIP para ~25-30%. Economiza ~3-4bb por órbita.",
+            "categoria": "preflop", "ev_bb": -3.5}
+    assert validar(ruim, NOMES, alunos=5) is None
+
+    for t, g in (("VPIP alto", "qualquer"), ("X", "jogador com PFR 19%"),
+                 ("AF baixo demais", "pós-flop"), ("X", "3-bet 6% em 48 opps")):
+        assert sobre_perfil_individual(t, g), f"{t} / {g}"
+
+
+def test_padrao_de_spot_continua_passando():
+    """O filtro não pode comer os bons: citar a estatística como CONTEXTO no
+    texto é legítimo — o que não pode é ela ser o gatilho."""
+    from destilar_conhecimento import sobre_perfil_individual
+
+    bom = {"vale": True,
+           "titulo": "Flat de mãos fortes em vez de 3-bet com stack médio",
+           "gatilho": "ATs, AJ, KQ com ~28bb flatando opens",
+           "texto": "Flatar ATs com 28bb (perfil tight-passive, 3-bet só 7%) "
+                    "deixa dinheiro na mesa. 3-betar ganha ~1bb/100.",
+           "categoria": "preflop", "ev_bb": -0.9}
+    assert validar(bom, NOMES, alunos=5) is not None
+    assert not sobre_perfil_individual(bom["titulo"], bom["gatilho"])
+
+    # e o gatilho de spot puro segue passando
+    assert not sobre_perfil_individual("Call OOP com especulativas",
+                                       "SB/BB pagando 3-bet com QJs")
+
+
+def test_prompt_proibe_padrao_de_estatistica():
+    from destilar_conhecimento import _PROMPT
+
+    assert "VPIP" in _PROMPT and "descreve uma PESSOA" in _PROMPT

@@ -45,6 +45,10 @@ _PROMPT = (
     "número que prova (EV em bb, preço em %). Saber sem número é opinião.\n"
     "- se as observações forem vagas ou não tiverem nada em comum de "
     "verdade, recuse: forçar padrão inexistente envenena todas as análises\n"
+    "- NUNCA faça padrão de estatística de jogador (VPIP, PFR, AF, 3-bet%): "
+    "isso descreve uma PESSOA, não uma situação, e o gatilho precisa ser um "
+    "spot que dá para reconhecer na mão à frente. Se as observações só falam "
+    "de frequências, recuse.\n"
     "Um tema pode conter MAIS DE UM padrão distinto — devolva um por "
     "padrão, no máximo 3, do mais evidente para o menos. Não force: dois "
     "padrões de verdade valem mais que cinco inventados.\n"
@@ -151,6 +155,23 @@ def cita_nome(texto: str, nomes: list[str]) -> bool:
     return False
 
 
+# VPIP/PFR/AF/3-bet% descrevem uma PESSOA, não uma situação na mesa. Padrão
+# coletivo que dispara pela frequência de alguém é erro de categoria: o
+# gatilho tem que ser um spot que o coach reconhece na mão à frente.
+# E pior, no caso concreto: as notas antigas registraram "VPIP 93%" de
+# amostras de replay/print escolhidas a dedo — o mesmo número que o produto
+# se RECUSA a mostrar ao aluno (processing.py: "amostra escolhida a dedo dava
+# VPIP 94% pra quem joga 26%"). Destilar isso promovia um artefato de medição
+# a saber global, injetado em toda análise.
+_STAT_DE_PERFIL = re.compile(r"\b(vpip|pfr|wtsd|\baf\b|3-?bet\s*%|"
+                             r"3-?bet\s+(?:de\s+)?\d)", re.I)
+
+
+def sobre_perfil_individual(titulo: str, gatilho: str) -> bool:
+    """O padrão dispara por estatística de jogador em vez de por spot?"""
+    return bool(_STAT_DE_PERFIL.search(f"{titulo} {gatilho}"))
+
+
 def validar(bruto: object, nomes: list[str], alunos: int) -> dict | None:
     """Só padrão bem formado e anônimo entra na memória (função pura)."""
     if not isinstance(bruto, dict) or bruto.get("vale") is not True:
@@ -172,6 +193,8 @@ def validar(bruto: object, nomes: list[str], alunos: int) -> dict | None:
         ev = None
     junto = f"{titulo} {gatilho} {texto}"
     if cita_nome(junto, nomes):
+        return None
+    if sobre_perfil_individual(titulo, gatilho):
         return None
     if not re.search(r"\d", texto):          # sem número é opinião
         return None
