@@ -92,6 +92,117 @@ def somar_custos(events: list[dict], month_start: str) -> dict:
             "por_tg": dict(por_tg)}
 
 
+def norte(analises: int, ativos: int) -> float | None:
+    """ANÁLISES POR USUÁRIO ATIVO NA SEMANA. Função pura.
+
+    O cabeçalho do portal DECLARAVA esta métrica desde o primeiro dia
+    ("north star: análises/usuário ativo/semana") e nunca a calculou — não
+    havia caixa nenhuma com ela. Métrica-norte que ninguém vê é slogan.
+
+    None quando não há ativo na semana: 0 análises / 0 ativos não é zero, é
+    "não dá pra saber", e imprimir 0.0 numa semana sem ninguém faz o número
+    despencar por um motivo que não existe.
+    """
+    if ativos <= 0:
+        return None
+    return round(analises / ativos, 1)
+
+
+def variacao(agora: float | None, antes: float | None) -> str:
+    """'+0.8' / '-1.2' / '' — número sem direção é número que ninguém age."""
+    if agora is None or antes is None:
+        return ""
+    d = round(agora - antes, 1)
+    if abs(d) < 0.05:
+        return "estável"
+    return f"{d:+.1f} vs semana anterior"
+
+
+# quantos dias parado ainda é "vivo". Com 10 alunos em beta, o dono precisa
+# saber HOJE quem esfriou — não no fim do mês.
+_ATIVO_ATE_DIAS = 3
+_ESFRIANDO_ATE_DIAS = 9
+
+
+def _dias_desde(iso: str, agora: datetime) -> int | None:
+    if not iso:
+        return None
+    try:
+        t = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return max(0, (agora - t).days)
+    except Exception:
+        return None
+
+
+def situacao_do_aluno(user: dict, pu: dict, agora: datetime) -> dict:
+    """Onde cada aluno está e — o que importa — POR QUÊ. Função pura.
+
+    O portal contava quem estava ativo e nunca mostrava quem tinha ido
+    embora: o funil só sobe. Com 10 testadores convidados, o aluno que parou
+    é a informação mais cara que existe, e ele não aparecia em lugar nenhum
+    até virar um número que não subiu.
+
+    Estados:
+      novo         entrou faz pouco e ainda não agiu — não é churn, é o
+                   onboarding acontecendo (ou não)
+      nunca_usou   está aqui há mais de uma semana e nunca fez nada
+      ativo        agiu nos últimos 3 dias
+      esfriando    4 a 9 dias parado
+      sumido       10+ dias parado
+    """
+    dias_parado = _dias_desde(pu.get("ultimo") or "", agora)
+    dias_de_casa = _dias_desde(str(user.get("created_at") or ""), agora)
+    agiu = bool(pu.get("eventos"))
+
+    if not agiu:
+        novo = dias_de_casa is not None and dias_de_casa <= _ATIVO_ATE_DIAS
+        estado = "novo" if novo else "nunca_usou"
+        dias = dias_de_casa
+    elif dias_parado is None:
+        estado, dias = "novo", dias_de_casa
+    elif dias_parado <= _ATIVO_ATE_DIAS:
+        estado, dias = "ativo", dias_parado
+    elif dias_parado <= _ESFRIANDO_ATE_DIAS:
+        estado, dias = "esfriando", dias_parado
+    else:
+        estado, dias = "sumido", dias_parado
+
+    return {"estado": estado, "dias": dias,
+            "porque": _o_que_o_dado_mostra(estado, pu)}
+
+
+def _o_que_o_dado_mostra(estado: str, pu: dict) -> str:
+    """A leitura da linha, só quando o dado a sustenta — nunca palpite.
+
+    Para quem PAROU, o que interessa é a causa provável, e o que BLOQUEIA vem
+    antes do que só sugere: bater no teto da cota é a única causa que a
+    ferramenta impôs; erro vem depois.
+
+    Para quem está ATIVO, causa de abandono é ruído — mas "nunca mandou mão
+    própria" não é causa, é a POSIÇÃO no funil, e nos dados reais de 08/08
+    quatro dos dez alunos estão exatamente aí, usando o bot sem nunca ter
+    enviado uma mão. Esconder isso de quem está verde apaga o caso mais
+    acionável do painel.
+    """
+    so_demo = bool(pu.get("eventos")) and not pu.get("maos")
+    if estado == "ativo":
+        return "nunca mandou mão própria" if so_demo else ""
+    partes = []
+    if pu.get("cota"):
+        partes.append(f"bateu o teto da cota ({pu['cota']}×)")
+    if pu.get("erros"):
+        ult = pu.get("erro_ultimo") or ""
+        partes.append(f"{pu['erros']} erro(s)"
+                      + (f", último: {ult}" if ult else ""))
+    if so_demo:
+        partes.append("nunca mandou mão própria")
+    if not pu.get("eventos"):
+        partes.append("nenhuma ação registrada")
+    return " · ".join(partes)
+
+
 def _collect() -> dict:
     """Métricas do produto (consultas leves; tolerantes a falha)."""
     repo = get_repository()
@@ -111,6 +222,13 @@ def _collect() -> dict:
     analyses30 = _q(
         lambda: c.table("hand_analysis").select("id", count="exact")
         .gte("created_at", d30).execute().count, 0)
+    # a NORTH STAR é semanal: 30 dias não responde "esta semana foi melhor?"
+    analyses7 = _q(
+        lambda: c.table("hand_analysis").select("id", count="exact")
+        .gte("created_at", d7).execute().count, 0)
+    analyses_prev = _q(
+        lambda: c.table("hand_analysis").select("id", count="exact")
+        .gte("created_at", d14).lt("created_at", d7).execute().count, 0)
 
     # eventos dos últimos 30 dias: alimentam acessos, atividade diária,
     # métricas por usuário e a seção de erros
@@ -128,13 +246,15 @@ def _collect() -> dict:
 
     per_user: dict[int, dict] = defaultdict(
         lambda: {"eventos": 0, "maos": 0, "perguntas": 0, "drills": 0,
-                 "erros": 0, "ultimo": "", "ref": ""})
+                 "erros": 0, "ultimo": "", "ref": "", "cota": 0,
+                 "erro_ultimo": ""})
     daily: dict[str, dict] = defaultdict(lambda: {"eventos": 0, "usuarios": set()})
     by_type: dict[str, int] = defaultdict(int)
     refs: dict[str, int] = defaultdict(int)
     entrega = {"ok": 0, "falha": 0, "remediada": 0}
     errors: list[dict] = []
     active7: set[int] = set()
+    active_prev: set[int] = set()          # semana anterior, para a variação
     juiz: dict | None = None
 
     for r in events:
@@ -167,12 +287,18 @@ def _collect() -> dict:
                 u["drills"] += 1
             if ev in _ERROR_EVENTS:
                 u["erros"] += 1
+                # events vêm do mais novo pro mais velho: o 1º é o último
+                u["erro_ultimo"] = u["erro_ultimo"] or ev
+            if ev == "cota_esgotada":
+                u["cota"] += 1
             if ev == "start":
                 origem = str(_detalhe(r).get("ref") or "") or "direto"
                 u["ref"] = u["ref"] or origem
                 refs[origem] += 1
             if agiu and ts >= d7:
                 active7.add(tg)
+            elif agiu and ts >= d14:
+                active_prev.add(tg)
             day = ts[:10]
             if day and agiu:
                 daily[day]["eventos"] += 1
@@ -216,8 +342,32 @@ def _collect() -> dict:
 
     new7 = sum(1 for u in users if str(u.get("created_at") or "") >= d7)
 
+    # QUEM ESTÁ INDO EMBORA. O portal só contava quem estava dentro; com 10
+    # testadores convidados, o aluno que parou é o dado mais caro que existe
+    # e não aparecia em lugar nenhum até virar um número que não subiu.
+    _ORDEM = {"sumido": 0, "esfriando": 1, "nunca_usou": 2, "novo": 3,
+              "ativo": 4}
+    situacao = []
+    for u in users:
+        tg = u.get("telegram_id")
+        if not isinstance(tg, int) or tg <= 0:
+            continue
+        pu = per_user.get(tg, {})
+        s_ = situacao_do_aluno(u, pu, now)
+        situacao.append({**s_, "tg": tg,
+                         "nome": u.get("username") or str(tg),
+                         "maos": pu.get("maos", 0),
+                         "ultimo": pu.get("ultimo", "")})
+    situacao.sort(key=lambda s: (_ORDEM.get(s["estado"], 9),
+                                 -(s["dias"] or 0)))
+    em_risco = sum(1 for s in situacao
+                   if s["estado"] in ("sumido", "esfriando"))
+
     return {
         "db": True, "users": users, "hands": hands, "analyses30": analyses30,
+        "analyses7": analyses7, "analyses_prev": analyses_prev,
+        "active_prev": len(active_prev),
+        "situacao": situacao, "em_risco": em_risco,
         "active7": len(active7), "new7": new7, "by_type": dict(by_type),
         "truncou": truncou,
         "per_user": dict(per_user), "used_by_uid": dict(used_by_uid),
@@ -239,6 +389,10 @@ h1{font-size:22px;margin:0 0 4px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px}
 .kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--felt);padding:14px}
 .kpi.err{border-top-color:var(--red)}
+/* a métrica-norte tem que PARECER a métrica-norte: era só uma frase no
+   subtítulo, do mesmo tamanho de "atualizado agora" */
+.kpi.ns{border-top-color:var(--gold);border-top-width:5px;padding-top:12px}
+.kpi.ns b{font-size:34px}
 .kpi b{display:block;font-size:26px;color:var(--gold);font-variant-numeric:tabular-nums}
 .kpi.err b{color:var(--red)}
 .kpi span{font-size:12px;color:var(--mut)}
@@ -1067,6 +1221,29 @@ async def admin(key: str = Query(default="")) -> str:
     juiz_nota = m["juiz"].get("nota_clareza")
     n_pub = sum(1 for x in m["licoes"] if x.get("publicada"))
 
+    # ---- NORTH STAR: declarada no cabeçalho desde o dia 1, nunca calculada
+    ns = norte(m["analyses7"], m["active7"])
+    ns_antes = norte(m["analyses_prev"], m["active_prev"])
+    ns_txt = f"{ns:.1f}" if ns is not None else "—"
+    ns_sub = variacao(ns, ns_antes) or (
+        "sem ativo na semana" if ns is None else "sem base pra comparar")
+
+    # ---- quem está indo embora
+    _ROTULO = {"ativo": ("🟢", "ativo"), "esfriando": ("🟡", "esfriando"),
+               "sumido": ("🔴", "sumido"), "novo": ("🆕", "recém-chegado"),
+               "nunca_usou": ("⚫", "nunca usou")}
+    risco_rows = "".join(
+        f"<tr><td><a href='/admin/usuario?key={esc(key)}&amp;tg={s['tg']}'>"
+        f"{esc(str(s['nome']))}</a></td>"
+        f"<td>{_ROTULO.get(s['estado'], ('', s['estado']))[0]} "
+        f"{esc(_ROTULO.get(s['estado'], ('', s['estado']))[1])}</td>"
+        f"<td class='n'>{s['dias'] if s['dias'] is not None else '—'}</td>"
+        f"<td class='n'>{s['maos']}</td>"
+        f"<td class='n'>{esc(str(s['ultimo'] or '—')[:16])}</td>"
+        f"<td>{esc(s['porque'] or '—')}</td></tr>"
+        for s in m["situacao"]
+    ) or "<tr><td colspan=6>nenhum aluno ainda</td></tr>"
+
     aviso_teto = ("<div class='warn'>⚠️ Bati o teto de "
                   f"{_TETO_EVENTOS} eventos na varredura de 30 dias: os "
                   "números abaixo estão <b>incompletos</b> (falta a parte "
@@ -1077,9 +1254,11 @@ async def admin(key: str = Query(default="")) -> str:
     return f"""<style>{_CSS}</style>
 <div class="wrap">
 <h1>♠ KKNuths — Portal de Gestão</h1>
-<p class="sub">Atualizado agora · dados do Supabase · north star: análises/usuário ativo/semana</p>
+<p class="sub">Atualizado agora · dados do Supabase</p>
 {aviso_teto}
 <div class="grid">
+  <div class="kpi ns"><b>{ns_txt}</b><span>⭐ north star: análises por ativo/semana · {esc(ns_sub)}</span></div>
+  <div class="kpi{' err' if m['em_risco'] else ''}"><b>{m['em_risco']}</b><span>alunos esfriando ou sumidos</span></div>
   <div class="kpi"><b>{len(m['users'])}</b><span>usuários totais</span></div>
   <div class="kpi"><b>{m['new7']}</b><span>novos (7 dias)</span></div>
   <div class="kpi"><b>{m['active7']}</b><span>ativos (7 dias)</span></div>
@@ -1091,6 +1270,15 @@ async def admin(key: str = Query(default="")) -> str:
   <div class="kpi"><b>{len(m['licoes'])}</b><span>lições na estante · {n_pub} publicadas</span></div>
   <div class="kpi err"><b>{m['errors30']}</b><span>erros (30 dias)</span></div>
 </div>
+
+<h2>Quem está indo embora</h2>
+<p class="sub">Ordenado por urgência: sumido (10+ dias) → esfriando (4 a 9) →
+nunca usou → recém-chegado → ativo. A coluna da direita só diz o que o dado
+sustenta — cota estourada, erro, ou funil parado na mão-demo.</p>
+<div class="tbl"><table>
+<tr><th>Aluno</th><th>Estado</th><th>Dias</th><th>Envios</th>
+<th>Última ação (UTC)</th><th>O que o dado mostra</th></tr>
+{risco_rows}</table></div>
 
 <h2>O que acabou de acontecer</h2>
 <div class="diario">{feed}</div>

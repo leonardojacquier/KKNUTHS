@@ -25,6 +25,12 @@ UID = "u-1"
 # quem só RECEBEU a lição e nunca fez nada — o caso do Eder em produção, que
 # aparecia como "ativo às 01:54" porque o bot mandou mensagem para ele
 TG_PASSIVO = 7000000001
+# quem USAVA e parou — a informação mais cara que existe com 10 testadores,
+# e que o portal não mostrava em lugar nenhum: o funil só subia
+TG_SUMIDO = 7000000002
+# quem parou logo depois de bater no teto da cota. A causa é da ferramenta,
+# não do aluno, e sem cruzar as duas coisas ela fica invisível.
+TG_COTA = 7000000003
 
 
 def _h(horas: float) -> str:
@@ -70,6 +76,17 @@ _EVENTOS = [
     # SÓ recebeu: o bot empurrou a lição, ele nunca fez nada
     {"telegram_id": TG_PASSIVO, "event": "licao_recebida",
      "detail": {"licao": 24}, "created_at": _h(6), "username": "Eder"},
+    # SUMIDO: mandava mão, parou faz 15 dias
+    {"telegram_id": TG_SUMIDO, "event": "upload", "detail": {"hands": 4},
+     "created_at": _h(24 * 15), "username": "Marcos"},
+    {"telegram_id": TG_SUMIDO, "event": "followup", "detail": {"q": "e aí?"},
+     "created_at": _h(24 * 15.1), "username": "Marcos"},
+    # COTA: última coisa que fez foi bater no teto, 11 dias atrás
+    {"telegram_id": TG_COTA, "event": "cota_esgotada",
+     "detail": {"plano": "free"},
+     "created_at": _h(24 * 11), "username": "Paulo"},
+    {"telegram_id": TG_COTA, "event": "upload", "detail": {"hands": 2},
+     "created_at": _h(24 * 11.5), "username": "Paulo"},
     # cron: telegram_id 0. NÃO pode aparecer como ação de aluno.
     {"telegram_id": 0, "event": "jornadas", "detail": {"total": 13},
      "created_at": _h(5), "username": None},
@@ -80,7 +97,11 @@ _EVENTOS = [
 _USERS = [{"id": UID, "telegram_id": TG, "username": "Ricardo Farah",
            "plan": "free", "created_at": _h(24 * 20)},
           {"id": "u-2", "telegram_id": TG_PASSIVO, "username": "Eder",
-           "plan": "free", "created_at": _h(24 * 2)}]
+           "plan": "free", "created_at": _h(24 * 2)},
+          {"id": "u-3", "telegram_id": TG_SUMIDO, "username": "Marcos",
+           "plan": "free", "created_at": _h(24 * 40)},
+          {"id": "u-4", "telegram_id": TG_COTA, "username": "Paulo",
+           "plan": "free", "created_at": _h(24 * 30)}]
 _HANDS = [{"id": "h-9", "hand_id": "pppoker-9", "site": "PPPoker · Monster",
            "format": "pppoker_replay", "created_at": _h(18),
            "played_at": None, "user_id": UID,
@@ -124,6 +145,13 @@ class _Q:
     def gte(self, col, val):
         return self._novo([r for r in self._l
                            if str(r.get(col) or "") >= str(val)])
+
+    def lt(self, col, val):
+        # a north star compara com a semana ANTERIOR — sem `lt` no dublê a
+        # consulta estourava, `_q` devolvia 0 calado e a variação vinha
+        # sempre "estável". Dublê incompleto mente com cara de teste verde.
+        return self._novo([r for r in self._l
+                           if str(r.get(col) or "") < str(val)])
 
     def in_(self, col, vals):
         return self._novo([r for r in self._l if r.get(col) in vals])
@@ -236,7 +264,7 @@ def test_receber_licao_nao_faz_o_aluno_virar_ativo(portal):
     """O Eder só recebeu a lição — nunca mandou mão, nunca perguntou. Contar
     ele como 'ativo' faz a métrica subir quando o DONO aperta um botão."""
     pag = _texto(asyncio.run(portal.admin(key="tok")))
-    assert "2 usuários totais" in pag
+    assert "4 usuários totais" in pag
     assert "1 ativos (7 dias)" in pag, "o passivo entrou na conta de ativos"
 
 
@@ -248,3 +276,131 @@ def test_token_errado_nao_renderiza_nada(portal):
                     lambda: portal.admin_mao(key="x", id="h-9")):
         with pytest.raises(HTTPException):
             asyncio.run(chamada())
+
+
+# ---- north star e churn (fase 3) ------------------------------------------
+# O cabeçalho DECLARAVA "north star: análises/usuário ativo/semana" desde o
+# primeiro dia e nunca calculou nada — era uma frase do mesmo tamanho de
+# "atualizado agora". E o portal só contava quem estava dentro: o aluno que
+# parou não aparecia até virar um número que não subiu.
+
+def test_a_north_star_e_um_numero():
+    from app.api.admin import norte
+
+    assert norte(12, 4) == 3.0
+    # sem ativo na semana NÃO é zero: é "não dá pra saber". Imprimir 0.0 faz
+    # a métrica despencar por um motivo que não existe.
+    assert norte(0, 0) is None
+    assert norte(0, 3) == 0.0
+
+
+def test_a_north_star_aparece_na_pagina(portal):
+    pag = _texto(asyncio.run(portal.admin(key="tok")))
+    assert "north star: análises por ativo/semana" in pag
+    # 1 análise nos últimos 7 dias / 1 ativo = 1.0
+    assert "1.0 ⭐ north star" in pag
+
+
+def test_a_north_star_vem_com_direcao(portal):
+    """Número sem direção é número que ninguém age."""
+    pag = _texto(asyncio.run(portal.admin(key="tok")))
+    assert "vs semana anterior" in pag or "sem base pra comparar" in pag
+
+
+def test_variacao_nao_inventa_comparacao():
+    from app.api.admin import variacao
+
+    assert variacao(3.0, 2.2) == "+0.8 vs semana anterior"
+    assert variacao(3.0, 3.0) == "estável"
+    assert variacao(3.0, None) == ""     # sem base, não fala
+
+
+def test_quem_parou_aparece_na_home(portal):
+    """Marcos usava e sumiu faz 15 dias; sem esta seção ele era invisível."""
+    bruto = asyncio.run(portal.admin(key="tok"))
+    assert "Quem está indo embora" in _texto(bruto)
+    bloco = _texto(bruto.split("Quem está indo embora")[1].split("<h2>")[0])
+    assert "Marcos" in bloco
+    assert "sumido" in bloco
+
+
+def test_a_home_diz_quantos_estao_em_risco(portal):
+    """Marcos (15 dias) + Paulo (11 dias) = 2 sumidos."""
+    pag = _texto(asyncio.run(portal.admin(key="tok")))
+    assert "2 alunos esfriando ou sumidos" in pag
+
+
+def test_a_cota_estourada_vira_a_causa_na_tabela(portal):
+    """A causa é da FERRAMENTA, não do aluno — e só aparece cruzando o
+    evento novo `cota_esgotada` com o silêncio que veio depois dele."""
+    bruto = asyncio.run(portal.admin(key="tok"))
+    bloco = _texto(bruto.split("Quem está indo embora")[1].split("<h2>")[0])
+    assert "bateu o teto da cota" in bloco
+
+
+def test_ativo_nao_ganha_causa_de_abandono():
+    """Quem está usando não pode aparecer com diagnóstico de fuga. Erro em
+    quem segue ativo é ruído — ele claramente contornou."""
+    from datetime import datetime, timezone
+
+    from app.api.admin import situacao_do_aluno
+
+    agora = datetime.now(timezone.utc)
+    s = situacao_do_aluno(
+        {"created_at": "2026-01-01T00:00:00+00:00"},
+        {"eventos": 40, "maos": 9, "erros": 3, "cota": 1,
+         "ultimo": agora.isoformat()}, agora)
+    assert s["estado"] == "ativo"
+    assert s["porque"] == ""
+
+
+def test_ativo_que_nunca_mandou_mao_aparece_assim():
+    """Não é causa de abandono, é a POSIÇÃO no funil — e nos dados reais de
+    08/08 quatro dos dez alunos estão exatamente aí, usando o bot sem nunca
+    ter enviado uma mão. Esconder isso apaga o caso mais acionável."""
+    from datetime import datetime, timezone
+
+    from app.api.admin import situacao_do_aluno
+
+    agora = datetime.now(timezone.utc)
+    s = situacao_do_aluno(
+        {"created_at": "2026-08-01T00:00:00+00:00"},
+        {"eventos": 6, "maos": 0, "ultimo": agora.isoformat()}, agora)
+    assert s["estado"] == "ativo"
+    assert s["porque"] == "nunca mandou mão própria"
+
+
+def test_recem_chegado_calado_nao_e_churn():
+    """Entrou ontem e ainda não agiu é o onboarding acontecendo — chamar de
+    'sumido' faz o dono correr atrás de quem não fugiu."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.api.admin import situacao_do_aluno
+
+    agora = datetime.now(timezone.utc)
+    novo = situacao_do_aluno(
+        {"created_at": (agora - timedelta(days=1)).isoformat()}, {}, agora)
+    velho = situacao_do_aluno(
+        {"created_at": (agora - timedelta(days=60)).isoformat()}, {}, agora)
+    assert novo["estado"] == "novo"
+    assert velho["estado"] == "nunca_usou"
+
+
+def test_as_faixas_batem_com_o_que_a_tabela_promete():
+    """A legenda diz 'esfriando (4 a 9)' e 'sumido (10+)'. Se a fronteira
+    andar, o dono lê uma coisa e vê outra."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.api.admin import situacao_do_aluno
+
+    agora = datetime.now(timezone.utc)
+
+    def _estado(dias):
+        return situacao_do_aluno(
+            {"created_at": (agora - timedelta(days=90)).isoformat()},
+            {"eventos": 5, "maos": 2,
+             "ultimo": (agora - timedelta(days=dias, hours=1)).isoformat()},
+            agora)["estado"]
+
+    assert [_estado(d) for d in (0, 3, 4, 9, 10, 30)] == [
+        "ativo", "ativo", "esfriando", "esfriando", "sumido", "sumido"]
