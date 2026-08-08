@@ -126,8 +126,20 @@ def test_bubble_factor_pressure():
     stacks = [4000, 3000, 2000, 1000]
     bf = bubble_factor(stacks, [50, 30, 20], hero_idx=1, villain_idx=0)
     assert bf > 1.0
-    thr = icm_call_threshold(stacks, [50, 30, 20], 1, 0)
-    assert thr > 0.5  # precisa de mais que os 50% do chip-EV
+    # o limiar EXIGE o contexto do pote desde 07/08: sem ele a fórmula
+    # bf/(1+bf) pedia até 18 pontos de equity a mais (auditoria de
+    # matemática), sempre mandando foldar demais na bolha
+    assert icm_call_threshold(stacks, [50, 30, 20], 1, 0) is None
+    # stack fundo (o pote morto pesa pouco): a pressão de ICM aparece e o
+    # limiar passa dos 50% do chip-EV
+    thr = icm_call_threshold(stacks, [50, 30, 20], 1, 0,
+                             stack_bb=40, dead_bb=1.5, post_bb=1.0)
+    assert thr > 0.5
+    # stack curto com o mesmo pote morto: o preço fica barato e o limiar CAI
+    # abaixo de 50% — é o caso em que a fórmula antiga mandava foldar call
+    curto = icm_call_threshold(stacks, [50, 30, 20], 1, 0,
+                               stack_bb=5, dead_bb=1.5, post_bb=1.0)
+    assert curto < thr
 
 
 def test_bubble_factor_validates_indexes():

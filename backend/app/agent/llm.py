@@ -143,8 +143,11 @@ TOOLS = [
     {
         "name": "bubble_factor",
         "description": "Pressão de ICM num all-in herói vs vilão: razão $perdido/$ganho "
-        "(>1 = precisa de mais equity que chip-EV) e a equity mínima de call "
-        "(threshold = bf/(1+bf)).",
+        "(>1 = precisa de mais equity que chip-EV) e a equity mínima de call. "
+        "PASSE SEMPRE stack_bb, dead_bb e post_bb — sem eles o limiar não é "
+        "calculado (vem null). Não invente um atalho: 'bf/(1+bf)' ignora o "
+        "pote morto e pede até 18 PONTOS de equity a mais, sempre mandando "
+        "foldar demais na bolha, que é onde o erro custa mais caro.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -152,6 +155,14 @@ TOOLS = [
                 "payouts": {"type": "array", "items": {"type": "number"}},
                 "hero_idx": {"type": "integer"},
                 "villain_idx": {"type": "integer"},
+                "stack_bb": {"type": "number",
+                             "description": "stack EFETIVO do all-in, em bb"},
+                "dead_bb": {"type": "number",
+                            "description": "pote morto em bb: blinds + antes "
+                            "+ o que já está no meio antes do call"},
+                "post_bb": {"type": "number",
+                            "description": "o que o HERÓI já postou (blind + "
+                            "ante) e perde ao foldar, em bb"},
             },
             "required": ["stacks", "payouts", "hero_idx", "villain_idx"],
         },
@@ -1490,8 +1501,29 @@ def _dispatch(name: str, args: dict):
         from app.analysis.icm import bubble_factor, icm_call_threshold
 
         bf = bubble_factor(args["stacks"], args["payouts"], args["hero_idx"], args["villain_idx"])
-        thr = icm_call_threshold(args["stacks"], args["payouts"], args["hero_idx"], args["villain_idx"])
-        return {"bubble_factor": bf, "min_call_equity": thr}
+        # o limiar de call EXIGE o contexto do pote (stack efetivo, pote
+        # morto, o que o herói já postou). Sem isso a fórmula antiga pedia
+        # até 18 PONTOS de equity a mais e o aluno foldava call na bolha.
+        thr = icm_call_threshold(
+            args["stacks"], args["payouts"], args["hero_idx"],
+            args["villain_idx"], args.get("stack_bb"), args.get("dead_bb"),
+            args.get("post_bb"))
+        out = {"bubble_factor": bf}
+        if thr is None:
+            out["min_call_equity"] = None
+            out["por_que_sem_limiar"] = (
+                "Passe stack_bb (efetivo do all-in), dead_bb (pote morto: "
+                "blinds + antes + o que já está no meio) e post_bb (o que "
+                "VOCÊ já postou). Sem isso não dá para calcular a equity "
+                "mínima — e NÃO existe atalho: bf/(1+bf) ignora o pote morto "
+                "e erra até 18 pontos, sempre mandando foldar demais.")
+        else:
+            out["min_call_equity"] = thr
+            out["como_citar"] = (
+                f"Com bf {bf:g} e esse pote, pagar precisa de "
+                f"{thr * 100:.1f}% de equity. Esse número JÁ inclui o pote "
+                "morto e o custo do fold — não some nada por fora.")
+        return out
     if name == "equity":
         return equity_vs_random(
             args["hero_cards"],

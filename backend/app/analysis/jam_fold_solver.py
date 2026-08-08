@@ -109,4 +109,36 @@ def solve_jam_fold(stack_bb: float, bf: float = 1.0,
         "bb_ev": {h: round(float(e), 3) for h, e in zip(hands, ev_call_bb)},
         "sb_fold_ev": round(sb_fold, 3),
         "bb_fold_ev": round(bb_fold, 3),
+        "aviso": _aviso_de_degeneracao(avg_sb, avg_bb, bf),
     }
+
+
+def _aviso_de_degeneracao(avg_sb, avg_bb, bf: float) -> str | None:
+    """A aproximação simétrica de bf quebrou? Então diga, não entregue range.
+
+    Achado da auditoria (07/08): com bf>=2 o solver devolve "empurre 100% do
+    range" a 10bb, e em bf=3 o 32o marca EV positivo. Investigado: NÃO é erro
+    de conta nem de convergência — é o equilíbrio correto DESTE modelo. Com
+    bf=3 o BB só paga 4.7% (AA, AKs, KK, QQ, JJ, TT, 99, 88); contra alguém
+    que folda 95% das vezes, empurrar qualquer duas cartas ganha 1.125bb sem
+    disputa, mais que os 0.625bb que o fold entrega.
+
+    O defeito é o MODELO: aplicar o mesmo bf aos dois lados (o docstring já
+    chama de "aproximação simétrica") exagera o aperto do pagador sem
+    representar que o empurrador também arrisca ser eliminado. Numa bolha de
+    verdade o bf é assimétrico, e nenhum solver de ICM manda jogar 100%.
+
+    Não dá para consertar sem stacks+payouts aqui dentro. Dá para AVISAR —
+    e um range que o coach não pode citar é melhor que um range errado.
+    """
+    jam = float((avg_sb > 0.5).mean())
+    call = float((avg_bb > 0.5).mean())
+    if bf > 1.0 and (jam >= 0.99 or call <= 0.06):
+        return ("MODELO DEGENERADO: com bf={:.1f} este solver devolve "
+                "jam {:.0f}% / call {:.0f}%. É o equilíbrio do modelo de bf "
+                "SIMÉTRICO, não conselho de bolha — o pagador aperta demais "
+                "e o empurrador não paga por arriscar eliminação. NÃO cite "
+                "esse range ao aluno; fale da DIREÇÃO (na bolha o call "
+                "aperta muito) e use bf <= 1.6 para número."
+                .format(bf, jam * 100, call * 100))
+    return None
