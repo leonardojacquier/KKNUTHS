@@ -71,9 +71,15 @@ def validar(bruto: object) -> dict | None:
 
 
 def candidatas(repo, desde_iso: str, limite: int = 10) -> list[dict]:
-    """Análises recentes com erro/acerto caro o bastante pra virar lição."""
+    """Análises recentes com erro/acerto caro o bastante pra virar lição.
+
+    Traz hand_id junto: as CARTAS são o que permite o portão de qualidade
+    conferir fato de poker ("só AA e QQ te viram favorito" numa lição de KK
+    foi para a estante porque nada checava). Sem cartas, o portão só sabe
+    ler o texto.
+    """
     linhas = (repo.client.table("hand_analysis")
-              .select("id,summary,ev_loss,mistakes,created_at")
+              .select("id,hand_id,summary,ev_loss,mistakes,created_at")
               .gte("created_at", desde_iso)
               .order("created_at", desc=True).limit(60).execute().data) or []
     ja = {l.get("hand_analysis_id") for l in
@@ -88,10 +94,41 @@ def candidatas(repo, desde_iso: str, limite: int = 10) -> list[dict]:
         tem_erro = bool(a.get("mistakes"))
         ev = abs(a.get("ev_loss") or 0)
         if tem_erro or ev >= EV_MINIMO_BB:
-            out.append(a)
+            out.append({**a, **_cartas_da_mao(repo, a.get("hand_id"))})
         if len(out) == limite:
             break
     return out
+
+
+def _cartas_da_mao(repo, hand_id) -> dict:
+    """hero_cards + board da mão, para o portão conferir fato de poker."""
+    if not hand_id:
+        return {}
+    try:
+        linha = (repo.client.table("hands").select("canonical")
+                 .eq("id", hand_id).limit(1).execute().data or [None])[0]
+        can = (linha or {}).get("canonical") or {}
+        return {"hero_cards": list(can.get("hero_cards") or []),
+                "board": list(can.get("final_board") or [])}
+    except Exception:
+        return {}
+
+
+def mentiu_sobre_poker(licao: dict, analise: dict) -> bool:
+    """A lição afirma dominância que as cartas da mão desmentem?
+
+    Função pura em cima do portão: `analise` já traz hero_cards/board de
+    `candidatas`. Só o fato de poker barra aqui — vício de estilo (promessa
+    absoluta, raciocínio por resultado) continua indo para a estante com o
+    aviso, porque ali o dono conserta o texto; mentira, não.
+    """
+    from app.bot.licao_qualidade import _MENTIRA_DE_POKER, problemas_da_licao
+
+    alvo = {**licao,
+            "hero_cards": analise.get("hero_cards") or [],
+            "board": analise.get("board") or []}
+    return any(p.startswith(_MENTIRA_DE_POKER)
+               for p in problemas_da_licao(alvo))
 
 
 def destilar(analise: dict) -> dict | None:
@@ -125,9 +162,16 @@ def main() -> int:
         return 0
     desde = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     novas = 0
+    mentiras = 0
     for analise in candidatas(repo, desde):
         licao = destilar(analise)
         if not licao:
+            continue
+        if mentiu_sobre_poker(licao, analise):
+            # fato de poker falso não vai nem para a estante: o dono lê a
+            # lista do /licoes como material aprovável, e uma frase que
+            # nasceu errada custa mais tempo de revisão do que vale
+            mentiras += 1
             continue
         try:
             repo.client.table("licoes").insert(
@@ -135,8 +179,11 @@ def main() -> int:
             novas += 1
         except Exception:
             pass
-    repo.log_event(0, "licoes", "licoes_destiladas", {"novas": novas})
-    print(f"lições: {novas} nova(s) na biblioteca")
+    repo.log_event(0, "licoes", "licoes_destiladas",
+                   {"novas": novas, "mentiras_barradas": mentiras})
+    print(f"lições: {novas} nova(s) na biblioteca"
+          + (f" ({mentiras} barrada(s) por fato de poker falso)"
+             if mentiras else ""))
     return 0
 
 

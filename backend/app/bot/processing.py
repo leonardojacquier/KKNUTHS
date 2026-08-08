@@ -485,8 +485,12 @@ def _process_upload_inner(
 
             from app.bot.guarda_fatos import conta_sem_numero
 
+            # o BOARD vai junto: com mesa, "só perdia pra 77" é pergunta
+            # sobre a mão FEITA. Conferir isso com equity pré-flop dava a
+            # resposta certa para a pergunta errada.
             coaching, mentiras = conferir_dominancia(
-                coaching, list(hands[0].hero_cards))
+                coaching, list(hands[0].hero_cards),
+                list(getattr(hands[0], "final_board", None) or []))
             if mentiras and repo.enabled:
                 repo.log_event(telegram_id, username, "fato_corrigido",
                                {"maos": mentiras[:6],
@@ -511,14 +515,27 @@ def _process_upload_inner(
             # "o vilão apareceu com 77" quando ele mostrou 7♦2♦: as cartas
             # do showdown são dado gravado — citar errado inverte o desfecho
             # da mão na cabeça do aluno (caso real: narrou derrota numa mão
-            # que ele GANHOU)
-            erro_sd = citou_showdown_errado(coaching, hands[0]) if hands \
-                else None
-            if erro_sd and repo.enabled:
-                repo.log_event(telegram_id, username, "showdown_errado",
-                               {"citado": erro_sd["citado"],
-                                "reais": erro_sd["reais"],
-                                "trecho": erro_sd["trecho"][:200]})
+            # que ele GANHOU). CORRIGE, não só anota: até aqui isto era
+            # telemetria, e telemetria não impede o aluno de ler a mentira.
+            if hands:
+                from app.analysis.historia import (cita_mao_impossivel,
+                                                   corrigir_showdown)
+
+                coaching, erro_sd = corrigir_showdown(coaching, hands[0])
+                if erro_sd and repo.enabled:
+                    repo.log_event(telegram_id, username, "showdown_errado",
+                                   {"citado": erro_sd["citado"],
+                                    "reais": erro_sd["reais"],
+                                    "corrigido_para": erro_sd.get(
+                                        "corrigido_para"),
+                                    "trecho": erro_sd["trecho"][:200]})
+                # par citado que não cabe no baralho ("77" com três setes já
+                # à vista). Só mede: a frase inteira costuma estar podre, e
+                # trocar o rank não conserta o raciocínio em volta.
+                impossiveis = cita_mao_impossivel(coaching, hands[0])
+                if impossiveis and repo.enabled:
+                    repo.log_event(telegram_id, username, "mao_impossivel",
+                                   {"citadas": impossiveis[:4]})
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 
@@ -1553,9 +1570,9 @@ def licoes_reply(args: list[str]) -> str:
             if linha.get("enviada_em"):
                 return f"Lição #{alvo} já foi enviada em "\
                        f"{str(linha['enviada_em'])[:10]} — não repete."
-            from app.bot.licao_qualidade import problemas_da_licao
+            from app.bot.licao_qualidade import com_cartas, problemas_da_licao
 
-            probs = problemas_da_licao(linha)
+            probs = problemas_da_licao(com_cartas(repo, linha))
             if probs:
                 # vai pra TODOS de uma vez e leva a assinatura da ferramenta:
                 # aqui o portão para, e o dono decide com o defeito na tela
@@ -1602,9 +1619,9 @@ def licoes_reply(args: list[str]) -> str:
         if acao in ("nao", "não"):
             t.update({"aprovada": False}).eq("id", alvo).execute()
             return f"↩️ #{alvo} saiu da fila (segue na estante)."
-        from app.bot.licao_qualidade import problemas_da_licao
+        from app.bot.licao_qualidade import com_cartas, problemas_da_licao
 
-        probs = problemas_da_licao(linha)
+        probs = problemas_da_licao(com_cartas(repo, linha))
         aviso = ("\n\n⚠️ *Antes de mandar pra todo mundo:*\n"
                  + "\n".join(f"• {p}" for p in probs)) if probs else ""
         return (f"📖 *#{linha['id']} — {linha['titulo']}* "

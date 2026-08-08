@@ -106,3 +106,94 @@ def test_conta_vazia_vira_evento():
 
     fonte = inspect.getsource(processing._process_upload_inner)
     assert "conta_sem_numero" in fonte
+
+
+# ---- FASE 1.1: os guardas passam a CONSERTAR, não só anotar ----
+# O auditor de linguagem cravou: "a conferência virou telemetria, que é um
+# terceiro estado que não garante nada". Ele tem razão — a mão de 07/08 foi
+# entregue ao aluno com os guardas LIGADOS, porque eles só registravam evento.
+
+TEXTO_REAL = ("seu full de 7 com A só perdia pra 77 ou AA — o vilão apareceu "
+              "com 77 exatos numa das duas combinações que faltavam.")
+
+
+def _mao_do_full():
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        hero="KKNUThS", hero_cards=["As", "7s"],
+        final_board=["2c", "7c", "7h", "Ac", "Th"],
+        shown_cards={"arisn": ["2d", "7d"]},
+        collected={"KKNUThS": 32132600})
+
+
+def test_o_verbo_no_imperfeito_nao_escapa_mais():
+    """O texto real dizia "só PERDIA pra 77" — o regex só pegava "perde"."""
+    from app.bot.guarda_fatos import _DOMINANCIA
+
+    for frase in ("só perde para AA", "só perdia pra 77", "só perdeu pro AA",
+                  "só perderia para AA", "só estava atrás de AA"):
+        assert _DOMINANCIA.search(frase), frase
+
+
+def test_a_lista_de_maos_nao_engole_a_frase_seguinte():
+    """`[^.;\\n]+` capturava até o ponto final: "só perdia pra 77 ou AA — o
+    vilão apareceu com 72s" virava uma lista só, e a correção comia o trecho
+    depois do travessão."""
+    from app.bot.guarda_fatos import _DOMINANCIA
+
+    m = _DOMINANCIA.search(TEXTO_REAL)
+    assert m and "apareceu" not in m.group("maos")
+
+
+def test_com_board_a_pergunta_e_sobre_a_mao_feita():
+    """Frase de river conferida com equity PRÉ-FLOP é resposta certa para a
+    pergunta errada: pré-flop 77 ganha de A7s, mas naquele board o herói tem
+    full de 7 com A e 77 nem existe (três setes já à vista)."""
+    from app.bot.guarda_fatos import quem_ganha_do_heroi
+
+    hero, board = ["As", "7s"], ["2c", "7c", "7h", "Ac", "Th"]
+    # sem board: 77 "ganha" (equity pré-flop de par contra A7s)
+    assert "77" in quem_ganha_do_heroi(hero, ["77"])
+    # com board: 77 sai, e AA (ases full) fica, que é a verdade da mesa
+    com = quem_ganha_do_heroi(hero, ["77", "AA"], board)
+    assert "77" not in com and "AA" in com
+
+
+def test_a_cadeia_inteira_conserta_o_texto_entregue():
+    from app.analysis.historia import corrigir_showdown
+    from app.bot.guarda_fatos import conferir_dominancia
+
+    h = _mao_do_full()
+    txt, erro_sd = corrigir_showdown(TEXTO_REAL, h)
+    txt, mentiras = conferir_dominancia(txt, list(h.hero_cards),
+                                        list(h.final_board))
+    assert erro_sd["citado"] == "77" and erro_sd["corrigido_para"] == "72s"
+    assert mentiras == ["77"]
+    assert "apareceu com 72s" in txt, "o showdown não foi corrigido"
+    assert "só perdia pra AA" in txt, "a dominância não foi corrigida"
+    assert "AA —" in txt, "espaço comido antes do travessão"
+    # e o resto da frase sobreviveu
+    assert "combinações que faltavam" in txt
+
+
+def test_par_que_nao_cabe_no_baralho_e_flagrado():
+    """"77" com 7♣7♥ no board e 7♠ na mão do herói: sobrou UM sete. A frase
+    anterior do próprio texto dizia "quadra de 7 é impossível"."""
+    from app.analysis.historia import cita_mao_impossivel
+
+    h = _mao_do_full()
+    assert cita_mao_impossivel(TEXTO_REAL, h) == ["77"]
+    # par possível não é acusado
+    assert cita_mao_impossivel("ele pode ter 99 aqui", h) is None
+
+
+def test_os_guardas_novos_estao_ligados():
+    import inspect
+
+    from app.bot import processing
+
+    fonte = inspect.getsource(processing._process_upload_inner)
+    assert "corrigir_showdown" in fonte, "ainda só anota o showdown"
+    assert "cita_mao_impossivel" in fonte
+    assert "final_board" in fonte, "o board não chega no guarda de dominância"

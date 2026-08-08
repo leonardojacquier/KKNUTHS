@@ -152,6 +152,74 @@ def citou_showdown_errado(texto: str, h) -> dict | None:
     return None
 
 
+def corrigir_showdown(texto: str, h) -> tuple[str, dict | None]:
+    """Troca a mão citada errada no showdown pela que realmente apareceu.
+
+    Até aqui isto só virava evento. O auditor de linguagem cravou o problema:
+    "a conferência virou telemetria, que é um terceiro estado que não garante
+    nada" — e ele tem razão, porque a mão de 07/08 foi entregue ao aluno com
+    o guarda LIGADO. Cartas de showdown são dado gravado; corrigir é seguro e
+    determinístico, ao contrário de reescrever prosa.
+
+    Devolve (texto, erro) — erro é None quando não havia o que corrigir.
+    """
+    erro = citou_showdown_errado(texto, h)
+    if not erro:
+        return texto, None
+    reais = [r for r in erro["reais"] if r != erro["citado"]]
+    # a mão do VILÃO é a que interessa nessa frase; se houver mais de uma,
+    # a primeira do showdown (o herói cita a própria por outros caminhos)
+    from app.analysis.pushfold import canonical_hand
+
+    shown = dict(getattr(h, "shown_cards", None) or {})
+    alvo = None
+    for cs in shown.values():
+        if len(cs or []) == 2:
+            try:
+                alvo = canonical_hand(list(cs))
+                break
+            except Exception:
+                pass
+    alvo = alvo or (reais[0] if reais else None)
+    if not alvo:
+        return texto, erro
+    novo = _CITA_SHOWDOWN.sub(
+        lambda m: m.group(0).replace(m.group(1), alvo, 1), texto, count=1)
+    return novo, {**erro, "corrigido_para": alvo}
+
+
+# um par citado precisa de DUAS cartas daquele rank vivas. "o vilão apareceu
+# com 77" num board 2♣7♣7♥ com o herói segurando 7♠ é impossível: sobrou um
+# sete no baralho. É o tipo de erro que só a contagem pega — o texto lia
+# plausível, e a frase anterior dele até dizia "quadra de 7 é impossível".
+_PAR_CITADO = re.compile(r"\b(10|[AKQJT98765432])\1\b")
+
+
+def cita_mao_impossivel(texto: str, h) -> list[str] | None:
+    """Pares citados que não cabem no baralho depois de board + cartas vistas."""
+    if not texto:
+        return None
+    vistas = list(getattr(h, "hero_cards", None) or []) + \
+        list(getattr(h, "final_board", None) or [])
+    for cs in (getattr(h, "shown_cards", None) or {}).values():
+        vistas += list(cs or [])
+    if not vistas:
+        return None
+    usados: dict[str, int] = {}
+    for c in vistas:
+        if isinstance(c, str) and c:
+            r = c[:-1].upper().replace("10", "T")
+            usados[r] = usados.get(r, 0) + 1
+    impossiveis = []
+    for m in _PAR_CITADO.finditer(texto):
+        rank = m.group(1).upper().replace("10", "T")
+        if 4 - usados.get(rank, 0) < 2:
+            par = rank * 2
+            if par not in impossiveis:
+                impossiveis.append(par)
+    return impossiveis or None
+
+
 def narrou_azar_inexistente(texto: str, historia: dict | None) -> str | None:
     """O texto gritou 'cooler/bad beat' numa mão sem virada? Devolve o trecho.
 
