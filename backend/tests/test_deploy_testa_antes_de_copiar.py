@@ -99,3 +99,30 @@ def test_scripts_sao_shell_valido(script):
     r = subprocess.run([bash, "-n", str(DEPLOY / script)],
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_o_script_roda_de_uma_copia_e_nao_de_si_mesmo():
+    """O cron chama /opt/poker-bot/deploy/auto_update.sh — e o rsync do
+    próprio script sobrescreve esse arquivo no meio da execução. Bash lê por
+    OFFSET DE BYTE: o processo retoma no mesmo offset do arquivo NOVO, cai no
+    meio de outra linha e morre com exit 0, sem rodar o notify.
+
+    Foi o que aconteceu em 07/08: nem ✅ nem ⛔ chegaram. Passava batido antes
+    porque o arquivo mal mudava de tamanho e os offsets coincidiam — o script
+    cresceu ~50 linhas e o silêncio apareceu."""
+    reexec = _pos(AUTO, "AUTOUPDATE_EM_COPIA")
+    rsync = _pos(AUTO, "rsync -a --delete")
+    assert reexec < rsync, "a blindagem tem que vir antes de qualquer coisa"
+    assert 'exec bash "$_COPIA"' in AUTO, "não re-executa da cópia"
+    assert 'rm -f "${AUTOUPDATE_COPIA:-}"' in AUTO, "deixa lixo em /tmp"
+
+
+def test_a_blindagem_e_a_primeira_coisa_do_script():
+    """Se vier depois de qualquer trabalho, o trabalho roda duas vezes (uma
+    no original, outra na cópia)."""
+    linhas = [l.strip() for l in AUTO.splitlines()
+              if l.strip() and not l.strip().startswith("#")]
+    antes = linhas[:linhas.index('if [ "${AUTOUPDATE_EM_COPIA:-0}" != "1" ]; then')]
+    # só o shebang e o set podem vir antes
+    assert all(l.startswith(("#!", "set ")) for l in antes), \
+        f"tem trabalho antes da blindagem: {antes}"

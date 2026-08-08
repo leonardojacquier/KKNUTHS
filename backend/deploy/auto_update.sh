@@ -4,6 +4,30 @@
 # Instalação (uma vez): ver deploy/README.md — seção "Auto-deploy".
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# RODA DE UMA CÓPIA. O cron chama /opt/poker-bot/deploy/auto_update.sh — que é
+# EXATAMENTE um dos arquivos que o rsync mais abaixo sobrescreve. O bash lê
+# script por OFFSET DE BYTE: trocar o arquivo no meio da execução faz ele
+# retomar naquele mesmo offset dentro do arquivo NOVO, cair no meio de outra
+# linha e morrer calado — exit 0, sem rodar o notify.
+#
+# Sempre foi assim, mas passava batido porque o arquivo mal mudava de tamanho
+# e os offsets coincidiam. Em 07/08 o script cresceu ~50 linhas e o deploy
+# sumiu sem dar nem erro nem sucesso. Reproduzido em /tmp:
+#     linha 1: comecei
+#     vitima.sh: line 4: nchimento: command not found
+#     (exit 0, sem nunca chegar no fim)
+#
+# Copiar para /tmp e re-exec de lá resolve na raiz: o arquivo em EXECUÇÃO
+# deixa de ser o arquivo em ATUALIZAÇÃO.
+# ---------------------------------------------------------------------------
+if [ "${AUTOUPDATE_EM_COPIA:-0}" != "1" ]; then
+    _COPIA=$(mktemp /tmp/poker-autoupdate-XXXXXX.sh) || exit 1
+    cat "$0" > "$_COPIA" && chmod +x "$_COPIA" || exit 1
+    AUTOUPDATE_EM_COPIA=1 AUTOUPDATE_COPIA="$_COPIA" exec bash "$_COPIA" "$@"
+fi
+trap 'rm -f "${AUTOUPDATE_COPIA:-}"' EXIT
+
 REPO=/opt/kknuths
 APP=/opt/poker-bot
 BRANCH=claude/poker-analysis-telegram-bot-mfuyhf
