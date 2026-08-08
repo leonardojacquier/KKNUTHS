@@ -32,6 +32,21 @@ _TROCAS: list[tuple[re.Pattern, str]] = [
                 rf"({_RANK})\b", re.I),
      r"full de \1 com \2"),
     (re.compile(r"\bcheck\s+atr[áa]s\b", re.I), "check behind"),
+    # tradução pela METADE: "top par" não é português nem inglês. Colide com
+    # "o top par DE mesas do clube" (par = dupla), então o 'de' seguinte tira
+    # a troca — deixar passar é mais barato que escrever besteira.
+    (re.compile(r"\btop\s+par\b(?!\w)(?!\s+de\s)", re.I), "top pair"),
+    # o dez sem naipe: "A10o" e "10Js" são inequívocos (rank + 10 + s/o não
+    # existe fora de notação de mão)
+    (re.compile(r"\b([AKQJ2-9])10([so])\b"), r"\1T\2"),
+    (re.compile(r"\b10([AKQJ2-9])([so])\b"), r"T\1\2"),
+    # "1010" sozinho pode ser fichas ou horário — só troca quando está numa
+    # LISTA de mãos ("só perde pra 1010 e AA", texto real da lição 29), onde
+    # a vizinha prova o contexto
+    (re.compile(r"\b1010\b(?=\s*(?:,|\be\b|\bou\b)\s*"
+                r"(?:10|[AKQJT2-9]){2}[so]?\b)"), "TT"),
+    (re.compile(r"((?:10|[AKQJT2-9]){2}[so]?\s*(?:,|\be\b|\bou\b)\s*)"
+                r"1010\b"), r"\1TT"),
     (re.compile(r"\bsequ[êe]ncia\s+de\s+cor\b", re.I), "straight flush"),
     # plural separado do singular: "suas cartas altas" virava "suas high
     # card", que é pior português que o calque que se queria consertar

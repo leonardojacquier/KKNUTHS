@@ -80,3 +80,36 @@ def test_o_preco_do_conserto_esta_documentado():
     assert corrigir("o 7h fechou o flush") == "o 7h fechou o flush"
     # mas dentro de sequência, converte
     assert corrigir("o 7h 2h fechou") == "o 7♥ 2♥ fechou"
+
+
+def test_top_par_e_traducao_pela_metade():
+    """O EXEMPLO DE OURO do prompt escrevia 'top par' — o modelo lê a regra
+    ('FICAM EM INGLÊS: top pair') e copia a demonstração."""
+    assert corrigir("c-bet com top par e kicker fraco") == \
+        "c-bet com top pair e kicker fraco"
+    assert corrigir("você tinha top par.") == "você tinha top pair."
+
+
+def test_top_par_de_algo_fica_intacto():
+    """'par' também é DUPLA em português. Onde o regex não acerta 100%, o
+    corretor deixa passar — a regra da casa é errar por omissão."""
+    assert corrigir("o top par de mesas do clube") == \
+        "o top par de mesas do clube"
+
+
+def test_o_dez_sem_naipe_vira_T():
+    """'só perde pra quadra, 1010 e AA' foi para a estante (lição 29)."""
+    assert corrigir("só perde pra quadra, 1010 e AA") == \
+        "só perde pra quadra, TT e AA"
+    assert corrigir("só perde pra AA ou 1010 aqui") == \
+        "só perde pra AA ou TT aqui"
+    assert corrigir("abriu A10o do BTN") == "abriu ATo do BTN"
+    assert corrigir("pagou com 10Js") == "pagou com TJs"
+
+
+def test_1010_solto_nao_e_mao():
+    """Sem outra mão do lado, '1010' pode ser fichas, horário ou pote. O
+    contexto que autoriza a troca é a LISTA de mãos."""
+    assert corrigir("o pote tinha 1010 fichas") == "o pote tinha 1010 fichas"
+    assert corrigir("o torneio começa 1010 do horário") == \
+        "o torneio começa 1010 do horário"
