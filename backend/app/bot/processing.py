@@ -400,6 +400,20 @@ def _process_upload_inner(
         saved = repo.get_user_meta(user["id"], "payouts")
         if saved and saved.get("valores"):
             structured["payouts_salvos"] = saved
+    # TORNEIO SEM ICM É CASH GAME COM BLIND SUBINDO. Sem a premiação o bf
+    # fica 1.0 calado — 25 de 25 análises de torneio saíram assim. Aqui o
+    # motor MEDE o que a bolha mudaria (o range de call cai de ~36% para
+    # ~14%) e entrega o número, para o coach dizer isso em uma linha em vez
+    # de dar aula de ICM ou ficar mudo.
+    if structured.get("format") == "tournament":
+        try:
+            from app.analysis.torneio import situacao_icm
+
+            falta = situacao_icm(structured, structured.get("payouts_salvos"))
+            if falta:
+                structured["falta_icm"] = falta
+        except Exception as exc:
+            log.warning("situação de ICM falhou: %s", exc)
     # MEMÓRIA: o que o coach já viu — as mãos parecidas deste aluno e os
     # padrões destilados de TODOS. Sem isto, 385 análises indexadas ficavam
     # só sendo escritas (o único leitor era /ask, usado zero vezes) e o
