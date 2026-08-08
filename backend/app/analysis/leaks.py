@@ -43,109 +43,42 @@ def _hero_jammed_pre(h: CanonicalHand) -> bool:
 
 
 def detect_leaks(hands: list[CanonicalHand]) -> list[dict]:
-    """Varre as mãos e devolve os leaks rankeados por custo (bb/100)."""
-    from app.agent.analyzer import analyze_hand
-    from app.analysis.handreport import _facing_preflop, played_facts
-    from app.analysis.pushfold import push_fold
-    from app.analysis.ranges import OPEN_RANGES, parse_range
+    """Leaks rankeados por custo. Hoje é uma CASCA sobre `taxonomia`.
 
-    counts = {k: {"opp": 0, "miss": 0, "custo": 0.0, "exemplos": []}
-              for k in LEAK_NAMES}
+    O corpo antigo era um laço monolítico com os quatro detectores embutidos,
+    que contava oportunidade e escorregada na mesma passada. Funcionava, mas
+    não dava para: (a) acrescentar um detector sem mexer no laço, (b) saber
+    QUAIS mãos formaram cada número, (c) usar o mesmo diagnóstico no relatório
+    de torneio e na medição de evolução. As três coisas são pré-requisito do
+    plano de estudo baseado em problema.
 
-    def hit(key: str, custo: float, hand_id: str) -> None:
-        c = counts[key]
-        c["miss"] += 1
-        c["custo"] += custo
-        if len(c["exemplos"]) < 3:
-            c["exemplos"].append(hand_id)
+    O formato de saída é o de antes, de propósito: `leaks_text` e o contexto
+    do coach continuam funcionando sem tocar em nada.
+    """
+    from app.analysis.taxonomia import CODIGOS, agregar, observar
 
-    n_ok = 0
-    for h in hands:
-        try:
-            if not h.hero or not h.stakes.big_blind:
-                continue
-            a = analyze_hand(h)
-            n_ok += 1
-            pos = a.get("position") or "?"
-            stack = a.get("hero_stack_bb") or 0
-            raises, _ = _facing_preflop(h)
-            folded = _hero_folded_pre(h)
-            from app.analysis.handreport import hand_class
-
-            hc = hand_class(h.hero_cards)
-
-            # pote não aberto na frente do herói
-            if raises == 0 and hc:
-                rng = OPEN_RANGES.get(pos)
-                if rng:
-                    counts["open_perdido"]["opp"] += 1
-                    if folded and hc in parse_range(rng):
-                        hit("open_perdido", 0.3, h.hand_id)  # estimativa
-                if stack and stack <= 12:
-                    pf = push_fold(h.hero_cards, stack, pos)
-                    if pf.get("applicable"):
-                        counts["shove_perdido"]["opp"] += 1
-                        if folded and pf["decision"] == "push":
-                            edge = max(0.0, (pf["shove_range_pct"] -
-                                             pf["hand_top_pct"]) /
-                                       max(pf["shove_range_pct"], 1.0))
-                            hit("shove_perdido", round(0.3 + 1.2 * edge, 2),
-                                h.hand_id)  # estimativa proporcional à folga
-
-            # jam pré largo demais
-            if _hero_jammed_pre(h) and stack and stack <= 20:
-                pf = push_fold(h.hero_cards, stack, pos)
-                if pf.get("applicable"):
-                    counts["shove_largo"]["opp"] += 1
-                    if pf["decision"] == "fold":
-                        hit("shove_largo", 1.0, h.hand_id)  # estimativa
-
-            # calls pagando caro pós-flop (custo exato: déficit × pote final)
-            if not folded:
-                facts = played_facts(h)
-                for n in facts["numbers"]:
-                    if "equity_minima" in n and n.get("equity_vs_aleatoria") is not None:
-                        counts["call_caro"]["opp"] += 1
-                        deficit = n["equity_minima"] - n["equity_vs_aleatoria"]
-                        if deficit > 0.05:
-                            custo = round(
-                                deficit * (n["pote_bb"] + n["pagou_bb"]), 2)
-                            hit("call_caro", custo, h.hand_id)
-                            if n["street"] in ("turn", "river"):
-                                counts["call_caro"]["tarde"] = \
-                                    counts["call_caro"].get("tarde", 0) + 1
-        except Exception:
-            continue
-
+    n_maos = max(len(hands), 1)
     out = []
-    for key, c in counts.items():
-        if c["opp"] < 2:
+    for d in agregar(observar(hands), n_maos):
+        # o corte de sempre: acidente não é leak
+        if d["escorregadas"] == 0 or d["taxa_mean"] < 25.0 \
+                or d["custo_bb_100"] <= 0:
             continue
-        mean, lo, hi = shrunk_rate(c["miss"], c["opp"], *_LEAK_PRIOR)
-        custo_100 = round(100.0 * c["custo"] / max(n_ok, 1), 1)
-        # só vira "leak" se a taxa corrigida indica padrão, não acidente
-        if c["miss"] == 0 or mean < 25.0 or custo_100 <= 0:
-            continue
-        item = {
-            "leak": key,
-            "nome": LEAK_NAMES[key],
-            "oportunidades": c["opp"],
-            "escorregadas": c["miss"],
-            "taxa_pct": mean,
-            "taxa_lo": lo,
-            "taxa_hi": hi,
-            "confianca": "alta" if (hi - lo) <= 25.0 and c["opp"] >= 8 else "media",
-            "custo_bb_100maos": custo_100,
-            "exemplos": c["exemplos"],
-        }
-        # lente de Kahneman: call caro concentrado em turn/river = custo
-        # afundado ("já investi, agora vou") — o conselho muda de técnico
-        # para mental
-        if key == "call_caro" and c["miss"] >= 3 and \
-                c.get("tarde", 0) / c["miss"] >= 0.6:
-            item["vies"] = ("custo afundado: você paga caro depois que já pôs "
-                            "fichas — as fichas no pote não são mais suas")
-        out.append(item)
+        largura = d["taxa_hi"] - d["taxa_lo"]
+        out.append({
+            "leak": d["codigo"],
+            "nome": CODIGOS[d["codigo"]].nome,
+            "oportunidades": d["oportunidades"],
+            "escorregadas": d["escorregadas"],
+            "taxa_pct": d["taxa_mean"],
+            "taxa_lo": d["taxa_lo"],
+            "taxa_hi": d["taxa_hi"],
+            "confianca": ("alta" if largura <= 25.0 and d["oportunidades"] >= 8
+                          else "media"),
+            "custo_bb_100maos": d["custo_bb_100"],
+            "exemplos": d["exemplos"],
+            "pergunta": d["pergunta"],
+        })
     out.sort(key=lambda x: -x["custo_bb_100maos"])
     return out
 
