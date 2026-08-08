@@ -15,18 +15,26 @@ _LICAO = {"id": 7, "titulo": "Pagar river sem preço",
           "categoria": "river"}
 
 
-def test_texto_traz_o_custo_e_termina_convidando_a_mao():
+def test_texto_traz_a_licao_e_termina_convidando_a_mao():
     t = texto_da_licao(_LICAO)
     assert "Lição do dia" in t and _LICAO["titulo"] in t
-    assert "9.3bb" in t, "o número que prova a lição"
-    assert "custou" in t
+    import re
+    # o número que prova a lição vem no TEXTO dela (exigido pelo destilador),
+    # não de um sufixo colado com o resultado da mão
+    assert re.search(r"\d", _LICAO["licao"]), "a fixture perdeu o número"
+    assert _LICAO["licao"] in t
     assert t.rstrip().endswith("analiso na hora."), \
         "o CTA da primeira mão fecha SEMPRE — é o gargalo do funil"
 
 
-def test_ganho_aparece_como_rendeu():
-    t = texto_da_licao({**_LICAO, "ev_bb": 11.9})
-    assert "rendeu 11.9bb" in t
+def test_nao_cola_resultado_da_mao_como_custo_da_decisao():
+    """Auditoria de poker (07/08): o sufixo "(custou X bb)" vinha de
+    hand_analysis.ev_loss, que guarda o RESULTADO líquido da mão, não o EV
+    da decisão. Saía "custou 37,4bb" numa lição de mão GANHA (+40,8bb) e
+    "custou 12,5bb" num call de KK que estava certo."""
+    for ev in (11.9, -9.3, None):
+        t = texto_da_licao({**_LICAO, "ev_bb": ev})
+        assert "custou" not in t and "rendeu" not in t
 
 
 def test_ev_ausente_nao_quebra_nem_inventa():

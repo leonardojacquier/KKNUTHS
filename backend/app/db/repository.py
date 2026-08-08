@@ -222,6 +222,15 @@ class Repository:
             .insert(
                 {
                     "hand_id": hand_row_id,
+                    # ATENÇÃO AO NOME: esta coluna guarda `net_bb`, o
+                    # RESULTADO líquido da mão — NÃO o EV perdido pela
+                    # decisão. O nome "ev_loss" já enganou o produto: virou
+                    # "(custou 37,4bb)" numa lição de uma mão que o aluno
+                    # GANHOU (+40,8bb), e "(custou 12,5bb)" num call de KK que
+                    # estava certo. Resultado não mede qualidade de decisão.
+                    # Quem for MOSTRAR isso ao aluno tem que chamar de
+                    # resultado; quem quiser EV de decisão usa
+                    # decisoes_por_street.ev_call_bb, que é conta de verdade.
                     "ev_loss": structured.get("net_bb"),
                     "mistakes": structured.get("spots"),
                     "summary": summary,

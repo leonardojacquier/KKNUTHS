@@ -23,13 +23,20 @@ JANELA_ANTI_RAJADA_H = 6.0
 def texto_da_licao(licao: dict) -> str:
     """Formata a lição para o aluno. Termina SEMPRE com o convite à mão —
     é o único CTA que ataca o gargalo do produto."""
-    ev = licao.get("ev_bb")
-    custo = f" (custou {abs(ev):.1f}bb)" if isinstance(ev, (int, float)) \
-        and ev < 0 else (f" (rendeu {ev:.1f}bb)" if isinstance(ev, (int, float))
-                         and ev > 0 else "")
+    # SEM "(custou X bb)". Esse número vem de hand_analysis.ev_loss, que
+    # apesar do nome guarda `net_bb` — o RESULTADO líquido da mão, não o EV
+    # da decisão (repository.py:225). Colado numa lição ele vira resultadismo
+    # com cara de conta: a auditoria achou uma lição de uma mão GANHA
+    # (+40.8bb) anunciada como "custou 37,4bb", e o call de KK — que estava
+    # certo — saindo como "custou 12,5bb". É o pecado que R5 do prompt
+    # proíbe, entrando pelo encanamento em vez de pelo texto.
+    #
+    # O texto da lição já é obrigado a trazer o número que a prova (ver
+    # _PROMPT em scripts/destilar_licoes.py). Um número a mais, medindo outra
+    # coisa e chamado de custo, só ensina errado.
     return (f"📖 *Lição do dia — {licao['titulo']}*\n\n"
             f"{licao['spot']}\n\n"
-            f"{licao['licao']}{custo}\n\n"
+            f"{licao['licao']}\n\n"
             "———\n"
             "_Spot real de um aluno, anonimizado._ 🃏 *Manda uma mão sua* "
             "(print, arquivo ou link do replay) que eu analiso na hora.")

@@ -39,10 +39,13 @@ def test_texto_termina_com_o_convite_a_mao():
     assert "anonimizada" in t or "anonimizado" in t
 
 
-def test_ev_positivo_e_negativo_sao_ditos_certo():
-    assert "rendeu 4.2bb" in texto_da_licao(_LICAO)
-    assert "custou 9.3bb" in texto_da_licao({**_LICAO, "ev_bb": -9.3})
-    assert "rendeu" not in texto_da_licao({**_LICAO, "ev_bb": None})
+def test_resultado_da_mao_nao_vira_custo_da_decisao():
+    """ev_bb vem de hand_analysis.ev_loss = RESULTADO líquido da mão. Colado
+    na lição como "custou/rendeu", ensina resultadismo — o pecado que R5 do
+    prompt proíbe, entrando pelo encanamento (auditoria de poker, 07/08)."""
+    for ev in (4.2, -9.3, None):
+        t = texto_da_licao({**_LICAO, "ev_bb": ev})
+        assert "custou" not in t and "rendeu" not in t
 
 
 def test_horas_desde_o_ultimo_envio_le_o_banco():

@@ -3637,6 +3637,27 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     ch_lbl = ch_lbl.split()[0] if ch_lbl else (ch or "").upper()
     real_lbl = {"fold": "foldou", "call": "pagou", "check": "deu check",
                 "bet": "apostou", "raise": "aumentou"}.get(actual, actual)
+    # EQUITY VS ALEATÓRIA NÃO DECIDE PÓS-FLOP CONTRA AGRESSÃO. Caso real da
+    # auditoria: A♥T♥ no turn 9♥7♠3♦Q♣ contra check-raise no flop + jam de
+    # 24bb. Vs mão aleatória dá 43.6% e o pote pedia 28% -> o bot carimbava
+    # "o certo era PAGAR" e marcava o fold CORRETO do aluno como "ruim".
+    # Contra o range que dá check-raise e depois jam, a equity real é ~4%.
+    # Pior: o veredito alimenta leak_error_rates, então o sorteio passava a
+    # perseguir o aluno justamente na categoria em que ele acertou.
+    vs_aleatoria = "aleatóri" in (eq_label or "")
+    pos_flop = (drill.get("street") or "preflop") != "preflop"
+    conta_fraca = vs_aleatoria and pos_flop and to_call
+    if conta_fraca:
+        eqp, needp = (eq or 0) * 100, (need or 0) * 100
+        verdict, correct = "mista", "Depende do range dele"
+        verdict_text = (
+            f"Contra uma mão qualquer você teria ~{eqp:.0f}% e o pote pede "
+            f"{needp:.0f}% — mas ele APOSTOU, e quem aposta não aposta com "
+            "mão qualquer. Contra o range que joga assim a sua equity cai "
+            "muito. Aqui o preço não decide sozinho: decide a leitura.")
+        return {**(drill or {}), "choice": choice, "math": math_d,
+                "verdict": verdict, "verdict_text": verdict_text,
+                "correct": correct}
     if eq is not None and need and to_call:
         eqp, needp = eq * 100, need * 100
         ev = math_d.get("ev_bb", 0)
