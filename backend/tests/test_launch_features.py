@@ -114,7 +114,13 @@ def test_process_upload_blocks_over_quota():
     for _ in range(FREE_MONTHLY_ANALYSES):
         consume_quota(tg, None)
     reply = process_upload(PS.read_text().encode(), "txt", tg, "tester")
-    assert "gratuitas" in reply.lower() and "renovam" in reply.lower()
+    # bloqueia, e não num beco: diz a DATA da virada e o que continua de pé
+    import re
+
+    assert "acabaram" in reply.lower()
+    assert re.search(r"renova .*\(01/\d{2}\)", reply), \
+        "sem a data da virada é o mesmo beco de antes"
+    assert "/treino" in reply, "cota trava o upload, não a ferramenta inteira"
 
 
 def test_drill_flow():

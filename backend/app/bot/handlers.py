@@ -47,7 +47,10 @@ WELCOME_SHORT = (
     "Eu analiso as SUAS mãos com números calculados de verdade — equity, "
     "preço do call, Nash — e te digo o que foi decisão boa e o que custou "
     "caro.\n\n"
-    "Já deixei um torneio de teste carregado pra você experimentar. "
+    # PROMESSA CUMPRIDA: dizia "um torneio de teste carregado" e o que existe
+    # é UMA mão. Quem acreditava e digitava /torneio ou /relatorio ouvia que
+    # não havia material — a primeira coisa que a ferramenta fazia era falhar.
+    "Já deixei uma mão de teste carregada pra você experimentar. "
     "Por onde quer começar?"
 )
 
@@ -785,20 +788,16 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     await asyncio.to_thread(persist_conversation, update.effective_user.id)
     await _show_reveal(query, text)
 
-    # BOTÃO junto do convite: instrução que exige digitar é instrução que
-    # não é seguida às 2 da manhã. `go:enviar` já explica os formatos.
-    if convite:
-        try:
-            await query.message.reply_text(
-                "👇 Qual é mais fácil pra você?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📤 Como mando minha mão?",
-                                          callback_data="go:enviar")]]))
-        except Exception:
-            pass
+    # O CONVITE VIRA BOTÃO na mensagem final (abaixo), não numa mensagem só
+    # dele: eram quatro mensagens em rajada depois do gabarito, e a terceira
+    # de quatro ninguém lê. Instrução que exige digitar continua sendo
+    # instrução não seguida às 2 da manhã — por isso vira botão, não texto.
 
     # storyboard da revelação: o filme da mão até a decisão, com a matemática e
     # o veredito. Determinístico (custo zero de LLM); só some se algo falhar.
+    from app.bot.processing import botoes_pos_treino
+    depois = _kb(botoes_pos_treino(convite))
+    mandou_o_filme = False
     try:
         from app.analysis.hand_figure import render_hand_strip
         from app.bot.processing import storyboard_spot_from_drill
@@ -815,10 +814,15 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
                        cat=drill.get("cat") or drill_category(drill))
             png = await asyncio.to_thread(render_hand_strip, spec)
             import io as _io3
+            # os botões vêm COM o filme: uma mensagem a menos, e o próximo
+            # passo fica na última coisa que o aluno olha
+            # (o convite em texto já saiu no gabarito; aqui é só o botão —
+            #  repetir a mesma frase duas mensagens depois vira ruído)
             await query.message.reply_photo(
                 photo=_io3.BytesIO(png),
                 caption="🎬 *O filme da mão* — do pré à sua decisão.",
-                parse_mode="Markdown")
+                parse_mode="Markdown", reply_markup=depois)
+            mandou_o_filme = True
     except Exception:
         pass
 
@@ -828,17 +832,11 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         ctx.user_data["share_spot"] = spot_from_drill(drill)
     except Exception:
         pass
-    try:
-        kb = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔁 Simular esta mão", callback_data="pa:sim"),
-            InlineKeyboardButton("🎯 Outro treino", callback_data="go:treino"),
-        ], [
-            InlineKeyboardButton("📖 Range do spot", callback_data="pa:range"),
-            InlineKeyboardButton("📣 Desafiar os amigos", callback_data="pa:share"),
-        ]])
-        await query.message.reply_text("E agora?", reply_markup=kb)
-    except Exception:
-        pass
+    if not mandou_o_filme:
+        try:
+            await query.message.reply_text("E agora?", reply_markup=depois)
+        except Exception:
+            pass
 
 
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

@@ -78,7 +78,15 @@ def test_erro_ao_consultar_nao_vira_convite():
 
 def test_handler_mostra_convite_E_botao():
     """Instrução que exige digitar é instrução que não é seguida às 2 da
-    manhã — o botão reaproveita o `go:enviar`, que já explica os formatos."""
+    manhã — o botão reaproveita o `go:enviar`, que já explica os formatos.
+
+    O botão SAIU da mensagem própria: eram quatro mensagens em rajada depois
+    do gabarito e a terceira de quatro ninguém lê. Agora ele vem no teclado
+    final (botoes_pos_treino), e quem prova que chega ao aluno é
+    test_primeiro_minuto_do_aluno, que conta as mensagens em vez de ler o
+    fonte. Aqui fica só o que este arquivo cobre: o convite em TEXTO e o
+    evento.
+    """
     import inspect
 
     from app.bot import handlers
@@ -86,7 +94,7 @@ def test_handler_mostra_convite_E_botao():
     fonte = inspect.getsource(handlers.on_drill_answer)
     assert "texto_convite_primeira_mao" in fonte
     assert "merece_convite_primeira_mao" in fonte
-    assert 'callback_data="go:enviar"' in fonte
     assert "convite_primeira_mao" in fonte, "o convite precisa virar evento"
-    # o botão só sai junto do convite, não em todo drill
-    assert "if convite:" in fonte
+    # o teclado do aluno novo abre com o go:enviar — a única ação que importa
+    assert processing.botoes_pos_treino(True)[0][0]["callback_data"] == \
+        "go:enviar"

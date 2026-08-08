@@ -26,7 +26,8 @@ def _demo_hand():
     """Mão sintética de vitrine: herói paga com top pair, vilão mostra a
     broadway no showdown — exibe filme, streets, reveals e vencedor."""
     from app.models.canonical import (Action, ActionType, CanonicalHand,
-                                      PlayerSeat, Stakes, Street, StreetName)
+                                      HandFormat, PlayerSeat, Stakes, Street,
+                                      StreetName)
 
     pl = [
         PlayerSeat(seat=1, name="Hero", stack=9_000_000, position="BB",
@@ -62,8 +63,11 @@ def _demo_hand():
         Action(actor="Rival do Clube", type=ActionType.BET, amount=4_200_000),
         Action(actor="Hero", type=ActionType.CALL, amount=4_200_000),
     ])
+    # blinds de 125k/250k COM ante são forma de torneio; o modelo saía como
+    # cash (o default), então o metadado contradizia a própria mão
     return CanonicalHand(
         site="Demo", hand_id="demo-site", hero="Hero",
+        format=HandFormat.TOURNAMENT, tournament_id="demo-torneio",
         stakes=Stakes(small_blind=125_000, big_blind=250_000, ante=31_250),
         players=pl, hero_cards=["Qd", "Jd"],
         streets=[pre, flop, turn, river],

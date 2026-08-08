@@ -126,3 +126,45 @@ def _count_used(telegram_id: int, user: dict | None, repo) -> int | None:
 def reset_memory() -> None:
     """Só para testes."""
     _mem.clear()
+
+
+def dias_ate_renovar(agora: datetime | None = None) -> tuple[int, str]:
+    """(dias, data dd/mm) até a cota zerar — vira no 1º do mês, em UTC.
+
+    A contagem de `_count_used` começa no dia 1 às 00:00 UTC; a mensagem
+    precisa dizer a MESMA data, senão o aluno volta um dia antes e apanha
+    de novo.
+    """
+    agora = agora or datetime.now(timezone.utc)
+    ano, mes = (agora.year + 1, 1) if agora.month == 12 else \
+        (agora.year, agora.month + 1)
+    virada = datetime(ano, mes, 1, tzinfo=timezone.utc)
+    dias = max(1, (virada - agora).days + (1 if (virada - agora).seconds else 0))
+    return dias, f"{virada.day:02d}/{virada.month:02d}"
+
+
+def texto_cota_esgotada(plan: str | None = None,
+                        agora: datetime | None = None) -> str:
+    """O que o aluno lê quando a cota acaba. Função PURA.
+
+    Era um beco sem saída: "acabaram, renovam no próximo mês" — sem data,
+    sem ação, sem alternativa, numa tela em que o aluno tinha acabado de
+    mandar um arquivo. E é FALSO que não sobrou nada: a cota conta ANÁLISE
+    DE UPLOAD; treino, leitura de vilão, range, banca e a conversa com o
+    coach continuam de pé. Quem não sabe disso simplesmente some.
+    """
+    dias, data = dias_ate_renovar(agora)
+    quando = "amanhã" if dias == 1 else f"em {dias} dias"
+    teto = limite_do_plano(plan)
+    quanto = f"as {teto} análises" if teto else "as análises"
+    return (
+        f"🚦 Acabaram {quanto} deste mês — renova {quando} ({data}).\n\n"
+        "*Isso trava só a análise de arquivo/print. Continua tudo liberado:*\n"
+        "• /treino — drill num spot das suas mãos\n"
+        "• /leitura — adivinhe a mão do vilão\n"
+        "• /stats e /evolucao — seu perfil e sua linha do tempo\n"
+        "• /range — gráficos 13×13 de qualquer spot\n"
+        "• e me pergunta o que quiser de poker, aqui mesmo\n\n"
+        "_Guarda o arquivo que você ia mandar: no dia "
+        f"{data} ele entra na hora._"
+    )

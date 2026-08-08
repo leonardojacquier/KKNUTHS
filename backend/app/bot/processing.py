@@ -239,10 +239,14 @@ def process_upload(
                 "minutos? Essa mão não conta na sua cota."
             )
         if not quota.allowed or (quota.remaining >= 0 and inflight >= quota.remaining):
-            return (
-                "🚦 Suas análises gratuitas deste mês acabaram!\n"
-                "Elas renovam no próximo mês — e os planos pagos chegam em breve."
-            )
+            from app.quota import texto_cota_esgotada
+
+            # evento próprio: bater no teto é o momento em que o aluno some,
+            # e sem isso o portal não distingue "parou de usar" de "não pôde"
+            if repo.enabled:
+                repo.log_event(telegram_id, username, "cota_esgotada",
+                               {"plano": quota.plan})
+            return texto_cota_esgotada(quota.plan)
         _INFLIGHT[telegram_id] = inflight + 1
     try:
         return _process_upload_inner(
@@ -3528,6 +3532,28 @@ def drill_size_buttons(drill: dict) -> list[list[dict]]:
     """Submenu de tamanhos do quiz (abre no toque em Raise/Bet)."""
     return size_menu_rows(drill.get("pot_bb"), drill.get("to_call_bb"),
                           drill.get("stack_bb"), "drill")
+
+
+def botoes_pos_treino(precisa_da_primeira_mao: bool) -> list[list[dict]]:
+    """O "e agora?" depois do gabarito. Função PURA.
+
+    O aluno novo recebia QUATRO mensagens seguidas (gabarito, "qual é mais
+    fácil pra você?", o filme da mão, "e agora?") e, no fim, quatro botões
+    em que NENHUM levava à ação que importa: mandar uma mão dele. Pior:
+    "Simular esta mão" e "Desafiar os amigos" agiam sobre a mão-DEMO — ele
+    ia desafiar o clube com um spot que não jogou.
+
+    Quem ainda não mandou mão vê DOIS botões, com o certo em primeiro. Quem
+    já usa vê os quatro, que aí agem sobre a mão dele e fazem sentido.
+    """
+    if precisa_da_primeira_mao:
+        return [[{"text": "📤 Mandar uma mão minha",
+                  "callback_data": "go:enviar"}],
+                [{"text": "🎯 Outro treino", "callback_data": "go:treino"}]]
+    return [[{"text": "🔁 Simular esta mão", "callback_data": "pa:sim"},
+             {"text": "🎯 Outro treino", "callback_data": "go:treino"}],
+            [{"text": "📖 Range do spot", "callback_data": "pa:range"},
+             {"text": "📣 Desafiar os amigos", "callback_data": "pa:share"}]]
 
 
 def reveal_drill(drill: dict, choice: str) -> str:
