@@ -45,10 +45,18 @@ if [ ! -f .env ]; then
 fi
 
 # 5. sanity check offline antes de subir
-PYTHONPATH="$APP_DIR" ./venv/bin/python -m pytest -q tests/ || {
-    echo "ERRO: testes falharam; deploy abortado." >&2
-    exit 1
-}
+#    O auto_update.sh já roda o portão NO CLONE, antes de copiar para cá — é
+#    lá que ele protege de verdade (aqui o código novo já está no disco de
+#    produção). Repetir custaria ~3min a cada push, então ele avisa por
+#    PORTAO_JA_PASSOU. Rodando à mão, o portão continua valendo.
+if [ "${PORTAO_JA_PASSOU:-0}" = "1" ]; then
+    echo "portão já passou no clone (auto_update) — pulando pytest"
+else
+    PYTHONPATH="$APP_DIR" ./venv/bin/python -m pytest -q tests/ || {
+        echo "ERRO: testes falharam; deploy abortado." >&2
+        exit 1
+    }
+fi
 
 # 6. pm2 (mesmo gerenciador dos outros bots do VPS)
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
