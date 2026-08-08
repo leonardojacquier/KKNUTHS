@@ -4,23 +4,67 @@ Servido pela própria API (uvicorn/pm2), protegido por ADMIN_TOKEN.
 Lê tudo do Supabase via service role; se o banco estiver indisponível,
 renderiza com zeros em vez de quebrar.
 
-Acesso:  GET /admin?key=<ADMIN_TOKEN>
+Acesso:  GET /admin?key=<ADMIN_TOKEN> — o token é trocado por um cookie
+HttpOnly na primeira visita e a URL é limpa; os links internos não carregam
+mais o segredo.
 """
 from __future__ import annotations
 
 import html
 import json
 import re
+import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import get_settings
 from app.db import get_repository
 
 router = APIRouter()
+
+# ---------------------------------------------------------------- porta ----
+# O TOKEN VIAJAVA NA URL DE TODA PÁGINA. Cada link interno reinjetava
+# `?key=<ADMIN_TOKEN>`, então o segredo ficava no histórico do navegador, no
+# log de acesso do servidor e — o caminho mais provável aqui — em qualquer
+# print da tela com a barra de endereço visível. O dono manda print do portal
+# com frequência.
+#
+# A ergonomia continua a mesma: abre o link com ?key= UMA vez, o servidor
+# troca por cookie HttpOnly e redireciona para a URL limpa. Daí em diante os
+# links internos vão sem segredo nenhum.
+_COOKIE = "kkn_admin"
+_COOKIE_MAX_AGE = 60 * 60 * 12
+
+
+def token_confere(valor: str | None) -> bool:
+    """Comparação em tempo constante — e sem ADMIN_TOKEN, ninguém entra."""
+    esperado = get_settings().admin_token
+    if not esperado:
+        return False
+    return secrets.compare_digest(str(valor or ""), esperado)
+
+
+def _porta(request: Request | None, key: str, destino: str):
+    """None = pode renderizar. Response = redirect que limpa a URL. 401 sobe.
+
+    Chamada direta sem `request` (os testes, e qualquer uso interno) segue
+    valendo pelo token: a porta é a mesma, só o transporte muda.
+    """
+    cookie = request.cookies.get(_COOKIE) if request is not None else None
+    if token_confere(cookie):
+        return None
+    if not token_confere(key):
+        raise HTTPException(status_code=401, detail="token inválido")
+    if request is None:
+        return None
+    r = RedirectResponse(destino, status_code=303)
+    r.set_cookie(_COOKIE, get_settings().admin_token, max_age=_COOKIE_MAX_AGE,
+                 httponly=True, samesite="lax",
+                 secure=request.url.scheme == "https")
+    return r
 
 # teto da varredura de eventos do painel. Existe para a página não puxar o
 # banco inteiro; quando ele é atingido a página AVISA, em vez de mostrar
@@ -856,8 +900,8 @@ def _bloco_foco(ver: str, d: dict, key: str, tg: int) -> str:
         cartas = " ".join((m.get("canonical") or {}).get("hero_cards") or [])
         ev = a.get("ev_loss")
         linhas.append(
-            f"<tr><td class='n'><a href='/admin/mao?key={esc(key)}"
-            f"&id={esc(str(m['id']))}&tg={tg}'>"
+            f"<tr><td class='n'><a href='/admin/mao"
+            f"?id={esc(str(m['id']))}&tg={tg}'>"
             f"{esc(str(m.get('created_at'))[:16].replace('T', ' '))}</a></td>"
             f"<td class='n'>{esc(cartas) or '—'}</td>"
             f"<td>{esc(str(m.get('site') or ''))[:22]}</td>"
@@ -870,15 +914,15 @@ def _bloco_foco(ver: str, d: dict, key: str, tg: int) -> str:
 
 
 @router.get("/admin/mao", response_class=HTMLResponse)
-async def admin_mao(key: str = Query(default=""),
+async def admin_mao(request: Request = None, key: str = Query(default=""),
                     id: str = Query(default=""),
-                    tg: int = Query(default=0)) -> str:
+                    tg: int = Query(default=0)):
     """A mão inteira: o que o coach respondeu, e o que aconteceu na mesa."""
-    settings = get_settings()
-    if not settings.admin_token or key != settings.admin_token:
-        raise HTTPException(status_code=401, detail="token inválido")
+    limpa = _porta(request, key, f"/admin/mao?id={id}&tg={tg}")
+    if limpa is not None:
+        return limpa
     esc = html.escape
-    volta = (f"<a class='volta' href='/admin/usuario?key={esc(key)}&tg={tg}"
+    volta = (f"<a class='volta' href='/admin/usuario?tg={tg}"
              f"&ver=maos'>← voltar para as mãos</a>")
     repo = get_repository()
     if not repo.enabled:
@@ -935,15 +979,15 @@ async def admin_mao(key: str = Query(default=""),
 
 
 @router.get("/admin/usuario", response_class=HTMLResponse)
-async def admin_usuario(key: str = Query(default=""),
+async def admin_usuario(request: Request = None, key: str = Query(default=""),
                         tg: int = Query(default=0),
-                        ver: str = Query(default="")) -> str:
-    settings = get_settings()
-    if not settings.admin_token or key != settings.admin_token:
-        raise HTTPException(status_code=401, detail="token inválido")
+                        ver: str = Query(default="")):
+    limpa = _porta(request, key, f"/admin/usuario?tg={tg}&ver={ver}")
+    if limpa is not None:
+        return limpa
     esc = html.escape
     d = _dossie(tg)
-    volta = f"<a class='volta' href='/admin?key={esc(key)}'>← voltar</a>"
+    volta = f"<a class='volta' href='/admin'>← voltar</a>"
     if not d.get("db"):
         return (f"<style>{_CSS}</style><div class='wrap'>{volta}"
                 "<div class='warn'>Banco indisponível.</div></div>")
@@ -1017,7 +1061,7 @@ async def admin_usuario(key: str = Query(default=""),
     # parecia impossível — eram coisas diferentes com o mesmo nome: o treino
     # veio do botão "treinar", não do quiz das 19h.
     ver = ver if ver in _FOCOS else ""
-    base = f"/admin/usuario?key={esc(key)}&tg={tg}"
+    base = f"/admin/usuario?tg={tg}"
     caixas_def = [
         ("maos", agg.get("maos_banco", 0), "mãos no banco", ""),
         (None, agg["maos"], "envios analisados", ""),
@@ -1097,10 +1141,10 @@ async def admin_usuario(key: str = Query(default=""),
 
 
 @router.get("/admin", response_class=HTMLResponse)
-async def admin(key: str = Query(default="")) -> str:
-    settings = get_settings()
-    if not settings.admin_token or key != settings.admin_token:
-        raise HTTPException(status_code=401, detail="token inválido")
+async def admin(request: Request = None, key: str = Query(default="")):
+    limpa = _porta(request, key, "/admin")
+    if limpa is not None:
+        return limpa
 
     m = _collect()
     esc = html.escape
@@ -1118,7 +1162,7 @@ async def admin(key: str = Query(default="")) -> str:
         nome = u.get("username") or str(tg)
         # o nome vira porta para o dossiê: com 10 usuários, o caso
         # individual ensina mais que qualquer média (conselho, 02/08)
-        link = f"<a href='/admin/usuario?key={esc(key)}&amp;tg={tg}'>" \
+        link = f"<a href='/admin/usuario?tg={tg}'>" \
                f"{esc(str(nome))}</a>"
         user_rows.append(
             f"<tr><td>{link}</td>"
@@ -1186,7 +1230,7 @@ async def admin(key: str = Query(default="")) -> str:
         ts = str(r.get("created_at") or "")
         quem = esc(_quem(r))
         if isinstance(tg, int) and tg > 0:
-            quem = f"<a href='/admin/usuario?key={esc(key)}&amp;tg={tg}'>" \
+            quem = f"<a href='/admin/usuario?tg={tg}'>" \
                    f"{quem}</a>"
         atos.append(
             f"<div class='ato {n['classe']}'>"
@@ -1233,7 +1277,7 @@ async def admin(key: str = Query(default="")) -> str:
                "sumido": ("🔴", "sumido"), "novo": ("🆕", "recém-chegado"),
                "nunca_usou": ("⚫", "nunca usou")}
     risco_rows = "".join(
-        f"<tr><td><a href='/admin/usuario?key={esc(key)}&amp;tg={s['tg']}'>"
+        f"<tr><td><a href='/admin/usuario?tg={s['tg']}'>"
         f"{esc(str(s['nome']))}</a></td>"
         f"<td>{_ROTULO.get(s['estado'], ('', s['estado']))[0]} "
         f"{esc(_ROTULO.get(s['estado'], ('', s['estado']))[1])}</td>"

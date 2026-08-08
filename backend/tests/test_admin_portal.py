@@ -129,8 +129,10 @@ def test_nome_na_tabela_leva_ao_dossie():
     from app.api import admin
 
     fonte = inspect.getsource(admin.admin)
-    assert "/admin/usuario?key=" in fonte
-    assert "tg=" in fonte
+    # sem o segredo no link: ele virou cookie na primeira visita
+    assert "/admin/usuario?tg=" in fonte
+    assert "key=" not in fonte.split("risco_rows")[-1], \
+        "link interno voltou a carregar o ADMIN_TOKEN"
 
 
 def test_dossie_mostra_as_quatro_camadas():
@@ -286,7 +288,7 @@ def test_mao_abre_inteira_e_exige_chave():
 
     fonte = inspect.getsource(admin.admin_mao)
     assert "summary,ev_loss,mistakes,modelo,created_at" in fonte
-    assert "token inválido" in fonte
+    assert "_porta(" in fonte, "a rota tem que passar pela porta"
 
     get_settings.cache_clear()
     c = TestClient(app)
@@ -468,4 +470,4 @@ def test_home_mostra_feed_narrado_e_nao_dump():
     # o dump antigo saiu de cena
     assert "<th>Evento</th><th>Detalhe</th>" not in fonte
     # e cada linha do feed leva ao dossiê da pessoa
-    assert "/admin/usuario?key=" in fonte
+    assert "/admin/usuario?tg=" in fonte

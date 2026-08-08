@@ -17,6 +17,8 @@ from app.analysis.tools import fmt_chips as _fmt_chips
 from app.bot.progresso import marcar
 from app.config import get_settings
 from app.db import get_repository
+from app.bot.memoria_do_processo import (esquecer, guardar_com_prazo,
+                                        lembrar, varrer_expirados)
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
 from app.quota import (ADMIN_TELEGRAM_ID, MAX_COACHED_HANDS, PLANOS_MANUAIS,
@@ -149,7 +151,8 @@ def _stash_charts(telegram_id: int, specs: list, user_id: str | None = None) -> 
             get_repository().log_event(
                 telegram_id, None, "chart_failed", {"spec": repr(spec)[:300]})
     if charts:
-        PENDING_CHARTS[telegram_id] = (_time.time(), charts)
+        guardar_com_prazo(PENDING_CHARTS, telegram_id,
+                          (_time.time(), charts), _CHART_TTL)
 
 
 def pop_charts(telegram_id: int) -> list[tuple[bytes, str]]:
@@ -185,7 +188,9 @@ _PASTE_CAP = 400_000  # ~100 partes; acima disso, mantém o final
 def stash_paste(telegram_id: int, text: str, parts: int = 1) -> None:
     import time
 
-    PENDING_PASTE[telegram_id] = (text[-_PASTE_CAP:], time.time(), parts)
+    guardar_com_prazo(PENDING_PASTE, telegram_id,
+                      (text[-_PASTE_CAP:], time.time(), parts), _PASTE_TTL,
+                      quando=lambda v: v[1])
 
 
 def take_paste(telegram_id: int) -> tuple[str, int]:
@@ -203,7 +208,7 @@ def take_paste(telegram_id: int) -> tuple[str, int]:
 
 def remember_hands(telegram_id: int, hands: list[CanonicalHand]) -> None:
     cur = RECENT_HANDS.get(telegram_id, [])
-    RECENT_HANDS[telegram_id] = (cur + hands)[-_RECENT_CAP:]
+    lembrar(RECENT_HANDS, telegram_id, (cur + hands)[-_RECENT_CAP:])
 
 
 # análises em andamento por usuário: N mensagens simultâneas com 1 análise
@@ -254,7 +259,11 @@ def process_upload(
         )
     finally:
         with _inflight_lock():
-            _INFLIGHT[telegram_id] = max(0, _INFLIGHT.get(telegram_id, 1) - 1)
+            restante = max(0, _INFLIGHT.get(telegram_id, 1) - 1)
+            if restante:
+                _INFLIGHT[telegram_id] = restante
+            else:
+                esquecer(_INFLIGHT, telegram_id)
 
 
 def _process_upload_inner(
@@ -350,7 +359,8 @@ def _process_upload_inner(
     marcar(telegram_id, f"Calculando {len(hands)} mão(s)"
            if len(hands) > 1 else "Calculando a mão")
     is_tournament = hands[0].format.value in ("tournament", "sng") and len(hands) > 1
-    LAST_UPLOAD_KIND[telegram_id] = "tournament" if is_tournament else "hand"
+    lembrar(LAST_UPLOAD_KIND, telegram_id,
+            "tournament" if is_tournament else "hand")
     key_hands = None
     if is_tournament:
         structured = analyze_tournament(hands)
@@ -359,12 +369,12 @@ def _process_upload_inner(
         structured = analyze_hand(hands[0])
         if result.source_format == "image":
             _augment_snapshot(structured, hands[0])
-        LAST_HAND_META[telegram_id] = {
+        lembrar(LAST_HAND_META, telegram_id, {
             "hand_id": hands[0].hand_id,
             "position": structured.get("position"),
             "stack_bb": structured.get("effective_bb")
             or structured.get("hero_stack_bb"),
-        }
+        })
     # o que o usuário ESCREVEU junto do envio (legenda da foto/arquivo) é
     # parte da mão: posições, ações e contexto que o print não mostra —
     # antes era descartado ("eu narrei a mão. Ele não considerou?")
@@ -381,9 +391,13 @@ def _process_upload_inner(
             "da imagem, confie no relato e diga o que ajustou.")
 
     # ---- stats cumulativas (histórico completo quando há banco) ----
-    all_hands = repo.get_all_hands(user["id"]) if user else []
+    # só o que conta para o PERFIL desce do banco: replay e print são
+    # descartados aqui de qualquer jeito, e baixá-los para jogar fora custa
+    # 15 MB e 2.3 s de pydantic a cada envio quando o histórico cresce
+    all_hands, fora = repo.get_hands_para_perfil(user["id"]) if user else ([], 0)
     stats_source = all_hands or RECENT_HANDS.get(telegram_id, hands)
-    stats = compute_player_stats(stats_source, player=None)
+    stats = compute_player_stats(stats_source, player=None,
+                                 fora_da_amostra=fora if all_hands else 0)
     # só grava stats calculadas do HISTÓRICO COMPLETO: uma falha transitória do
     # get_all_hands não pode sobrescrever o perfil acumulado com a amostra em
     # memória (ex.: 5000 mãos viram 3)
@@ -608,7 +622,8 @@ def _process_upload_inner(
                 "o Nº da sala em cada uma. Quer abrir alguma? Me manda o Nº "
                 "ou as cartas aqui no chat.",
             ))
-            PENDING_DOCS[telegram_id] = (_time.time(), _docs)
+            guardar_com_prazo(PENDING_DOCS, telegram_id,
+                              (_time.time(), _docs), _CHART_TTL)
         except Exception as exc:
             log.warning("relatório mão a mão falhou: %s", exc)
 
@@ -904,7 +919,7 @@ def abrir_conversa(telegram_id: int, *, context: dict,
         "user_id": user_id,
         **extra,
     }
-    LAST_ANALYSIS[telegram_id] = ctx
+    lembrar(LAST_ANALYSIS, telegram_id, ctx)
     return ctx
 
 
@@ -1041,7 +1056,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         saved = get_repository().get_conversation(telegram_id)
         if saved and saved.get("context"):
             ctx = saved
-            LAST_ANALYSIS[telegram_id] = ctx
+            lembrar(LAST_ANALYSIS, telegram_id, ctx)
     if not ctx:
         # 2º (legado): reconstrói o mínimo a partir da última análise salva
         repo = get_repository()
@@ -1371,9 +1386,11 @@ def style_report(telegram_id: int, username: str | None,
     stats = None
     if repo.enabled:
         user = repo.get_or_create_user(telegram_id, username)
-        hands = repo.get_all_hands(user["id"]) if user else []
+        hands, fora = repo.get_hands_para_perfil(user["id"]) if user \
+            else ([], 0)
         if hands:
-            stats = compute_player_stats(hands, player=None)
+            stats = compute_player_stats(hands, player=None,
+                                         fora_da_amostra=fora)
     if stats is None:
         recent = RECENT_HANDS.get(telegram_id, [])
         stats = compute_player_stats(recent, player=None) if recent else None
@@ -1733,11 +1750,13 @@ def prepare_report(telegram_id: int, username: str | None,
     """
     repo = get_repository()
     user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
-    src_hands = (repo.get_all_hands(user["id"]) if user else []) or \
-        RECENT_HANDS.get(telegram_id, [])
+    do_banco, fora = repo.get_hands_para_perfil(user["id"]) if user \
+        else ([], 0)
+    src_hands = do_banco or RECENT_HANDS.get(telegram_id, [])
     if not src_hands:
         return None
-    stats = compute_player_stats(src_hands, player=None)
+    stats = compute_player_stats(src_hands, player=None,
+                                 fora_da_amostra=fora if do_banco else 0)
     if not stats or not stats.hands:
         return None
 
@@ -3195,13 +3214,13 @@ def build_drill(telegram_id: int) -> dict | None:
     _, h, di, chosen_street, chosen_hid, chosen_cat = \
         random.choices(pool, weights=weights, k=1)[0]
 
-    # atualiza as memórias anti-repetição (mãos e streets)
-    mem = RECENT_DRILLS.setdefault(telegram_id, [])
-    mem.append(chosen_hid)
-    del mem[:-_DRILL_MEMORY]
-    stm = _RECENT_DRILL_STREETS.setdefault(telegram_id, [])
-    stm.append(chosen_street)
-    del stm[:-_STREET_MEMORY]
+    # atualiza as memórias anti-repetição (mãos e streets). `lembrar` também
+    # marca o usuário como recente: quem treina toda noite não é despejado
+    # por causa de quem mandou um arquivo e sumiu.
+    mem = list(RECENT_DRILLS.get(telegram_id) or []) + [chosen_hid]
+    lembrar(RECENT_DRILLS, telegram_id, mem[-_DRILL_MEMORY:])
+    stm = list(_RECENT_DRILL_STREETS.get(telegram_id) or []) + [chosen_street]
+    lembrar(_RECENT_DRILL_STREETS, telegram_id, stm[-_STREET_MEMORY:])
 
     lines, decisions = _walk_hand(h)
     d = decisions[di]
@@ -3211,11 +3230,11 @@ def build_drill(telegram_id: int) -> dict | None:
 
     # esta é a mão que o aluno está vendo agora: /simular e "Simular esta mão"
     # devem cair NELA, não numa mão qualquer com mais decisões
-    LAST_HAND_META[telegram_id] = {
+    lembrar(LAST_HAND_META, telegram_id, {
         "hand_id": h.hand_id,
         "position": seat.position if seat else None,
         "stack_bb": stack_bb,
-    }
+    })
 
     # história limpa e EM ORDEM: pré-flop resumido por posição (UTG primeiro) +
     # cada street pós-flop lance a lance. O corte antigo (story[-12:]) fatiava

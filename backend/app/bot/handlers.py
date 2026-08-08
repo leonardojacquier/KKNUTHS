@@ -566,6 +566,7 @@ async def cmd_banca(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_leitura(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """/leitura — treino de hand reading: adivinhe o que o vilão mostrou."""
     from app.bot.processing import HR_PENDING, _pretty_cards, build_hand_reading
+    from app.bot.memoria_do_processo import lembrar
 
     tg_id = update.effective_user.id
     await _log(update, "leitura")
@@ -576,7 +577,7 @@ async def cmd_leitura(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             "de leitura — cola um link de replay que foi até o fim.")
         return
     ctx.user_data["hr"] = hr
-    HR_PENDING[tg_id] = hr
+    lembrar(HR_PENDING, tg_id, hr)
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton(_pretty_cards(o), callback_data=f"hr:{i}")]
         for i, o in enumerate(hr["options"])])

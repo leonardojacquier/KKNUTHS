@@ -682,7 +682,9 @@ def test_post_analysis_buttons_by_context():
     import inspect
 
     from app.bot import processing
-    assert "LAST_UPLOAD_KIND[telegram_id]" in inspect.getsource(
+    # (a gravação passou a ir por `lembrar`, que dá teto de memória ao mapa —
+    #  o contexto continua saindo daqui)
+    assert "lembrar(LAST_UPLOAD_KIND, telegram_id," in inspect.getsource(
         processing._process_upload_inner)
 
 

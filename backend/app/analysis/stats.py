@@ -47,17 +47,23 @@ def amostra_completa(hands: list[CanonicalHand]) -> list[CanonicalHand]:
 
 
 def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
-                         somente_amostra_completa: bool = True) -> PlayerStats:
+                         somente_amostra_completa: bool = True,
+                         fora_da_amostra: int = 0) -> PlayerStats:
     """Stats de `player`; com player=None usa o herói de cada mão — correto para
     histórico cumulativo, onde o nick do herói varia entre salas.
 
     Por padrão mede só sobre export de sessão inteira: frequência tirada de
     replay avulso/print é um artefato da escolha do aluno.
+
+    `fora_da_amostra` são mãos JÁ descartadas antes de chegar aqui — hoje
+    pelo filtro no banco (`get_hands_para_perfil`). Sem esse número, quem só
+    manda replay ficava com "amostra insuficiente" em vez de "só mãos
+    avulsas, que não medem frequência", que é outra coisa.
     """
-    descartadas = 0
+    descartadas = max(0, int(fora_da_amostra or 0))
     if somente_amostra_completa:
         completas = amostra_completa(hands)
-        descartadas = len(hands) - len(completas)
+        descartadas += len(hands) - len(completas)
         hands = completas
     n = 0
     vpip_h = pfr_h = three_bet_h = 0

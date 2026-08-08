@@ -125,6 +125,7 @@ alter table pending_drills enable row level security;
 -- RLS sem políticas bloqueia anon/authenticated por completo — default seguro, pois
 -- o cliente Telegram nunca fala direto com o banco. Para um futuro painel web com
 -- login Supabase, adicionar políticas por usuário (ex.: using auth.uid() = user_id).
+alter table public.bot_events     enable row level security;
 alter table public.users          enable row level security;
 alter table public.subscriptions  enable row level security;
 alter table public.usage_events   enable row level security;
@@ -274,3 +275,42 @@ as $$
        set usos = usos + 1, updated_at = now()
      where id = any(p_ids);
 $$;
+
+-- ──────────────── biblioteca de lições e glossário vivo ────────────────
+-- Estas duas nasceram FORA deste arquivo (criadas direto no banco) e por
+-- isso escaparam do bloco de RLS lá em cima: eram as duas únicas tabelas de
+-- `public` sem row level security, com grant de SELECT/INSERT/UPDATE/DELETE
+-- para `anon`. Sem RLS a grant vale direto — qualquer um com a URL do
+-- projeto e a chave anon (que é pública por desenho) escrevia nelas.
+--
+-- O que isso dá a um estranho não é ler dado de aluno: é ESCREVER na boca do
+-- coach. Lição é o objeto que fala com todos de uma vez e leva a assinatura
+-- da ferramenta; termo de glossário aprovado vira troca determinística no
+-- texto entregue.
+create table if not exists licoes (
+    id               serial primary key,
+    hand_analysis_id uuid references hand_analysis(id) on delete set null,
+    titulo           text not null,
+    spot             text not null,
+    licao            text not null,
+    ev_bb            real,
+    categoria        text,
+    aprovada         boolean not null default false,
+    publicada        boolean not null default false,
+    enviada_em       timestamptz,
+    created_at       timestamptz not null default now()
+);
+
+create table if not exists glossario (
+    id         serial primary key,
+    errado     text not null,
+    certo      text not null,
+    tipo       text not null default 'vigiar',
+    aprovado   boolean not null default false,
+    origem     text not null default 'linguista',
+    exemplo    text,
+    created_at timestamptz not null default now()
+);
+
+alter table public.licoes    enable row level security;
+alter table public.glossario enable row level security;
