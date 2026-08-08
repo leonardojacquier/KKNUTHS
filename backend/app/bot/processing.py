@@ -26,6 +26,7 @@ from app.bot.leitura_da_mao import (_decision_aggressor, _describe_safe,
                                     _fmt_bb, _mark_aggressor,
                                     _preflop_summary, _pretty_cards,
                                     _seats_at_decision, _walk_hand)
+from app.analysis.stats import perfil_que_pode_ser_dito
 from app.bot.menus import (_DRILL_ACTIONS, action_menu_rows,
                           botoes_pos_treino, drill_action,
                           size_menu_rows, sizing_amounts)
@@ -1100,7 +1101,8 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         user = None
         if repo.enabled:
             user = repo.get_or_create_user(telegram_id, username)
-            stats = repo.get_player_stats(user["id"]) if user else None
+            stats = perfil_que_pode_ser_dito(
+                repo.get_player_stats(user["id"])) if user else None
         ctx = abrir_conversa(
             telegram_id,
             context={

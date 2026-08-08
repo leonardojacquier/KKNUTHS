@@ -290,18 +290,30 @@ class Repository:
     # --------------------------- player stats -------------------------
     @_safe(None)
     def upsert_player_stats(self, user_id: str, stats: Any) -> None:
+        """Grava o perfil — e NÃO grava taxa que a amostra não sustenta.
+
+        O portão fica aqui, na ESCRITA, de propósito. Ele já existia na
+        leitura (`publicavel`) e mesmo assim o VPIP 94,3% do Ricardo ficou
+        na tabela e seguiu sendo injetado como `perfil_do_jogador` no
+        contexto do coach a cada pergunta aberta — meses depois do conserto
+        do cálculo. Consumidor distraído é regra, não exceção; se o número
+        errado nunca é gravado, ninguém consegue mostrá-lo.
+        """
         if not self._guard():
             return None
+        publicavel = bool(getattr(stats, "publicavel", True))
+        detail = dict(stats.detail or {})
+        detail["publicavel"] = publicavel
         self.client.table("player_stats").upsert(
             {
                 "user_id": user_id,
                 "hands": stats.hands,
-                "vpip": stats.vpip,
-                "pfr": stats.pfr,
-                "three_bet": stats.three_bet,
-                "af": stats.af,
+                "vpip": stats.vpip if publicavel else None,
+                "pfr": stats.pfr if publicavel else None,
+                "three_bet": stats.three_bet if publicavel else None,
+                "af": stats.af if publicavel else None,
                 "label": stats.label,
-                "detail": stats.detail,
+                "detail": detail,
             },
             on_conflict="user_id",
         ).execute()
@@ -315,6 +327,11 @@ class Repository:
         quando a flag está ligada) — /evolucao dizendo 'VPIP 100' com /stats
         dizendo '28%' era o mesmo jogador se contradizendo entre comandos."""
         if not self._guard():
+            return None
+        # ponto de evolução também é FREQUÊNCIA: amostra que não sustenta a
+        # taxa não vira ponto no gráfico. Sem isto, o /evolucao desenharia a
+        # linha do tempo de um número que o /stats se recusa a dizer.
+        if not bool(getattr(stats, "publicavel", True)):
             return None
         vpip, pfr, three_bet, af = stats.vpip, stats.pfr, stats.three_bet, stats.af
         try:

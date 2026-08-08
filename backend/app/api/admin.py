@@ -433,6 +433,7 @@ h1{font-size:22px;margin:0 0 4px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px}
 .kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--felt);padding:14px}
 .kpi.err{border-top-color:var(--red)}
+.ic{color:var(--mut);font-size:11px}
 /* a métrica-norte tem que PARECER a métrica-norte: era só uma frase no
    subtítulo, do mesmo tamanho de "atualizado agora" */
 .kpi.ns{border-top-color:var(--gold);border-top-width:5px;padding-top:12px}
@@ -636,6 +637,25 @@ def narrar_evento(e: dict) -> dict | None:
         return _t("Recebeu uma reanálise (correção nossa)", "🔄", "mid")
     # evento novo que ainda não traduzi: mostra cru, mas não some
     return _t(html.escape(ev), "•", "mut")
+
+
+def taxa(v, n: int | None = None) -> str:
+    """Uma taxa como ela pode ser dita. Função pura.
+
+    `None` vira travessão, NUNCA zero: `p.get('vpip') or 0` transformava
+    "não dá para medir" em "VPIP 0%", que é outra mentira — e a mais fácil
+    de acreditar, porque parece um número.
+
+    Com `n`, sai a margem junto: 'VPIP 26%' promete uma precisão que o
+    denominador não paga.
+    """
+    if v is None:
+        return "—"
+    if n:
+        from app.analysis.stats import margem_de_erro_pp
+
+        return f"{v}<span class='ic'> ±{margem_de_erro_pp(n):g}</span>"
+    return str(v)
 
 
 def _linha_do_veredito(summary: str) -> tuple[str, str]:
@@ -1101,10 +1121,10 @@ async def admin_usuario(request: Request = None, key: str = Query(default=""),
         f"<div class='tbl'><table><tr><th>Mãos</th><th>VPIP%</th>"
         f"<th>PFR%</th><th>3-bet%</th><th>AF</th><th>Estilo</th></tr>"
         f"<tr><td class='n'>{p.get('hands') or 0}</td>"
-        f"<td class='n'>{p.get('vpip') or 0}</td>"
-        f"<td class='n'>{p.get('pfr') or 0}</td>"
-        f"<td class='n'>{p.get('three_bet') or 0}</td>"
-        f"<td class='n'>{p.get('af') or 0}</td>"
+        f"<td class='n'>{taxa(p.get('vpip'), p.get('hands'))}</td>"
+        f"<td class='n'>{taxa(p.get('pfr'), p.get('hands'))}</td>"
+        f"<td class='n'>{taxa(p.get('three_bet'))}</td>"
+        f"<td class='n'>{taxa(p.get('af'))}</td>"
         f"<td>{esc(str(p.get('label') or ''))}</td></tr></table></div>"
         if p else "<p class='sub'>sem perfil — precisa de export de sessão "
                   "inteira (replay avulso não mede frequência).</p>")
@@ -1211,8 +1231,10 @@ async def admin(request: Request = None, key: str = Query(default="")):
     profile_rows = "".join(
         f"<tr><td>{esc(str(m['nome_por_uid'].get(p.get('user_id')) or '?'))}</td>"
         f"<td class='n'>{p.get('hands') or 0}</td>"
-        f"<td class='n'>{p.get('vpip') or 0}</td><td class='n'>{p.get('pfr') or 0}</td>"
-        f"<td class='n'>{p.get('three_bet') or 0}</td><td class='n'>{p.get('af') or 0}</td>"
+        f"<td class='n'>{taxa(p.get('vpip'), p.get('hands'))}</td>"
+        f"<td class='n'>{taxa(p.get('pfr'), p.get('hands'))}</td>"
+        f"<td class='n'>{taxa(p.get('three_bet'))}</td>"
+        f"<td class='n'>{taxa(p.get('af'))}</td>"
         f"<td>{esc(str(p.get('label') or ''))}</td></tr>"
         for p in m["profiles"]
     ) or "<tr><td colspan=7>sem perfis ainda</td></tr>"

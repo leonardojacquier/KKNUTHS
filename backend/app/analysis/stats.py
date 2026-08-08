@@ -20,6 +20,23 @@ from app.models.canonical import ActionType, CanonicalHand, StreetName
 # mãos, é 26% — ele mandou o print pra ferramenta no mesmo dia.
 FONTES_COMPLETAS = {"txt", "text", "csv", "phh", "pdf"}
 MINIMO_PARA_PERFIL = 30
+# rótulo de estilo ("LAG", "calling station") é afirmação sobre QUEM a pessoa
+# é. Com 54 mãos o intervalo do VPIP é ±13 pontos — largo o bastante para o
+# rótulo virar outro. Número com intervalo declarado a partir de 30; rótulo
+# só com 100.
+MINIMO_PARA_ROTULO = 100
+
+
+def margem_de_erro_pp(n: int, p: float = 0.25) -> float:
+    """Meia-largura do IC95 de uma proporção, em pontos percentuais.
+
+    Existe para que NENHUMA taxa apareça sem ela. 'VPIP 26%' é uma promessa
+    de precisão que o denominador não paga; 'VPIP 26% (n=148, ±7pp)' é o
+    mesmo dado sem a promessa.
+    """
+    if n <= 0:
+        return 50.0
+    return round(200.0 * ((p * (1 - p)) / n) ** 0.5, 1)
 
 
 @dataclass
@@ -39,6 +56,40 @@ class PlayerStats:
         vira frequência — melhor não ter perfil que ter um errado."""
         return self.hands >= MINIMO_PARA_PERFIL and not self.detail.get(
             "amostra_viesada")
+
+    @property
+    def margem_pp(self) -> float:
+        return margem_de_erro_pp(self.hands)
+
+
+class AmostraCurada(Exception):
+    """Tentaram tirar FREQUÊNCIA de mãos escolhidas a dedo.
+
+    O incidente do VPIP 94% não foi amostra pequena — foi viés de seleção.
+    Com 53 replays que o aluno escolheu mandar, o VPIP dá 94%; com 5.000
+    replays que ele escolheu, TAMBÉM daria 94%. Amostra maior não conserta
+    viés: o estimador converge para o valor errado.
+
+    Por isso isto é exceção e não aviso. 'Tomar cuidado ao usar' é o que já
+    existia, e o número errado foi para a tela do aluno mesmo assim.
+    """
+
+
+def exigir_amostra_completa(hands: list[CanonicalHand], oquê: str) -> None:
+    """Portão para qualquer número MARGINAL (taxa, frequência, bb/100).
+
+    Não vale para análise da mão nem para EV de uma decisão — ali o replay
+    avulso é dado legítimo, porque a conta é sobre AQUELA mão e não sobre a
+    distribuição do jogo do aluno.
+    """
+    curadas = [h for h in hands
+               if (getattr(h, "source_format", None) or "txt")
+               not in FONTES_COMPLETAS]
+    if curadas:
+        raise AmostraCurada(
+            f"{oquê}: {len(curadas)} de {len(hands)} mãos são escolhidas a "
+            "dedo (replay/print). Frequência só se calcula sobre sessão "
+            "inteira — senão sai o VPIP 94% de novo.")
 
 
 def amostra_completa(hands: list[CanonicalHand]) -> list[CanonicalHand]:
@@ -145,14 +196,22 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
         "post_raises": post_raises,
         "post_calls": post_calls,
         "three_bet_opps": three_bet_opps,
+        "margem_pp": margem_de_erro_pp(n),
     })
     return stats
 
 
 def _label(s: PlayerStats) -> str:
-    """Rótulo heurístico (refinado pelo LLM com contexto na produção)."""
-    if s.hands < 20:
-        return "amostra insuficiente"
+    """Rótulo heurístico (refinado pelo LLM com contexto na produção).
+
+    RÓTULO É AFIRMAÇÃO SOBRE QUEM A PESSOA É — 'calling station' cola. Com
+    54 mãos o VPIP tem ±13 pontos de margem, largura suficiente para o
+    rótulo ser outro. Abaixo de 100 mãos o número sai (com a margem junto),
+    o rótulo não.
+    """
+    if s.hands < MINIMO_PARA_ROTULO:
+        return (f"amostra ainda curta para rótulo de estilo "
+                f"({s.hands} mãos; precisa de {MINIMO_PARA_ROTULO})")
     loose = s.vpip >= 28
     aggressive = s.pfr >= 18 and s.af >= 2.0
     gap = s.vpip - s.pfr
@@ -166,3 +225,37 @@ def _label(s: PlayerStats) -> str:
     if gap <= 6 and s.vpip < 18:
         return "nit (tight-passive)"
     return "tight-passive"
+
+
+def perfil_que_pode_ser_dito(linha: dict | None) -> dict | None:
+    """O perfil como ele entra na boca do coach. Função PURA.
+
+    Este é o caminho por onde o VPIP 94,3% chegava ao aluno: a linha de
+    `player_stats` era injetada crua como `perfil_do_jogador` em toda
+    pergunta aberta. O cálculo já estava consertado havia semanas; a linha
+    velha, não — e ninguém relê uma tabela.
+
+    Devolve o perfil só quando a amostra o sustenta. Quando não sustenta,
+    devolve o MOTIVO em vez de nada: sem isso o coach acha que o aluno é
+    novo, quando na verdade ele mandou 92 mãos pelo canal errado.
+    """
+    if not linha:
+        return None
+    detail = linha.get("detail") or {}
+    n = linha.get("hands") or 0
+    publicavel = detail.get("publicavel")
+    if publicavel is False or linha.get("vpip") is None:
+        return {
+            "frequencias": None,
+            "maos_na_amostra": n,
+            "por_que_sem_perfil": (
+                "as mãos deste aluno vieram de replay avulso/print, que ele "
+                "escolheu mandar — isso mede o gosto dele, não o jogo. "
+                "PROIBIDO afirmar VPIP, PFR, 3-bet ou estilo. Se ele "
+                "perguntar do próprio perfil, explique isso e peça um "
+                "arquivo de sessão inteira (.txt do torneio)."),
+        }
+    return {**linha, "margem_pp": margem_de_erro_pp(n),
+            "instrucao_margem": (
+                f"toda frequência daqui tem ±{margem_de_erro_pp(n):g} pontos "
+                f"de margem ({n} mãos) — cite a margem ou fale qualitativo")}
