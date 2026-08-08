@@ -19,6 +19,16 @@ from app.config import get_settings
 from app.db import get_repository
 from app.bot.memoria_do_processo import (esquecer, guardar_com_prazo,
                                         lembrar, varrer_expirados)
+# EXTRAÍDOS daqui (o arquivo passou de 3.870 linhas): funções puras de
+# leitura de mão e de montagem de teclado. Reexportadas para não quebrar
+# quem importa de `processing` — o import antigo continua valendo.
+from app.bot.leitura_da_mao import (_decision_aggressor, _describe_safe,
+                                    _fmt_bb, _mark_aggressor,
+                                    _preflop_summary, _pretty_cards,
+                                    _seats_at_decision, _walk_hand)
+from app.bot.menus import (_DRILL_ACTIONS, action_menu_rows,
+                          botoes_pos_treino, drill_action,
+                          size_menu_rows, sizing_amounts)
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
 from app.quota import (ADMIN_TELEGRAM_ID, MAX_COACHED_HANDS, PLANOS_MANUAIS,
@@ -2141,14 +2151,6 @@ def ensure_demo_material(telegram_id: int) -> bool:
     return True
 
 
-def _describe_safe(cards, board) -> str | None:
-    """describe_hand sem quebrar o fluxo (drill não pode morrer por leitura)."""
-    try:
-        from app.analysis.equity import describe_hand
-
-        return describe_hand(cards, board)
-    except Exception:
-        return None
 
 
 # DEMO: a mão que todo mundo recebe antes de mandar a sua. Quem só treinou
@@ -2734,73 +2736,8 @@ def sim_summary(sim: dict) -> str:
     return "\n".join(lines)
 
 
-def _pretty_cards(cards: list[str]) -> str:
-    sym = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
-    return " ".join(c[0] + sym.get(c[1], c[1]) for c in cards if len(c) == 2)
 
 
-def _walk_hand(h: CanonicalHand) -> tuple[list[str], list[dict]]:
-    """Percorre a mão narrando por POSIÇÃO e em BB; devolve (linhas, decisões).
-
-    Cada decisão do herói vem com o índice da narrativa naquele momento +
-    street, mesa, pote, preço e a ação real — a matéria-prima do quiz."""
-    from app.models.canonical import ActionType, StreetName
-
-    bb = h.stakes.big_blind or 1
-    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
-    verbs = {"fold": "folda", "check": "dá check", "call": "paga",
-             "bet": "aposta", "raise": "aumenta para"}
-    lines: list[str] = []
-    decisions: list[dict] = []
-    pot = 0.0
-    order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN, StreetName.RIVER]
-
-    for sname in order:
-        st = h.street(sname)
-        if not st:
-            continue
-        contrib: dict[str, float] = {}
-        started = False
-        for a in st.actions:
-            add = a.amount
-            if a.type == ActionType.RAISE and a.to_amount:
-                add = a.to_amount - contrib.get(a.actor, 0.0)
-            counts = a.type != ActionType.POST or a.post_type in ("sb", "bb")
-            outstanding = max(contrib.values(), default=0.0)
-
-            if a.type != ActionType.POST and not started:
-                board = _pretty_cards(st.board) if st.board else ""
-                lines.append(f"*{sname.value.upper()}*" + (f"  ({board})" if board else ""))
-                started = True
-
-            if a.actor == h.hero and a.type != ActionType.POST:
-                to_call = max(0.0, outstanding - contrib.get(h.hero or "", 0.0))
-                decisions.append({
-                    "line_idx": len(lines),
-                    "street": sname.value,
-                    "board": list(st.board),
-                    "pot_bb": round(pot / bb, 1),
-                    "to_call_bb": round(to_call / bb, 1),
-                    "actual": a.type.value,
-                    "amount_bb": round(((a.to_amount or a.amount) / bb), 1),
-                    "all_in": a.all_in,
-                })
-                amt = round((a.to_amount or a.amount) / bb, 1)
-                lines.append(f"  VOCÊ {verbs.get(a.type.value, a.type.value)}"
-                             + (f" {amt:g}bb" if amt else "")
-                             + (" (all-in)" if a.all_in else ""))
-            elif a.type != ActionType.POST:
-                who = pos.get(a.actor, a.actor[:8])
-                amt = round((a.to_amount or a.amount) / bb, 1)
-                lines.append(f"  {who} {verbs.get(a.type.value, a.type.value)}"
-                             + (f" {amt:g}bb" if amt else "")
-                             + (" (all-in)" if a.all_in else ""))
-
-            if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET, ActionType.RAISE):
-                pot += add
-                if counts:
-                    contrib[a.actor] = contrib.get(a.actor, 0.0) + add
-    return lines, decisions
 
 
 def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
@@ -2929,51 +2866,6 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
     return result
 
 
-def _preflop_summary(h: CanonicalHand, stop_actor: str | None = None) -> str | None:
-    """Resumo do pré-flop em ORDEM DE POSIÇÃO (UTG primeiro), compacto e
-    legível — como um jogador conta a mão. Ignora posts de blind/ante.
-    `stop_actor`: para antes da decisão do herói (quando a decisão é no pré)."""
-    from app.models.canonical import ActionType, StreetName
-
-    pre = h.street(StreetName.PREFLOP)
-    if not pre:
-        return None
-    bb = h.stakes.big_blind or 1
-    pos = {p.name: (p.position or "") for p in h.players}
-    # ORDEM CRONOLÓGICA (que já é a ordem de ação correta: UTG primeiro).
-    # Escondemos posts (ruído de blind/ante) e folds — como um jogador conta:
-    # "MP abre 2bb · SB 3-beta 6bb · MP paga". Se folda até o herói, avisa.
-    parts: list[str] = []
-    folds_antes = 0
-    n_raises = 0
-    for a in pre.actions:
-        if a.type == ActionType.POST:
-            continue
-        if stop_actor and a.actor == h.hero:
-            break
-        if a.type == ActionType.FOLD:
-            folds_antes += 1
-            continue
-        who = "você" if a.actor == h.hero else (pos.get(a.actor) or a.actor[:6])
-        amt = round((a.to_amount or a.amount) / bb, 1)
-        if a.type == ActionType.RAISE:
-            n_raises += 1
-            verb = "abre" if n_raises == 1 else (
-                "3-beta" if n_raises == 2 else "4-beta")
-        else:
-            verb = {"call": "paga", "bet": "abre", "check": "dá check"}.get(
-                a.type.value, a.type.value)
-        txt = f"{who} {verb}"
-        # valor só em bet/raise (definem o preço); call = 'paga' (igualou)
-        if amt and a.type.value in ("bet", "raise"):
-            txt += f" {amt:g}bb"
-        if a.all_in:
-            txt += " (all-in)"
-        parts.append(txt)
-    if not parts:
-        # ninguém aumentou/pagou antes do herói — foldou geral até você
-        return "Pré-flop: folda até você" if folds_antes else None
-    return "Pré-flop: " + " · ".join(parts)
 
 
 def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
@@ -3308,82 +3200,10 @@ def build_drill(telegram_id: int) -> dict | None:
     }
 
 
-def _decision_aggressor(h: CanonicalHand, d: dict) -> tuple[str | None, float | None]:
-    """Na street da decisão, quem foi o último a apostar/aumentar ANTES do herói
-    — o vilão que o herói tem de responder — e o tamanho (em bb)."""
-    from app.models.canonical import ActionType, StreetName
-
-    bb = h.stakes.big_blind or 1
-    try:
-        st = h.street(StreetName(d["street"]))
-    except Exception:
-        st = None
-    if not st:
-        return None, None
-    pos = {p.name: (p.position or p.name[:8]) for p in h.players}
-    # o herói pode agir mais de uma vez na street (check, depois fold à aposta).
-    # Guardamos a última aposta/aumento de VILÃO e, quando o herói responde a
-    # ela, essa é a aposta que ele enfrenta.
-    pending = (None, None)
-    facing = (None, None)
-    for a in st.actions:
-        if a.actor == h.hero and a.type != ActionType.POST:
-            if pending[0] is not None:
-                facing = pending      # herói responde a uma aposta pendente
-            continue
-        if a.type in (ActionType.BET, ActionType.RAISE):
-            pending = (a.actor, round((a.to_amount or a.amount) / bb, 1))
-    name, amt = facing
-    return (pos.get(name) if name else None), amt
 
 
-def _mark_aggressor(villains: list[dict], agg_pos, agg_bet,
-                    pos_stack: dict) -> list[dict]:
-    """Marca o vilão que fez a aposta (fichas na figura). Se ele não está na
-    lista de ativos — porque foldou MAIS TARDE na mão —, inclui mesmo assim,
-    senão a aposta que o herói enfrenta some do desenho."""
-    if not agg_pos:
-        return villains
-    for v in villains:
-        if v.get("pos") == agg_pos:
-            v["bet_bb"] = agg_bet
-            v["to_act"] = True
-            return villains
-    villains.append({"pos": agg_pos, "stack_bb": pos_stack.get(agg_pos),
-                     "bet_bb": agg_bet, "to_act": True})
-    return villains
 
 
-def _seats_at_decision(h: CanonicalHand, di: int) -> list[dict]:
-    """TODOS os jogadores (menos o herói) no estado do MOMENTO da decisão di:
-    folded=True só se já tinha foldado ANTES daquele instante. Corrige a mesa
-    que 'mentia' o spot: um vilão ativo na decisão sumia da figura porque
-    foldava mais tarde na mão (multiway virava heads-up)."""
-    from app.models.canonical import ActionType
-
-    bb = h.stakes.big_blind or 1
-    folded: set = set()
-    ndec = 0
-    done = False
-    for st in h.streets:
-        for a in st.actions:
-            if a.actor == h.hero and a.type != ActionType.POST:
-                if ndec == di:
-                    done = True
-                    break
-                ndec += 1
-            elif a.type == ActionType.FOLD:
-                folded.add(a.actor)
-        if done:
-            break
-    out = []
-    for p in sorted(h.players, key=lambda p: p.seat):
-        if p.is_hero or p.name == h.hero:
-            continue
-        out.append({"pos": p.position or p.name[:6],
-                    "stack_bb": round(p.stack / bb, 1),
-                    "folded": p.name in folded})
-    return out
 
 
 def _active_villains(h: CanonicalHand) -> list[dict]:
@@ -3434,111 +3254,16 @@ def drill_message(drill: dict, title: str = "🃏 *Quiz do dia* — mão real su
     return head + body + ask + mira
 
 
-# choice do botão -> (ação base p/ a lógica, rótulo legível p/ o gabarito)
-_DRILL_ACTIONS = {
-    "fold": ("fold", "FOLD"),
-    "call": ("call", "CALL"),
-    "check": ("check", "CHECK"),
-    "raise": ("raise", "RAISE"),          # legado
-    "raise3x": ("raise", "RAISE 3x"),
-    "raisepot": ("raise", "RAISE do tamanho do pote"),
-    "allin": ("raise", "ALL-IN"),
-    "bet": ("bet", "BET"),                # legado
-    "bet33": ("bet", "BET ⅓ do pote"),
-    "bet50": ("bet", "BET ½ do pote"),
-    "betpot": ("bet", "BET do tamanho do pote"),
-}
 
 
-def drill_action(choice: str) -> tuple[str, str]:
-    """(ação base, rótulo) de um choice de botão — normaliza os tamanhos."""
-    return _DRILL_ACTIONS.get(choice, (choice, choice.upper()))
 
 
-def _fmt_bb(x: float | None) -> str:
-    """'(9bb)' pronto pra botão — vazio quando não dá pra calcular."""
-    if not x or x <= 0:
-        return ""
-    return f" ({round(x, 1):g}bb)"
 
 
-def sizing_amounts(pot_bb: float | None, to_call_bb: float | None,
-                   stack_bb: float | None) -> dict[str, float | None]:
-    """Tamanho REAL (em bb) de cada botão de sizing — o aluno vê o número,
-    não só 'raise pote'. Convenções padrão:
-    - raise 3x = aumenta PARA 3× a aposta enfrentada
-    - raise pote = pote + 2× a aposta (pot_bb já inclui a aposta do vilão)
-    - bet ⅓/½/pote = fração do pote atual
-    - all-in = o stack do herói
-    Cap no stack: nunca oferece um sizing maior que o all-in."""
-    pot = pot_bb or 0
-    tc = to_call_bb or 0
-    stack = stack_bb or 0
-
-    def cap(x: float) -> float | None:
-        if x <= 0:
-            return None
-        return min(x, stack) if stack else x
-
-    return {
-        "raise3x": cap(3 * tc),
-        "raisepot": cap(pot + 2 * tc),
-        "bet33": cap(pot / 3),
-        "bet50": cap(pot / 2),
-        "betpot": cap(pot),
-        "allin": stack or None,
-    }
 
 
-def action_menu_rows(pot_bb, to_call_bb, stack_bb, prefix: str,
-                     suffix: str = "") -> list[list[dict]]:
-    """Menu PRINCIPAL de ação, como numa sala de verdade: primeiro a decisão
-    (Fold/Call/Raise ou Check/Bet); apertar Raise/Bet abre o menu de tamanhos
-    (size_menu_rows) — feedback do admin: 'quero apertar no raise e poder
-    escolher o tamanho da aposta'."""
-    if to_call_bb:
-        return [
-            [{"text": "🚫 Fold", "callback_data": f"{prefix}:fold{suffix}"},
-             {"text": f"✅ Call{_fmt_bb(to_call_bb)}",
-              "callback_data": f"{prefix}:call{suffix}"}],
-            [{"text": "⬆️ Raise — escolher tamanho ▸",
-              "callback_data": f"{prefix}:sizes{suffix}"}],
-        ]
-    return [
-        [{"text": "Check", "callback_data": f"{prefix}:check{suffix}"}],
-        [{"text": "🎯 Bet — escolher tamanho ▸",
-          "callback_data": f"{prefix}:sizes{suffix}"}],
-    ]
 
 
-def size_menu_rows(pot_bb, to_call_bb, stack_bb, prefix: str,
-                   suffix: str = "") -> list[list[dict]]:
-    """Submenu de tamanhos (abre no toque em Raise/Bet), com o valor REAL em
-    bb de cada sizing e o Voltar pra trocar de ideia."""
-    amt = sizing_amounts(pot_bb, to_call_bb, stack_bb)
-    if to_call_bb:
-        rows = [
-            [{"text": f"3x{_fmt_bb(amt['raise3x'])}",
-              "callback_data": f"{prefix}:raise3x{suffix}"},
-             {"text": f"Pote{_fmt_bb(amt['raisepot'])}",
-              "callback_data": f"{prefix}:raisepot{suffix}"},
-             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
-              "callback_data": f"{prefix}:allin{suffix}"}],
-        ]
-    else:
-        rows = [
-            [{"text": f"⅓ pote{_fmt_bb(amt['bet33'])}",
-              "callback_data": f"{prefix}:bet33{suffix}"},
-             {"text": f"½ pote{_fmt_bb(amt['bet50'])}",
-              "callback_data": f"{prefix}:bet50{suffix}"},
-             {"text": f"Pote{_fmt_bb(amt['betpot'])}",
-              "callback_data": f"{prefix}:betpot{suffix}"},
-             {"text": f"💥 All-in{_fmt_bb(amt['allin'])}",
-              "callback_data": f"{prefix}:allin{suffix}"}],
-        ]
-    rows.append([{"text": "↩️ Voltar",
-                  "callback_data": f"{prefix}:back{suffix}"}])
-    return rows
 
 
 def drill_buttons(drill: dict) -> list[list[dict]]:
@@ -3553,26 +3278,6 @@ def drill_size_buttons(drill: dict) -> list[list[dict]]:
                           drill.get("stack_bb"), "drill")
 
 
-def botoes_pos_treino(precisa_da_primeira_mao: bool) -> list[list[dict]]:
-    """O "e agora?" depois do gabarito. Função PURA.
-
-    O aluno novo recebia QUATRO mensagens seguidas (gabarito, "qual é mais
-    fácil pra você?", o filme da mão, "e agora?") e, no fim, quatro botões
-    em que NENHUM levava à ação que importa: mandar uma mão dele. Pior:
-    "Simular esta mão" e "Desafiar os amigos" agiam sobre a mão-DEMO — ele
-    ia desafiar o clube com um spot que não jogou.
-
-    Quem ainda não mandou mão vê DOIS botões, com o certo em primeiro. Quem
-    já usa vê os quatro, que aí agem sobre a mão dele e fazem sentido.
-    """
-    if precisa_da_primeira_mao:
-        return [[{"text": "📤 Mandar uma mão minha",
-                  "callback_data": "go:enviar"}],
-                [{"text": "🎯 Outro treino", "callback_data": "go:treino"}]]
-    return [[{"text": "🔁 Simular esta mão", "callback_data": "pa:sim"},
-             {"text": "🎯 Outro treino", "callback_data": "go:treino"}],
-            [{"text": "📖 Range do spot", "callback_data": "pa:range"},
-             {"text": "📣 Desafiar os amigos", "callback_data": "pa:share"}]]
 
 
 def reveal_drill(drill: dict, choice: str) -> str:

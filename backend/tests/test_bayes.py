@@ -3518,7 +3518,7 @@ def test_potes_paralelos_o_curto_nao_leva_o_bolo():
     # e o coach tem a porta + a regra de usá-la
     from app.agent.llm import _SYSTEM, TOOLS
     assert any(t["name"] == "potes_paralelos" for t in TOOLS)
-    assert "C11b" in _SYSTEM["pt"] and "não pode ganhar o bolo inteiro" in _SYSTEM["pt"]
+    assert "C13" in _SYSTEM["pt"] and "não pode ganhar o bolo inteiro" in _SYSTEM["pt"]
 
 
 def _mao_multiway_sem_allin(cartas):
@@ -3618,7 +3618,7 @@ def test_ev_street_a_street_multiway_sem_allin():
     # e a porta existe no coach, com a regra de usá-la
     from app.agent.llm import _SYSTEM, TOOLS
     assert any(t["name"] == "ev_por_street" for t in TOOLS)
-    assert "C11c" in _SYSTEM["pt"]
+    assert "C12" in _SYSTEM["pt"]
 
 
 def test_manual_cobre_as_funcionalidades_novas():
@@ -3761,8 +3761,8 @@ def test_grafico_de_ev_multiway_entrega_conta_em_vez_de_desculpa(monkeypatch):
 
 def test_guarda_da_saida_conserta_o_que_faltou(monkeypatch):
     # entrega 4,5/10: três vezes esta semana o aluno pediu gráfico e recebeu
-    # prosa. Regra de prompt já foi tentada quatro vezes (C10, C11, C11b,
-    # C11c) e falhou. Isto aqui é conferência ANTES de enviar, não pedido.
+    # prosa. Regra de prompt já foi tentada quatro vezes (C10 a C13) e
+    # falhou. Isto aqui é conferência ANTES de enviar, não pedido.
     import app.bot.processing as P
     from app.bot.guarda_saida import (conferir_e_remediar, faltou,
                                       pedido_do_aluno)
