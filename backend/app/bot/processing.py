@@ -3706,6 +3706,14 @@ def storyboard_spot_from_drill(drill: dict, choice: str | None = None) -> dict |
     conta_fraca = vs_aleatoria and pos_flop and to_call
     if conta_fraca:
         eqp, needp = (eq or 0) * 100, (need or 0) * 100
+        # o TEXTO já explicava que a conta não decide; a IMAGEM continuava
+        # com o número em verde grande e a ressalva em cinza 2× menor. Marcar
+        # aqui é o que faz o desenho contar a mesma história.
+        math_d["fraca"] = True
+        math_d["note"] = (
+            f"⚠️ {eqp:.0f}% é contra mão QUALQUER — ele apostou, e quem "
+            f"aposta não aposta com mão qualquer. Contra o range dele a "
+            f"equity cai muito; o preço de {needp:.0f}% não decide sozinho.")
         verdict, correct = "mista", "Depende do range dele"
         verdict_text = (
             f"Contra uma mão qualquer você teria ~{eqp:.0f}% e o pote pede "

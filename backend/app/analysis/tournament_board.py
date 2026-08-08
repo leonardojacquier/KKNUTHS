@@ -216,13 +216,16 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
             d.line([PAD_L, y, W - PAD_R, y], fill=GRID)
             d.text((16, y - 7), f"{ymax*frac:.0f}", fill=GREY_TEXT, font=f_lab)
 
-        # zona de perigo (<10bb) — rótulo à esquerda para não brigar com o fim
-        # da curva
-        if ymax > 10:
-            y10 = CHART_Y + CHART_H - (10 / ymax) * CHART_H
-            d.line([PAD_L, y10, W - PAD_R, y10], fill=(116, 62, 56), width=2)
-            d.text((PAD_L + 6, y10 - 16), "zona de shove (<10bb)", fill=RED,
-                   font=f_lab)
+        # ZONA DE SHOVE (<10bb): a faixa vai por BAIXO da curva e a linha vai
+        # por CIMA. Antes tudo era desenhado antes do `polygon` da área sob a
+        # curva — que preenche do gráfico até a base, ou seja, exatamente
+        # onde a zona mora. Com stack acima de 10bb (quase sempre) a linha e
+        # o rótulo sumiam embaixo do verde: a única referência estratégica do
+        # quadro só aparecia quando o aluno já estava afogado.
+        y10 = CHART_Y + CHART_H - (10 / ymax) * CHART_H if ymax > 10 else None
+        if y10 is not None:
+            d.rectangle([PAD_L, y10, W - PAD_R, CHART_Y + CHART_H],
+                        fill=(46, 30, 30))
 
         pts = [
             (PAD_L + plot_w * (xi - x0) / max(x1 - x0, 1),
@@ -238,6 +241,23 @@ def render_tournament_board(hands: list[CanonicalHand]) -> tuple[bytes, str]:
         for i, p in enumerate(pts):
             if i % step == 0 or i == len(pts) - 1:
                 d.ellipse([p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3], fill=FELT)
+
+        # a linha e o rótulo da zona SÓ AGORA, por cima da área preenchida
+        if y10 is not None:
+            for x in range(int(PAD_L), int(W - PAD_R), 12):   # tracejada
+                d.line([x, y10, min(x + 6, W - PAD_R), y10], fill=RED, width=2)
+            txt = "zona de shove (<10bb)"
+            tw_ = d.textlength(txt, font=f_lab)
+            # halo: o rótulo cai sobre a curva quando o stack passeia por ali
+            d.rectangle([PAD_L + 4, y10 - 18, PAD_L + 10 + tw_, y10 - 2],
+                        fill=PAPER)
+            d.text((PAD_L + 6, y10 - 16), txt, fill=RED, font=f_lab)
+        elif ymax <= 10:
+            # o torneio INTEIRO foi em zona de shove — o quadro dizia nada,
+            # porque a linha de 10bb ficaria fora do eixo
+            d.text((PAD_L + 6, CHART_Y + 6),
+                   "torneio inteiro em zona de shove (<10bb)", fill=RED,
+                   font=f_lab)
         # label do stack final com HALO (fundo) — não briga com a linha
         lbl = f"{ys_raw[-1]:.0f}bb"
         f_lbl = _font(13)

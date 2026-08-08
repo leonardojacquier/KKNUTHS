@@ -9,11 +9,16 @@ import io
 
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 900, 500
+W, H = 900, 540
 PAD_L, PAD_R, PAD_T = 56, 20, 54
 TOP_H = 250      # painel das linhas
 GAP = 56
 BOT_H = 110      # painel do net acumulado
+# RODAPÉ COM ESPAÇO PRÓPRIO. Com H=500 as datas do eixo X caíam em y=478 e a
+# marca em y=474: "06-10" saía por baixo do logo, ilegível. Não era exagero
+# de detalhe — é a data que diz DE QUANDO é a linha do tempo. A faixa abaixo
+# agora é só da marca, e o eixo termina antes dela.
+FOOT_H = 40
 
 # TEMA ESCURO unificado (mesma identidade da mesa/storyboard)
 PAPER = (18, 40, 32)
@@ -110,10 +115,14 @@ def render_evolution_png(history: list[dict], title: str = "Sua evolução") -> 
     d.text((W - PAD_R - 90, bot_y0 - 20), f"{cum[-1]:+.1f} BB",
            fill=GREEN if cum[-1] >= 0 else RED, font=f_leg)
 
-    # eixo X: datas (primeira, meio, última)
-    for i in (0, n // 2, n - 1):
+    # eixo X: datas (primeira, meio, última) — presas dentro da moldura. A
+    # última saía centrada no ponto final e vazava pela borda direita
+    # ("07-17" cortado no meio); a primeira ia por cima da marca.
+    for i in dict.fromkeys((0, n // 2, n - 1)):
         date = str(history[i].get("created_at") or "")[5:10]
-        d.text((xs[i] - 14, bot_y1 + 8), date, fill=GREY_TEXT, font=f_lab)
+        dw = d.textlength(date, font=f_lab)
+        x = min(max(xs[i] - dw / 2, 4), W - PAD_R - dw)
+        d.text((x, bot_y1 + 8), date, fill=GREY_TEXT, font=f_lab)
 
     from app.analysis.branding import draw_brand
 
@@ -183,10 +192,14 @@ def render_indicator_png(history: list[dict], indicator: str) -> bytes | None:
     d.line(pts, fill=color, width=4)
     for p in pts:
         d.ellipse([p[0] - 5, p[1] - 5, p[0] + 5, p[1] + 5], fill=color)
+    f_data = _font(12, bold=False)
     for i in (0, n - 1):
         date = str(history[i].get("created_at") or "")[5:10]
-        d.text((xs[i] - 14, top + height + 10), date, fill=GREY_TEXT,
-               font=_font(12, bold=False))
+        dw = d.textlength(date, font=f_data)
+        # a última data vazava pela borda: centrada no ponto final, que fica
+        # exatamente na moldura
+        x = min(max(xs[i] - dw / 2, 4), Wi - PAD_R - dw)
+        d.text((x, top + height + 10), date, fill=GREY_TEXT, font=f_data)
 
     from app.analysis.branding import draw_brand
 

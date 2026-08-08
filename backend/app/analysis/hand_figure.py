@@ -335,6 +335,30 @@ def _mini_card(d, x0, y0, code, w, h):
     _center(d, x0 + w * 0.5, y0 + h * 0.5, sym, fs, col)
 
 
+def cor_da_equity(eq: float, need: float | None, fraca: bool = False):
+    """A COR DO AZULEJO DE EQUITY É UM VEREDITO. Função pura.
+
+    Era VERDE sempre: 20% num pote que pedia 35% saía com a mesma cor de 80%
+    num que pedia 20%. Verde na tela quer dizer "você está bem", e o aluno lê
+    a cor antes de ler o número.
+
+    - vs mão QUALQUER: âmbar, NUNCA verde. Esse número não sustenta veredito
+      nenhum pós-flop contra aposta (A♥T♥ dava 43.6% vs aleatória e ~4%
+      contra o range que dá check-raise e jam).
+    - sem preço na mesa: neutro. Sem 'precisa de', não há com o que comparar.
+    - margem de 3 pontos nos dois lados: spot no fio é âmbar, não vitória.
+    """
+    if fraca:
+        return MIX
+    if need is None:
+        return CREAM
+    if eq >= need + 0.03:
+        return OK
+    if eq <= need - 0.03:
+        return BAD
+    return MIX
+
+
 def render_hand_strip(spot: dict) -> bytes:
     """Storyboard da mão inteira numa imagem só — o filme do spot em quadros.
 
@@ -395,7 +419,15 @@ def render_hand_strip(spot: dict) -> bytes:
             h += 10 + len(eq_wrapped) * 26 + 4
         st_heights.append(max(h, 104))
 
-    math_h = 160 if has_math else 0
+    # A RESSALVA TEM QUE CABER. Ela saía em 15px cinza embaixo de um número
+    # de 31px verde — duas vezes menor que a coisa que ela desmente. Quando a
+    # equity é contra mão QUALQUER, essa linha não é rodapé: é a diferença
+    # entre um dado e um palpite, e agora ocupa espaço proporcional a isso.
+    nota_math = math_d.get("note") or ""
+    f_nota = _font(19, bold=bool(math_d.get("fraca")))
+    nota_lines = _wrap(probe, nota_math, f_nota, SW - 2 * pad - 20) \
+        if nota_math else []
+    math_h = (150 + len(nota_lines) * 26) if has_math else 0
     # rodapé do veredito só quando HÁ veredito (quiz/reveal). No filme puro
     # (mão inteira, sem decisão julgada) o selo "DECISÃO MISTA" era ruído.
     has_foot = bool(spot.get("verdict") or verdict_text or correct)
@@ -526,9 +558,17 @@ def render_hand_strip(spot: dict) -> bytes:
     if has_math:
         box(0, y, SW, y + math_h, fill=MATH_BG)
         left(pad, y + 14, "MATEMÁTICA DO SPOT", 20, GOLD)
+        # A COR É UM VEREDITO. O azulejo de equity era VERDE sempre — 20%
+        # onde o pote pedia 35% saía com a mesma cor de 80% onde pedia 20%,
+        # e verde na tela significa "você está bem". A cor agora sai da
+        # comparação com o preço, que é a única coisa que ela pode afirmar.
+        _eq, _need = math_d["equity"], math_d.get("need")
+        eq_col = cor_da_equity(_eq, _need, bool(math_d.get("fraca")))
+        eq_lbl = "SUA EQUITY (vs mão qualquer)" if math_d.get("fraca") \
+            else "SUA EQUITY"
         tiles = [
-            ("SUA EQUITY", f"{math_d['equity'] * 100:.0f}%", OK),
-            ("PRECISA DE", f"{(math_d.get('need') or 0) * 100:.0f}%", CREAM),
+            (eq_lbl, f"{_eq * 100:.0f}%", eq_col),
+            ("PRECISA DE", f"{(_need or 0) * 100:.0f}%", CREAM),
         ]
         ev = math_d.get("ev_bb")
         if ev is not None:
@@ -539,10 +579,16 @@ def render_hand_strip(spot: dict) -> bytes:
             tx0 = pad + i * (tw + 16)
             box(tx0, ty, tx0 + tw, ty + 78, radius=14, fill=(22, 48, 38),
                 outline=GOLD_DK, width=2)
-            ctr(tx0 + tw / 2, ty + 13, lbl, 15, MUTED, bold=False)
+            # rótulo longo ("SUA EQUITY (vs mão qualquer)") encolhe pra caber
+            ctr(tx0 + tw / 2, ty + 13, lbl, 15 if len(lbl) <= 14 else 13,
+                MIX if math_d.get("fraca") and i == 0 else MUTED, bold=False)
             ctr(tx0 + tw / 2, ty + 34, val, 31, col)
-        if math_d.get("note"):
-            ctr(SW / 2, y + math_h - 24, math_d["note"], 15, MUTED, bold=False)
+        ny = ty + 90
+        for wl in nota_lines:
+            ctr(SW / 2, ny, wl, 19,
+                MIX if math_d.get("fraca") else MUTED,
+                bold=bool(math_d.get("fraca")))
+            ny += 26
         y += math_h
 
     # ---------- RODAPÉ: veredito do coach (só quando há veredito) ----------
