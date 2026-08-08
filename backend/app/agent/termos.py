@@ -25,27 +25,54 @@ _RANK = r"(?:10|[AKQJT2-9])"
 
 # (padrão, substituição) — ordem importa: o mais específico primeiro
 _TROCAS: list[tuple[re.Pattern, str]] = [
-    # 'sevens full of twos' ao pé da letra: '7 cheio de 2'
-    (re.compile(rf"\b({_RANK})\s+chei[oa]s?\s+de\s+({_RANK})\b", re.I),
+    # 'sevens full of twos' ao pé da letra: '7 cheio de 2'. O "full house"
+    # que quase sempre vem antes é ABSORVIDO: sem isso a troca gaguejava —
+    # "full house 7 cheio de A" virava "full house full de 7 com A".
+    (re.compile(rf"\b(?:full\s*house\s+)?({_RANK})\s+chei[oa]s?\s+de\s+"
+                rf"({_RANK})\b", re.I),
      r"full de \1 com \2"),
     (re.compile(r"\bcheck\s+atr[áa]s\b", re.I), "check behind"),
     (re.compile(r"\bsequ[êe]ncia\s+de\s+cor\b", re.I), "straight flush"),
-    (re.compile(r"\bcartas?\s+altas?\b", re.I), "high card"),
+    # plural separado do singular: "suas cartas altas" virava "suas high
+    # card", que é pior português que o calque que se queria consertar
+    (re.compile(r"\bcartas\s+altas\b", re.I), "high cards"),
+    (re.compile(r"\bcarta\s+alta\b", re.I), "high card"),
     # 'aumentou' só quando é inequivocamente a ação de apostar (segue 'pra
     # 6bb' / 'para 3x'): 'a pressão aumentou' fica intacta
     (re.compile(r"\bre-?aumentou\s+(pra|para)\b", re.I), r"deu re-raise \1"),
     (re.compile(r"\baumentou\s+(pra|para)\b", re.I), r"deu raise \1"),
-    # carta crua vira carta com ícone: 'Kh' -> 'K♥' (regra da casa; o juiz
-    # acusava e o Sonnet escorregou na 1ª rodada do A/B). Duas exclusões de
-    # português: 'As' (artigo) fica fora — espadas só de 2 a K; e o ás não
-    # converte antes de pontuação, senão a interjeição 'Ah,' vira 'A♥,'.
-    (re.compile(r"\b((?:10|[KQJT98765432]))s\b"), r"\1♠"),
-    (re.compile(r"\b((?:10|[KQJT98765432]))h\b"), r"\1♥"),
-    (re.compile(r"\b((?:10|[KQJT98765432]))d\b"), r"\1♦"),
-    (re.compile(r"\b((?:10|[KQJT98765432]))c\b"), r"\1♣"),
-    (re.compile(r"\bA([hdc])\b(?![,.!?…])"),
-     lambda m: "A" + {"h": "♥", "d": "♦", "c": "♣"}[m.group(1)]),
+    # (as cartas viram ícone em _cartas_para_icones, abaixo — regex solto
+    #  transformava "joguei 3h ontem" em "joguei 3♥ ontem")
 ]
+
+_SUIT = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
+# rank de FACE + naipe é inequívoco: "Kh"/"Qs"/"Jd"/"Tc" não existem em
+# português. Já o rank de DÍGITO colide com as unidades mais faladas pelo
+# aluno: 3h (horas), 3d (dias), 30s (segundos), 10h (horário do torneio).
+_CARTA_FACE = re.compile(r"\b([KQJT])([shdc])\b")
+_CARTA_AS = re.compile(r"\bA([hdc])\b(?![,.!?…])")   # 'As' = artigo; 'Ah,' = interjeição
+# um dígito só vira carta quando está numa SEQUÊNCIA de cartas — "Ah7h",
+# "7c 5s 5c", "A♠ 7♠". Carta solta de dígito ("o 7h do board") fica crua: é
+# o preço de não estragar "joguei 3h". Perder um ícone é cosmético; escrever
+# "fiquei 2♥ no tilt" é o coach parecendo maluco, que foi a reclamação real.
+_TOKEN = r"(?:10|[AKQJT2-9])(?:[shdc]|[♠♥♦♣])"
+_SEQUENCIA = re.compile(rf"{_TOKEN}(?:\s*{_TOKEN})+")
+_UM_TOKEN = re.compile(r"(10|[AKQJT2-9])([shdc])")
+
+
+def _cartas_para_icones(texto: str) -> str:
+    """'Ah7h' -> 'A♥7♥', mas 'joguei 3h' fica intacto.
+
+    Duas passadas: primeiro as sequências (2+ cartas juntas, onde dígito é
+    seguro por contexto), depois as faces e o ás soltos.
+    """
+    def _seq(m: re.Match) -> str:
+        return _UM_TOKEN.sub(lambda c: c.group(1) + _SUIT[c.group(2)],
+                             m.group(0))
+
+    t = _SEQUENCIA.sub(_seq, texto or "")
+    t = _CARTA_FACE.sub(lambda m: m.group(1) + _SUIT[m.group(2)], t)
+    return _CARTA_AS.sub(lambda m: "A" + _SUIT[m.group(1)], t)
 
 
 # ---- glossário vivo (tabela `glossario`) -----------------------------------
@@ -104,6 +131,7 @@ def corrigir(texto: str) -> str:
         if novo != saida:
             trocas.append(padrao.pattern[:40])
             saida = novo
+    saida = _cartas_para_icones(saida)
     if trocas:
         logging.getLogger("termos").info(
             "calques corrigidos na entrega: %s", trocas)

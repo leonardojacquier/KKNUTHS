@@ -23,23 +23,23 @@ async def health() -> dict:
     }
 
 
-@app.post("/telegram/webhook")
-async def telegram_webhook(request: Request) -> dict:
-    """Recebe updates do Telegram (modo webhook em produção).
-
-    Em produção: enfileira o update e processa em worker. Aqui apenas valida
-    que a aplicação está montada.
-    """
-    from telegram import Update
-
-    from app.bot.handlers import build_application
-
-    application = build_application()
-    data = await request.json()
-    update = Update.de_json(data, application.bot)
-    async with application:
-        await application.process_update(update)
-    return {"ok": True}
+# REMOVIDO: POST /telegram/webhook (auditoria de 07/08).
+#
+# A rota fazia Update.de_json(body) + process_update SEM validar nada — nem
+# o X-Telegram-Bot-Api-Secret-Token, nem origem. Como TODA autorização de
+# admin do bot é `tg_id != ADMIN_TELEGRAM_ID` e esse tg_id sai do corpo da
+# requisição, qualquer POST anônimo forjava a identidade do dono: dar-se
+# `/planode premium`, ler `/quem`, e disparar process_upload na conta de
+# qualquer aluno (queimando cota e crédito da Anthropic). O ID default ainda
+# por cima está no código (app/quota.py:18).
+#
+# E a rota era CÓDIGO MORTO: o bot roda run_polling() (handlers.py:1919),
+# nunca webhook. Era superfície de ataque pura, servida no mesmo app que o
+# portal em poker.vortex369.com.br.
+#
+# Se um dia o modo webhook for necessário, ele volta com secret_token
+# definido no setWebhook e conferido aqui com secrets.compare_digest — não
+# assim. (O /stripe/webhook abaixo faz o certo: valida a assinatura.)
 
 
 @app.post("/stripe/webhook")
