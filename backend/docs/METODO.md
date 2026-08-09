@@ -372,7 +372,7 @@ promessa, e este documento existe justamente porque promessa não basta.**
 
 | Não diz | Condição | Estado verificado |
 |---|---|---|
-| VPIP / PFR / 3-bet | fonte não traz sessão inteira | ⚠️ **fura** — 6 consumidores não consultam `publicavel` |
+| VPIP / PFR / 3-bet | fonte não traz sessão inteira | ✅ no coach (corrigido) · ⚠️ 6 outros consumidores não consultam `publicavel` |
 | qualquer taxa | menos de 30 mãos | ⚠️ **fura** — `/stats` publica com 12 |
 | rótulo de estilo | menos de 100 mãos | ⚠️ **fura** — `/estilo` devolve "LAG" com 12 mãos |
 | taxa sem intervalo | nunca | ❌ **falso** — nenhuma mensagem do bot tem `±` |
@@ -384,20 +384,30 @@ promessa, e este documento existe justamente porque promessa não basta.**
 | "resolvido" quando o aluno sumiu | → `arquivado` | ❌ **inalcançável** |
 | alta com base em quiz | sempre | ✅ por omissão — nada dá alta |
 
-### O que a auditoria encontrou, em uma frase cada
+### Corrigido em 09/08 (commit `e1c0497`), cada um conferido por mutação
 
-- **O portão principal não tem teste.** Invertendo `processing.py:489` para
+- **O portão principal não tinha teste.** Invertendo `processing.py:489` para
   `if not stats.publicavel` — o que manda o perfil cru ao modelo exatamente
-  quando ele é impublicável — **os 971 testes passam**. O teste compara uma
-  substring do código-fonte.
-- **A linha legada fura a leitura.** `detail.get("publicavel") is False` deixa
-  passar a chave *ausente*, que é a assinatura de toda linha gravada antes de
-  o portão existir. O VPIP 94,3% volta inteiro.
-- **O portão de conteúdo testa existência, não decisão.** `Street` não tem
+  quando ele é impublicável — **os 971 testes passavam**. O teste comparava
+  uma substring do código-fonte. Agora há teste de comportamento *e* um teste
+  por AST que cobra que a condição exercitada seja a que está em produção —
+  sem o segundo, o primeiro protege código que pode já não existir.
+- **A linha legada furava a leitura.** `detail.get("publicavel") is False` não
+  pega a chave *ausente*, que é a assinatura de toda linha gravada antes de o
+  portão existir. Agora falha fechado.
+- **O portão de conteúdo testava existência, não decisão.** `Street` não tem
   `__bool__`, e os parsers semeiam a street de preflop sempre. 120 `.txt`
-  truncados dão `VPIP 0% · nit · publicavel=True`.
-- **O `/foco` mistura janelas.** O aluno lê *"42 escorregada(s) nessas 12"* —
-  numerador da janela inteira, denominador só do pós-diagnóstico.
+  truncados davam `VPIP 0% · nit · publicavel=True`. A pergunta agora é se
+  alguém decidiu alguma coisa.
+- **O `/foco` misturava janelas.** O aluno lia *"42 escorregada(s) nessas 12"*.
+  As duas metades da fração passam a vir da mesma população.
+- **`lembrar()` quebrava sob concorrência.** O despejo itera com
+  `next(iter(mapa))` enquanto outra thread insere; 4 escritores, 3 morreram em
+  3 segundos. Latente (só dispara no teto de 200), mas roda no meio do upload
+  fora de qualquer `except`.
+
+### Aberto — a lista priorizada
+
 - **4 dos 6 detectores estão travados para sempre.** `PREREQ` exige `pot_odds`
   e `push_fold_nash`; nenhum detector produz esses códigos.
 - **A régua IC99 nunca aciona.** `CODIGOS_ATE_IC95 = 10`, `len(CODIGOS) = 6`.
@@ -406,16 +416,28 @@ promessa, e este documento existe justamente porque promessa não basta.**
   mão (87,6%), porque usa equity crua all-in e assume realização de 100%.
 - **O guarda de fatos declara limpa uma frase com duas mentiras.** A lista de
   mãos para na primeira vírgula: *"Você só perde para AA, QQ ou JJ"* devolve
-  `erros=[]`.
+  `erros=[]`. Pior que não checar — o evento `fato_corrigido` não dispara e o
+  portal registra a análise como conferida.
 - **E mutila texto correto.** *"O vilão só perde para AA e KK"* vira *"...só
   perde para AA"* — o guarda não olha o sujeito da frase e trata empate
-  (`KK` vs `KK`, equity 0,5) como mentira.
+  (`KK` vs `KK`, equity exatamente 0,5) como mentira.
+- **O guarda só vive em 1 dos 4 caminhos de texto** — não roda no `followup`,
+  no botão 🎈 `simplify` nem no relatório mão a mão.
 - **`TERMOS_REGRA` pode sair inteiro do prompt** e 355 testes passam.
+- **`bb_subdefesa` marca fold, não subdefesa** — acusa 148 das 169 classes
+  (87,6%), porque usa equity crua all-in e assume realização de 100%.
+- **Não há paginação** em `get_hands_para_perfil`. O corte de 1.000 linhas do
+  PostgREST trunca em silêncio, e as mãos que não desceram são reportadas ao
+  coach como "amostra curada".
+- **`processing.py` tem 7 linhas de folga** contra o teto de 3.600.
+- **O `ADMIN_TOKEN` é o próprio valor do cookie**, em claro, com `Path=/`; e
+  dois scripts em `deploy/oneshot/` o mandam por Telegram e em query string.
 
-O relatório completo, com reprodução de cada item, está no histórico da
-auditoria. A lição estrutural é uma só e já estava escrita na seção 7:
-**teste que compara texto do código não é teste.** Cinco dos guardas mais
-importantes do sistema eram protegidos exatamente assim.
+A lição estrutural é uma só, e já estava escrita na seção 7: **teste que
+compara texto do código não é teste.** Cinco dos guardas mais importantes do
+sistema eram protegidos exatamente assim, e o padrão se replicou porque
+funciona — passa verde, parece cobertura, e só o teste de mutação separa uma
+coisa da outra.
 
 ---
 
