@@ -7,7 +7,7 @@ users direto do Supabase; não depende do bot estar de pé.
 Regra de ouro do resumo: a PRIMEIRA linha responde 'entrou gente nova?' —
 porque é a métrica nº1 de crescimento e a que o admin cobra.
 
-Cron sugerido:  0 23 * * *  (23h UTC = 20h BRT) cd /app/backend && \
+Cron sugerido:  0 23 * * *  (23h UTC = 20h BRT) cd /opt/poker-bot && \
   PYTHONPATH=. ./venv/bin/python scripts/daily_usage.py
 """
 from __future__ import annotations

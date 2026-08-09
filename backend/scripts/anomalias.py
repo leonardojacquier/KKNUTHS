@@ -13,7 +13,7 @@ O padrão que motiva cada regra já aconteceu de verdade:
   falha_em_serie    -> mesmo tipo de erro 3+ vezes no dia = defeito novo,
                        não azar
 
-Cron sugerido:  0 21 * * *  (21h UTC = 18h BRT) cd /app/backend && \
+Cron sugerido:  0 21 * * *  (21h UTC = 18h BRT) cd /opt/poker-bot && \
   PYTHONPATH=. ./venv/bin/python scripts/anomalias.py
 """
 from __future__ import annotations

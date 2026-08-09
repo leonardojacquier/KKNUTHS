@@ -13,7 +13,7 @@ irreversível. Fica explícito, com o destinatário no código, rodado à mão, 
 IDEMPOTENTE — o evento `recado_amostra` no `bot_events` é a trava, então
 rodar duas vezes não manda duas vezes.
 
-    cd /app/backend && PYTHONPATH=. ./venv/bin/python scripts/recado_amostra.py
+    cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/recado_amostra.py
     (acrescente --seco para ver o texto sem enviar)
 """
 from __future__ import annotations

@@ -14,7 +14,7 @@ pelo portão de testes) e aprovar a si mesma. Proposta errada morre com
 /termo nao N e custa zero; auto-aprovação erraria em silêncio na camada
 que contamina todas as análises.
 
-Cron sugerido:  40 7 * * *  cd /app/backend && \
+Cron sugerido:  40 7 * * *  cd /opt/poker-bot && \
   PYTHONPATH=. ./venv/bin/python scripts/linguista.py
 (antes do juiz das 8h: termo aprovado de manhã já vale na rodada seguinte)
 """

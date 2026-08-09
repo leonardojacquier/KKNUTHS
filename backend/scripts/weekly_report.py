@@ -3,7 +3,7 @@
 Para cada usuário com mãos nos últimos 7 dias: perfil atualizado, resultado da
 semana e o "leak da semana" (maior perda). Envia direto pela API HTTP do Telegram.
 
-Cron sugerido:  0 18 * * 0  cd /app/backend && PYTHONPATH=. python3 scripts/weekly_report.py
+Cron sugerido:  0 18 * * 0  cd /opt/poker-bot && PYTHONPATH=. python3 scripts/weekly_report.py
 """
 from __future__ import annotations
 

@@ -10,7 +10,7 @@ isso o destilador NUNCA publica: ele estoca, o dono escolhe (/licoes).
 Roda diário no modelo barato; só olha decisões com |EV| relevante (lição
 sem número é opinião).
 
-Cron sugerido:  15 9 * * *  cd /app/backend && \
+Cron sugerido:  15 9 * * *  cd /opt/poker-bot && \
   PYTHONPATH=. ./venv/bin/python scripts/destilar_licoes.py
 """
 from __future__ import annotations

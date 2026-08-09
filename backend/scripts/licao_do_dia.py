@@ -9,7 +9,7 @@ O motor de envio mora em app/bot/licao_envio.py — um só lugar para o
 comando e o cron, senão os dois divergem.
 
 Cron:  0 14 * * *  (14h UTC = 11h BRT — manhã, longe do quiz das 19h)
-  cd /app/backend && PYTHONPATH=. ./venv/bin/python scripts/licao_do_dia.py
+  cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/licao_do_dia.py
 """
 from __future__ import annotations
 

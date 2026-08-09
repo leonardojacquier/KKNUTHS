@@ -11,7 +11,7 @@ Checagem determinística (custo zero). Se houver ANTHROPIC_API_KEY, uma
 segunda passada com modelo barato dá nota 0-10 de clareza — o mesmo
 critério que o aluno usa.
 
-Cron sugerido:  0 8 * * *  cd /app/backend && \
+Cron sugerido:  0 8 * * *  cd /opt/poker-bot && \
   PYTHONPATH=. ./venv/bin/python scripts/output_judge.py
 """
 from __future__ import annotations

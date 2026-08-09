@@ -87,6 +87,38 @@ def test_dependencia_nova_e_instalada_antes_do_portao():
     assert pip < portao
 
 
+def test_o_caminho_do_runbook_e_o_caminho_real_do_deploy():
+    """O comando na docstring É o runbook: é dele que sai o copy-paste no
+    terminal do VPS.
+
+    Nove scripts diziam `cd /app/backend` — pasta que nunca existiu. O erro
+    não aparecia nos crons (esses foram instalados com o caminho certo), só
+    quando alguém seguia a instrução escrita, e aí a falha é
+    `./venv/bin/python: No such file or directory` — que parece venv quebrado
+    e manda a investigação para o lado errado. Aconteceu em 09/08.
+
+    A fonte da verdade é o $APP do auto_update.sh: é para lá que o rsync
+    copia, então é lá que o script existe.
+    """
+    import re
+
+    app = re.search(r"^APP=(\S+)", AUTO, re.M)
+    assert app, "auto_update.sh não declara mais APP="
+    destino = app.group(1)
+
+    errados = []
+    for py in sorted((DEPLOY.parent / "scripts").glob("*.py")):
+        for linha in py.read_text().splitlines():
+            if "PYTHONPATH" not in linha:
+                continue
+            for caminho in re.findall(r"cd (/\S+)", linha):
+                if caminho != destino:
+                    errados.append(f"{py.name}: {caminho}")
+    assert not errados, (
+        f"docstring manda rodar de um caminho que o deploy não cria "
+        f"(o certo é {destino}): {errados}")
+
+
 @pytest.mark.parametrize("script", ["auto_update.sh", "vps_deploy.sh"])
 def test_scripts_sao_shell_valido(script):
     """Erro de sintaxe aqui só apareceria no VPS, no meio de um deploy."""

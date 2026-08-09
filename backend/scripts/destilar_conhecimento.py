@@ -16,7 +16,7 @@ são detalhe:
   recebe essa contagem escrita, porque ela muda o peso da frase.
 
 Roda diário, modelo barato. Cron sugerido:
-  40 9 * * *  cd /app/backend && PYTHONPATH=. ./venv/bin/python \
+  40 9 * * *  cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python \
               scripts/destilar_conhecimento.py
 """
 from __future__ import annotations
