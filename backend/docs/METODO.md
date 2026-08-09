@@ -386,16 +386,16 @@ promessa, e este documento existe justamente porque promessa não basta.**
 
 | Não diz | Condição | Estado verificado |
 |---|---|---|
-| VPIP / PFR / 3-bet | fonte não traz sessão inteira | ✅ no coach (corrigido) · ⚠️ 6 outros consumidores não consultam `publicavel` |
+| VPIP / PFR / 3-bet | fonte não traz sessão inteira | ✅ no coach · ⚠️ 6 outros consumidores não consultam `publicavel` |
 | qualquer taxa | menos de 30 mãos | ⚠️ **fura** — `/stats` publica com 12 |
 | rótulo de estilo | menos de 100 mãos | ⚠️ **fura** — `/estilo` devolve "LAG" com 12 mãos |
-| taxa sem intervalo | nunca | ❌ **falso** — nenhuma mensagem do bot tem `±` |
+| taxa sem intervalo | nunca | ⚠️ a frequência por faixa sai com `±`; `/stats` e `/estilo` ainda não |
 | diagnóstico | 5 portões | ✅ vale, mas só para 2 dos 6 códigos (ver abaixo) |
-| direção do erro | outro lado com < 5 chances | ❌ **falso** — compara contagens, não taxas |
+| direção do erro | as taxas dos dois lados não se separam | ✅ teste de duas proporções; falsa direção sob H0 caiu de 99,5% para ≤5,2% |
 | frequência por faixa | n < 60 na faixa | ✅ |
-| "melhorou" | < 30 oportunidades no período | ✅ na biblioteca, ❌ **nunca roda** |
-| "melhorou" | contexto mudou > 30% | ❌ **nunca roda**; estoura com dado categórico |
-| "resolvido" quando o aluno sumiu | → `arquivado` | ❌ **inalcançável** |
+| "melhorou" | < 30 oportunidades no período | ✅ roda a cada envio de mãos (ligado em 09/08) |
+| "melhorou" | contexto mudou > 30% | ⚠️ a função existe e `revisar()` ainda não passa o contexto |
+| "resolvido" quando o aluno sumiu | → `arquivado` | ⚠️ `em_alta` já é alcançável; `arquivado` (90 dias sem spot) ainda não tem quem dispare |
 | alta com base em quiz | sempre | ✅ por omissão — nada dá alta |
 
 ### Corrigido em 09/08 (commit `e1c0497`), cada um conferido por mutação
@@ -422,38 +422,45 @@ promessa, e este documento existe justamente porque promessa não basta.**
 
 ### Aberto — a lista priorizada
 
-- ~~4 dos 6 detectores travados para sempre~~ **corrigido em 09/08.** `PREREQ`
-  exigia `pot_odds` e `push_fold_nash`, que nenhum detector produz — bloqueio
-  eterno. Agora só bloqueia por evidência: pré-requisito que ninguém sabe
-  diagnosticar não trava. A dependência segue declarada, e volta a valer
-  sozinha no dia em que o detector existir.
-- ~~A régua IC99 nunca aciona~~ **corrigido em 09/08.** O degrau
-  (`Z99 se testados > 10`) tinha dois defeitos que se anulavam: z=2,576 está
-  calibrado para exatamente N=10 e só ligava a partir de N=11 (a faixa em que
-  já é insuficiente); e produção passa `len(CODIGOS)` = 6, então o ramo nunca
-  executava. Trocado por Šidák sem degrau — com os 6 códigos de hoje o z é
-  **2,63**, não 1,96.
-- **`evolucao.py` inteiro é código morto.** Zero importações em `app/`.
-- **`bb_subdefesa` marca fold, não subdefesa.** Acusa 148 das 169 classes de
-  mão (87,6%), porque usa equity crua all-in e assume realização de 100%.
-- **O guarda de fatos declara limpa uma frase com duas mentiras.** A lista de
-  mãos para na primeira vírgula: *"Você só perde para AA, QQ ou JJ"* devolve
-  `erros=[]`. Pior que não checar — o evento `fato_corrigido` não dispara e o
-  portal registra a análise como conferida.
-- **E mutila texto correto.** *"O vilão só perde para AA e KK"* vira *"...só
-  perde para AA"* — o guarda não olha o sujeito da frase e trata empate
-  (`KK` vs `KK`, equity exatamente 0,5) como mentira.
-- **O guarda só vive em 1 dos 4 caminhos de texto** — não roda no `followup`,
-  no botão 🎈 `simplify` nem no relatório mão a mão.
-- **`TERMOS_REGRA` pode sair inteiro do prompt** e 355 testes passam.
-- **`bb_subdefesa` marca fold, não subdefesa** — acusa 148 das 169 classes
-  (87,6%), porque usa equity crua all-in e assume realização de 100%.
-- **Não há paginação** em `get_hands_para_perfil`. O corte de 1.000 linhas do
-  PostgREST trunca em silêncio, e as mãos que não desceram são reportadas ao
-  coach como "amostra curada".
-- **`processing.py` tem 7 linhas de folga** contra o teto de 3.600.
-- **O `ADMIN_TOKEN` é o próprio valor do cookie**, em claro, com `Path=/`; e
-  dois scripts em `deploy/oneshot/` o mandam por Telegram e em query string.
+Conferida por execução em 09/08, e não por memória. O que fechou saiu daqui.
+
+**1. O guarda de fatos declara limpa uma frase com duas mentiras.** A lista
+de mãos para na primeira vírgula:
+
+```
+entrada: "Você só perde para AA, QQ ou JJ."
+erros  : []          <- diz que está limpo
+```
+
+Pior que não checar: o evento `fato_corrigido` não dispara e o portal
+registra a análise como conferida.
+
+**2. E ele mutila texto correto.** *"O vilão só perde para AA e KK"* com o
+herói de KK vira *"...só perde para AA"*. Duas causas somadas: o guarda nunca
+olha o **sujeito** da frase, e trata empate exato (`KK` vs `KK`, equity 0,5)
+como mentira.
+
+**3. O guarda de fato só vive em 1 dos 4 caminhos de texto.** Não roda no
+`followup` — a conversa livre, onde "só perde para QQ" é mais provável ainda
+porque o aluno pergunta justamente sobre mãos —, nem no botão da explicação
+simples, nem no relatório mão a mão. Fixado como teste em
+`test_guarda_saida_na_conversa.py` para a lacuna não voltar a ser invisível.
+
+**4. Não há paginação em `get_hands_para_perfil`.** Zero `.range()` no
+repositório. O corte de 1.000 linhas do PostgREST trunca em silêncio, e as
+mãos que não desceram são reportadas ao coach como "amostra curada" — mão
+legítima descrita como escolhida a dedo. Só morde acima de 1.000 mãos por
+aluno; o maior hoje tem 349.
+
+**5. `ADMIN_TOKEN` em dois scripts de `deploy/oneshot/`.** O cookie já não é
+o segredo mestre, mas `2026-08-02-link-do-portal*.sh` seguem no repo fazendo
+`curl ".../admin?key=$ADMIN_TOKEN"` e mandando esse link por Telegram. Query
+string vai para o log do Caddy.
+
+**6. A simulação de placebo do ciclo de alta não terminou.** É o número que
+provaria que aluno cuja habilidade não muda não recebe alta. O desenho é
+defensável — a barra é a tolerância do código, externa e fixa, e a alta exige
+o limite superior abaixo dela — mas isso é argumento, não medida.
 
 A lição estrutural é uma só, e já estava escrita na seção 7: **teste que
 compara texto do código não é teste.** Cinco dos guardas mais importantes do
