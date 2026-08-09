@@ -26,9 +26,16 @@ PRIORS = {
 AF_PRIOR = (2.0, 12.0)
 
 
+# z do intervalo. 1.96 = IC95, 2.576 = IC99. O segundo existe para o caso de
+# COMPARAÇÕES MÚLTIPLAS: varrer 15 códigos e escolher o pior é procurar o
+# extremo, e a IC95 erra 1 em 20 por desenho — 15 testes garantem falso
+# positivo. Quem escolhe o pior de muitos tem que usar régua mais dura.
+Z95, Z99 = 1.96, 2.576
+
+
 def shrunk_rate(successes: float, trials: float, prior_mean_pct: float,
-                prior_strength: float) -> tuple[float, float, float]:
-    """Posterior Beta(a, b): (média, IC95 baixo, IC95 alto), tudo em %.
+                prior_strength: float, z: float = Z95) -> tuple[float, float, float]:
+    """Posterior Beta(a, b): (média, IC baixo, IC alto), tudo em %.
 
     IC por aproximação normal da Beta — erro irrelevante para coaching e
     dispensa scipy no VPS.
@@ -39,8 +46,8 @@ def shrunk_rate(successes: float, trials: float, prior_mean_pct: float,
     n = a + b
     mean = a / n
     sd = (a * b / (n * n * (n + 1.0))) ** 0.5
-    lo = max(0.0, mean - 1.96 * sd)
-    hi = min(1.0, mean + 1.96 * sd)
+    lo = max(0.0, mean - z * sd)
+    hi = min(1.0, mean + z * sd)
     return round(100 * mean, 1), round(100 * lo, 1), round(100 * hi, 1)
 
 

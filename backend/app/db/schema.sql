@@ -314,3 +314,66 @@ create table if not exists glossario (
 
 alter table public.licoes    enable row level security;
 alter table public.glossario enable row level security;
+
+-- ─────────────────────── ciclo de problema (PBL) ───────────────────────
+-- `player_notes` continua sendo o caderno QUALITATIVO do coach (texto livre
+-- de LLM) e não pode alimentar estatística: número que sai de nota narrativa
+-- é o incidente do VPIP por outro caminho. Por isso o problema é entidade
+-- estruturada separada, com evidência numérica rastreável.
+create table if not exists problemas (
+    id           uuid primary key default gen_random_uuid(),
+    user_id      uuid not null references users(id) on delete cascade,
+    codigo       text not null,
+    estado       text not null,
+    causa        text,
+    por_que      text,
+    -- CRITÉRIO PRÉ-REGISTRADO, escrito ANTES da intervenção
+    alta_limiar        real,
+    alta_n_minimo      int,
+    alta_registrado_em timestamptz,
+    alta_por_extenso   text,
+    -- a janela que DIAGNOSTICOU não pode ser a linha de base (regressão à
+    -- média: o problema foi escolhido por estar no extremo)
+    diagnostico_ate  date,
+    baseline_de      date,
+    baseline_oport   int,
+    baseline_erros   int,
+    detector_versao  text not null default 'v1',
+    bloqueado_por    uuid references problemas(id),
+    aberto_em        timestamptz not null default now(),
+    intervencao_em   timestamptz,
+    alta_em          timestamptz,
+    unique (user_id, codigo, aberto_em)
+);
+create index if not exists idx_problemas_user on problemas (user_id, estado);
+
+create table if not exists problema_evidencia (
+    id          uuid primary key default gen_random_uuid(),
+    problema_id uuid not null references problemas(id) on delete cascade,
+    hand_id     uuid references hands(id) on delete set null,
+    fase        text not null,
+    oportunidade bool not null,
+    escorregada  bool not null,
+    custo_bb     real,
+    amostra_tipo text not null,
+    detector_versao text not null default 'v1',
+    played_at   timestamptz,
+    created_at  timestamptz not null default now()
+);
+create index if not exists idx_evid_problema on problema_evidencia (problema_id, fase);
+
+create table if not exists problema_medicao (
+    id          uuid primary key default gen_random_uuid(),
+    problema_id uuid not null references problemas(id) on delete cascade,
+    oportunidades int, erros int,
+    post_lo real, post_mean real, post_hi real,
+    veredito    text,
+    motivo      text,
+    controle_codigo text, controle_delta real,
+    created_at  timestamptz not null default now()
+);
+create index if not exists idx_medicao_problema on problema_medicao (problema_id, created_at desc);
+
+alter table public.problemas          enable row level security;
+alter table public.problema_evidencia enable row level security;
+alter table public.problema_medicao   enable row level security;
