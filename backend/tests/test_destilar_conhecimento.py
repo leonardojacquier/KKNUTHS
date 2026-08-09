@@ -93,17 +93,109 @@ def test_prompt_proibe_nome_e_exige_numero():
     assert "número" in _PROMPT and "recuse" in _PROMPT
 
 
-def test_o_modelo_nao_recebe_identidade():
-    """O que ele não recebe não vaza: o corpo do prompt é só o texto das
-    notas, sem user_id, sem nome, sem data."""
-    import inspect
+def test_o_modelo_nao_recebe_identidade(monkeypatch):
+    """O que ele não recebe não vaza — medido no que SAI para a API.
 
+    Antes isto recortava o texto-fonte de `main` entre `corpo =` e `try:` e
+    procurava a palavra `user_id` lá dentro. Não vê nada montado por
+    variável, nem identidade que entre pelo `tema`, pelo system prompt ou
+    por outro campo da nota. Aqui o cliente é falso e grava o payload
+    inteiro; a busca é pelos VALORES de identidade, não pelos nomes dos
+    campos.
+    """
     import destilar_conhecimento as d
 
-    fonte = inspect.getsource(d.main)
-    assert "SEM user_id no prompt" in fonte
-    corpo = fonte.split("corpo =")[1].split("try:")[0]
-    assert "user_id" not in corpo and "username" not in corpo
+    enviados: list[dict] = []
+
+    class _Resp:
+        stop_reason = "end_turn"
+        content = [type("B", (), {"type": "text", "text": "[]"})()]
+        usage = None
+
+    class _Msgs:
+        def create(self, **kw):
+            enviados.append(kw)
+            return _Resp()
+
+    class _Cli:
+        messages = _Msgs()
+
+    # duas notas do MESMO tema e de alunos DIFERENTES: é o que faz o tema
+    # sobreviver ao filtro de "2+ alunos" e chegar à chamada
+    notas = [
+        # as duas precisam cair no MESMO grupo: `agrupar_por_tema` agrupa por
+        # palavra-chave do TEXTO da nota, não por um campo de tema
+        {"user_id": "u-8f3c-SEGREDO", "kind": "bb_defense",
+         "note": "folda demais o big blind contra open de 2bb",
+         "created_at": "2026-08-01T20:00:00Z"},
+        {"user_id": "u-99a1-SEGREDO", "kind": "bb_defense",
+         "note": "defende o blind larguíssimo e paga caro no flop",
+         "created_at": "2026-08-02T20:00:00Z"},
+    ]
+
+    class _T:
+        def __init__(self, dados):
+            self._d = dados
+
+        def select(self, *_a, **_k):
+            return self
+
+        def order(self, *_a, **_k):
+            return self
+
+        def limit(self, *_a):
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": self._d})()
+
+    class _C:
+        @staticmethod
+        def table(nome):
+            return _T(notas if nome == "player_notes"
+                      else [{"username": "ricardo_farah"},
+                            {"username": "odilon"}])
+
+    class _Repo:
+        enabled = True
+        client = _C()
+
+        @staticmethod
+        def listar_conhecimento(**_k):
+            return []
+
+        def __getattr__(self, _n):
+            return lambda *a, **k: None
+
+    class _Cfg:
+        anthropic_api_key = "sk-teste"
+        cheap_model = "modelo-barato"
+
+        def __getattr__(self, _n):
+            return None
+
+    monkeypatch.setattr(d, "get_repository", lambda: _Repo())
+    monkeypatch.setattr(d, "get_settings", lambda: _Cfg())
+
+    import anthropic
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: _Cli())
+
+    d.main()
+
+    assert enviados, (
+        "o main não chegou a chamar o modelo — o teste não mediu nada")
+
+    identidade = ["u-8f3c-SEGREDO", "u-99a1-SEGREDO", "ricardo_farah",
+                  "odilon", "6921203436", "6104620007"]
+    for chamada in enviados:
+        texto = repr(chamada)
+        for pedaco in identidade:
+            assert pedaco not in texto, (
+                f"identidade {pedaco!r} foi para o modelo: {texto[:400]}")
+        # e a nota EM SI tem que ir, senão o teste passaria por não enviar nada
+        assert "folda demais o big blind" in texto or "defende o blind" in texto, (
+            "nenhuma nota chegou ao modelo — o teste não mediu nada")
 
 
 # ---- as três falhas REAIS da 1ª rodada na VPS (07/08) ----

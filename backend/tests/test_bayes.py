@@ -3822,9 +3822,14 @@ def test_guarda_da_saida_conserta_o_que_faltou(monkeypatch):
     conferir_e_remediar(1, "joguei certo?", "o call rendeu +2,10bb", False)
     assert eventos == ["entrega_ok"]
 
-    # 4) o guarda está ligado no caminho da conversa
-    import inspect
-    assert "conferir_e_remediar" in inspect.getsource(P.process_followup)
+    # 4) o guarda está ligado no caminho da conversa — por COMPORTAMENTO em
+    # tests/test_guarda_saida_na_conversa.py: substring não vê que a chamada
+    # mora num try/except que só loga, então um guarda quebrado entregaria a
+    # resposta evasiva em silêncio e o assert continuaria verde
+    import tests.test_guarda_saida_na_conversa as conversa
+    for nome in ("test_a_resposta_evasiva_e_remediada_antes_de_sair",
+                 "test_o_guarda_recebe_a_pergunta_e_a_resposta_de_verdade"):
+        assert hasattr(conversa, nome), f"{nome} sumiu"
 
 
 def test_taxa_de_entrega_no_resumo_diario():
