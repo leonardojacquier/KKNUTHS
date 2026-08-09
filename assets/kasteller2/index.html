@@ -1124,7 +1124,13 @@ if (!KHOSTS.includes(location.hostname)) KT1('clone', location.host + location.p
 /* landing (1x por sessão) */
 if (!sessionStorage.getItem('klanded')) {
   try { sessionStorage.setItem('klanded', '1'); } catch (e) {}
-  KT('landing', KREF);   /* a origem crua agora vive na coluna ref, normalizada */
+  /* mesmo formato do site da GNH — fuso|idioma|entrada — para os dois caberem na
+     mesma consulta do hub. Sem o fuso, nenhuma sessão da Kasteller podia ser
+     classificada por país nem passar pelo filtro anti-bot. A origem já vive na
+     coluna ref, então não precisa mais ocupar este campo. */
+  var ktz = '';
+  try { ktz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+  KT('landing', ktz + '|' + (navigator.language || '').slice(0, 5) + '|home');
 }
 
 /* payoff do hero: zoom completo (progress > .74 do pin) + faixa do menu */

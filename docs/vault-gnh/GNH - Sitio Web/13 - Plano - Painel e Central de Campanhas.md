@@ -75,7 +75,26 @@ O plano transforma esse fluxo manual em processo com formato, validação e venc
 > Por isso A1 é construída **primeiro e sozinha**, com contrato documentado. Nenhuma
 > decisão de onde a tela mora bloqueia o trabalho.
 
-### A1 — A camada de dados (o contrato)
+### A1 — A camada de dados ✅ **feita em 09/08/2026**
+
+> [!success] Está no ar
+> Schema `hub` no Supabase, seis views e o papel `hub_reader`. Detalhes de ligação
+> em `deploy/dashboard-hub/README.md`. O desenho abaixo previa **RPCs com token**
+> porque a tela seria HTML estático; como a tela vai para o portal da Vortex369,
+> que tem backend e NextAuth, o token some e o acesso é por **papel de banco
+> somente-leitura** — menos código e mais seguro.
+
+| View | Devolve |
+|---|---|
+| `hub.evento` | os dois sites numa tabela só, com coluna `site` |
+| `hub.sesion` | uma linha por sessão: origem, país, entrada, duração, conversão, bot |
+| `hub.v_dia` | por dia: sessões, pessoas, bots, contatos |
+| `hub.v_origen` | por origem: sessões e conversões |
+| `hub.v_busqueda` | o que buscam e **o que não acham** |
+| `hub.v_pagina`, `hub.v_evento_dia`, `hub.v_detalle` | páginas, série por tipo, o que clicam |
+
+<details>
+<summary>Desenho original com RPCs (mantido como referência)</summary>
 
 Funções RPC no Supabase, cada uma protegida por token, cada uma devolvendo JSON:
 
@@ -90,6 +109,8 @@ Funções RPC no Supabase, cada uma protegida por token, cada uma devolvendo JSO
 
 Notar o parâmetro **`site`** em quase todas: nasce multi-site, não como remendo.
 
+</details>
+
 > [!warning] A dívida que precisa morrer no começo
 > Hoje são **duas tabelas** (`events` e `kasteller_events`) com o mesmo formato.
 > Isso já dobra toda consulta, e num painel de vários clientes vira insustentável.
@@ -97,9 +118,10 @@ Notar o parâmetro **`site`** em quase todas: nasce multi-site, não como remend
 > `site`. Não migra dado, não muda o JS dos sites, e todas as funções passam a ler
 > só a view. Um cliente novo vira uma linha, não uma tabela nova.
 >
-> Cuidado técnico: a view precisa de `security_invoker = true`, senão roda como dona
-> e **fura o RLS** — a chave anon passaria a ler tudo. A leitura continua só pelas
-> funções com token.
+> Cuidado técnico, resolvido na implementação: a view roda como dona e **fura o
+> RLS** — o que aqui é proposital, porque o RLS existe só para travar a chave anon.
+> A proteção real é o `GRANT`: ninguém do lado público tem acesso ao schema `hub`,
+> e o papel de leitura não alcança nem `events` cru nem o financeiro.
 
 ### A2 — A tela
 
@@ -110,7 +132,7 @@ JSON** — dá para começar por uma e trocar depois sem refazer nada.
 |---|---|---|---|
 | **Página própria** `/hub/?k=token` | HTML estático no próprio site | 1–2 sessões | Se a Vortex não deve virar dona disso |
 | **Embutida na Vortex** | a mesma página dentro de um `<iframe>`, token no `src` | +0,2 sessão | Caminho mais rápido para "aparecer lá dentro" |
-| **Nativa na Vortex** | o dashboard chama as RPCs e desenha com os componentes dele | depende da stack dela | Se a Vortex é o painel oficial e já tem visual próprio |
+| **Nativa na Vortex** ✅ escolhida | `/marketing` no portal Next.js, lendo o schema `hub` com um segundo cliente postgres.js | 1 sessão | É o caminho: o portal já tem NextAuth, sidebar e recharts |
 
 O `iframe` é a ponte típica: entrega valor na semana 1 e não impede a versão nativa
 depois — a API não muda.
@@ -369,8 +391,8 @@ metade de uma tela esperando a fase seguinte.
 
 | Fase | Entrega | Custo | Depende de |
 |---|---|---|---|
-| **1a** | View `eventos` multi-site + RPCs `hub_*` com token (**a camada de dados**) | 1 sessão | — |
-| **1b** | A tela: página própria, `iframe` na Vortex369 ou nativa no dashboard dela | 0,2–2 sessões | 1a |
+| ~~**1a**~~ | ~~Schema `hub`: 6 views multi-site + papel `hub_reader`~~ **✅ 09/08** | — | — |
+| **1b** | Página `/marketing` no portal — código escrito, falta ligar e buildar na VPS | 0,3 sessão | senha do papel |
 | **2** | Pacote de campanha: `build-campana` + vigência automática | 2–3 sessões | — |
 | **3** | Performance de campo (Core Web Vitals reais) → aba Performance | 1 sessão | 1a |
 | **4** | Telegram consulta (`/campana`, `/buscas`, `/kasteller`) + alertas | 1 sessão | 1a |
