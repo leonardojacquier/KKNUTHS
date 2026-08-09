@@ -3920,3 +3920,36 @@ def test_sonda_de_jornadas_exige_artefato():
     dep = (pathlib.Path(__file__).resolve().parent.parent
            / "deploy/vps_deploy.sh").read_text()
     assert "jornadas.py" in dep and "CRON_JORNADAS" in dep
+
+
+def test_o_manual_cobre_TODO_comando_que_o_aluno_ve():
+    """O manual é a promessa escrita, e a lista de temas não cobria omissão.
+
+    Achado em 09/08: `/foco` — o ciclo de problema inteiro, com o critério de
+    alta pré-registrado — e `/preparar` estavam registrados no menu do bot e
+    fora do manual. O aluno via o comando na lista do Telegram e não achava
+    explicação em lugar nenhum.
+
+    Este teste é estrutural em vez de temático: qualquer comando novo entra
+    no manual ou quebra aqui, sem depender de alguém lembrar de acrescentar
+    um tema à lista.
+    """
+    import inspect
+    import pathlib
+    import re
+
+    from app.bot import handlers
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    html = (raiz / "app/api/assets/manual_design.html").read_text()
+
+    registrados = set(re.findall(r'BotCommand\("([a-z_]+)"',
+                                 inspect.getsource(handlers)))
+    # comandos de SERVIÇO: não são funcionalidade para explicar no manual
+    servico = {"start", "manual", "plano", "quem", "termo", "planode",
+               "licoes"}
+    faltando = sorted(c for c in registrados - servico
+                      if f"/{c}" not in html)
+    assert not faltando, (
+        f"o menu do bot oferece {faltando} e o manual não explica — o aluno "
+        f"vê o comando e não acha o que ele faz")

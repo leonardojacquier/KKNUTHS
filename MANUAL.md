@@ -94,6 +94,18 @@ o coach responde levando em conta o **seu** perfil de jogo.
 | `/treino` | Drill rápido: **uma decisão** de uma mão sua — a mais instrutiva da mão, com a história até ali. O que você faria? Ao responder, chega **o filme da mão** (storyboard): a jogada do pré até a sua decisão, com a matemática (equity/EV) e o veredito |
 | `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) · `/range sb 10 ev` (**EV em BB de cada mão**, verde = empurrar rende mais que foldar) · `/range sb 10 icm 1.5` (o mesmo **sob pressão de ICM** — veja o range mudar perto da bolha) |
 | `/ask` + pergunta | Pesquise no seu histórico: *"/ask minhas maiores perdas no river"* |
+| `/foco` | **No que você está trabalhando**: um problema por vez — o mais caro que passou por cinco portões (amostra, frequência, custo, recorrência, procedência) — com o critério de alta escrito ANTES e o número de mãos que ainda faltam |
+| `/evolucao` | Sua linha do tempo, com gráficos por indicador |
+| `/estilo` | Você comparado com os arquétipos dos grandes nomes |
+| `/torneio` | Quadro do último torneio + **onde o EV foi embora, por profundidade de stack**, e com que frequência você entra em cada faixa |
+| `/relatorio` | Relatório mão a mão do torneio, em documento |
+| `/preparar` | Preparação pré-torneio: o perfil daquele formato e o que ele exige |
+| `/spot` | EV de all-in escrito em linguagem de mesa: `/spot reshove btn 12 co` |
+| `/prova` | **Audite a ferramenta** nas suas próprias mãos — oito classes de verificação, com as falhas na cara |
+| `/leitura` | Adivinhe a mão do vilão a partir da linha dele |
+| `/vilao` | Dossiê de um oponente específico |
+| `/banca` | Risco de ruína e downswing esperado |
+| `/manual` | Este manual em PDF |
 | `/plano` | Seu plano e limites |
 
 ### 🃏 Quiz do dia
