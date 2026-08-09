@@ -111,10 +111,28 @@ else
     cp -r "$REPO/backend/." "$APP/"
 fi
 
+# ---------------------------------------------------------------------------
+# SÃO DOIS PROCESSOS. O vps_deploy.sh sobe `poker-bot` (o bot) e `poker-web`
+# (uvicorn na 8014, que serve o site e o portal) — e este portão conferia
+# APENAS o primeiro. Deploy que derrubasse o site anunciava "🔄 Bot
+# atualizado", o rollback não disparava, e ninguém ficava sabendo até o dono
+# abrir o navegador. Aconteceu em 09/08.
+#
+# E não basta `pm2 describe poker-web | grep online`: uvicorn fica online com
+# a aplicação quebrada. Quem responde essa pergunta é o próprio HTTP.
+# ---------------------------------------------------------------------------
+web_responde() {
+    local codigo
+    codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                  http://127.0.0.1:8014/health 2>/dev/null || echo 000)
+    [ "$codigo" = "200" ]
+}
+
 # o portão já passou no clone; não pagar 3 minutos de pytest de novo
 export PORTAO_JA_PASSOU=1
 if bash "$APP/deploy/vps_deploy.sh" && sleep 8 && \
-   pm2 describe poker-bot 2>/dev/null | grep -q "online"; then
+   pm2 describe poker-bot 2>/dev/null | grep -q "online" && \
+   web_responde; then
     MSG=$(cd "$REPO" && git log -1 --format='%s')
     echo "$REMOTE" > "$OK_FILE"
     echo "[$(date '+%F %T')] deploy OK em ${REMOTE:0:7}"
@@ -125,6 +143,9 @@ else
     echo "[$(date '+%F %T')] SUBIDA FALHOU em ${REMOTE:0:7}; restaurando anterior"
     rsync -a --delete --exclude='venv/' --exclude='.env' \
         "$BACKUP/" "$APP/" 2>/dev/null || cp -r "$BACKUP/." "$APP/"
+    # os DOIS: restaurar o disco e reiniciar só o bot deixava o poker-web
+    # rodando de memória o código reprovado, até o próximo restart qualquer
     pm2 restart poker-bot --update-env >/dev/null 2>&1 || true
-    notify "⚠️ ${REMOTE:0:7} passou nos testes mas não subiu — *restaurei a versão anterior* e reiniciei. Ver /var/log/poker-autodeploy.log"
+    pm2 restart poker-web --update-env >/dev/null 2>&1 || true
+    notify "⚠️ ${REMOTE:0:7} passou nos testes mas não subiu — *restaurei a versão anterior* e reiniciei bot e site. Ver /var/log/poker-autodeploy.log"
 fi

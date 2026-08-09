@@ -42,12 +42,22 @@ Atualizado: 2026-08-09 · escopo: tudo implementado até aqui
 - Cron a cada 2 min: `deploy/auto_update.sh` → fetch do branch; commit novo → **pytest no CLONE** (portão) → só então rsync p/ /opt/poker-bot → `vps_deploy.sh` + pm2 restart → aviso "🔄" no TG do admin; falha → "⛔/⚠️" e bot antigo segue no ar
 - **971 testes como portão** (todos determinísticos)
 - O script re-executa de uma CÓPIA em /tmp: ele se sobrescreve no meio da própria execução, e bash lê por offset de byte (ver `test_deploy_testa_antes_de_copiar.py`)
-- Snapshot em `/tmp/poker-bot-anterior` antes de copiar; se passar nos testes e não subir, restaura sozinho
+- Snapshot em `/tmp/poker-bot-anterior` antes de copiar; se passar nos testes e não subir, restaura sozinho — e reinicia **bot e web** (antes só o bot: o disco voltava e o `poker-web` seguia de memória com o código reprovado)
+- O portão de subida confere `pm2 describe poker-bot` **e** `curl 127.0.0.1:8014/health` (antes só o bot: deploy que derrubava o site anunciava sucesso)
 - Compara com último deploy **bem-sucedido** (`/tmp/poker-autoupdate.ok`)
 - Manual (se precisar): `git -C /opt/kknuths fetch && git -C /opt/kknuths reset --hard origin/<branch> && cp -r /opt/kknuths/backend/. /opt/poker-bot/ && bash /opt/poker-bot/deploy/vps_deploy.sh`
 - Logs: `/var/log/poker-autodeploy.log`, `pm2 logs poker-bot`
 
 ## Diagnóstico (runbook)
+- **SÃO DOIS PROCESSOS**: `poker-bot` (bot Telegram, polling) e `poker-web` (uvicorn 127.0.0.1:8014, site + portal, atrás do Caddy). Bot no ar não diz nada sobre o site — foi assim que o site caiu em 09/08 com tudo verde
+- **Site fora, uma colada**:
+  ```
+  pm2 status; curl -s -o /dev/null -w 'local %{http_code}\n' http://127.0.0.1:8014/health
+  curl -s -o /dev/null -w 'publico %{http_code}\n' https://poker.vortex369.com.br/health
+  pm2 logs poker-web --lines 40 --nostream; df -h /
+  ```
+  local ≠ 200 → app (`pm2 restart poker-web`); local 200 e público ≠ 200 → Caddy/DNS/certificado, **não** é o app
+- **Sonda horária** (`scripts/sonda_recebimento.py`) cobre os dois desde 09/08: manda 🚨 *SITE FORA DO AR* com o lado que caiu; "não checado" nunca alarma
 - **Saúde geral**: `cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/diagnose.py` (testa .env, Telegram, Anthropic+modelos, OpenAI, Supabase)
 - **Bot API na mão**: `scripts/tg.py me|chat <id>|send <id> <texto>` (NUNCA getUpdates — conflita com polling)
 - **O que os usuários fazem**: tabela `bot_events` (start c/ ref do convite, upload, upload_failed c/ trecho+raw_path, ask, followup, simular, range, voice...)
