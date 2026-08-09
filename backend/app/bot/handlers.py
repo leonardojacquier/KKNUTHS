@@ -99,6 +99,7 @@ async def _set_bot_menu(app: Application) -> None:
             BotCommand("spot", "EV de all-in: equilíbrio do spot ⚖️"),
         BotCommand("prova", "Auditar a ferramenta nas suas mãos 🔬"),
         BotCommand("simular", "Rejogue uma mão sua 🎮"),
+            BotCommand("foco", "No que você está trabalhando 🎯"),
             BotCommand("treino", "Drill rápido de um spot seu"),
             BotCommand("leitura", "Adivinhe a mão do vilão 🔎"),
             BotCommand("vilao", "Dossiê de um oponente 🎯"),
@@ -398,6 +399,16 @@ async def cmd_manual(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             caption="♠ Manual do Jogador — tudo que o KKNuths faz, com as imagens "
                     "reais. Dúvidas? É só perguntar aqui!",
         )
+
+
+async def cmd_foco(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/foco — no que ele está trabalhando, e por quê."""
+    await _log(update, "foco")
+    from app.bot.processing import foco_reply
+
+    tg_user = update.effective_user
+    txt = await asyncio.to_thread(foco_reply, tg_user.id, _uname(tg_user))
+    await _safe_reply(update.message, txt)
 
 
 async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1891,6 +1902,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_spot_kind, pattern=r"^spot:"))
     app.add_handler(CallbackQueryHandler(on_spot_stack, pattern=r"^spotstk:"))
     app.add_handler(CommandHandler("simular", cmd_simular))
+    app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))
     app.add_handler(CallbackQueryHandler(on_range_button, pattern=r"^rng:"))

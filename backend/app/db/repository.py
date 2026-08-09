@@ -7,6 +7,7 @@ no-op (retornam None) — assim o bot roda em dev sem banco e os testes não toc
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from functools import lru_cache, wraps
 from typing import Any, Optional
 
@@ -382,6 +383,66 @@ class Repository:
             .gte("hands", 20).limit(500).execute()
         )
         return res.data or []
+
+    # ------------------------- ciclo de problema -----------------------
+    # `player_notes` (abaixo) é o caderno QUALITATIVO do coach, texto livre
+    # de LLM. Ele não pode alimentar estatística: número que sai de nota
+    # narrativa é o incidente do VPIP por outro caminho. Por isso o problema
+    # é entidade separada, com evidência numérica rastreável.
+
+    @_safe([])
+    def problemas_do_aluno(self, user_id: str,
+                           estados: tuple[str, ...] | None = None) -> list[dict]:
+        if not self._guard():
+            return []
+        q = (self.client.table("problemas").select("*").eq("user_id", user_id)
+             .order("aberto_em", desc=True).limit(50))
+        if estados:
+            q = q.in_("estado", list(estados))
+        return q.execute().data or []
+
+    @_safe(None)
+    def abrir_problema(self, user_id: str, codigo: str, estado: str,
+                       por_que: str, alta: dict | None = None,
+                       diagnostico_ate: str | None = None) -> dict | None:
+        """Abre — e grava o critério de alta JUNTO, na mesma linha.
+
+        Pré-registro só vale se for imutável na prática: gravar depois abre a
+        porta para escrever a régua já sabendo o resultado, que é exatamente
+        o viés que ele existe para impedir.
+        """
+        if not self._guard():
+            return None
+        linha = {"user_id": user_id, "codigo": codigo, "estado": estado,
+                 "por_que": por_que[:800], "diagnostico_ate": diagnostico_ate}
+        if alta:
+            linha.update({
+                "alta_limiar": alta.get("limiar"),
+                "alta_n_minimo": alta.get("n_minimo"),
+                "alta_registrado_em": alta.get("registrado_em"),
+                "alta_por_extenso": alta.get("por_extenso")})
+        r = self.client.table("problemas").insert(linha).execute()
+        return (r.data or [None])[0]
+
+    @_safe(None)
+    def mudar_estado_do_problema(self, problema_id: str, estado: str,
+                                 por_que: str = "") -> None:
+        if not self._guard():
+            return None
+        campos: dict = {"estado": estado}
+        if por_que:
+            campos["por_que"] = por_que[:800]
+        if estado in ("em_alta", "resolvido"):
+            campos["alta_em"] = datetime.now(timezone.utc).isoformat()
+        self.client.table("problemas").update(campos).eq(
+            "id", problema_id).execute()
+
+    @_safe(None)
+    def salvar_medicao(self, problema_id: str, medicao: dict) -> None:
+        if not self._guard():
+            return None
+        self.client.table("problema_medicao").insert(
+            {"problema_id": problema_id, **medicao}).execute()
 
     # --------------------------- caderno do coach ----------------------
     @_safe(None)

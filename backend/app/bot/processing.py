@@ -1383,6 +1383,35 @@ def tournament_board_report(telegram_id: int) -> tuple[bytes, str] | None:
     return render_tournament_board(hands)
 
 
+def foco_reply(telegram_id: int, username: str | None = None) -> str:
+    """/foco — o problema em que o aluno está trabalhando AGORA.
+
+    Só sessão inteira entra na conta; o portão está em `revisar`. Sem mão
+    completa a resposta diz isso em vez de fingir que não há o que estudar —
+    são coisas diferentes e o aluno merece saber qual das duas é.
+    """
+    from app.analysis.plano_de_estudo import revisar
+
+    repo = get_repository()
+    if not repo.enabled:
+        return "Sem banco agora — tenta de novo em instantes."
+    user = repo.get_or_create_user(telegram_id, username)
+    if not user:
+        return "Não achei seu cadastro."
+    completas, _ = repo.get_hands_para_perfil(user["id"], limit=1500)
+    if not completas:
+        return ("Ainda não tenho mão de SESSÃO INTEIRA sua — só replay/print, "
+                "que serve pra analisar aquela mão mas não pra medir "
+                "frequência. Manda o arquivo de um torneio inteiro que eu "
+                "monto seu plano.")
+    r = revisar(repo, user["id"], completas)
+    if not r.get("texto"):
+        return (f"Varri suas {r.get('maos_completas', 0)} mãos de sessão "
+                "inteira e não achei padrão que já dê pra chamar de problema. "
+                "Isso é bom — e continuo olhando a cada envio.")
+    return r["texto"]
+
+
 def estrategia_do_torneio(telegram_id: int) -> str:
     """Onde o EV foi embora, por profundidade de stack. '' sem material.
 
