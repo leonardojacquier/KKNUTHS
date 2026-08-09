@@ -14,6 +14,25 @@ o deploy seguinte — subia ela em silêncio. `grep rollback` no script: zero.
 
 Não dá para rodar o deploy aqui (é VPS), mas a ORDEM é o bug, e ordem se lê.
 Este teste é a memória disso.
+
+────────────────────────────────────────────────────────────────────────────
+ESTE ARQUIVO É LINT DECLARADO, NÃO TESTE DE COMPORTAMENTO.
+
+A varredura de 09/08 encontrou ~70 testes que asseguravam TEXTO DO CÓDIGO
+em vez de comportamento, e 20 deles foram convertidos — o padrão tinha
+deixado passar a inversão de um portão com 971 testes verdes.
+
+Os deste arquivo ficam como estão, e a razão é honesta: o defeito que eles
+protegem É textual — a ORDEM de duas linhas dentro de um shell script.
+Testar por comportamento exigiria executar o deploy num sandbox com git,
+rsync e pm2 falsos, e um pytest que falha de propósito. O harness custaria
+mais do que protege, e a chance de ELE ficar errado é maior que o risco que
+cobre.
+
+Então: NÃO conte este arquivo como cobertura de comportamento. Ele é uma
+regra de escrita sobre dois scripts, do mesmo naipe que um linter — útil,
+barato, e cego para tudo que não seja a forma do texto.
+────────────────────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
 

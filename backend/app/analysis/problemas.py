@@ -126,7 +126,7 @@ def avaliar(diagnostico: dict, evidencias: list[Evidencia],
     tolerancia = diagnostico.get("tolerancia_pct", 25.0)
 
     # a régua endurece quando muitos códigos disputam o posto de "o pior"
-    z = Z99 if codigos_testados > CODIGOS_ATE_IC95 else Z95
+    z = z_para_familia(codigos_testados)
     _, lo, _ = shrunk_rate(miss, opp, 20.0, 6.0, z=z)
 
     dias = sorted({e.dia for e in evidencias})
@@ -179,9 +179,72 @@ def prioridade(diagnostico: dict, oportunidades_por_semana: float,
     return custo * 1.0 + destrava * 0.5 + rapidez * 0.4
 
 
+def z_para_familia(codigos_testados: int, alfa: float = 0.05) -> float:
+    """O z que segura o alfa da FAMÍLIA em `alfa`, com N códigos testados.
+
+    O degrau anterior (`Z99 se testados > 10, senão Z95`) tinha dois
+    defeitos, e o segundo anulava o primeiro:
+
+      1. z=2,576 está calibrado para EXATAMENTE N=10. Como a regra só ligava
+         a partir de N=11, ele valia apenas na faixa em que já era
+         insuficiente — em N=15 o alfa familiar com 2,576 é ~7,2%.
+      2. em produção `codigos_testados` é `len(CODIGOS)` = 6, e `6 > 10` é
+         falso. O ramo endurecido NUNCA executava. Medido em 09/08.
+
+    Šidák resolve os dois de uma vez e sem degrau: cada teste roda a
+    `1-(1-alfa)^(1/N)`. Como o portão usa o limite INFERIOR de um IC
+    bilateral, a cauda de interesse é metade disso.
+    """
+    import math
+
+    n = max(1, int(codigos_testados or 1))
+    por_teste = 1.0 - (1.0 - alfa) ** (1.0 / n)
+    # quantil normal da cauda superior em `por_teste/2` (Acklam, erro < 1e-9
+    # na faixa que nos interessa — não vale trazer scipy por isto)
+    p = 1.0 - por_teste / 2.0
+    if p <= 0.0 or p >= 1.0:
+        return 1.96
+    q = math.sqrt(-2.0 * math.log(1.0 - p)) if p > 0.5 else \
+        math.sqrt(-2.0 * math.log(p))
+    z = q - ((0.010328 * q + 0.802853) * q + 2.515517) / \
+        (((0.001308 * q + 0.189269) * q + 1.432788) * q + 1.0)
+    return abs(z)
+
+
+def prereq_inertes() -> set[str]:
+    """Pré-requisitos que NENHUM detector sabe produzir.
+
+    `pot_odds` e `push_fold_nash` não estão em `taxonomia.CODIGOS`: não há
+    detector que os diagnostique, logo eles nunca entram em `resolvidos` e o
+    bloqueio seria eterno. Medido em 09/08: quatro dos seis códigos —
+    incluindo os dois de maior sinal por amostra — estavam travados para
+    sempre, e o aluno via a fila com o código interno cru ("espera
+    pot_odds") sem nunca sair dela.
+
+    Pré-requisito que não pode ser satisfeito é pior que pré-requisito
+    nenhum: esconde metade do diagnóstico e parece funcionar.
+    """
+    from app.analysis.taxonomia import CODIGOS
+
+    return {p for alvos in PREREQ.values() for p in alvos
+            if p not in CODIGOS}
+
+
 def bloqueado_por(codigo: str, resolvidos: set[str]) -> str | None:
-    """O pré-requisito que ainda falta — vira o problema ativo no lugar."""
+    """O pré-requisito que ainda falta — vira o problema ativo no lugar.
+
+    Só bloqueia por EVIDÊNCIA. Se nenhum detector sabe diagnosticar o
+    pré-requisito, não há como afirmar que o aluno não o domina, e o padrão
+    passa a ser "não sei" — que aqui significa deixar passar, e não travar.
+
+    A dependência continua declarada em `PREREQ` de propósito: no dia em que
+    existir um detector de `pot_odds`, o bloqueio volta a valer sozinho, sem
+    ninguém precisar lembrar de reativá-lo.
+    """
+    inertes = prereq_inertes()
     for p in PREREQ.get(codigo, ()):
+        if p in inertes:
+            continue
         if p not in resolvidos:
             return p
     return None

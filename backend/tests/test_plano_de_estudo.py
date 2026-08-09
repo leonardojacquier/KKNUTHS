@@ -141,9 +141,13 @@ def test_o_criterio_vai_na_mesma_gravacao():
 def test_o_que_depende_de_prerequisito_espera_na_fila():
     """Não adianta abrir 'defesa de BB' para quem não calcula preço de pote:
     metade daquelas mãos ele erra pelo motivo errado."""
-    from app.analysis.problemas import bloqueado_por
+    from app.analysis.problemas import bloqueado_por, prereq_inertes
 
-    assert bloqueado_por("bb_subdefesa", set()) == "pot_odds"
+    # `pot_odds` é INERTE (nenhum detector o produz), então não trava mais —
+    # ver test_ciclo_de_problema. A fila continua existindo para o dia em
+    # que houver um pré-requisito diagnosticável.
+    assert "pot_odds" in prereq_inertes()
+    assert bloqueado_por("bb_subdefesa", set()) is None
     r = _Repo()
     out = revisar(r, "u-1", _muitos_limps())
     # limp não tem pré-requisito, então é ele que abre

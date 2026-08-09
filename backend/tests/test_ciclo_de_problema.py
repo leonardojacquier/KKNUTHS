@@ -99,13 +99,92 @@ def test_o_motivo_vem_junto_do_estado():
 def test_muitos_codigos_testados_endurecem_a_regua():
     """Varrer 15 códigos e pegar o pior é procurar o extremo: com IC95, ~1 em
     20 dá positivo por sorte, e o sistema é DESENHADO para maximizar isso."""
-    # 14/22: pior caso 36.2% no IC95 (passa da tolerância de 35%) e 30.5%
-    # no IC99 (não passa). É exatamente a faixa em que a régua decide.
-    marginal = _diag(oportunidades=22, escorregadas=14, taxa_mean=60.0)
+    # A régua é Šidák, sem degrau: cada teste roda a 1-(1-0,05)^(1/N), e o
+    # portão usa o limite INFERIOR de um IC bilateral, então a cauda de
+    # interesse é metade disso. z(3)=2,39 · z(15)=2,93.
+    #
+    # 14/20 com tolerância de 35%: pior caso 35,8% com N=3 (passa) e 30,7%
+    # com N=15 (não passa). É exatamente a faixa em que a régua decide.
+    marginal = _diag(oportunidades=20, escorregadas=14, taxa_mean=70.0,
+                     tolerancia_pct=35.0)
     poucos = avaliar(marginal, _ev(_TRES_SESSOES), codigos_testados=3)
     muitos = avaliar(marginal, _ev(_TRES_SESSOES), codigos_testados=15)
     assert poucos.estado == PROBLEMA
     assert muitos.estado != PROBLEMA, "a régua não endureceu"
+
+
+def test_a_regua_endurecida_ACIONA_com_os_codigos_que_existem():
+    """O degrau antigo era `Z99 se testados > 10, senão Z95`, e produção
+    passa `len(CODIGOS)` = 6. `6 > 10` é falso: o ramo endurecido NUNCA
+    executou. A correção de comparações múltiplas era código morto.
+
+    Além disso z=2,576 está calibrado para EXATAMENTE N=10 — e a regra só
+    ligava a partir de N=11, ou seja, só na faixa em que ele já era
+    insuficiente (em N=15 o alfa da família com 2,576 fica em ~7,2%).
+    """
+    from app.analysis.problemas import z_para_familia
+    from app.analysis.taxonomia import CODIGOS
+
+    z_um = z_para_familia(1)
+    z_producao = z_para_familia(len(CODIGOS))
+    assert z_producao > z_um + 0.5, (
+        f"com os {len(CODIGOS)} códigos de hoje o z é {z_producao:.2f} "
+        f"contra {z_um:.2f} de um teste só — a correção não está agindo")
+    # e cresce com N, sem degrau
+    zs = [z_para_familia(n) for n in (1, 3, 6, 10, 20)]
+    assert zs == sorted(zs) and len(set(zs)) == len(zs)
+
+
+def test_o_avaliar_USA_a_regua_da_familia_com_o_N_de_producao():
+    """A régua corrigida tem que chegar ao `avaliar`, não só existir.
+
+    Sem este teste, reverter `avaliar` para o degrau antigo (`Z99 se
+    testados > 10`) passava batido: os outros testes exercitam
+    `z_para_familia` direto, e o degrau também separa N=3 de N=15. O que ele
+    NÃO faz é agir no N real — produção passa `len(CODIGOS)` = 6, e
+    `6 > 10` é falso.
+
+    5 escorregadas em 20 chances, tolerância de 5% (a do limp, cuja
+    referência de equilíbrio é ZERO): com Z95 o pior caso é 7,8% e ACUSA;
+    com a régua da família em N=6 é 2,3% e não acusa.
+    """
+    from app.analysis.taxonomia import CODIGOS
+
+    marginal = _diag(oportunidades=20, escorregadas=5, taxa_mean=25.0,
+                     tolerancia_pct=5.0)
+    v = avaliar(marginal, _ev(_TRES_SESSOES), codigos_testados=len(CODIGOS))
+    assert v.estado != PROBLEMA, (
+        f"com {len(CODIGOS)} códigos disputando o posto de 'o pior', "
+        f"5/20 virou diagnóstico: {v.por_que}")
+
+    # e com UM código testado o mesmo dado acusa — é a correção agindo, não
+    # um portão genérico apertado demais
+    solo = avaliar(marginal, _ev(_TRES_SESSOES), codigos_testados=1)
+    assert solo.estado == PROBLEMA, (
+        "sem comparação múltipla o mesmo dado tinha que acusar; se não "
+        "acusa, o que barrou foi outro portão e este teste não mede a régua")
+
+
+def test_o_z_bate_com_a_conta_de_sidak():
+    """Conferido contra bisseção sobre a normal — implementação independente
+    da aproximação usada em produção."""
+    import math
+
+    from app.analysis.problemas import z_para_familia
+
+    def referencia(n, alfa=0.05):
+        alvo = (1 - (1 - alfa) ** (1 / n)) / 2
+        lo, hi = 0.0, 8.0
+        for _ in range(200):
+            meio = (lo + hi) / 2
+            if 0.5 * math.erfc(meio / math.sqrt(2)) > alvo:
+                lo = meio
+            else:
+                hi = meio
+        return (lo + hi) / 2
+
+    for n in (1, 2, 6, 10, 15, 20, 50):
+        assert abs(z_para_familia(n) - referencia(n)) < 0.002, n
 
 
 # ---- regressão à média -----------------------------------------------------
@@ -199,9 +278,34 @@ def test_um_problema_ativo_por_vez():
 def test_pre_requisito_vira_o_problema_no_lugar():
     """Não adianta trabalhar defesa de BB com quem não calcula preço de pote:
     metade daquelas mãos ele erra pelo motivo errado."""
-    assert bloqueado_por("bb_subdefesa", set()) == "pot_odds"
-    assert bloqueado_por("bb_subdefesa", {"pot_odds"}) is None
+    from app.analysis.problemas import PREREQ, prereq_inertes
+
+    # Hoje `pot_odds` e `push_fold_nash` são INERTES: nenhum detector sabe
+    # produzi-los, então nunca entram em `resolvidos` e o bloqueio seria
+    # eterno. Medido em 09/08: quatro dos seis códigos — incluindo os dois de
+    # maior sinal por amostra — estavam travados PARA SEMPRE, e o aluno via
+    # "espera pot_odds" na fila sem nunca sair dela.
+    #
+    # Pré-requisito que não pode ser satisfeito é pior que nenhum: esconde
+    # metade do diagnóstico e parece funcionar.
+    assert prereq_inertes() == {"pot_odds", "push_fold_nash"}
+    assert bloqueado_por("bb_subdefesa", set()) is None, (
+        "voltou a travar num pré-requisito que ninguém consegue resolver")
     assert bloqueado_por("limp_de_abertura", set()) is None
+
+    # e a dependência CONTINUA declarada: no dia em que existir detector de
+    # pot_odds, o bloqueio volta a valer sozinho
+    assert "pot_odds" in PREREQ["bb_subdefesa"]
+
+
+def test_prerequisito_que_EXISTE_continua_bloqueando(monkeypatch):
+    """A mecânica não foi desligada — foi condicionada a haver evidência."""
+    from app.analysis import problemas
+
+    monkeypatch.setitem(problemas.PREREQ, "bb_subdefesa",
+                        ("limp_de_abertura",))
+    assert bloqueado_por("bb_subdefesa", set()) == "limp_de_abertura"
+    assert bloqueado_por("bb_subdefesa", {"limp_de_abertura"}) is None
 
 
 def test_aluno_novo_comeca_pelo_ciclo_mais_curto():

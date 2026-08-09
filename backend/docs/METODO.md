@@ -408,9 +408,17 @@ promessa, e este documento existe justamente porque promessa não basta.**
 
 ### Aberto — a lista priorizada
 
-- **4 dos 6 detectores estão travados para sempre.** `PREREQ` exige `pot_odds`
-  e `push_fold_nash`; nenhum detector produz esses códigos.
-- **A régua IC99 nunca aciona.** `CODIGOS_ATE_IC95 = 10`, `len(CODIGOS) = 6`.
+- ~~4 dos 6 detectores travados para sempre~~ **corrigido em 09/08.** `PREREQ`
+  exigia `pot_odds` e `push_fold_nash`, que nenhum detector produz — bloqueio
+  eterno. Agora só bloqueia por evidência: pré-requisito que ninguém sabe
+  diagnosticar não trava. A dependência segue declarada, e volta a valer
+  sozinha no dia em que o detector existir.
+- ~~A régua IC99 nunca aciona~~ **corrigido em 09/08.** O degrau
+  (`Z99 se testados > 10`) tinha dois defeitos que se anulavam: z=2,576 está
+  calibrado para exatamente N=10 e só ligava a partir de N=11 (a faixa em que
+  já é insuficiente); e produção passa `len(CODIGOS)` = 6, então o ramo nunca
+  executava. Trocado por Šidák sem degrau — com os 6 códigos de hoje o z é
+  **2,63**, não 1,96.
 - **`evolucao.py` inteiro é código morto.** Zero importações em `app/`.
 - **`bb_subdefesa` marca fold, não subdefesa.** Acusa 148 das 169 classes de
   mão (87,6%), porque usa equity crua all-in e assume realização de 100%.
