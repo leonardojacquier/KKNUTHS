@@ -60,9 +60,21 @@ def detect_leaks(hands: list[CanonicalHand]) -> list[dict]:
     n_maos = max(len(hands), 1)
     out = []
     for d in agregar(observar(hands), n_maos):
-        # o corte de sempre: acidente não é leak
-        if d["escorregadas"] == 0 or d["taxa_mean"] < 25.0 \
-                or d["custo_bb_100"] <= 0:
+        # DECIDE PELO LIMITE INFERIOR, igual ao resto do sistema.
+        #
+        # Antes o corte era `taxa_mean < 25.0` — a MÉDIA, que é exatamente o
+        # que `agregar` existe para não usar. Duas escorregadas em duas
+        # chances davam média 100% e viravam leak de 15bb/100 aqui, enquanto
+        # `agregar` já dizia `acima_da_tolerancia=False` (limite inferior de
+        # 8%). Ou seja: a camada de limite inferior estava construída,
+        # testada, e o caminho que fala com o aluno passava por fora dela.
+        #
+        # `acima_da_tolerancia` também respeita a tolerância PRÓPRIA de cada
+        # código: limp tem referência 5%, subdefesa de BB tem 35%. Um corte
+        # único de 25% acusava limp de menos e BB de mais.
+        if d["escorregadas"] == 0 or d["custo_bb_100"] <= 0:
+            continue
+        if not d.get("acima_da_tolerancia"):
             continue
         largura = d["taxa_hi"] - d["taxa_lo"]
         out.append({

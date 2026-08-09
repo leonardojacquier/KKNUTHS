@@ -75,6 +75,40 @@ _DIRECAO = {
 }
 
 
+def _proporcoes_diferem(erros_a: int, n_a: int, erros_b: int, n_b: int,
+                        alfa: float = 0.05) -> bool:
+    """Teste de duas proporções — A erra MAIS que B, com margem?
+
+    Existe porque a versão anterior comparava contagens brutas. Com 40
+    chances de um lado e 5 do outro, a mesma taxa real de erro produzia
+    "passivo demais" em 99,5% das simulações: quem tem mais oportunidades
+    acumula mais erros mesmo jogando igual.
+
+    Aproximação normal com variância agrupada. Não vale trazer scipy para
+    isto, e a aproximação é adequada porque o portão de 5 chances por lado já
+    barra os casos em que ela quebraria.
+    """
+    import math
+
+    if n_a < 5 or n_b < 5:
+        return False
+    p_a, p_b = erros_a / n_a, erros_b / n_b
+    p = (erros_a + erros_b) / (n_a + n_b)
+    if p <= 0.0 or p >= 1.0:
+        return False
+    se = math.sqrt(p * (1 - p) * (1 / n_a + 1 / n_b))
+    if se <= 0:
+        return False
+    z = (p_a - p_b) / se
+    # BILATERAL (1,96), embora a pergunta pareça dirigida. O lado testado é
+    # escolhido OLHANDO O DADO (`max(self.direcao)`), e escolher o maior dos
+    # dois e depois testar num rabo só é o mesmo viés de "procurar o extremo"
+    # que a correção de comparações múltiplas trata em problemas.py.
+    # Medido: com denominadores iguais, o limiar unilateral dava 10,4% de
+    # falsa direção sob H0 — o dobro do nominal. Com 1,96 volta a ~5%.
+    return z > 1.96 if alfa == 0.05 else z > 2.576
+
+
 @dataclass
 class LinhaDaFaixa:
     faixa: str
@@ -96,18 +130,34 @@ class LinhaDaFaixa:
 
         Uma ferramenta que sempre acha passividade empurra todo aluno para a
         agressão, e aí ela mesma cria o leak que vai diagnosticar depois.
+
+        E COMPARAR CONTAGENS NÃO SERVE. `direcao[lado] > direcao[outro]` com
+        denominadores diferentes é decidido pelo desequilíbrio, não pelo
+        jogo: simulado em 09/08 com os DOIS lados na MESMA taxa real de erro,
+        40 chances de um lado contra 5 do outro, o veredito saía "passivo
+        demais" em 99,5% das vezes. O portão de 5 chances não corrigia nada —
+        ele liberava a comparação e a comparação já estava viciada.
+
+        Agora compara TAXAS, e só afirma quando a diferença sobrevive a um
+        teste de duas proporções. O poder é baixo com amostra de clube (para
+        separar 35% de 20% seriam ~200 spots por lado), e isso é a resposta
+        certa: na maioria das faixas o veredito honesto é "não sei de que
+        lado", não um palpite com cara de diagnóstico.
         """
         if not self.erros:
             return None
         lado = max(self.direcao, key=lambda k: self.direcao[k])
         outro = "solto" if lado == "passivo" else "passivo"
-        if self.direcao[lado] < 2:
-            return None
-        if self.chances.get(outro, 0) < 5:
+        n_a = self.chances.get(lado, 0)
+        n_b = self.chances.get(outro, 0)
+        if self.direcao[lado] < 2 or n_a < 5 or n_b < 5:
             return None            # o outro lado mal teve como aparecer
-        if self.direcao[lado] <= self.direcao.get(outro, 0):
+        p_a = self.direcao[lado] / n_a
+        p_b = self.direcao.get(outro, 0) / n_b
+        if p_a <= p_b:
             return None
-        return lado
+        return lado if _proporcoes_diferem(
+            self.direcao[lado], n_a, self.direcao.get(outro, 0), n_b) else None
 
 
 def _stack_bb(h: CanonicalHand) -> float | None:

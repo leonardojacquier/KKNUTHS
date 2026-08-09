@@ -66,24 +66,36 @@ def test_leak_detector_and_study_plan():
     # amostra limpa: folds padrão não viram leak (nada de acusação vazia)
     assert detect_leaks(hands * 3) == []
 
-    # agora o herói folda AKo em pote não aberto, 4 vezes: leak de verdade
+    # o herói folda AKo em pote não aberto
     folded = next(h for h in hands if h.hand_id == "TM6146070321")
-    fakes = []
-    for i in range(4):
-        fk = folded.model_copy(deep=True)
-        fk.hand_id = f"FAKE{i}"
-        fk.hero_cards = ["Ah", "Kc"]
-        fakes.append(fk)
-    leaks = detect_leaks(fakes)
+
+    def _fakes(n):
+        out = []
+        for i in range(n):
+            fk = folded.model_copy(deep=True)
+            fk.hand_id = f"FAKE{i}"
+            fk.hero_cards = ["Ah", "Kc"]
+            out.append(fk)
+        return out
+
+    # 4 DE 4 NÃO É LEAK, e esta asserção mudou de lado em 09/08.
+    # `detect_leaks` cortava por `taxa_mean < 25.0` — a MÉDIA, que é
+    # exatamente o que `agregar` existe para não usar. Com 4 chances o limite
+    # inferior fica em ~12%, abaixo da tolerância de 30% do open_perdido:
+    # acidente não é leak, e quatro mãos não são amostra.
+    assert detect_leaks(_fakes(4)) == [], (
+        "4 escorregadas em 4 chances viraram leak — é a média decidindo")
+
+    # com amostra que sustenta, o leak aparece
+    leaks = detect_leaks(_fakes(40))
     assert leaks and leaks[0]["leak"] == "open_perdido"
-    assert leaks[0]["escorregadas"] == 4
+    assert leaks[0]["escorregadas"] == 40
     assert leaks[0]["custo_bb_100maos"] > 0
     txt = leaks_text(leaks)
-    assert "custando" in txt and "4 de 4" in txt
+    assert "custando" in txt and "40 de 40" in txt
 
     # 1 escorregada em 2 chances NÃO crava leak crônico (shrinkage segura)
-    um_so = detect_leaks([fakes[0], folded])
-    assert all(lk["escorregadas"] >= 1 for lk in um_so)  # se aparecer, é honesto
+    assert detect_leaks([_fakes(1)[0], folded]) == []
 
 
 def test_range_tracker_updates_toward_value_on_big_bets():

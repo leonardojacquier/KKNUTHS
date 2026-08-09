@@ -119,10 +119,22 @@ def test_direcao_nao_e_afirmada_quando_o_outro_lado_nao_teve_chance():
                         chances={"passivo": 20, "solto": 1})
     assert cega.direcao_confiavel is None
 
-    justa = LinhaDaFaixa(faixa="curto", o_que_muda="", maos=20, spots=20,
+    # 6/20 = 30% contra 1/12 = 8,3% PARECE claro e não é: z = 1,44, abaixo
+    # do limiar. Este caso era afirmado pela versão que comparava contagens
+    # (6 > 1) e não sobrevive a um teste de duas proporções. Manter a
+    # asserção antiga seria pedir de volta o defeito.
+    quase = LinhaDaFaixa(faixa="curto", o_que_muda="", maos=20, spots=20,
                          erros=6, ev_perdido_bb=4.0, por_codigo={},
                          direcao={"passivo": 6, "solto": 1},
                          chances={"passivo": 20, "solto": 12})
+    assert quase.direcao_confiavel is None, (
+        "6 contra 1 com 20 e 12 chances não separa — afirmar aqui é chute")
+
+    # com separação de verdade, o conselho sai
+    justa = LinhaDaFaixa(faixa="curto", o_que_muda="", maos=40, spots=80,
+                         erros=22, ev_perdido_bb=4.0, por_codigo={},
+                         direcao={"passivo": 20, "solto": 2},
+                         chances={"passivo": 40, "solto": 40})
     assert justa.direcao_confiavel == "passivo"
 
 
@@ -268,3 +280,84 @@ def test_o_quadro_e_a_leitura_olham_as_mesmas_maos():
     for fn in (processing.tournament_board_report,
                processing.estrategia_do_torneio):
         assert "maos_do_ultimo_torneio" in inspect.getsource(fn)
+
+
+# ---- direção do erro: comparar CONTAGENS é decidir pelo denominador -------
+
+def _linha_de_direcao(erros_passivo, n_passivo, erros_solto, n_solto):
+    from app.analysis.estrategia_torneio import LinhaDaFaixa
+
+    return LinhaDaFaixa(
+        faixa="re-shove", o_que_muda="x", maos=0,
+        spots=n_passivo + n_solto, erros=erros_passivo + erros_solto,
+        ev_perdido_bb=0.0, por_codigo={},
+        direcao={"passivo": erros_passivo, "solto": erros_solto},
+        chances={"passivo": n_passivo, "solto": n_solto})
+
+
+def test_o_lado_com_mais_CHANCES_nao_ganha_por_isso():
+    """O defeito medido em 09/08: com os DOIS lados na MESMA taxa real de
+    erro, 40 chances contra 5, o veredito saía 'passivo demais' em 99,5% das
+    simulações. Quem tem mais oportunidades acumula mais ERROS mesmo jogando
+    igual — e o portão de 5 chances não corrigia isso, só liberava a
+    comparação já viciada.
+    """
+    # 12/40 = 30% e 2/5 = 40%: o passivo tem MAIS erros e MENOS taxa
+    linha = _linha_de_direcao(12, 40, 2, 5)
+    assert linha.direcao_confiavel is None, (
+        "afirmou direção com base na contagem bruta")
+
+    # mesma taxa dos dois lados, denominadores muito diferentes
+    assert _linha_de_direcao(12, 40, 2, 5).direcao_confiavel is None
+    assert _linha_de_direcao(20, 60, 2, 6).direcao_confiavel is None
+
+
+def test_diferenca_grande_e_com_amostra_AINDA_e_afirmada():
+    """Consertar virando mudo seria trocar um defeito por outro. Quando a
+    diferença é real e a amostra dá, o conselho sai."""
+    linha = _linha_de_direcao(20, 40, 2, 40)     # 50% vs 5%
+    assert linha.direcao_confiavel == "passivo"
+
+
+def test_a_taxa_de_falsa_direcao_fica_no_nominal():
+    """Simulação sob H0: os dois lados com a MESMA taxa real. Um teste a 5%
+    pode errar 5% das vezes — não 99,5%.
+
+    Inclui o caso de denominadores IGUAIS de propósito: ali o lado é escolhido
+    olhando o dado (`max`), então testar num rabo só dava 10,4%, o dobro do
+    nominal. É o mesmo viés de 'procurar o extremo' que a correção de
+    comparações múltiplas trata em problemas.py.
+    """
+    import random
+
+    rnd = random.Random(7)
+    for p, na, nb in ((0.30, 40, 5), (0.30, 40, 40), (0.20, 100, 100)):
+        afirmou = 0
+        for _ in range(3000):
+            ea = sum(rnd.random() < p for _ in range(na))
+            eb = sum(rnd.random() < p for _ in range(nb))
+            if _linha_de_direcao(ea, na, eb, nb).direcao_confiavel:
+                afirmou += 1
+        taxa = 100 * afirmou / 3000
+        assert taxa < 8.0, (
+            f"p={p} n={na}vs{nb}: afirmou direção em {taxa:.1f}% dos casos "
+            f"em que NÃO há diferença nenhuma")
+
+
+def test_o_poder_e_declarado_e_nao_prometido():
+    """Com amostra de clube o veredito honesto é quase sempre 'não sei de que
+    lado'. Este teste fixa isso para ninguém achar que a ferramenta calou por
+    bug: separar 35% de 20% exige ~200 spots POR LADO."""
+    import random
+
+    rnd = random.Random(11)
+    achou = 0
+    for _ in range(2000):
+        ea = sum(rnd.random() < 0.35 for _ in range(60))
+        eb = sum(rnd.random() < 0.20 for _ in range(60))
+        if _linha_de_direcao(ea, 60, eb, 60).direcao_confiavel == "passivo":
+            achou += 1
+    poder = 100 * achou / 2000
+    assert 30.0 < poder < 65.0, (
+        f"poder de {poder:.0f}% para 35% vs 20% com 60 por lado — se subiu "
+        f"muito, o limiar afrouxou; se caiu, a ferramenta ficou muda")

@@ -354,3 +354,40 @@ def test_a_equity_por_classe_e_memoizada():
     assert agora.misses == depois_de_uma.misses, (
         "recalculou a equity para a mesma classe de mão")
     assert agora.hits > depois_de_uma.hits
+
+
+def test_o_caminho_que_fala_com_o_aluno_usa_o_MESMO_criterio():
+    """`detect_leaks` cortava por `taxa_mean < 25.0` — a MÉDIA, que é
+    exatamente o que `agregar` existe para não usar.
+
+    Duas escorregadas em duas chances davam média 100% e viravam leak de
+    15bb/100 no /stats e no contexto do coach, enquanto `agregar` já dizia
+    `acima_da_tolerancia=False`. A camada de limite inferior estava
+    construída, testada — e o caminho que fala com o aluno passava por fora
+    dela.
+
+    O corte único de 25% também ignorava a tolerância PRÓPRIA de cada código:
+    limp tem referência 5%, subdefesa de BB tem 35%.
+    """
+    from app.analysis.leaks import detect_leaks
+
+    maos = [_mao("CO", ["7h", "2d"],
+                 [_post("Vil", 50, "sb"), _post("Out", 100, "bb"),
+                  Action(actor="Hero", type=ActionType.CALL, amount=100,
+                         to_amount=100)], hid=f"h{i}") for i in range(2)]
+
+    publicados = {l["leak"] for l in detect_leaks(maos)}
+    por_codigo = {d["codigo"]: d for d in agregar(observar(maos), 2)}
+
+    for codigo, d in por_codigo.items():
+        if d["escorregadas"] == 0 or d["custo_bb_100"] <= 0:
+            continue
+        assert (codigo in publicados) == bool(d["acima_da_tolerancia"]), (
+            f"{codigo}: agregar diz acima_da_tolerancia="
+            f"{d['acima_da_tolerancia']} (lo={d['taxa_lo']:.0f}% vs "
+            f"tolerância {d['tolerancia_pct']:.0f}%) e detect_leaks "
+            f"{'publicou' if codigo in publicados else 'omitiu'}")
+
+    # o caso concreto do achado: call_caro com limite inferior de 8% contra
+    # tolerância de 25% não pode aparecer como leak
+    assert "call_caro" not in publicados
