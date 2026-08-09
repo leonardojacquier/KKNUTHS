@@ -61,34 +61,60 @@ O plano transforma esse fluxo manual em processo com formato, validação e venc
 
 ---
 
-## Módulo A — Indicadores (`/hub/`)
+## Módulo A — Indicadores
 
-Página estática servida pelo próprio site, **protegida por token secreto na URL**
-(`gnhorizons.com/hub/?k=...`). Sem login, sem backend novo: o HTML chama funções
-RPC do Supabase que **exigem o token** (mesmo modelo do `resumen_dia()` — a chave
-anon sozinha não lê nada).
+> [!important] O hub tem duas metades, e só uma delas é valiosa
+> **A1, a camada de dados**, é o ativo: views agregadas + RPCs com token que
+> devolvem JSON. **A2, a tela**, é pele fina por cima. Quem consome o JSON — uma
+> página nossa, o dashboard da Vortex369, o bot do Telegram — é escolha reversível.
+>
+> Por isso A1 é construída **primeiro e sozinha**, com contrato documentado. Nenhuma
+> decisão de onde a tela mora bloqueia o trabalho.
 
-**Telas (uma página, 5 abas):**
+### A1 — A camada de dados (o contrato)
 
-1. **Hoje / Semana** — visitantes, funil porta→ventas→WhatsApp, comparativo com a
-   semana anterior, linha do tempo por dia.
-2. **Campanhas** — por `utm_campaign`: chegadas por rede, cliques em WhatsApp,
-   evento `promo`. Responde "o post do Instagram trouxe alguém?".
-3. **Buscas** — o que se busca no site e **o que não encontra** (busquedas vacías),
-   GNH e Kasteller lado a lado. É o ciclo que já rendeu palavras-chave no Kasteller.
-4. **Kasteller** — visitantes, seções vistas, produtos abertos, cliques WhatsApp.
-5. **Origens** *(nova, 09/08)* — de onde vêm as sessões e **quais convertem**:
-   Google, Instagram, WhatsApp, ficha do Google, ChatGPT/Perplexity, directo.
-   Só existe porque a coluna `ref` entrou; ver [[05 - Analytics e rastreamento]].
+Funções RPC no Supabase, cada uma protegida por token, cada uma devolvendo JSON:
 
-**Entregas:** views SQL agregadas + RPCs com token (migration) · página `/hub/`
-(HTML único, gráficos leves, mesmo padrão visual do site) · link no vault.
+| Função | Devolve |
+|---|---|
+| `hub_resumen(token, site, desde, hasta)` | visitantes, sessões, funil, contatos |
+| `hub_origenes(token, site, dias)` | sessões e conversões por `ref` |
+| `hub_busquedas(token, site, dias)` | termos buscados e **os que não acharam nada** |
+| `hub_campanas(token, dias)` | por `utm_campaign`: chegadas, cliques, promo |
+| `hub_paginas(token, site, dias)` | visitas e contatos por página |
+| `hub_performance(token, site, dias)` | LCP/INP/CLS p75 (depois da Fase 3) |
 
-**Custo:** 1–2 sessões. **Risco:** token na URL pode vazar por histórico de
-navegador — aceitável para uso de uma pessoa; trocável a qualquer momento por
-`update` na função.
+Notar o parâmetro **`site`** em quase todas: nasce multi-site, não como remendo.
 
----
+> [!warning] A dívida que precisa morrer no começo
+> Hoje são **duas tabelas** (`events` e `kasteller_events`) com o mesmo formato.
+> Isso já dobra toda consulta, e num painel de vários clientes vira insustentável.
+> Primeiro passo da Fase 1: uma **view** `eventos` que une as duas com uma coluna
+> `site`. Não migra dado, não muda o JS dos sites, e todas as funções passam a ler
+> só a view. Um cliente novo vira uma linha, não uma tabela nova.
+>
+> Cuidado técnico: a view precisa de `security_invoker = true`, senão roda como dona
+> e **fura o RLS** — a chave anon passaria a ler tudo. A leitura continua só pelas
+> funções com token.
+
+### A2 — A tela
+
+Três formas de consumir A1, em ordem de esforço. **Todas leem exatamente o mesmo
+JSON** — dá para começar por uma e trocar depois sem refazer nada.
+
+| Forma | Como funciona | Custo | Quando escolher |
+|---|---|---|---|
+| **Página própria** `/hub/?k=token` | HTML estático no próprio site | 1–2 sessões | Se a Vortex não deve virar dona disso |
+| **Embutida na Vortex** | a mesma página dentro de um `<iframe>`, token no `src` | +0,2 sessão | Caminho mais rápido para "aparecer lá dentro" |
+| **Nativa na Vortex** | o dashboard chama as RPCs e desenha com os componentes dele | depende da stack dela | Se a Vortex é o painel oficial e já tem visual próprio |
+
+O `iframe` é a ponte típica: entrega valor na semana 1 e não impede a versão nativa
+depois — a API não muda.
+
+**Segurança em qualquer das três:** a chave anon do Supabase **não lê nada** (RLS só
+permite INSERT). Quem lê é a função, e ela exige token. Se a tela for nativa na
+Vortex, o token vive no backend dela e o navegador nunca o vê — que é melhor que o
+`?k=` na URL.
 
 ## Módulo B — Central de Campanhas (o "pacote")
 
@@ -339,22 +365,24 @@ metade de uma tela esperando a fase seguinte.
 
 | Fase | Entrega | Custo | Depende de |
 |---|---|---|---|
-| **1** | `/hub/` no ar: abas Hoje/Semana, Origens, Buscas, Kasteller + RPCs com token | 1–2 sessões | — |
+| **1a** | View `eventos` multi-site + RPCs `hub_*` com token (**a camada de dados**) | 1 sessão | — |
+| **1b** | A tela: página própria, `iframe` na Vortex369 ou nativa no dashboard dela | 0,2–2 sessões | 1a |
 | **2** | Pacote de campanha: `build-campana` + vigência automática | 2–3 sessões | — |
-| **3** | Performance de campo (Core Web Vitals reais) → aba Performance | 1 sessão | 1 |
-| **4** | Telegram consulta (`/campana`, `/buscas`, `/kasteller`) + alertas | 1 sessão | 1 |
-| **5** | Redes: aba de efeito no site + calendário editorial | 1 sessão | 1, 2 |
+| **3** | Performance de campo (Core Web Vitals reais) → aba Performance | 1 sessão | 1a |
+| **4** | Telegram consulta (`/campana`, `/buscas`, `/kasteller`) + alertas | 1 sessão | 1a |
+| **5** | Redes: aba de efeito no site + calendário editorial | 1 sessão | 1a, 2 |
 | **6** | Google Search Console → aba Buscadores | 1 sessão | conta ligada |
 | **7** | Lighthouse a cada deploy + os checks de acessibilidade como teste | 1 sessão | — |
 | **8** | Páginas: formato único + aba com órfãs e mortas | 2 sessões | 2 |
 | **9** | GitHub Action: pasta em `campanas/` → publica sozinho | 1 sessão | 2 |
 | **10** | Telegram intake (`/nueva` → aprovar → no ar) | 2 sessões | 2, 9 |
-| **11** | Biblioteca de marca | 0,5 sessão | 1 |
+| **11** | Biblioteca de marca | 0,5 sessão | 1b |
 | **12** | Meta API: alcance, seguidores, melhor horário | 2 sessões | conta conectada |
 
-**Rota recomendada: 1 → 2 → 3 → 4.**
+**Rota recomendada: 1a → 1b → 2 → 3 → 4.**
 
-O raciocínio: a Fase 1 te tira a dependência de me perguntar. A 2 mata o trabalho
+O raciocínio: a Fase 1 te tira a dependência de me perguntar — e sai partida em
+duas de propósito, para que a 1a comece **antes** de decidir onde a tela mora. A 2 mata o trabalho
 braçal e o erro de vigência. A 3 é a mais barata com efeito direto em venda — sabendo
 quanto cada segundo de espera custa em cliques de WhatsApp, otimizar deixa de ser
 estética. A 4 põe tudo no celular por quase nada.
@@ -365,19 +393,24 @@ propriedade cedo, mesmo que a tela venha bem depois.
 
 ## Decisões que preciso de você
 
-1. **Proteção do hub:** link secreto com token resolve? *(recomendo sim; login de
-   verdade custa uma fase inteira a mais para um painel de uma pessoa)*
-2. **Por onde começo:** Fase 1 (hub) ou Fase 2 (campanhas)?
-3. **Google Search Console:** posso preparar o passo a passo para você verificar a
+1. **Onde mora a tela:** página própria, `iframe` dentro da Vortex369, ou nativa no
+   dashboard dela? *(não bloqueia o começo — a Fase 1a é a mesma nos três casos)*
+2. **O painel da Vortex369 é multi-cliente?** Se for, a camada de dados nasce com a
+   dimensão `site` e token por cliente. Retrofit depois é caro — esta é a decisão que
+   mais muda o desenho.
+3. **Proteção:** token na URL resolve, ou o token deve viver no backend da Vortex
+   (melhor, se a tela for nativa lá)?
+4. **Por onde começo:** Fase 1a (dados) ou Fase 2 (campanhas)?
+5. **Google Search Console:** posso preparar o passo a passo para você verificar a
    propriedade dos dois domínios? É de graça, é a maior alavanca de SEO do plano, e
    quanto antes começar, mais histórico a GSC acumula. *(Recomendo fortemente sim.)*
-4. **Redes sociais — até onde ir agora:** só o efeito no site + calendário (G1, dado
+6. **Redes sociais — até onde ir agora:** só o efeito no site + calendário (G1, dado
    nosso, barato), ou já ligar a API da Meta para alcance e seguidores (G2, conta
    conectada e manutenção recorrente)?
-5. **Core Web Vitals:** ok mandar **um evento a mais por sessão** com LCP/INP/CLS?
+7. **Core Web Vitals:** ok mandar **um evento a mais por sessão** com LCP/INP/CLS?
    Continua sem cookie e sem identificar ninguém.
-6. **Bot dedicado no @BotFather** para o intake: criar já ou adiar para a Fase 10?
-7. **Chromium + ffmpeg no VPS** (~500 MB) para o bot gerar artes lá, ou gerar por
+8. **Bot dedicado no @BotFather** para o intake: criar já ou adiar para a Fase 10?
+9. **Chromium + ffmpeg no VPS** (~500 MB) para o bot gerar artes lá, ou gerar por
    GitHub Action (zero disco, +2 min)? *Só importa na Fase 10 — pode decidir depois.*
 
 ## Riscos e cuidados
