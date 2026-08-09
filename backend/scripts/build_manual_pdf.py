@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-ZOOM = 0.74   # manual completo: cards novos + tabela de comandos maior
+ZOOM = 0.70   # tabela com os 19 comandos; 0.72 estoura para 8ª página vazia
 FIX = ("<style>@page{size:210mm 297mm;margin:9mm 11mm}"
        f"html{{zoom:{ZOOM}}}</style>")
 

@@ -3682,8 +3682,36 @@ def test_manual_cobre_as_funcionalidades_novas():
     assert not faltando, f"comandos vivos que o manual não menciona: {faltando}"
 
     # e o PDF publicado acompanha (7 páginas, última cheia)
+    #
+    # Aqui só havia `st_size > 500_000`, e foi por isso que o PDF ficou um dia
+    # inteiro desatualizado: o commit 8a90eae pôs /foco e /preparar no HTML e
+    # não regerou o PDF. O aluno que digitava /manual recebia um manual sem os
+    # dois comandos — e o teste, verde, porque o arquivo continuava pesando 1,8
+    # MB. Tamanho não é conteúdo. Agora se lê o TEXTO do PDF.
+    import logging
+
+    import pdfplumber
+
     pdf = raiz / "app/api/assets/KKNuths-Manual.pdf"
-    assert pdf.stat().st_size > 500_000
+    logging.disable(logging.ERROR)   # pdfplumber grita FontBBox por página
+    try:
+        with pdfplumber.open(pdf) as doc:
+            paginas = [p.extract_text() or "" for p in doc.pages]
+    finally:
+        logging.disable(logging.NOTSET)
+
+    impresso = "\n".join(paginas)
+    fora_do_pdf = sorted(c.nome for c in todos_os_comandos()
+                         if f"/{c.nome}" not in impresso)
+    assert not fora_do_pdf, (
+        f"o PDF publicado não menciona {fora_do_pdf} — regere com "
+        f"`python scripts/build_manual_pdf.py`")
+
+    # e continua fechando em 7 páginas, sem página-fantasma no fim: o ZOOM do
+    # gerador é calibrado para isso, e conteúdo novo desregula (a 0.72 esta
+    # mesma tabela abria uma 8ª página com 252 caracteres)
+    assert len(paginas) == 7, f"o manual mudou de tamanho: {len(paginas)} páginas"
+    assert len(paginas[-1]) > 400, "última página quase vazia — ajuste o ZOOM"
 
 
 def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
