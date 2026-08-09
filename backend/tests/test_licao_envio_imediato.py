@@ -100,14 +100,14 @@ def test_comando_dispara_e_nao_so_enfileira():
     """A regra tem que valer no COMANDO — era lá que morria."""
     import inspect
 
-    from app.bot import processing
+    import tests.test_licoes_reply_comportamento as comportamento
 
-    fonte = inspect.getsource(processing.licoes_reply)
-    assert "enviar_licao" in fonte
-    assert "pode_disparar_agora" in fonte
-    assert "ENVIADA agora" in fonte
-    # o escape hatch existe para quando o dono QUER furar a trava
-    assert '"ja"' in fonte
+    # o comando DISPARA (não só enfileira) e a trava anti-rajada segura a
+    # segunda seguida — os dois medidos rodando o comando, não lendo o fonte
+    for nome in ("test_ok_aprova_e_dispara_a_licao_certa",
+                 "test_a_trava_anti_rajada_enfileira_em_vez_de_disparar",
+                 "test_o_ja_fura_a_trava_e_envia"):
+        assert hasattr(comportamento, nome), f"{nome} sumiu"
 
 
 def test_cron_e_comando_usam_o_MESMO_motor():

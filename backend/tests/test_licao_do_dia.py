@@ -182,8 +182,11 @@ def test_marca_como_enviada_depois_de_enviar():
 
 
 def test_comando_aprova_e_desaprova():
-    from app.bot.processing import licoes_reply
+    """Efeito no banco, não substring: ver
+    tests/test_licoes_reply_comportamento.py."""
+    import tests.test_licoes_reply_comportamento as comportamento
 
-    fonte = inspect.getsource(licoes_reply)
-    assert '"aprovada": True' in fonte and '"aprovada": False' in fonte
-    assert "já foi enviada" in fonte, "não deixa reaprovar o que já saiu"
+    for nome in ("test_ok_aprova_e_dispara_a_licao_certa",
+                 "test_desaprovar_tira_da_fila",
+                 "test_nao_reenvia_o_que_ja_saiu"):
+        assert hasattr(comportamento, nome), f"{nome} sumiu"

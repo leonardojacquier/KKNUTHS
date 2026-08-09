@@ -191,17 +191,25 @@ def test_portao_do_envio_usa_as_cartas():
     from app.bot import processing
 
     fonte = inspect.getsource(processing.licoes_reply)
+    # comportamento coberto em tests/test_licoes_reply_comportamento.py;
+    # aqui fica só a contagem, que é sobre COBERTURA dos dois ramos (ok e
+    # exibição da lição) e não sobre o efeito
     assert fonte.count("problemas_da_licao(com_cartas(repo, linha))") == 2
 
 
-def test_o_portao_para_o_ok_e_oferece_o_ja():
-    """Sinaliza e para — mas não é prisão: o dono fura com /licoes N ja."""
-    import inspect
+def test_o_portao_para_o_ok_e_oferece_o_ja(licoes=None):
+    """Sinaliza e para — mas não é prisão: o dono fura com /licoes N ja.
 
-    from app.bot import processing
+    Comparar POSIÇÃO de duas substrings no fonte passa com o portão dentro
+    de um `if False`, ou com as duas linhas em ramos que nunca se encontram.
+    O efeito está medido em tests/test_licoes_reply_comportamento.py:
+    `test_o_portao_de_qualidade_PARA_o_envio` prova que a lição com defeito
+    não chega a aluno nenhum, e `test_o_ja_fura_a_trava_e_envia` prova a
+    saída.
+    """
+    import tests.test_licoes_reply_comportamento as comportamento
 
-    fonte = inspect.getsource(processing.licoes_reply)
-    assert "problemas_da_licao" in fonte
-    assert "Não mandei" in fonte
-    assert fonte.index("problemas_da_licao") < fonte.index("enviar_licao"), \
-        "confere ANTES de enviar, não depois"
+    for nome in ("test_o_portao_de_qualidade_PARA_o_envio",
+                 "test_o_ja_fura_a_trava_e_envia"):
+        assert hasattr(comportamento, nome), (
+            f"{nome} sumiu — este portão ficou sem teste de comportamento")
