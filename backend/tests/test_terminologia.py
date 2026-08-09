@@ -58,7 +58,65 @@ def test_simplificacao_e_para_quem_joga_nao_para_leigo():
     assert "NUNCA estudou" not in fonte
     assert "não é profissional" in fonte
     assert "NÃO infantilize" in fonte
-    assert "TERMOS_REGRA" in fonte, "o glossário vale na simplificação também"
+
+
+def test_o_glossario_chega_ao_modelo_em_TODA_tentativa(monkeypatch):
+    """O que importa é o `system` que SAI, não o identificador no fonte.
+
+    A versão anterior fazia `assert "TERMOS_REGRA" in inspect.getsource(...)`.
+    Como `simplify` tem DUAS chamadas ao modelo — a primeira e a retentativa
+    quando o texto saiu parecido demais — bastava o nome aparecer numa delas.
+    Medido em 09/08: removendo o glossário do prompt da PRIMEIRA chamada (a
+    que responde o botão 🎈 quase sempre), 355 testes passavam.
+
+    Aqui o cliente é falso e grava o que foi enviado. Se o glossário sumir de
+    qualquer uma das tentativas, isto quebra.
+    """
+    from app.agent import llm
+
+    enviados: list[str] = []
+
+    class _Bloco:
+        type = "text"
+
+        def __init__(self, t):
+            self.text = t
+
+    class _Resp:
+        # devolve o MESMO texto de entrada, o que força `parecidos()` a
+        # disparar a segunda tentativa — é assim que as duas são exercitadas
+        content = [_Bloco("O vilão apostou no flop e você pagou com top pair.")]
+        usage = None
+
+    def _falso(client, **kw):
+        enviados.append(kw.get("system") or "")
+        return _Resp()
+
+    monkeypatch.setattr(llm, "_create", _falso)
+
+    # `simplify` faz `from app.config import get_settings` DENTRO da função,
+    # então o patch tem que ser no módulo de origem
+    import app.config as cfg
+
+    real = cfg.get_settings()
+
+    class _Cfg:
+        anthropic_api_key = "sk-teste"
+        cheap_model = getattr(real, "cheap_model", None) or "modelo-barato"
+
+        def __getattr__(self, nome):
+            return getattr(real, nome)
+
+    monkeypatch.setattr(cfg, "get_settings", lambda: _Cfg())
+    llm.simplify("O vilão apostou no flop e você pagou com top pair.")
+
+    assert len(enviados) >= 2, (
+        "a retentativa não foi exercitada — o teste não cobriria as duas")
+    marca = "TERMINOLOGIA (regra dura)"
+    for i, system in enumerate(enviados, 1):
+        assert marca in system, (
+            f"o glossário não foi para o modelo na tentativa {i} de "
+            f"{len(enviados)} — o calque volta por esse caminho")
 
 
 def test_full_house_nao_e_cheio_de_nada():
