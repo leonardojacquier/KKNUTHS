@@ -250,6 +250,28 @@ def bloqueado_por(codigo: str, resolvidos: set[str]) -> str | None:
     return None
 
 
+def n_para_caber_abaixo(alvo_pct: float, teto: int = 400) -> int:
+    """Menor n em que uma corrida PERFEITA ainda consegue bater o critério.
+
+    A alta exige o limite SUPERIOR do intervalo abaixo do alvo. Com o prior
+    do encolhimento (média 20%, força 6), zero escorregadas em 60 chances
+    ainda deixa o topo em 5,0% — e o alvo do limp É 5%. Ou seja: o aluno
+    podia acertar SESSENTA spots seguidos e continuar sem alta.
+
+    Sem esta conta, `n_minimo` prometia 42 oportunidades para um critério que
+    só dispara perto de 100. Prometer uma medição que não vai acontecer é o
+    mesmo defeito que este módulo inteiro existe para impedir, cometido do
+    lado de dentro.
+    """
+    from app.analysis.bayes import shrunk_rate
+
+    for n in range(MIN_OPORTUNIDADES, teto + 1, 2):
+        _, _lo, hi = shrunk_rate(0, n, 20.0, 6.0)
+        if hi < alvo_pct:
+            return n
+    return teto
+
+
 def criterio_de_alta(diagnostico: dict, agora: datetime | None = None) -> dict:
     """O critério ESCRITO ANTES da intervenção. Imutável depois disso.
 
@@ -257,25 +279,48 @@ def criterio_de_alta(diagnostico: dict, agora: datetime | None = None) -> dict:
     humano ou modelo — sempre acha um jeito de declarar vitória olhando o
     dado depois. Com ele, a régua já estava lá.
 
-    O alvo é redução RELATIVA de 60% porque melhora pequena (50%->40%) exige
-    ~400 oportunidades por período para ser detectável, e nenhum aluno de
-    clube produz isso. Alvo que a amostra não consegue medir não é alvo.
+    O ALVO É A REFERÊNCIA DO CÓDIGO, NÃO UMA FRAÇÃO DA JANELA OBSERVADA.
+
+    A versão anterior usava `taxa_mean * 0.4` — e a `taxa_mean` vem da janela
+    que SELECIONOU o problema, ou seja, do extremo da flutuação. Régua
+    derivada da janela extrema é o mesmo viés com carimbo de data: quanto
+    pior o azar do aluno naquela semana, mais fácil o alvo. Medido em 09/08:
+    limiar médio de 8% para alunos cuja taxa verdadeira era ~13%.
+
+    A tolerância do código é externa, fixa e conhecida antes de olhar o
+    aluno. Com ela, regressão à média não consegue fabricar alta — a barra
+    não se move.
+
+    O n vem de `n_necessario`, não de uma constante: 30 é suficiente para
+    detectar uma queda de 60%->30% e insuficiente para 20%->10%, e fingir que
+    é o mesmo número é prometer uma medição que não existe. O tamanho sai do
+    limite INFERIOR observado (conservador: efeito menor, n maior).
     """
+    from app.analysis.evolucao import n_necessario
+    from app.analysis.taxonomia import CODIGOS
+
     agora = agora or datetime.now(timezone.utc)
+    codigo = diagnostico.get("codigo")
     taxa = diagnostico.get("taxa_mean", 0.0)
+    alvo = float(getattr(CODIGOS.get(codigo), "tolerancia_pct", 0.0)
+                 or round(taxa * 0.4, 1))
+    partida = float(diagnostico.get("taxa_lo") or taxa or 0.0)
+    n = max(MIN_OPORTUNIDADES, int(n_necessario(partida, alvo)),
+            n_para_caber_abaixo(alvo))
     return {
         "metrica": "taxa de escorregada em amostra completa",
-        "codigo": diagnostico.get("codigo"),
+        "codigo": codigo,
         "taxa_na_abertura": taxa,
-        "limiar": round(taxa * 0.4, 1),
-        "n_minimo": 30,
+        "limiar": alvo,
+        "n_minimo": n,
         "janelas_minimas": 2,
         "dias_minimos": 14,
         "registrado_em": agora.isoformat(),
         "por_extenso": (
             f"considero resolvido quando a taxa cair de {taxa:.0f}% para "
-            f"{taxa * 0.4:.0f}% ou menos, com pelo menos 30 oportunidades "
-            "NOVAS de sessão inteira, em 2 janelas distintas cobrindo 14 dias"),
+            f"{alvo:.0f}% ou menos — a referência deste spot, não uma fração "
+            f"da sua semana ruim — com pelo menos {n} oportunidades NOVAS de "
+            "sessão inteira, em 2 janelas distintas cobrindo 14 dias"),
     }
 
 

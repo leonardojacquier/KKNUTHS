@@ -130,7 +130,10 @@ def test_o_criterio_vai_na_mesma_gravacao():
     revisar(r, "u-1", _muitos_limps())
     linha = r.gravou[0]
     assert linha["alta_limiar"] is not None
-    assert linha["alta_n_minimo"] == 30
+    # o n sai do TAMANHO DO EFEITO, não de uma constante: 30 detecta uma
+    # queda de 60%->30% e não detecta 20%->10%
+    assert linha["alta_n_minimo"] >= 20
+    assert str(linha["alta_n_minimo"]) in linha["alta_por_extenso"]
     assert "considero resolvido quando" in linha["alta_por_extenso"]
     assert linha["diagnostico_ate"], "sem a data do diagnóstico não dá para " \
         "recusar essa janela como linha de base depois"
@@ -173,7 +176,7 @@ def test_a_coleta_comeca_em_zero_e_nao_nas_maos_que_diagnosticaram():
     out = revisar(r, "u-1", _muitos_limps())
     assert out["ativo"]["oportunidades"] == 0
     assert out["ativo"]["diagnosticado_com"] == 30
-    assert "0 de ~30" in out["texto"]
+    assert f"0 de ~{out['ativo']['alta_n_minimo']}" in out["texto"]
 
 
 def test_as_duas_metades_da_fracao_sao_da_mesma_janela():
@@ -268,3 +271,179 @@ def test_o_foco_separa_sem_dado_de_sem_problema():
     fonte = inspect.getsource(processing.foco_reply)
     assert "sessão inteira" in fonte
     assert "não achei padrão" in fonte
+
+
+# ---- 5) o ciclo FECHA -------------------------------------------------------
+# Até 09/08 `evolucao.py` não era importado por lugar nenhum de `app/`: a
+# máquina de seis estados tinha UM estado alcançável, e `arquivado` — cujo
+# propósito declarado é impedir o sistema de FABRICAR vitória — era
+# inatingível. O aluno podia usar /foco por seis meses lendo o mesmo texto.
+
+class _RepoComEstado(_Repo):
+    def __init__(self, abertos=None, resolvidos=()):
+        super().__init__(abertos, resolvidos)
+        self.medicoes: list = []
+        self.estados: list = []
+
+    def salvar_medicao(self, problema_id, medicao):
+        self.medicoes.append((problema_id, medicao))
+
+    def mudar_estado_do_problema(self, problema_id, estado, por_que=""):
+        self.estados.append((problema_id, estado, por_que))
+
+
+def _limp_ou_open(hid, dia, limpou):
+    """Mesma mão, mas ABRINDO em vez de limpar — o acerto que enche o
+    denominador sem encher o numerador."""
+    h = _limp(hid, dia)
+    if limpou:
+        return h
+    return CanonicalHand(
+        site="GG", hand_id=hid, hero="Hero", format=HandFormat.TOURNAMENT,
+        source_format="txt", played_at=f"{dia}T20:00:00+00:00",
+        stakes=Stakes(small_blind=50.0, big_blind=100.0, ante=25),
+        players=[PlayerSeat(seat=1, name="Hero", stack=3000.0, position="CO",
+                            is_hero=True),
+                 PlayerSeat(seat=2, name="V", stack=3000.0, position="BTN"),
+                 PlayerSeat(seat=3, name="O", stack=3000.0, position="SB")],
+        hero_cards=["7h", "2d"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="O", type=ActionType.POST, amount=50,
+                   post_type="sb"),
+            Action(actor="V", type=ActionType.POST, amount=100,
+                   post_type="bb"),
+            Action(actor="Hero", type=ActionType.RAISE, amount=250,
+                   to_amount=250)])])
+
+
+def _aberto(n_minimo=62, limiar=5.0):
+    return [{"id": "p0", "codigo": "limp_de_abertura", "estado": "problema",
+             "diagnostico_ate": "2026-08-01", "alta_n_minimo": n_minimo,
+             "alta_limiar": limiar, "taxa_na_abertura": 100.0,
+             "alta_por_extenso": "x"}]
+
+
+def test_o_aluno_que_consertou_recebe_ALTA():
+    """O outro lado do ciclo. Um sistema que só sabe abrir problema é um
+    crítico — e crítico se abandona."""
+    r = _RepoComEstado(abertos=_aberto())
+    # 80 spots novos em 4 dias cobrindo 20 dias, ZERO limps. 80 e não 60
+    # porque o alvo do limp é 5% e o prior do encolhimento exige 62 acertos
+    # seguidos para o topo do intervalo caber abaixo dessa linha.
+    dias = ["2026-08-05", "2026-08-12", "2026-08-19", "2026-08-24"]
+    novas = [_limp_ou_open(f"n{i}", dias[i % 4], limpou=False)
+             for i in range(80)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"].get("medicao")
+    assert m, "o problema ativo não foi medido"
+    assert m["veredito"] == "melhorou", m["por_que"]
+    assert r.medicoes, "mediu e não gravou"
+    assert [e for _i, e, _p in r.estados] == ["em_alta"], (
+        f"o estado não mudou: {r.estados}")
+
+
+def test_uma_sessao_boa_nao_e_alta():
+    """Duas janelas e 14 dias, porque a mesma noite pode ser mesa mole."""
+    r = _RepoComEstado(abertos=_aberto())
+    novas = [_limp_ou_open(f"n{i}", "2026-08-05", limpou=False)
+             for i in range(80)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"]["medicao"]
+    assert m["veredito"] == "melhorou"
+    assert not r.estados, "deu alta com UMA sessão só"
+    assert "janelas" in m["por_que_nao_deu_alta"] or \
+        "sessão boa" in m["por_que_nao_deu_alta"]
+
+
+def test_amostra_curta_e_INCONCLUSIVO_e_nao_melhora():
+    """`inconclusivo` é o veredito mais frequente, e é assim de propósito."""
+    r = _RepoComEstado(abertos=_aberto())
+    novas = [_limp_ou_open(f"n{i}", "2026-08-05", limpou=False)
+             for i in range(9)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"]["medicao"]
+    assert m["veredito"] == "inconclusivo"
+    assert not r.estados and not r.medicoes, (
+        "gravou medição de uma janela que não mede nada")
+
+
+def test_quem_continua_limpando_NAO_recebe_alta():
+    r = _RepoComEstado(abertos=_aberto())
+    dias = ["2026-08-05", "2026-08-12", "2026-08-19", "2026-08-24"]
+    novas = [_limp_ou_open(f"n{i}", dias[i % 4], limpou=True)
+             for i in range(80)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    assert out["ativo"]["medicao"]["veredito"] != "melhorou"
+    assert not r.estados, "deu alta para quem não mudou nada"
+
+
+def test_a_regressao_a_media_nao_fabrica_alta():
+    """A prova de que o alvo ser EXTERNO resolve o problema central.
+
+    O aluno é escolhido por estar no extremo da flutuação, então a janela
+    seguinte melhora sozinha. Aqui a taxa cai de 100% para 20% sem nenhum
+    aprendizado — e 20% ainda está MUITO acima da referência de 5% do limp.
+    Com o alvo derivado da janela (`taxa * 0.4` = 40%) isso teria virado
+    alta; com a referência do código, não vira.
+    """
+    r = _RepoComEstado(abertos=_aberto())
+    dias = ["2026-08-05", "2026-08-12", "2026-08-19", "2026-08-24"]
+    novas = [_limp_ou_open(f"n{i}", dias[i % 4], limpou=(i % 5 == 0))
+             for i in range(80)]                       # 20% de limps
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"]["medicao"]
+    assert m["veredito"] != "melhorou", (
+        f"20% de limps virou alta contra uma referência de 5%: {m['por_que']}")
+    assert not r.estados
+
+
+def test_a_alta_exige_o_limite_SUPERIOR_abaixo_do_alvo():
+    """1 escorregada em 80: a faixa é 0,0-5,9% contra um alvo de 5%.
+
+    Pelo limite INFERIOR (0,0%) isso seria alta. Pelo superior não é — e o
+    superior é o certo, porque afirmar melhora com o intervalo ainda
+    encostando na linha é dizer "sei" quando a resposta é "quase".
+    """
+    r = _RepoComEstado(abertos=_aberto())
+    dias = ["2026-08-05", "2026-08-12", "2026-08-19", "2026-08-24"]
+    novas = [_limp_ou_open(f"n{i}", dias[i % 4], limpou=(i == 0))
+             for i in range(80)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"]["medicao"]
+    assert m["escorregadas"] == 1 and m["oportunidades"] == 80
+    assert m["veredito"] != "melhorou", (
+        f"deu melhora com a faixa ainda encostando no alvo: {m['por_que']}")
+    assert not r.estados
+
+
+def test_o_n_prometido_e_um_n_que_a_REGRA_consegue_atingir():
+    """Prometer 42 oportunidades para um critério que só dispara perto de 100
+    é prometer uma medição que não vai acontecer — o mesmo defeito que este
+    módulo existe para impedir, cometido do lado de dentro.
+
+    O teste roda uma corrida PERFEITA de exatamente `n_minimo` spots e cobra
+    que o critério consiga bater. Se não bater, o número dito ao aluno é
+    ficção.
+    """
+    from app.analysis.problemas import criterio_de_alta
+
+    alta = criterio_de_alta({"codigo": "limp_de_abertura",
+                             "taxa_mean": 100.0, "taxa_lo": 90.0})
+    n = alta["n_minimo"]
+
+    r = _RepoComEstado(abertos=_aberto(n_minimo=n, limiar=alta["limiar"]))
+    dias = ["2026-08-05", "2026-08-12", "2026-08-19", "2026-08-24"]
+    novas = [_limp_ou_open(f"n{i}", dias[i % 4], limpou=False)
+             for i in range(n)]
+    out = revisar(r, "u-1", _muitos_limps() + novas)
+
+    m = out["ativo"]["medicao"]
+    assert m["veredito"] == "melhorou", (
+        f"prometi {n} oportunidades e uma corrida PERFEITA de {n} não bate "
+        f"o critério: {m['por_que']}")

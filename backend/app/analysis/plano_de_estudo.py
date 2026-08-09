@@ -70,6 +70,82 @@ def _janela_depois(hands, obs, codigo: str, desde: str | None) -> tuple[int, int
     return len(novas), sum(1 for o in novas if o.escorregada)
 
 
+def _dias_e_janelas(hands, obs, codigo: str, desde: str | None) -> tuple[int, int]:
+    """(janelas distintas, dias cobertos) DEPOIS do diagnóstico.
+
+    Uma sessão boa não é alta: a mesma noite pode ser mão quente, mesa mole
+    ou simplesmente 40 mãos em que o spot não apareceu do jeito difícil.
+    """
+    if not desde:
+        return 0, 0
+    dia_da_mao = {h.hand_id: _dia(h) for h in hands}
+    dias = sorted({dia_da_mao.get(o.hand_id, "") for o in obs
+                   if o.codigo == codigo
+                   and dia_da_mao.get(o.hand_id, "") > desde} - {""})
+    if not dias:
+        return 0, 0
+    from datetime import date
+
+    try:
+        cobertura = (date.fromisoformat(dias[-1])
+                     - date.fromisoformat(dias[0])).days + 1
+    except ValueError:
+        cobertura = len(dias)
+    return len(dias), cobertura
+
+
+def _medir_o_ativo(repo, user_id: str, vivo: dict, ativo: dict,
+                   completas, obs) -> dict | None:
+    """Mede o problema ativo e MOVE O ESTADO quando o critério bate.
+
+    Esta função é o que faltava para o ciclo existir de verdade. Até 09/08
+    `evolucao.py` não era importado por lugar nenhum de `app/`: a máquina de
+    seis estados tinha UM estado alcançável, e `arquivado` — cujo propósito
+    declarado é impedir o sistema de fabricar vitória — era inatingível. O
+    aluno podia usar /foco por seis meses e ler o mesmo texto.
+
+    Por que a medição não sofre de regressão à média: o alvo é a TOLERÂNCIA
+    DO CÓDIGO, externa e fixa, e `medir` exige o limite SUPERIOR do intervalo
+    abaixo dela. A barra não se move com a sorte do aluno.
+    """
+    from app.analysis.evolucao import MELHOROU, NAO_MELHOROU, medir
+    from app.analysis.problemas import EM_ALTA, pode_dar_alta
+
+    limiar = vivo.get("alta_limiar")
+    if limiar is None:
+        return None
+    janelas, dias = _dias_e_janelas(completas, obs, vivo["codigo"],
+                                    vivo.get("diagnostico_ate"))
+    pos = {"oportunidades": ativo.get("oportunidades", 0),
+           "escorregadas": ativo.get("escorregadas", 0)}
+    m = medir({"taxa": vivo.get("taxa_na_abertura") or 100.0}, pos,
+              float(limiar))
+
+    from app.analysis.bayes import shrunk_rate
+
+    _, _lo, hi = shrunk_rate(pos["escorregadas"],
+                             max(pos["oportunidades"], 1), 20.0, 6.0)
+    linha = {"veredito": m.veredito, "por_que": m.por_que,
+             "oportunidades": pos["oportunidades"],
+             "escorregadas": pos["escorregadas"],
+             "post_hi": round(hi, 1), "limiar": float(limiar),
+             "janelas": janelas, "dias": dias}
+
+    if m.veredito in (MELHOROU, NAO_MELHOROU):
+        repo.salvar_medicao(vivo["id"], linha)
+    if m.veredito == MELHOROU:
+        # o veredito é condição NECESSÁRIA, não suficiente: `pode_dar_alta`
+        # ainda cobra 2 janelas, 14 dias e a categoria de controle
+        ok, porque = pode_dar_alta(linha, controle_melhorou=False,
+                                   contexto_estavel=True)
+        if ok:
+            repo.mudar_estado_do_problema(vivo["id"], EM_ALTA, porque)
+            linha["estado_novo"] = EM_ALTA
+        else:
+            linha["por_que_nao_deu_alta"] = porque
+    return linha
+
+
 def revisar(repo, user_id: str, hands: list) -> dict:
     """Varre, decide e persiste. Devolve o que o aluno vê.
 
@@ -132,6 +208,11 @@ def revisar(repo, user_id: str, hands: list) -> dict:
             if vivo["codigo"] in CODIGOS else "",
             "alta_n_minimo": vivo.get("alta_n_minimo") or 30,
             "alta_por_extenso": vivo.get("alta_por_extenso") or ""}}
+        # E MEDE. Sem esta chamada o ciclo abre problema e nunca fecha:
+        # `evolucao.py` inteiro não era importado por `app/` até 09/08.
+        medicao = _medir_o_ativo(repo, user_id, vivo, ativo, completas, obs)
+        if medicao:
+            ativo["medicao"] = medicao
     elif livres and len(abertos) < MAX_ATIVOS:
         d = livres[0]
         alta = criterio_de_alta(d)

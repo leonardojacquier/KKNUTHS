@@ -205,18 +205,43 @@ def test_sem_baseline_nao_ha_baseline():
 
 def test_o_criterio_e_escrito_antes_e_por_extenso():
     c = criterio_de_alta(_diag(), datetime(2026, 8, 9, tzinfo=timezone.utc))
-    assert c["n_minimo"] == 30 and c["janelas_minimas"] == 2
+    assert c["n_minimo"] >= 20 and c["janelas_minimas"] == 2
     assert c["registrado_em"].startswith("2026-08-09")
     assert "considero resolvido quando" in c["por_extenso"]
 
 
-def test_o_alvo_e_grande_porque_pequeno_e_imensuravel():
-    """Melhora de 50%->40% precisa de ~400 oportunidades por período para ser
-    detectável. Nenhum aluno de clube produz isso; alvo que a amostra não
-    mede não é alvo."""
-    c = criterio_de_alta(_diag(taxa_mean=70.0))
-    assert c["limiar"] == pytest.approx(28.0, abs=0.1)
-    assert c["limiar"] / 70.0 <= 0.45
+def test_o_alvo_e_a_REFERENCIA_e_nao_uma_fracao_da_semana_ruim():
+    """A régua não pode sair da janela que selecionou o problema.
+
+    `taxa_mean * 0.4` fazia o alvo depender do azar do aluno naquela semana:
+    quanto pior a janela extrema, mais fácil o alvo. Medido em 09/08 —
+    limiar médio de 8% para alunos cuja taxa verdadeira era ~13%. É o mesmo
+    viés de seleção com carimbo de data.
+
+    A tolerância do código é externa, fixa e conhecida antes de olhar o
+    aluno. Com ela, regressão à média não fabrica alta: a barra não se move.
+    """
+    from app.analysis.taxonomia import CODIGOS
+
+    ruim = criterio_de_alta(_diag(codigo="bb_subdefesa", taxa_mean=70.0))
+    menos_ruim = criterio_de_alta(_diag(codigo="bb_subdefesa", taxa_mean=40.0))
+    assert ruim["limiar"] == menos_ruim["limiar"], (
+        "o alvo mudou porque a janela de diagnóstico foi pior — é a régua "
+        "sendo escrita depois de ver o resultado")
+    assert ruim["limiar"] == CODIGOS["bb_subdefesa"].tolerancia_pct
+
+
+def test_o_n_sai_do_tamanho_do_efeito_e_nao_de_uma_constante():
+    """30 detecta uma queda de 60%->30% e NÃO detecta 20%->10%. Fingir que é
+    o mesmo número é prometer uma medição que não existe."""
+    grande = criterio_de_alta(_diag(codigo="limp_de_abertura", taxa_mean=60.0,
+                                    taxa_lo=55.0))
+    pequeno = criterio_de_alta(_diag(codigo="limp_de_abertura", taxa_mean=12.0,
+                                     taxa_lo=9.0))
+    assert pequeno["n_minimo"] > grande["n_minimo"], (
+        f"efeito menor ({pequeno['n_minimo']}) exigindo menos amostra que "
+        f"efeito maior ({grande['n_minimo']})")
+    assert str(grande["n_minimo"]) in grande["por_extenso"]
 
 
 # ---- os seis critérios da alta --------------------------------------------
