@@ -117,6 +117,49 @@ def token_confere(valor: str | None) -> bool:
     return secrets.compare_digest(str(valor or ""), esperado)
 
 
+def _pagina_de_entrada(destino: str) -> HTMLResponse:
+    """401 que dá para SAIR de dentro, em vez de `{"detail":"token inválido"}`.
+
+    O JSON era um beco: não dizia o que houve, não oferecia caminho, e
+    obrigava o dono a caçar num chat antigo a URL com `?key=`. Aconteceu duas
+    vezes em 09/08 — sessão de 12h vencendo, e depois o cookie legado
+    sombreando o novo.
+
+    A página resolve as duas de uma vez: tem onde colar a chave, e o simples
+    ato de carregá-la APAGA os cookies `kkn_admin` dos dois paths. Ou seja,
+    bater na porta trancada já limpa a fechadura. Continua 401 no status —
+    quem não tem chave não entra, e buscador nenhum indexa isto.
+    """
+    caminho, _, consulta = destino.partition("?")
+    ocultos = "".join(
+        f'<input type="hidden" name="{html.escape(n)}" '
+        f'value="{html.escape(v)}">'
+        for n, _, v in (p.partition("=") for p in consulta.split("&") if p)
+        if n and n != "key")
+    corpo = (
+        "<style>body{background:#0f1115;color:#e6e6e6;font:15px/1.6 system-ui,"
+        "sans-serif;display:flex;min-height:100vh;align-items:center;"
+        "justify-content:center;margin:0}.cx{max-width:420px;padding:32px}"
+        "h1{font-size:20px;margin:0 0 6px}p{color:#9aa4b2;margin:0 0 18px}"
+        "input,button{width:100%;box-sizing:border-box;padding:11px 13px;"
+        "border-radius:8px;border:1px solid #2a2f3a;background:#171a21;"
+        "color:#e6e6e6;font-size:15px}button{margin-top:10px;background:#2f6f4f;"
+        "border-color:#2f6f4f;cursor:pointer;font-weight:600}"
+        ".pe{font-size:13px;color:#6b7280;margin-top:16px}</style>"
+        "<div class='cx'><h1>♠ Portal KKNuths</h1>"
+        "<p>Sessão ausente ou vencida. Cole a chave: ela vira cookie de 30 "
+        "dias e some da barra de endereço.</p>"
+        f"<form method='get' action='{html.escape(caminho)}'>{ocultos}"
+        "<input name='key' type='password' autofocus "
+        "placeholder='ADMIN_TOKEN'><button type='submit'>Entrar</button>"
+        "</form><p class='pe'>Os cookies antigos deste navegador acabaram de "
+        "ser apagados. Se der erro de novo, é a chave — não a sessão.</p></div>")
+    r = HTMLResponse(corpo, status_code=401)
+    r.delete_cookie(_COOKIE, path=_COOKIE_PATH)
+    r.delete_cookie(_COOKIE, path="/")
+    return r
+
+
 def _porta(request: Request | None, key: str, destino: str):
     """None = pode renderizar. Response = redirect que limpa a URL. 401 sobe.
 
@@ -130,7 +173,9 @@ def _porta(request: Request | None, key: str, destino: str):
             sessoes_do_pedido(request.headers.get("cookie"))):
         return None
     if not token_confere(key):
-        raise HTTPException(status_code=401, detail="token inválido")
+        if request is None:                 # chamada interna: sem navegador
+            raise HTTPException(status_code=401, detail="token inválido")
+        return _pagina_de_entrada(destino)
     if request is None:
         return None
     r = RedirectResponse(destino, status_code=303)

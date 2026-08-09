@@ -446,6 +446,74 @@ def test_sair_apaga_os_dois(cliente):
     assert caminhos == {"/admin", "/"}, caminhos
 
 
+def test_porta_trancada_oferece_a_fechadura_em_vez_de_um_beco(cliente):
+    """`{"detail":"token inválido"}` não é resposta, é beco.
+
+    Duas vezes em 09/08 o dono ficou preso do lado de fora — sessão de 12h
+    vencendo, e depois o cookie legado sombreando o novo — e nas duas o
+    portal respondeu um JSON que não diz o que houve nem o que fazer,
+    obrigando-o a caçar num chat antigo a URL com `?key=`.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    virgem = TestClient(app, raise_server_exceptions=False,
+                        follow_redirects=False)
+    r = virgem.get("/admin")
+    assert r.status_code == 401, "porta trancada continua trancada"
+    assert "name='key'" in r.text, "sem campo para colar a chave"
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_bater_na_porta_trancada_ja_limpa_a_fechadura(cliente):
+    """O caso do cookie sombreado se resolve sozinho: carregar a página de
+    entrada apaga `kkn_admin` dos DOIS paths. Sem isto, um cookie estragado
+    tranca o dono para sempre e ele não tem como saber por quê."""
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    virgem = TestClient(app, raise_server_exceptions=False,
+                        follow_redirects=False)
+    r = virgem.get("/admin", headers={"Cookie": "kkn_admin=lixo"})
+    caminhos = {c.split("Path=")[1].split(";")[0].strip()
+                for c in r.headers.get_list("set-cookie") if "Path=" in c}
+    assert caminhos == {"/admin", "/"}, caminhos
+
+
+def test_a_entrada_nao_perde_para_onde_o_dono_ia(cliente):
+    """Trancar no dossiê e devolver para a home é perder o contexto — ele
+    volta a caçar o aluno na lista."""
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    virgem = TestClient(app, raise_server_exceptions=False,
+                        follow_redirects=False)
+    r = virgem.get("/admin/usuario?tg=42&ver=maos&key=chave-velha")
+    assert "action='/admin/usuario'" in r.text
+    assert 'name="tg" value="42"' in r.text
+    assert 'name="ver" value="maos"' in r.text
+
+
+def test_a_chave_recusada_nunca_volta_como_campo_oculto():
+    """Pela função, e não pela rota — de propósito.
+
+    Hoje as três rotas montam o `destino` à mão (`/admin/usuario?tg=…&ver=…`)
+    e nenhuma inclui `key`, então pela porta esta propriedade passa sem que o
+    filtro exista: mutação confirmada, o teste de rota não mata. Quem segura
+    é a função, para o dia em que alguém montar o destino a partir da URL
+    original — e aí o form mandaria DUAS `key`, a velha junto com a digitada.
+    """
+    from app.api.admin import _pagina_de_entrada
+
+    html_ = _pagina_de_entrada("/admin/usuario?tg=42&key=chave-velha").body.decode()
+    assert 'name="tg" value="42"' in html_
+    assert "chave-velha" not in html_, (
+        "a chave recusada voltou como campo oculto do formulário")
+
+
 def test_sem_ADMIN_TOKEN_ninguem_entra(monkeypatch):
     """Sem segredo, o HMAC tem chave VAZIA — e aí qualquer um que conheça o
     formato assina a própria sessão.
