@@ -255,12 +255,15 @@ def test_o_comando_foco_existe_e_esta_registrado():
     se o aluno puder abrir."""
     import inspect
 
-    from app.bot import handlers, processing
+    from app.bot import catalogo, handlers, processing
 
     assert hasattr(processing, "foco_reply")
     fonte = inspect.getsource(handlers)
     assert 'CommandHandler("foco", cmd_foco)' in fonte
-    assert 'BotCommand("foco"' in fonte
+    # o menu passou a ser gerado a partir do catálogo — conferir a substring
+    # `BotCommand("foco"` no arquivo deixou de significar qualquer coisa
+    assert "foco" in {n for n, _ in catalogo.pares_do_menu()}
+    assert "/foco" in handlers.WELCOME
 
 
 def test_o_foco_separa_sem_dado_de_sem_problema():

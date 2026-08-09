@@ -1592,11 +1592,8 @@ def test_portas_do_motor_spot_e_auditoria():
     assert _tabela_auditoria([]) == ""
 
     # e /spot está no menu do Telegram (senão continua sem porta)
-    import inspect
-
-    from app.bot import handlers
-    src = inspect.getsource(handlers._set_bot_menu)
-    assert '"spot"' in src
+    from app.bot.catalogo import pares_do_menu
+    assert "spot" in {n for n, _ in pares_do_menu()}
 
 
 def test_prova_real_encontra_defeito_e_e_honesta():
@@ -1642,10 +1639,8 @@ def test_prova_real_encontra_defeito_e_e_honesta():
     assert "Não achei mãos suas" in texto_prova(prova_real([]))
 
     # e /prova está no menu
-    import inspect
-
-    from app.bot import handlers
-    assert '"prova"' in inspect.getsource(handlers._set_bot_menu)
+    from app.bot.catalogo import pares_do_menu
+    assert "prova" in {n for n, _ in pares_do_menu()}
 
 
 def test_auditoria_cobre_todo_tipo_de_jogada():
@@ -3665,18 +3660,26 @@ def test_manual_cobre_as_funcionalidades_novas():
     assert "abre a mão de AK" in html, (
         "o manual precisa mostrar COMO pedir a mão depois do arquivo")
 
-    # todo comando do menu do bot tem linha na tabela do manual
-    import inspect
+    # todo comando do menu do bot aparece no manual.
+    #
+    # Antes esta conferência partia de um `re.findall` sobre o CÓDIGO do
+    # `_set_bot_menu`, intersectado com uma lista de nomes escrita à mão. No
+    # dia em que o menu passou a ser gerado a partir do catálogo, o findall
+    # voltou vazio e a asserção continuou verde sem conferir nada — teste que
+    # passa por não ter encontrado o que procurava.
+    #
+    # Agora a fonte é o catálogo, e a lista de fora é uma exceção declarada
+    # em vez de um filtro silencioso.
+    from app.bot.catalogo import todos_os_comandos
 
-    from app.bot import handlers
-    menu = set(re.findall(r'"([a-z_]{3,12})"',
-                          inspect.getsource(handlers._set_bot_menu)))
-    tabela = set(re.findall(r'width: ?120px;[^>]*>/([a-z]+)</div>', html))
-    faltando = sorted((menu & {"stats", "evolucao", "estilo", "torneio",
-                               "relatorio", "simular", "treino", "range",
-                               "ask", "plano", "vilao", "leitura", "spot",
-                               "prova", "banca"}) - tabela)
-    assert not faltando, f"comandos fora da tabela do manual: {faltando}"
+    fora_do_manual = {
+        "manual",  # quem está lendo o PDF já usou
+        "start",   # menu inicial do Telegram, não é assunto do manual
+    }
+    faltando = sorted(c.nome for c in todos_os_comandos()
+                      if c.nome not in fora_do_manual
+                      and f"/{c.nome}" not in html)
+    assert not faltando, f"comandos vivos que o manual não menciona: {faltando}"
 
     # e o PDF publicado acompanha (7 páginas, última cheia)
     pdf = raiz / "app/api/assets/KKNuths-Manual.pdf"
@@ -3970,11 +3973,11 @@ def test_o_menu_do_telegram_oferece_todo_comando_de_aluno():
     import inspect
     import re
 
-    from app.bot import handlers
+    from app.bot import catalogo, handlers
 
     fonte = inspect.getsource(handlers)
     registrados = set(re.findall(r'CommandHandler\("([a-z_]+)"', fonte))
-    no_menu = set(re.findall(r'BotCommand\("([a-z_]+)"', fonte))
+    no_menu = {nome for nome, _ in catalogo.pares_do_menu()}
 
     assert not (no_menu - registrados), (
         f"o menu anuncia comando que não existe: {sorted(no_menu - registrados)}")

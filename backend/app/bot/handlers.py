@@ -23,6 +23,12 @@ from telegram.ext import (
 from app.agent.embeddings import embed_query
 from app.agent.llm import synthesize_answer
 from app.analysis import compute_player_stats
+from app.bot.catalogo import (
+    CATEGORIAS,
+    categoria_por_slug,
+    texto_da_categoria,
+    texto_de_todas,
+)
 from app.bot.processing import (
     LAST_ANALYSIS,
     LAST_UPLOAD_KIND,
@@ -54,7 +60,7 @@ WELCOME_SHORT = (
     "Por onde quer começar?"
 )
 
-WELCOME = (
+_ABERTURA = (
     "♠️ *KKNuths — seu coach de poker*\n\n"
     "Me envie suas mãos de qualquer jeito: arquivo `.txt` de hand history "
     "(GGPoker, PokerStars — inclusive Zoom —, Winamax, PartyPoker, 888poker), "
@@ -63,25 +69,18 @@ WELCOME = (
     "🧠 *Motor KKN* — estatística bayesiana + a ciência de 2 Prêmios Nobel: "
     "leaks precificados em bb/100, KKN Tilt Detector e leitura de vilão em "
     "odds, dentro das análises e do /stats.\n\n"
-    "📊 *Análise e perfil*\n"
-    "• /stats — perfil de estilo, leaks em bb/100 e KKN Tilt Detector\n"
-    "• /estilo — cartão visual do seu estilo vs os grandes + plano de transição\n"
-    "• /evolucao — sua linha do tempo (VPIP, PFR, resultado…) com gráficos\n"
-    "• /torneio — quadro do último torneio: curva do stack mão a mão\n"
-    "• /relatorio — o torneio inteiro analisado, mão por mão (HTML)\n\n"
-    "🎮 *Treino*\n"
-    "• /preparar — briefing pré-torneio: seus leaks, protocolo mental e metas\n"
-    "• /simular — jogue uma mão sua de novo, decisão a decisão\n"
-    "• /treino — drill rápido: o que você faria neste spot?\n\n"
-    "📐 *Ferramentas*\n"
-    "• /range — gráficos 13×13: `/range btn` · `/range sb 10` · "
-    "`/range sb 10 ev` · `/range sb 10 icm 1.5`\n"
-    "• /ask <pergunta> — busque no seu histórico de mãos\n"
-    "• /manual — o manual do jogador em PDF\n"
-    "• /plano — seu plano e limites\n\n"
-    "E converse comigo em texto ou áudio: discorde da análise, peça a tabela, "
-    "pergunte qualquer coisa de poker. Para começar, manda uma mão! 📎"
 )
+
+_FECHAMENTO = (
+    "\n\nE converse comigo em texto ou áudio: discorde da análise, peça a "
+    "tabela, pergunte qualquer coisa de poker. Para começar, manda uma "
+    "mão! 📎"
+)
+
+# A lista de comandos vem do catálogo, não escrita à mão aqui. Escrita à mão
+# ela ficou com 12 dos 19 comandos: quem lia "Como funciona" não descobria
+# /banca, /foco, /leitura, /prova, /spot nem /vilao.
+WELCOME = _ABERTURA + texto_de_todas() + _FECHAMENTO
 
 
 async def _set_bot_menu(app: Application) -> None:
@@ -92,35 +91,18 @@ async def _set_bot_menu(app: Application) -> None:
     propósito. Anunciar no menu público um comando que responde "só o dono"
     é convidar o aluno a bater numa porta trancada.
 
-    O que a lista precisa refletir é o conjunto de comandos SEM porteiro —
-    e é isso que `test_o_menu_do_telegram_oferece_todo_comando_de_aluno`
-    cobra, comparando com os `CommandHandler` registrados em vez de com uma
-    lista escrita à mão.
+    A lista sai do `catalogo`, que também alimenta os submenus do /start e a
+    ajuda longa — antes eram três listas escritas à mão e as três divergiam.
+    A ordem é a das categorias, e o emoji na frente da descrição é o único
+    agrupamento que uma lista flat aceita.
     """
     from telegram import BotCommand
 
+    from app.bot.catalogo import pares_do_menu
+
     try:
-        await app.bot.set_my_commands([
-            BotCommand("stats", "Seu perfil de estilo"),
-            BotCommand("estilo", "Você vs os grandes jogadores"),
-            BotCommand("evolucao", "Sua linha do tempo com gráficos"),
-            BotCommand("torneio", "Quadro do último torneio"),
-            BotCommand("relatorio", "Relatório mão a mão 📋"),
-            BotCommand("preparar", "Preparação pré-torneio 🎯"),
-            BotCommand("spot", "EV de all-in: equilíbrio do spot ⚖️"),
-        BotCommand("prova", "Auditar a ferramenta nas suas mãos 🔬"),
-        BotCommand("simular", "Rejogue uma mão sua 🎮"),
-            BotCommand("foco", "No que você está trabalhando 🎯"),
-            BotCommand("treino", "Drill rápido de um spot seu"),
-            BotCommand("leitura", "Adivinhe a mão do vilão 🔎"),
-            BotCommand("vilao", "Dossiê de um oponente 🎯"),
-            BotCommand("banca", "Risco de ruína e downswing 💰"),
-            BotCommand("range", "Gráficos de range 13×13"),
-            BotCommand("ask", "Busque no seu histórico"),
-            BotCommand("manual", "Manual do jogador em PDF 📖"),
-            BotCommand("plano", "Seu plano e limites"),
-            BotCommand("start", "Menu inicial"),
-        ])
+        await app.bot.set_my_commands(
+            [BotCommand(nome, desc) for nome, desc in pares_do_menu()])
     except Exception:
         pass  # menu é cosmético; nunca derruba o bot
 
@@ -170,7 +152,63 @@ _START_KB = InlineKeyboardMarkup([
     [InlineKeyboardButton("🎯 Treinar agora (mão de teste)", callback_data="go:treino")],
     [InlineKeyboardButton("📤 Enviar minhas mãos", callback_data="go:enviar")],
     [InlineKeyboardButton("❓ Como funciona", callback_data="go:guia")],
+    [InlineKeyboardButton("📚 Todos os comandos", callback_data="menu:home")],
 ])
+
+
+def _kb_categorias() -> InlineKeyboardMarkup:
+    """Uma linha por categoria — a raiz do submenu.
+
+    Duas por linha caberia, mas o rótulo ("📊 Análise e perfil") fica cortado
+    em tela de celular estreita, que é onde o aluno está.
+    """
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(f"{cat.emoji} {cat.titulo}",
+                               callback_data=f"menu:{cat.slug}")]
+         for cat in CATEGORIAS])
+
+
+_KB_VOLTAR = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("◀️ Voltar", callback_data="menu:home")]])
+
+_MENU_TOPO = (
+    "📚 *Todos os comandos*\n\n"
+    "Escolha uma categoria. Dentro dela, é só tocar no comando — "
+    "eles saem clicáveis."
+)
+
+
+async def on_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Submenu por categoria.
+
+    O menu '/' do Telegram é flat e não tem como deixar de ser: `setMyCommands`
+    aceita uma lista, sem grupo nem separador. Hierarquia de verdade só existe
+    em teclado inline, e é isto aqui.
+
+    `edit_message_text` em vez de mandar mensagem nova: navegar entre
+    categorias não deve encher a conversa de cópias do menu. Quando a edição
+    falha (mensagem antiga demais, texto idêntico), cai para uma mensagem
+    nova — menu que trava é pior que menu duplicado.
+    """
+    query = update.callback_query
+    await query.answer()
+    slug = query.data.split(":", 1)[1]
+
+    if slug == "home":
+        texto, teclado = _MENU_TOPO, _kb_categorias()
+    else:
+        cat = categoria_por_slug(slug)
+        if cat is None:  # botão de uma versão anterior do menu
+            texto, teclado = _MENU_TOPO, _kb_categorias()
+        else:
+            await _log(update, "menu_categoria", ref=slug)
+            texto, teclado = texto_da_categoria(cat), _KB_VOLTAR
+
+    try:
+        await query.edit_message_text(texto, parse_mode="Markdown",
+                                      reply_markup=teclado)
+    except Exception:
+        await query.message.reply_markdown(texto, reply_markup=teclado)
 
 _ENVIAR_TXT = (
     "📤 *Me mande suas mãos do jeito mais fácil pra você:*\n\n"
@@ -1916,6 +1954,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("foco", cmd_foco))
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))
+    app.add_handler(CallbackQueryHandler(on_menu, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(on_range_button, pattern=r"^rng:"))
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
