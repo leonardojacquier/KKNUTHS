@@ -122,11 +122,49 @@ Fora do horário comercial: o restart derruba o portal por alguns segundos.
   individual entra junto com o pacote de campanha, na Fase 2.
 - **Search Console** — depende de conta ligada.
 
-## Por que estes arquivos vivem no repositório do site
+## Trabalhar no portal a partir daqui (sem entrar na VPS)
 
-O `/opt/dashboard-gnh` é um git **sem remote**: existe só na VPS. Enquanto for assim,
-o código do hub fica versionado aqui e é copiado de lá. Se um dia o portal for para o
-GitHub, esta pasta vira o material do primeiro PR e some daqui.
+O `/opt/dashboard-gnh` é um git **sem remote**: existe só na VPS, e por isso nenhum
+agente fora dela consegue ler ou escrever no portal. Publicar no GitHub resolve os
+dois lados de uma vez — leitura e deploy.
+
+### Uma vez, na VPS (dois comandos)
+
+```bash
+cd /opt/dashboard-gnh
+grep -q '^\.env' .gitignore || echo '.env*.local' >> .gitignore   # confira ANTES
+git rm --cached .env.local 2>/dev/null || true                    # se já estiver rastreado
+gh repo create leonardojacquier/dashboard-gnh --private --source=. --push
+```
+
+> [!danger] Antes do push, confirme que o `.env.local` está fora
+> Ele carrega `DATABASE_URL` e o segredo do NextAuth. `git status` não deve listá-lo.
+> Se já houver commit com ele no histórico, **troque as credenciais** depois de
+> publicar — remover do próximo commit não apaga o passado.
+
+### Depois, o deploy é igual ao do site
+
+`vps-autodeploy-dashboard.sh` (nesta pasta) roda no VPS por cron: puxa a branch,
+reinstala dependência só se o lockfile mudou, builda e reinicia o pm2.
+
+**Build que falha não derruba o portal**: o script guarda o `.next` atual em
+`.next-prev` antes de tentar, e se o build quebrar devolve o anterior, reverte o
+código e **não reinicia** o pm2. O que está no ar continua no ar.
+
+```bash
+cp /opt/dashboard-gnh/deploy/vps-autodeploy-dashboard.sh /opt/dashboard-autodeploy.sh
+chmod +x /opt/dashboard-autodeploy.sh
+( crontab -l 2>/dev/null | grep -v dashboard-autodeploy ; \
+  echo "*/5 * * * * /opt/dashboard-autodeploy.sh >/dev/null 2>&1" ) | crontab -
+```
+
+A partir daí: eu abro PR no `dashboard-gnh`, você aprova, e em até 5 min está no ar.
+Sem SSH, sem build na mão. `tail -f /var/log/dashboard-autodeploy.log` mostra tudo.
+
+> [!tip] Por que cron e não GitHub Action com SSH
+> O secret `VORTEX_SSH_KEY` existe e funciona, mas a VPS roda fail2ban e é
+> compartilhada — rajada de SSH de runner já deu dor de cabeça antes. O site inteiro
+> já é publicado por cron pelo mesmo motivo.
 
 ---
 
