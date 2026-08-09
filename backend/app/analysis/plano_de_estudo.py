@@ -47,20 +47,27 @@ def _evidencias_por_codigo(hands, obs) -> dict[str, list]:
             for codigo, dias in por_codigo.items()}
 
 
-def _oportunidades_depois(hands, obs, codigo: str, desde: str | None) -> int:
-    """Oportunidades do código em mãos jogadas DEPOIS do diagnóstico.
+def _janela_depois(hands, obs, codigo: str, desde: str | None) -> tuple[int, int]:
+    """(oportunidades, escorregadas) do código DEPOIS do diagnóstico.
 
     A barra de coleta mede o que veio DEPOIS da intervenção. Contar as mãos
     que diagnosticaram diria "30 de 30" no instante em que o problema abre —
     ou seja, "você já chegou" antes de ter coletado uma única mão nova. É a
     mesma confusão entre janela que diagnostica e janela que mede que faz a
     regressão à média virar melhora falsa.
+
+    E os DOIS números têm que sair daqui. A versão anterior devolvia só as
+    oportunidades e deixava `escorregadas` vir do agregado da janela inteira:
+    o aluno lia "42 escorregada(s) nessas 12". Numerador de uma população,
+    denominador de outra — é a assinatura exata do VPIP 94%, dentro do
+    módulo escrito para impedi-lo.
     """
     if not desde:
-        return 0
+        return 0, 0
     dia_da_mao = {h.hand_id: _dia(h) for h in hands}
-    return sum(1 for o in obs if o.codigo == codigo
-               and dia_da_mao.get(o.hand_id, "") > desde)
+    novas = [o for o in obs if o.codigo == codigo
+             and dia_da_mao.get(o.hand_id, "") > desde]
+    return len(novas), sum(1 for o in novas if o.escorregada)
 
 
 def revisar(repo, user_id: str, hands: list) -> dict:
@@ -110,11 +117,15 @@ def revisar(repo, user_id: str, hands: list) -> dict:
         vivo = abertos[0]
         atual = next((d for d in diagnosticos
                       if d["codigo"] == vivo["codigo"]), None)
+        opp_novas, miss_novas = _janela_depois(
+            completas, obs, vivo["codigo"], vivo.get("diagnostico_ate"))
         ativo = {**(atual or {}), **{
             "id": vivo["id"], "codigo": vivo["codigo"],
-            # a barra de coleta é do que veio DEPOIS do diagnóstico
-            "oportunidades": _oportunidades_depois(
-                completas, obs, vivo["codigo"], vivo.get("diagnostico_ate")),
+            # a barra de coleta é do que veio DEPOIS do diagnóstico — e as
+            # escorregadas TAMBÉM, senão as duas metades da fração falam de
+            # populações diferentes
+            "oportunidades": opp_novas, "escorregadas": miss_novas,
+            "diagnosticado_com": (atual or {}).get("oportunidades", 0),
             "nome": CODIGOS[vivo["codigo"]].nome if vivo["codigo"] in CODIGOS
             else vivo["codigo"],
             "pergunta": CODIGOS[vivo["codigo"]].pergunta

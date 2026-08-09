@@ -92,6 +92,22 @@ def exigir_amostra_completa(hands: list[CanonicalHand], oquê: str) -> None:
             "inteira — senão sai o VPIP 94% de novo.")
 
 
+def _tem_decisao(pre) -> bool:
+    """A street existe E alguém agiu voluntariamente nela.
+
+    Postar blind não é decisão, é obrigação. `Street` é um BaseModel sem
+    `__bool__`, então street VAZIA é verdadeira — e todo parser de texto
+    semeia a street de preflop incondicionalmente (pokerstars, winamax,
+    dealing_family, phh). Sem esta distinção, um .txt truncado em
+    "*** HOLE CARDS ***" entra no denominador como "foldou": 120 mãos dessas
+    davam VPIP 0%, rótulo "nit" e publicavel=True, pela fonte de MAIOR
+    confiança do sistema.
+    """
+    if not pre:
+        return False
+    return any(a.type != ActionType.POST for a in (pre.actions or ()))
+
+
 def amostra_completa(hands: list[CanonicalHand]) -> list[CanonicalHand]:
     """Só as mãos que vieram de export de sessão inteira."""
     return [h for h in hands if (h.source_format or "txt") in FONTES_COMPLETAS]
@@ -133,7 +149,7 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
         # largou. Contá-la no denominador dava VPIP 0% e rótulo "nit" para
         # quem talvez jogue 40% — o incidente do VPIP 94% ao contrário, e
         # marcado como publicável.
-        if not h.street(StreetName.PREFLOP):
+        if not _tem_decisao(h.street(StreetName.PREFLOP)):
             sem_acao += 1
             continue
         n += 1
@@ -259,8 +275,12 @@ def perfil_que_pode_ser_dito(linha: dict | None) -> dict | None:
         return None
     detail = linha.get("detail") or {}
     n = linha.get("hands") or 0
-    publicavel = detail.get("publicavel")
-    if publicavel is False or linha.get("vpip") is None:
+    # FALHA FECHADO. `detail.get("publicavel") is False` deixava passar a
+    # chave AUSENTE — que é justamente a assinatura de toda linha gravada
+    # ANTES de o portão existir, ou seja, a linha envenenada do VPIP 94,3%.
+    # O commit d34ac66 limpou três dessas à mão; a REGRA não protegia contra
+    # a quarta. Só passa quem foi carimbado como publicável.
+    if detail.get("publicavel") is not True or linha.get("vpip") is None:
         return {
             "frequencias": None,
             "maos_na_amostra": n,

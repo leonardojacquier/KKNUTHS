@@ -17,6 +17,8 @@
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from app.bot.memoria_do_processo import (esquecer, guardar_com_prazo, lembrar,
@@ -89,6 +91,91 @@ def test_mandar_mao_nao_enche_a_memoria_para_sempre():
         p.remember_hands(tg, maos)
     assert len(p.RECENT_HANDS) == TETO_USUARIOS
     p.RECENT_HANDS.clear()
+
+
+def test_dois_alunos_ao_mesmo_tempo_nao_derrubam_a_memoria():
+    """O bot roda o trabalho pesado em `asyncio.to_thread` — são threads de
+    verdade, e a preempção acontece entre bytecodes.
+
+    `lembrar` despejava com `next(iter(mapa))`, que itera enquanto outra
+    thread insere. Reproduzido em 09/08 com 4 escritores concorrentes: 3
+    morreram em 3 segundos com `RuntimeError: dictionary changed size during
+    iteration`. Só dispara com o mapa NO TETO (o despejo é o único ponto que
+    itera), então hoje é latente — vira crash no dia em que houver 200
+    alunos. E `lembrar` é chamado no meio do upload, fora de qualquer
+    `except`: a análise já foi paga e o aluno fica no "Analisando…" para
+    sempre.
+
+    `varrer_expirados` tinha a mesma corrida, por iterar `mapa.items()`.
+    """
+    import threading
+
+    from app.bot.memoria_do_processo import lembrar, varrer_expirados
+
+    mapa: dict = {}
+    erros: list = []
+    parar = threading.Event()
+
+    def escreve(offset):
+        i = 0
+        while not parar.is_set():
+            try:
+                lembrar(mapa, (i * 7 + offset) % 5000, (time.time(), "x"))
+            except Exception as exc:          # noqa: BLE001 — é o que medimos
+                erros.append(repr(exc))
+                return
+            i += 1
+
+    def varre():
+        while not parar.is_set():
+            try:
+                varrer_expirados(mapa, 0.01)
+            except Exception as exc:          # noqa: BLE001
+                erros.append(repr(exc))
+                return
+
+    threads = ([threading.Thread(target=escreve, args=(k,)) for k in range(4)]
+               + [threading.Thread(target=varre) for _ in range(2)])
+    for t in threads:
+        t.start()
+    time.sleep(0.6)
+    parar.set()
+    for t in threads:
+        t.join(timeout=5)
+
+    assert not erros, f"memória quebrou sob concorrência: {erros[0]}"
+    assert len(mapa) <= 200, "o teto parou de valer"
+
+
+def test_o_leitor_nunca_ve_a_chave_sumir_no_meio_da_escrita():
+    """dict não tem move-to-end atômico: reordenar é pop + reinserir, e entre
+    os dois a chave NÃO EXISTE.
+
+    Quem lê nessa janela cai no fallback do banco — que devolve 200 mãos por
+    `played_at desc` onde a memória tinha 300. Conjunto diferente,
+    estatística diferente. Medido antes da correção: 84 mil leituras nulas
+    em 200 mil escritas.
+    """
+    import threading
+
+    from app.bot.memoria_do_processo import lembrar
+
+    mapa = {7: ("v",)}
+    nulos = [0]
+
+    def escreve():
+        for _ in range(20_000):
+            lembrar(mapa, 7, ("v",))
+
+    def le():
+        for _ in range(20_000):
+            if mapa.get(7, "AUSENTE") == "AUSENTE":
+                nulos[0] += 1
+
+    a, b = threading.Thread(target=escreve), threading.Thread(target=le)
+    a.start(), b.start(), a.join(), b.join()
+    assert nulos[0] == 0, (
+        f"{nulos[0]} leituras viram a chave ausente durante a reordenação")
 
 
 def test_despejar_nao_perde_dado_so_latencia():

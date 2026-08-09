@@ -28,9 +28,15 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 
 log = logging.getLogger("memoria")
+
+# um lock só para todos os mapas. A seção crítica é de microssegundos e a
+# contenção é irrelevante perto do I/O que cerca cada chamada; um lock por
+# mapa custaria mais em complexidade do que economiza em espera.
+_LOCK = threading.Lock()
 
 # quantos USUÁRIOS cabem em cada mapa. 200 com o cap de 300 mãos dá ~1.9 GB
 # no pior caso teórico de RECENT_HANDS, mas o pior caso exige 200 usuários
@@ -40,13 +46,42 @@ TETO_USUARIOS = int(os.getenv("MEMORIA_TETO_USUARIOS", "200"))
 
 
 def lembrar(mapa: dict, chave, valor, teto: int = TETO_USUARIOS) -> None:
-    """Grava e despeja o mais parado quando o mapa passa do teto."""
-    mapa.pop(chave, None)          # reinserir = marcar como recente
-    mapa[chave] = valor
-    while len(mapa) > teto:
-        velho = next(iter(mapa))
-        mapa.pop(velho, None)
-        log.debug("memória cheia: despejei %s (teto %d)", velho, teto)
+    """Grava e despeja o mais parado quando o mapa passa do teto.
+
+    SOB LOCK, e não por preciosismo: o bot roda o trabalho pesado em
+    `asyncio.to_thread` (uns 40 pontos em handlers.py), então são threads de
+    verdade e a preempção acontece entre bytecodes. Duas coisas quebravam:
+
+    1. `next(iter(mapa))` itera enquanto outra thread insere —
+       `RuntimeError: dictionary changed size during iteration`. Medido: 4
+       escritores concorrentes, 3 morreram em 3 segundos. Só dispara com o
+       mapa NO TETO (o despejo é o único ponto que itera), então hoje, com 11
+       alunos, é latente. Vira crash real no dia em que houver 200.
+       E `lembrar` é chamado no meio do upload, fora de qualquer try —
+       a análise já foi paga e o aluno fica no "Analisando…" para sempre.
+    2. o `pop` antes do `set` deixava a chave AUSENTE por uma janela: um
+       leitor concorrente via `None` e caía no fallback do banco (200 mãos
+       em vez das 300 da memória), ou seja, conjunto diferente e estatística
+       diferente. Reordenar resolve — a reinserção só precisa acontecer
+       depois, para marcar como recente.
+    """
+    with _LOCK:
+        # dict não tem move-to-end atômico: reordenar é pop + reinserir, e
+        # entre os dois a chave NÃO EXISTE. Por isso a reordenação só
+        # acontece quando o despejo está perto de importar. Abaixo disso a
+        # ordem não decide nada, e o custo dela seria uma janela de leitura
+        # suja a cada escrita — medido em 84 mil leituras nulas por 200 mil
+        # escritas concorrentes.
+        novo = chave not in mapa
+        if not novo and len(mapa) >= teto * 0.9:
+            mapa.pop(chave, None)
+        mapa[chave] = valor
+        while len(mapa) > teto:
+            velho = next(iter(mapa))
+            if velho == chave:     # nunca despejar quem acabou de chegar
+                break
+            mapa.pop(velho, None)
+            log.debug("memória cheia: despejei %s (teto %d)", velho, teto)
 
 
 def esquecer(mapa: dict, chave) -> None:
@@ -65,7 +100,12 @@ def varrer_expirados(mapa: dict, ttl: float, agora: float | None = None,
     """
     agora = time.time() if agora is None else agora
     mortos = []
-    for chave, valor in mapa.items():
+    # `list(mapa.items())` e não `mapa.items()`: o laço coletava os mortos
+    # antes de dar pop, o que protege contra AUTO-mutação e não contra a de
+    # outra thread. Uma cópia do par de listas é barata e fecha a corrida.
+    with _LOCK:
+        itens = list(mapa.items())
+    for chave, valor in itens:
         try:
             if agora - float(quando(valor)) > ttl:
                 mortos.append(chave)

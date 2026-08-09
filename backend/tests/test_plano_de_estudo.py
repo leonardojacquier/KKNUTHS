@@ -172,6 +172,33 @@ def test_a_coleta_comeca_em_zero_e_nao_nas_maos_que_diagnosticaram():
     assert "0 de ~30" in out["texto"]
 
 
+def test_as_duas_metades_da_fracao_sao_da_mesma_janela():
+    """Numerador de uma população sobre denominador de outra é a assinatura
+    exata do VPIP 94% — e ela reapareceu aqui, dentro do módulo escrito para
+    impedi-la.
+
+    `oportunidades` vinha de `_janela_depois` (só o pós-diagnóstico) e
+    `escorregadas` era herdada do agregado da janela INTEIRA, porque o dict
+    de override não a sobrescrevia. Com 30 limps de diagnóstico e 12 mãos
+    novas, o aluno lia literalmente:
+
+        Coleta: ▓▓▓▓░░░░░░░░  12 de ~30 oportunidades
+        Até aqui: 42 escorregada(s) nessas 12.
+    """
+    aberto = [{"id": "p0", "codigo": "limp_de_abertura", "estado": "problema",
+               "diagnostico_ate": "2026-08-01", "alta_n_minimo": 30,
+               "alta_por_extenso": "x"}]
+    r = _Repo(abertos=aberto)
+    out = revisar(r, "u-1", _muitos_limps() +
+                  [_limp(f"n{i}", "2026-08-10") for i in range(12)])
+    a = out["ativo"]
+    assert a["escorregadas"] <= a["oportunidades"], (
+        f"{a['escorregadas']} escorregadas em {a['oportunidades']} "
+        "oportunidades — as duas metades vêm de janelas diferentes")
+    assert (a["oportunidades"], a["escorregadas"]) == (12, 12)
+    assert "12 escorregada(s) nessas 12" in out["texto"]
+
+
 def test_maos_novas_depois_do_diagnostico_enchem_a_barra():
     aberto = [{"id": "p0", "codigo": "limp_de_abertura", "estado": "problema",
                "diagnostico_ate": "2026-08-01", "alta_n_minimo": 30,

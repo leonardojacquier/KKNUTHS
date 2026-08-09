@@ -87,13 +87,56 @@ def test_amostra_completa_separa_por_fonte():
     assert "image" not in FONTES_COMPLETAS
 
 
+def _perfil_como_o_coach_recebe(stats):
+    """A expressão EXATA de processing.py:489, executada.
+
+    Extrair e rodar em vez de citar: a versão anterior deste teste comparava
+    `"stats.publicavel" in inspect.getsource(...)`, e uma substring continua
+    presente quando a condição está INVERTIDA. Provado em 09/08: trocando por
+    `if not stats.publicavel` — que manda o perfil cru ao modelo exatamente
+    quando ele é impublicável — os 971 testes passavam.
+    """
+    return stats.__dict__ if stats.publicavel else {
+        "indisponivel": True, "por_que": "…",
+        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+
+
 def test_o_coach_nao_recebe_perfil_nao_publicavel():
     """A regra tem que valer no ponto onde o dado ENCONTRA o modelo — senão
     o perfil errado volta a ser dito como fato no meio da análise."""
+    from app.analysis.stats import PlayerStats
+
+    envenenado = PlayerStats(player="Hero", hands=53, vpip=94.3, pfr=88.0,
+                             label="LAG (loose-aggressive)",
+                             detail={"amostra_viesada": True,
+                                     "maos_fora_da_amostra": 53})
+    saiu = _perfil_como_o_coach_recebe(envenenado)
+    assert saiu.get("indisponivel") is True
+    assert "vpip" not in saiu, "o VPIP 94,3% chegou ao prompt do coach"
+    assert "label" not in saiu, "o rótulo LAG chegou ao prompt do coach"
+
+    bom = PlayerStats(player="Hero", hands=148, vpip=26.0, pfr=19.0,
+                      label="TAG (tight-aggressive)", detail={})
+    assert _perfil_como_o_coach_recebe(bom)["vpip"] == 26.0, \
+        "portão apertado demais: perfil legítimo também sumiu"
+
+
+def test_a_expressao_testada_e_a_que_esta_em_producao():
+    """O teste acima roda uma CÓPIA da linha 489. Se a de produção mudar e
+    esta não, ele passa a proteger código que não existe mais — que é a
+    outra metade da armadilha do teste por substring."""
+    import ast
     import inspect
 
     from app.bot import processing
 
     fonte = inspect.getsource(processing._process_upload_inner)
-    assert "stats.publicavel" in fonte
-    assert fonte.index("stats.publicavel") < fonte.index("coach(structured")
+    achou = [n for n in ast.walk(ast.parse(inspect.cleandoc(fonte)))
+             if isinstance(n, ast.Assign)
+             and any(getattr(t, "id", "") == "perfil" for t in n.targets)
+             and isinstance(n.value, ast.IfExp)]
+    assert achou, "não achei mais o `perfil = … if … else …` em produção"
+    teste = ast.unparse(achou[0].value.test)
+    assert teste == "stats.publicavel", (
+        f"produção decide por `{teste}`, e o teste desta suíte exercita "
+        "`stats.publicavel` — os dois têm que ser a mesma condição")

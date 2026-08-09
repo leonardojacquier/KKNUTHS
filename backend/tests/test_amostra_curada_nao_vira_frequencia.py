@@ -183,9 +183,37 @@ def test_o_coach_sabe_que_o_aluno_existe_mesmo_sem_perfil():
 def test_perfil_bom_chega_com_a_margem_junto():
     from app.bot.processing import perfil_que_pode_ser_dito
 
-    p = perfil_que_pode_ser_dito({"hands": 305, "vpip": 23.3, "detail": {}})
+    p = perfil_que_pode_ser_dito({"hands": 305, "vpip": 23.3,
+                                  "detail": {"publicavel": True}})
     assert p["vpip"] == 23.3
     assert "margem" in p["instrucao_margem"]
+    assert p["margem_pp"] == pytest.approx(4.9, abs=0.1), (
+        "a margem tem que ser a margem, não um campo com a palavra dentro")
+
+
+def test_linha_legada_sem_carimbo_nao_passa():
+    """O portão falhava ABERTO na chave ausente, que é exatamente a
+    assinatura de toda linha gravada ANTES de ele existir.
+
+    `detail.get("publicavel") is False` não pega `None`. O commit d34ac66
+    limpou três linhas envenenadas à mão e declarou o caso fechado; a regra
+    não protegia contra a quarta. Medido em 09/08: a linha do Ricardo
+    (hands 53, vpip 94.3, label LAG) atravessava inteira, com margem de erro
+    junto — o que faz a mentira parecer mais precisa.
+
+    O writer carimba `detail["publicavel"]` em toda gravação, então linha
+    sem carimbo só pode ser legada. Na dúvida, não fala.
+    """
+    from app.bot.processing import perfil_que_pode_ser_dito
+
+    envenenada = {"hands": 53, "vpip": 94.3, "pfr": 88.0,
+                  "label": "LAG (loose-aggressive)", "detail": {"fonte": "replay"}}
+    for linha in (envenenada,
+                  {**envenenada, "detail": {}},      # detail vazio
+                  {**envenenada, "detail": None}):   # jsonb nulo
+        p = perfil_que_pode_ser_dito(linha)
+        assert p["frequencias"] is None, f"vazou VPIP de {linha['detail']!r}"
+        assert "vpip" not in p and "label" not in p
 
 
 def test_o_portal_mostra_travessao_e_nao_zero():
@@ -226,6 +254,40 @@ def test_mao_resumo_nao_vira_vpip_zero():
     assert s.hands == 0, "mão sem ação não pode entrar no denominador"
     assert s.publicavel is False
     assert "não tenho a ação" in s.label
+    assert s.detail["maos_sem_acao"] == 120
+
+
+def test_txt_truncado_no_hole_cards_tambem_e_mao_sem_acao():
+    """A trava anterior perguntava se a street EXISTE, não se houve decisão.
+
+    `Street` é um BaseModel sem `__bool__`, então street vazia é verdadeira —
+    e todo parser de texto semeia a street de preflop incondicionalmente
+    (pokerstars, winamax, dealing_family, phh). Um .txt cortado logo depois
+    de "*** HOLE CARDS ***" — arquivo truncado, ou o aluno colando só o
+    começo — chegava com a street presente e só os posts de blind dentro.
+
+    Medido em 09/08: 120 mãos assim davam `VPIP 0% · nit (tight-passive)`
+    com publicavel=True, gravado no banco e entregue ao coach. É o mesmo
+    incidente do CSV, pela fonte de MAIOR confiança do sistema.
+    """
+    from app.analysis.stats import compute_player_stats
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    truncadas = [CanonicalHand(
+        site="PokerStars", hand_id=f"t{i}", hero="Hero", source_format="txt",
+        stakes=Stakes(small_blind=50, big_blind=100),
+        players=[PlayerSeat(seat=1, name="Hero", stack=3000, is_hero=True),
+                 PlayerSeat(seat=2, name="V", stack=3000)],
+        hero_cards=["Ah", "Kd"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="V", type=ActionType.POST, amount=100,
+                   post_type="bb")])]) for i in range(120)]
+
+    s = compute_player_stats(truncadas, player=None)
+    assert s.hands == 0, "postar blind não é decisão — é obrigação"
+    assert s.publicavel is False
+    assert s.vpip == 0.0 and "nit" not in s.label
     assert s.detail["maos_sem_acao"] == 120
 
 
