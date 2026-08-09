@@ -343,6 +343,124 @@ def test_cookie_errado_nao_abre(cliente):
     assert r.status_code == 401
 
 
+def test_o_cookie_nao_e_o_ADMIN_TOKEN(cliente):
+    """A garantia que faltava, e a mais cara.
+
+    O cookie ERA o segredo mestre em claro. Quem lesse o cookie — extensão
+    de navegador, backup de perfil, alguém no computador — tinha a chave do
+    portal para sempre, porque o único jeito de revogar era trocar o
+    ADMIN_TOKEN e derrubar todas as sessões.
+    """
+    r = cliente.get("/admin?key=tok-de-teste", follow_redirects=False)
+    valor = r.headers["set-cookie"].split("kkn_admin=")[1].split(";")[0]
+    assert "tok-de-teste" not in valor, "o cookie carrega o segredo mestre"
+    assert valor.count(".") == 1, "formato esperado: <expira_em>.<hmac>"
+
+
+def test_o_cookie_so_viaja_para_o_admin(cliente):
+    """Sem `path`, o navegador manda o cookie para `/`, `/manual`, `/folder`,
+    `/health` e o webhook do Stripe também — superfície de graça."""
+    r = cliente.get("/admin?key=tok-de-teste", follow_redirects=False)
+    assert "Path=/admin" in r.headers["set-cookie"]
+
+
+def test_a_sessao_vence_sozinha(cliente):
+    import time
+
+    from app.api.admin import _assinar_sessao, sessao_valida
+
+    agora = time.time()
+    valida = _assinar_sessao(int(agora) + 60)
+    vencida = _assinar_sessao(int(agora) - 1)
+
+    assert sessao_valida(valida, agora=agora)
+    assert not sessao_valida(vencida, agora=agora), "sessão vencida abriu"
+    # e não dá para esticar o prazo mexendo no número: o hmac cobre a data
+    esticada = f"{int(agora) + 999999}.{valida.split('.')[1]}"
+    assert not sessao_valida(esticada, agora=agora), (
+        "dava para prorrogar a própria sessão editando o cookie")
+
+
+def test_sessao_de_outra_instalacao_nao_serve(cliente, monkeypatch):
+    """Trocar o ADMIN_TOKEN continua sendo a revogação de emergência: ele é a
+    chave do HMAC, então toda sessão emitida antes morre junto."""
+    from app.api.admin import _assinar_sessao, sessao_valida
+    from app.config import get_settings
+
+    import time
+    antiga = _assinar_sessao(int(time.time()) + 3600)
+
+    monkeypatch.setenv("ADMIN_TOKEN", "outro-token")
+    get_settings.cache_clear()
+    assert not sessao_valida(antiga), (
+        "sessão sobreviveu à troca do ADMIN_TOKEN")
+
+
+def test_sem_ADMIN_TOKEN_ninguem_entra(monkeypatch):
+    """Sem segredo, o HMAC tem chave VAZIA — e aí qualquer um que conheça o
+    formato assina a própria sessão.
+
+    Testar com lixo (`"qualquer.coisa"`) não prova nada: ele é rejeitado no
+    parse, antes de chegar ao HMAC. É preciso FORJAR uma sessão bem-formada
+    com a chave vazia, que é exatamente o que um atacante faria se o
+    ADMIN_TOKEN se perdesse num deploy.
+    """
+    import hashlib
+    import hmac
+    import time
+
+    from app.api.admin import sessao_valida
+    from app.config import get_settings
+
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    get_settings.cache_clear()
+
+    expira = int(time.time()) + 3600
+    mac = hmac.new(b"", str(expira).encode(), hashlib.sha256).hexdigest()[:40]
+    forjada = f"{expira}.{mac}"
+
+    assert not sessao_valida(forjada), (
+        "sem ADMIN_TOKEN o portal aceitou uma sessão assinada com chave vazia")
+    assert not sessao_valida("qualquer.coisa")
+    assert not sessao_valida(None)
+
+
+def test_a_comparacao_e_em_tempo_constante():
+    """LINT, não teste — e está declarado como tal de propósito.
+
+    Diferença de timing não é observável num teste de unidade: o ruído de
+    agendamento do SO é ordens de grandeza maior que os microssegundos que
+    vazariam. Então esta asserção lê o código, que é justamente o padrão que
+    o resto desta suíte está abandonando.
+
+    Fica porque a alternativa é pior — não ter nada — mas fica ROTULADA: se
+    um dia existir um jeito de medir, isto vira teste de verdade. Não conte
+    esta linha como cobertura de comportamento.
+    """
+    import inspect
+
+    from app.api import admin
+
+    fonte = inspect.getsource(admin.sessao_valida)
+    assert "compare_digest" in fonte, (
+        "comparação de HMAC com `==` vaza o prefixo correto por timing")
+
+
+def test_sair_encerra_a_sessao_do_navegador(cliente):
+    """Antes só existia a opção nuclear: trocar o ADMIN_TOKEN e derrubar
+    todas as sessões."""
+    cliente.get("/admin?key=tok-de-teste")
+    assert cliente.get("/admin").status_code == 200
+
+    r = cliente.get("/admin/sair", follow_redirects=False)
+    assert r.status_code == 303
+    assert 'kkn_admin=""' in r.headers.get("set-cookie", "") or \
+        "kkn_admin=;" in r.headers.get("set-cookie", "")
+
+    cliente.cookies.clear()
+    assert cliente.get("/admin").status_code == 401
+
+
 def test_nenhum_link_da_pagina_carrega_o_segredo(cliente):
     import re
 

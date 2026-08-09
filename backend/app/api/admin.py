@@ -35,8 +35,56 @@ router = APIRouter()
 # A ergonomia continua a mesma: abre o link com ?key= UMA vez, o servidor
 # troca por cookie HttpOnly e redireciona para a URL limpa. Daí em diante os
 # links internos vão sem segredo nenhum.
+# O COOKIE ERA O PRÓPRIO ADMIN_TOKEN, em claro. Três problemas somados:
+#
+#   1. o segredo MESTRE ia e voltava em toda requisição do domínio, porque
+#      sem `path` o navegador manda o cookie para `/`, `/manual`, `/folder`,
+#      `/health` e o webhook do Stripe também;
+#   2. durava 12h, então a cada dia o dono era obrigado a colar a chave na
+#      URL de novo — e é aí que ela entra no log de acesso do Caddy. Aconteceu
+#      em 09/08: `{"detail":"token inválido"}` na cara dele;
+#   3. não havia como encerrar uma sessão sem trocar o ADMIN_TOKEN, que
+#      derruba todas.
+#
+# Agora o cookie é uma SESSÃO ASSINADA: `<expira_em>.<hmac>`. Ela prova que
+# alguém apresentou o token, sem carregar o token; vence sozinha; e sair é
+# um endpoint. Continua stateless — não há tabela de sessão para consultar,
+# o que importa num processo que o pm2 reinicia a cada deploy.
 _COOKIE = "kkn_admin"
-_COOKIE_MAX_AGE = 60 * 60 * 12
+_COOKIE_PATH = "/admin"
+_SESSAO_DIAS = 30
+_COOKIE_MAX_AGE = 60 * 60 * 24 * _SESSAO_DIAS
+
+
+def _assinar_sessao(expira_em: int) -> str:
+    """`<expira_em>.<hmac>` — derivada do ADMIN_TOKEN, e não ele."""
+    import hashlib
+    import hmac
+
+    segredo = (get_settings().admin_token or "").encode()
+    mac = hmac.new(segredo, str(expira_em).encode(), hashlib.sha256)
+    return f"{expira_em}.{mac.hexdigest()[:40]}"
+
+
+def sessao_valida(valor: str | None, agora: float | None = None) -> bool:
+    """A sessão é desta instalação e ainda não venceu.
+
+    Sem ADMIN_TOKEN ninguém entra — igual ao `token_confere`. Trocar o
+    ADMIN_TOKEN invalida TODAS as sessões de uma vez, que é a revogação de
+    emergência; `/admin/sair` encerra só a do navegador que pediu.
+    """
+    import time
+
+    if not get_settings().admin_token or not valor or "." not in str(valor):
+        return False
+    cru, _, _mac = str(valor).partition(".")
+    try:
+        expira_em = int(cru)
+    except ValueError:
+        return False
+    if expira_em < (time.time() if agora is None else agora):
+        return False
+    return secrets.compare_digest(str(valor), _assinar_sessao(expira_em))
 
 
 def token_confere(valor: str | None) -> bool:
@@ -53,17 +101,32 @@ def _porta(request: Request | None, key: str, destino: str):
     Chamada direta sem `request` (os testes, e qualquer uso interno) segue
     valendo pelo token: a porta é a mesma, só o transporte muda.
     """
+    import time
+
     cookie = request.cookies.get(_COOKIE) if request is not None else None
-    if token_confere(cookie):
+    if sessao_valida(cookie):
         return None
     if not token_confere(key):
         raise HTTPException(status_code=401, detail="token inválido")
     if request is None:
         return None
     r = RedirectResponse(destino, status_code=303)
-    r.set_cookie(_COOKIE, get_settings().admin_token, max_age=_COOKIE_MAX_AGE,
-                 httponly=True, samesite="lax",
+    r.set_cookie(_COOKIE, _assinar_sessao(int(time.time()) + _COOKIE_MAX_AGE),
+                 max_age=_COOKIE_MAX_AGE, httponly=True, samesite="lax",
+                 path=_COOKIE_PATH,
                  secure=request.url.scheme == "https")
+    return r
+
+
+@router.get("/admin/sair")
+def sair(request: Request) -> RedirectResponse:
+    """Encerra a sessão DESTE navegador.
+
+    Antes só existia a opção nuclear: trocar o ADMIN_TOKEN, que derruba
+    todas. Não exige sessão válida — quem quer sair, sai.
+    """
+    r = RedirectResponse("/", status_code=303)
+    r.delete_cookie(_COOKIE, path=_COOKIE_PATH)
     return r
 
 # teto da varredura de eventos do painel. Existe para a página não puxar o
