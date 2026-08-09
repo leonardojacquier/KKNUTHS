@@ -33,7 +33,7 @@ status: em produção
 | [[10 - Pendencias e roadmap]] | O que falta, em ordem de impacto |
 | [[11 - Decisoes]] | Decisões tomadas e o porquê — para não revisitar |
 | [[12 - Glossario]] | Termos que aparecem na documentação |
-| [[13 - Plano - Painel e Central de Campanhas]] | Plano do painel de indicadores e da central de artes *(aguardando aprovação)* |
+| [[13 - Plano - Painel e Central de Campanhas]] | Plano do **Hub de Marketing**: indicadores, campanhas, páginas, performance, buscadores e redes *(aguardando aprovação)* |
 | [[14 - Acessibilidade e H1]] | O H1 que o JS apagava, alvos de toque e `alt` nas imagens |
 | [[15 - Fichas do Google (GNH e Kasteller)]] | Conteúdo pronto das fichas do Google Business e como medir se trazem visita |
 
