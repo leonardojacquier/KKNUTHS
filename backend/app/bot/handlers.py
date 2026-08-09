@@ -630,7 +630,18 @@ async def cmd_treino(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def _send_treino(message, tg_id: int, ctx) -> None:
     """Monta e envia um treino (usado pelo /treino e pelo botão do /start)."""
-    drill = await asyncio.to_thread(build_drill, tg_id)
+    # 1 a cada 5 é de AFERIÇÃO: sorteio uniforme, sem o boost que persegue o
+    # erro. Só esses entram em qualquer número mostrado como progresso — com
+    # o boost ligado, a taxa de acerto muda porque o MIX mudou, não porque o
+    # aluno melhorou.
+    from app.bot.repeticao import e_afericao
+
+    try:
+        feitos = len(await asyncio.to_thread(
+            get_repository().drill_verdicts, tg_id))
+    except Exception:
+        feitos = 0
+    drill = await asyncio.to_thread(build_drill, tg_id, e_afericao(feitos))
     if not drill:
         # usuário zero: mão-DEMO na hora — o primeiro minuto é o produto,
         # não um formulário pedindo arquivo (item 6 do roadmap-10)
@@ -742,7 +753,9 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         await asyncio.to_thread(
             get_repository().set_pending_drill, update.effective_user.id, drill)
         return
-    await _log(update, "drill_answer", choice=choice, hand_id=drill.get("hand_id"))
+    await _log(update, "drill_answer", choice=choice,
+               hand_id=drill.get("hand_id"),
+               afericao=bool(drill.get("afericao")))
     # os botões pós-reveal agem sobre ESTA mão. Quando o quiz veio do banco
     # (quiz diário do cron), o LAST_HAND_META deste processo está vazio — e o
     # "Simular esta mão" caía noutra mão. Grava a referência aqui, SEMPRE.
@@ -821,6 +834,9 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             await _log(update, "drill_verdict",
                        verdict=spec.get("verdict"),
                        hand_id=drill.get("hand_id"),
+                       # sem esta marca não dá para separar o que MEDE do que
+                       # TREINA depois — e o evento é a única fonte
+                       afericao=bool(drill.get("afericao")),
                        cat=drill.get("cat") or drill_category(drill))
             png = await asyncio.to_thread(render_hand_strip, spec)
             import io as _io3

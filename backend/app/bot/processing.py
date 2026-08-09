@@ -27,6 +27,8 @@ from app.bot.leitura_da_mao import (_decision_aggressor, _describe_safe,
                                     _preflop_summary, _pretty_cards,
                                     _seats_at_decision, _walk_hand)
 from app.analysis.stats import perfil_que_pode_ser_dito
+from app.bot.repeticao import (_CAT_NOMES, drill_category,
+                               leak_boost, leak_error_rates)
 from app.bot.menus import (_DRILL_ACTIONS, action_menu_rows,
                           botoes_pos_treino, drill_action,
                           size_menu_rows, sizing_amounts)
@@ -2986,52 +2988,12 @@ def hand_storyboard_streets(h: "CanonicalHand", upto_di: int | None = None,
     return bands
 
 
-def drill_category(drill: dict) -> str:
-    """Categoria de LEAK de um spot de treino — o eixo da repetição espaçada.
-
-    push_fold (pré-flop curto em torneio) é separado do pré-flop deep porque
-    o erro é de natureza diferente (Nash vs range de abertura)."""
-    st = (drill.get("street") or "preflop").lower()
-    if st != "preflop":
-        return st
-    stk = drill.get("stack_bb")
-    if stk and stk <= 20 and drill.get("format") in ("tournament", "sng"):
-        return "push_fold"
-    return "preflop"
 
 
-def leak_error_rates(verdicts: list[dict]) -> dict[str, dict]:
-    """Taxa de erro por categoria a partir dos eventos drill_verdict
-    (ruim=1, mista=0.5, boa=0), com suavização de Laplace — um erro isolado
-    não vira leak. Eventos antigos sem 'cat' são ignorados."""
-    peso = {"boa": 0.0, "mista": 0.5, "ruim": 1.0}
-    agg: dict[str, list[float]] = {}
-    for v in verdicts or []:
-        cat, verd = v.get("cat"), v.get("verdict")
-        if cat and verd in peso:
-            agg.setdefault(cat, []).append(peso[verd])
-    out: dict[str, dict] = {}
-    for cat, errs in agg.items():
-        n = len(errs)
-        out[cat] = {"n": n, "erros": round(sum(errs), 1),
-                    "taxa": round((sum(errs) + 1.0) / (n + 2.0), 3)}
-    return out
 
 
-def leak_boost(rates: dict[str, dict], cat: str) -> float:
-    """Multiplicador de peso no sorteio do drill: categorias em que o aluno
-    ERRA aparecem mais (até ~4x); sem histórico ou indo bem, fica em 1.
-    Conforme a taxa de acerto sobe, o boost cai sozinho — é a repetição
-    espaçada guiada por erro."""
-    r = rates.get(cat) or {}
-    if not r or r.get("n", 0) < 1:
-        return 1.0
-    return 1.0 + max(0.0, r["taxa"] - 0.4) * 6.0
 
 
-_CAT_NOMES = {"push_fold": "pré-flop de stack curto (push/fold)",
-              "preflop": "pré-flop", "flop": "flop", "turn": "turn",
-              "river": "river"}
 
 
 def _leak_note(rates: dict[str, dict], cat: str) -> str | None:
@@ -3045,7 +3007,7 @@ def _leak_note(rates: dict[str, dict], cat: str) -> str | None:
     return None
 
 
-def build_drill(telegram_id: int) -> dict | None:
+def build_drill(telegram_id: int, afericao: bool = False) -> dict | None:
     """Monta um spot de treino PROFISSIONAL: escolhe a decisão mais interessante
     das mãos do usuário (preço a pagar, pós-flop, all-in, stack curto — nada de
     fold trivial nem open óbvio de AA sem ação) com a história completa da mão
@@ -3120,7 +3082,14 @@ def build_drill(telegram_id: int) -> dict | None:
             if repo.enabled else {}
     except Exception:
         err_rates = {}
-    weights = [max(t[0], 0.1) * leak_boost(err_rates, t[5])
+    # TREINO vs AFERIÇÃO. O `leak_boost` puxa mais das categorias em que o
+    # aluno erra: ótimo para TREINAR, fatal para MEDIR. Quando ele melhora, o
+    # boost cai, o mix de spots muda, e a taxa de acerto observada muda por
+    # mudança de AMOSTRA — a série temporal do drill fica ininterpretável por
+    # construção. No drill de aferição o sorteio é UNIFORME dentro da
+    # categoria, e só ele conta como medida.
+    boost = (lambda _r, _c: 1.0) if afericao else leak_boost
+    weights = [max(t[0], 0.1) * boost(err_rates, t[5])
                / (1 + 1.5 * st_counts.get(t[3], 0)) for t in pool]
     _, h, di, chosen_street, chosen_hid, chosen_cat = \
         random.choices(pool, weights=weights, k=1)[0]
@@ -3187,6 +3156,7 @@ def build_drill(telegram_id: int) -> dict | None:
 
     required = pot_odds(d["pot_bb"], d["to_call_bb"]) if d["to_call_bb"] > 0 else None
     return {
+        "afericao": afericao,
         "cat": chosen_cat,
         # transparência do treino dirigido: quando o spot foi escolhido de
         # propósito por ser o tipo que o aluno mais erra, o quiz avisa
