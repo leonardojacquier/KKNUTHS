@@ -201,7 +201,24 @@ def _cauda(trecho: str, citadas: list[str]) -> str:
 # que vai mostrar a matemática
 _ANUNCIA_CONTA = re.compile(
     r"^[^\n]{0,40}\ba\s+conta\b[^\n]{0,40}:", re.I | re.M)
-_TEM_NUMERO = re.compile(r"[-+−]?\d+[.,]?\d*\s*(bb|%|fichas)|[-+−]\d+[.,]\d|\d+%")
+# O que conta como CONTA. Exigir sufixo bb/%/fichas reprovava as duas formas
+# mais básicas da matemática de poker, e o falso positivo aqui é caro: o
+# evento diz que a análise enrolou quando ela mostrou a conta certinha.
+#
+#   "o pote paga 2.5 para 1 e você tem 1 em 3"   <- pot odds, em razão
+#   "você tem 9 outs, 4 e 2 no turn"             <- outs
+#
+# Não é afrouxar até `\d`: número solto continua NÃO sendo conta. "paga esse
+# all-in 2 vezes" e "na 3ª street" seguem reprovados, que é o caso do print
+# de 07/08 e o motivo de o guarda existir.
+_TEM_NUMERO = re.compile(
+    r"""[-+−]?\d+[.,]?\d*\s*(?:bb|%|fichas|bb/100)   # 12bb, 30%, 5000 fichas
+      | [-+−]\d+[.,]\d                               # +8.2, -1,5
+      | \d+%                                         # 30%
+      | \d+[.,]?\d*\s*(?:para|:)\s*\d                # 2.5 para 1, 3:1
+      | \d+\s*(?:vez(?:es)?\s+)?em\s*(?:cada\s+)?\d  # 1 em 3, 2 vezes em cada 10
+      | \d+\s*outs?\b                                # 9 outs
+    """, re.I | re.X)
 
 
 def conta_sem_numero(texto: str) -> list[str]:

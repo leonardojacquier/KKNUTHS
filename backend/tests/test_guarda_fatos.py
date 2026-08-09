@@ -99,13 +99,48 @@ def test_conta_anunciada_sem_numero_e_flagrada():
     assert conta_sem_numero("✅ Você jogou bem — pagar KK.") == []
 
 
-def test_conta_vazia_vira_evento():
-    import inspect
+def test_pot_odds_em_razao_e_outs_CONTAM_como_conta():
+    """O falso positivo é caro dos dois lados.
 
-    from app.bot import processing
+    `_TEM_NUMERO` exigia sufixo bb/%/fichas, e com isso reprovava as duas
+    formas mais básicas da matemática de poker: preço em razão e outs. O
+    evento passava a dizer que a análise enrolou justamente quando ela
+    mostrou a conta certinha — e taxa de falso positivo alta treina o dono a
+    ignorar o sinal.
+    """
+    from app.bot.guarda_fatos import conta_sem_numero
 
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "conta_sem_numero" in fonte
+    # cada frase exercita UMA forma só. Misturar (ex.: outs junto de "18%")
+    # faz a asserção passar pelo ramo errado, e aí apagar o ramo certo do
+    # código não quebra teste nenhum — medido: a mutação que remove `outs`
+    # sobrevivia enquanto a frase tinha um `%` do lado.
+    for boa in (
+            "A conta: o pote paga 2.5 para 1 aqui.",       # razão com "para"
+            "A conta: o preço é 3:1 aqui.",                # razão com ":"
+            "A conta: você tem 1 em 3 de acertar.",        # "X em Y"
+            "A conta: você paga esse all-in 2 vezes em cada 10 mãos.",
+            "A conta: são 9 outs limpos no river.",        # outs
+            "A conta: são 5000 fichas no pote.",           # fichas
+            "A conta: pagar rende +8.2bb a mais que foldar.",   # unidade
+            "A conta: seu EV nessa linha fica -1,5 contra o range dele."):
+        assert conta_sem_numero(boa) == [], f"falso positivo em: {boa}"
+
+
+def test_numero_solto_continua_NAO_sendo_conta():
+    """O outro lado, e o que impede a correção acima de virar afrouxamento.
+
+    Trocar `_TEM_NUMERO` por `\\d` faria o guarda aceitar qualquer dígito e a
+    suíte não notava (medido na auditoria de 09/08). Estas frases têm número
+    e não têm conta — é exatamente o print de 07/08 que criou o guarda.
+    """
+    from app.bot.guarda_fatos import conta_sem_numero
+
+    for ruim in (
+            "A conta que mais pesa: com KK você paga sempre, sem pensar "
+            "duas vezes.",
+            "A conta que mais pesa: é sempre pagar, na 3a street inclusive.",
+            "A conta: você tem 2 cartas boas e o vilão 1 ruim."):
+        assert conta_sem_numero(ruim), f"deixou passar prosa vazia: {ruim}"
 
 
 # ---- FASE 1.1: os guardas passam a CONSERTAR, não só anotar ----
