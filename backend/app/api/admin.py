@@ -87,6 +87,28 @@ def sessao_valida(valor: str | None, agora: float | None = None) -> bool:
     return secrets.compare_digest(str(valor), _assinar_sessao(expira_em))
 
 
+def sessoes_do_pedido(cabecalho_cookie: str | None) -> list[str]:
+    """TODOS os valores de `kkn_admin` no cabeçalho, e não só o último.
+
+    `request.cookies` é um dict, e dict não guarda repetido: o último `Set-
+    Cookie` de mesmo nome apaga os anteriores na hora de ler. Só que o
+    navegador manda repetido de verdade — dois cookies de mesmo NOME e PATHS
+    diferentes convivem, e o RFC 6265 §5.4 manda o de path mais específico
+    PRIMEIRO. Ou seja: o dict fica com o menos específico.
+
+    Foi exatamente o que aconteceu em 09/08. De manhã o cookie era o
+    ADMIN_TOKEN cru em `path=/`; à tarde virou sessão assinada em
+    `path=/admin`. O navegador do dono passou a mandar os dois, o antigo
+    sobrescreveu o novo na leitura, e o portal respondia 401 logo depois de
+    ele colar a chave — de novo. Reproduzido: só a sessão → 200; sessão
+    seguida do cookie antigo → 401.
+    """
+    cru = cabecalho_cookie or ""
+    return [valor.strip() for nome, _, valor in
+            (parte.partition("=") for parte in cru.split(";"))
+            if nome.strip() == _COOKIE]
+
+
 def token_confere(valor: str | None) -> bool:
     """Comparação em tempo constante — e sem ADMIN_TOKEN, ninguém entra."""
     esperado = get_settings().admin_token
@@ -103,8 +125,9 @@ def _porta(request: Request | None, key: str, destino: str):
     """
     import time
 
-    cookie = request.cookies.get(_COOKIE) if request is not None else None
-    if sessao_valida(cookie):
+    if request is not None and any(
+            sessao_valida(v) for v in
+            sessoes_do_pedido(request.headers.get("cookie"))):
         return None
     if not token_confere(key):
         raise HTTPException(status_code=401, detail="token inválido")
@@ -115,6 +138,10 @@ def _porta(request: Request | None, key: str, destino: str):
                  max_age=_COOKIE_MAX_AGE, httponly=True, samesite="lax",
                  path=_COOKIE_PATH,
                  secure=request.url.scheme == "https")
+    # e apaga o LEGADO de `path=/` — ler os dois resolve o 401, mas enquanto
+    # ele existir o ADMIN_TOKEN cru continua viajando em toda requisição do
+    # domínio, que é metade do motivo de a sessão assinada existir
+    r.delete_cookie(_COOKIE, path="/")
     return r
 
 
@@ -127,6 +154,7 @@ def sair(request: Request) -> RedirectResponse:
     """
     r = RedirectResponse("/", status_code=303)
     r.delete_cookie(_COOKIE, path=_COOKIE_PATH)
+    r.delete_cookie(_COOKIE, path="/")   # e o legado, senão "sair" não sai
     return r
 
 # teto da varredura de eventos do painel. Existe para a página não puxar o

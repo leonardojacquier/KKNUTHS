@@ -396,6 +396,56 @@ def test_sessao_de_outra_instalacao_nao_serve(cliente, monkeypatch):
         "sessão sobreviveu à troca do ADMIN_TOKEN")
 
 
+def test_o_cookie_ANTIGO_nao_sombreia_a_sessao_nova(cliente):
+    """O 401 de 09/08 à tarde, reproduzido.
+
+    De manhã o cookie era o ADMIN_TOKEN cru em `path=/`; à tarde virou sessão
+    assinada em `path=/admin`. Navegador que passou pelas duas versões guarda
+    os DOIS — mesmo nome, paths diferentes, convivem — e o RFC 6265 §5.4
+    manda o de path mais específico primeiro. Como `request.cookies` é um
+    dict, o último repetido apagava o primeiro: ficava valendo o antigo, e o
+    portal respondia 401 logo depois de o dono colar a chave.
+
+    Ordem importa e é justamente a ordem do RFC que quebrava.
+    """
+    import time
+
+    from app.api.admin import _assinar_sessao
+
+    sessao = _assinar_sessao(int(time.time()) + 3600)
+    antigo = "tok-de-teste"     # o cookie legado: o ADMIN_TOKEN em claro
+
+    def _abre(header: str) -> int:
+        return cliente.get("/admin", headers={"Cookie": header}).status_code
+
+    assert _abre(f"kkn_admin={sessao}") == 200
+    assert _abre(f"kkn_admin={sessao}; kkn_admin={antigo}") == 200, (
+        "o cookie antigo (path=/) sombreou a sessão nova (path=/admin)")
+    assert _abre(f"kkn_admin={antigo}; kkn_admin={sessao}") == 200
+    # e continua não bastando ter QUALQUER cookie: nenhum válido = 401
+    assert _abre(f"kkn_admin={antigo}; kkn_admin=chute") == 401
+
+
+def test_entrar_apaga_o_cookie_legado_de_path_barra(cliente):
+    """Ler os dois resolve o 401. Mas enquanto o legado existir, o
+    ADMIN_TOKEN cru continua viajando em TODA requisição do domínio — `/`,
+    `/manual`, `/folder`, o webhook do Stripe —, que é metade do motivo de a
+    sessão assinada existir."""
+    r = cliente.get("/admin?key=tok-de-teste", follow_redirects=False)
+    cookies = r.headers.get_list("set-cookie")
+    apaga = [c for c in cookies if "Path=/;" in c or c.rstrip().endswith("Path=/")]
+    assert apaga, f"não apagou o cookie legado de path=/: {cookies}"
+    assert 'kkn_admin=""' in apaga[0] or "kkn_admin=;" in apaga[0]
+
+
+def test_sair_apaga_os_dois(cliente):
+    """Sair que deixa o legado para trás não é sair."""
+    caminhos = {c.split("Path=")[1].split(";")[0].strip()
+                for c in cliente.get("/admin/sair", follow_redirects=False)
+                .headers.get_list("set-cookie") if "Path=" in c}
+    assert caminhos == {"/admin", "/"}, caminhos
+
+
 def test_sem_ADMIN_TOKEN_ninguem_entra(monkeypatch):
     """Sem segredo, o HMAC tem chave VAZIA — e aí qualquer um que conheça o
     formato assina a própria sessão.
