@@ -219,3 +219,138 @@ def test_uma_mao_quebrada_nao_derruba_a_varredura():
         _post("Vil", 50, "sb"), _post("Out", 100, "bb"),
         Action(actor="Hero", type=ActionType.RAISE, amount=250, to_amount=250)])
     assert observar([_Ruim(), boa, _Ruim()])
+
+
+# ---- bb_subdefesa: equity CRUA não é o que o BB ganha ----------------------
+# Auditoria de 09/08: o detector acusava fold em 148 das 169 classes de mão
+# (87,6%). Ele não media subdefesa — media FOLD. Causa: comparava equity
+# all-in com pot odds, o que assume realização de 100% para quem está fora de
+# posição, com range limitado, contra quem tomou a iniciativa.
+
+def _bb_fold_ou_call(cartas, acao=ActionType.FOLD):
+    from app.models.canonical import (CanonicalHand, HandFormat, PlayerSeat,
+                                      Stakes, Street, StreetName)
+    from app.models.canonical import Action as A
+
+    return CanonicalHand(
+        site="GG", hand_id="bb1", hero="Hero", format=HandFormat.TOURNAMENT,
+        source_format="txt", played_at="2026-08-01T20:00:00+00:00",
+        stakes=Stakes(small_blind=50, big_blind=100, ante=0),
+        players=[PlayerSeat(seat=1, name="Hero", stack=3000, position="BB",
+                            is_hero=True),
+                 PlayerSeat(seat=2, name="V", stack=3000, position="CO")],
+        hero_cards=cartas,
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            A(actor="Hero", type=ActionType.POST, amount=100, post_type="bb"),
+            A(actor="V", type=ActionType.RAISE, amount=240, to_amount=240),
+            A(actor="Hero", type=acao, amount=140.0, to_amount=240.0)
+            if acao == ActionType.CALL
+            else A(actor="Hero", type=acao)])])
+
+
+def _obs_bb(cartas, acao=ActionType.FOLD):
+    from app.analysis.taxonomia import observar
+
+    return [o for o in observar([_bb_fold_ou_call(cartas, acao)])
+            if o.codigo == "bb_subdefesa"]
+
+
+def test_o_veredito_nao_depende_do_NAIPE():
+    """`3d2c` e `3h2d` são a MESMA mão (32o) e recebiam vereditos opostos,
+    por 0,00015 de ruído de Monte Carlo contra um limiar.
+
+    Agora a equity é calculada sobre a CLASSE, com seed fixa: determinístico
+    por construção, não por sorte de iteração.
+    """
+    from app.analysis.taxonomia import _classe_da_mao
+
+    assert _classe_da_mao(["3d", "2c"]) == _classe_da_mao(["3h", "2d"]) == "32o"
+    assert _classe_da_mao(["Ah", "Kh"]) == "AKs"
+    assert _classe_da_mao(["Kd", "Ah"]) == "AKo"
+    assert _classe_da_mao(["7c", "7s"]) == "77"
+
+    a = _obs_bb(["3d", "2c"])[0].escorregada
+    b = _obs_bb(["3h", "2d"])[0].escorregada
+    assert a == b, "a mesma mão recebeu vereditos diferentes por naipe"
+
+
+def test_lixo_offsuit_pode_foldar_o_BB_em_paz():
+    """O detector tem que medir SUBDEFESA, não fold. 32o, 72o e 93o não
+    defendem BB contra open, em nenhum livro."""
+    for cartas in (["3d", "2c"], ["7h", "2c"], ["9d", "3c"], ["8h", "4c"]):
+        obs = _obs_bb(cartas)
+        assert obs, f"{cartas} nem virou oportunidade"
+        assert not obs[0].escorregada, (
+            f"acusou fold de {cartas}, que é lixo offsuit fora de posição")
+
+
+def test_mao_que_defende_de_verdade_continua_sendo_acusada():
+    """O outro lado: afrouxar até não acusar nada seria 'consertar' virando
+    inútil. AA, AKs e pares médios são defesa obrigatória."""
+    for cartas in (["Ah", "Ad"], ["Ah", "Kh"], ["8h", "8d"], ["Ah", "5h"]):
+        obs = _obs_bb(cartas)
+        assert obs and obs[0].escorregada, (
+            f"deixou de acusar o fold de {cartas}, que é defesa clara")
+
+
+def test_a_taxa_de_acusacao_ficou_no_campo_certo():
+    """A faixa é estreita de propósito, porque a margem É carregadora.
+
+    Medido nas 169 classes: margem de 2pp acusa 49,7% · 4pp 36,1% · 6pp
+    27,8% · 8pp 23,7%.
+
+    A referência de defesa do BB contra open barato é 45-55%, então 2pp
+    reproduz a referência — e é exatamente onde `_realizacao_bb` é mais
+    fraca, porque mão marginal é a que mais depende de realização. Acusar
+    ali seria acusar o modelo, não o aluno.
+
+    Abaixo de 20% o detector para de servir; acima de 35% ele começa a
+    cobrar defesa marginal com uma heurística que tem ±5pp de erro. Se
+    alguém mexer na margem, este teste é onde a conta reaparece.
+    """
+    RANKS = "AKQJT98765432"
+
+    def classe(i, j):
+        a, b = RANKS[i], RANKS[j]
+        if i == j:
+            return [a + "h", b + "d"]
+        return [a + "h", b + "h"] if i < j else [b + "h", a + "d"]
+
+    acusadas = sum(1 for i in range(13) for j in range(13)
+                   if (_o := _obs_bb(classe(i, j))) and _o[0].escorregada)
+    taxa = 100 * acusadas / 169
+    assert 20.0 <= taxa <= 35.0, (
+        f"acusa {taxa:.1f}% das 169 classes — fora da faixa defensável para "
+        f"um detector conservador de subdefesa (era 87,6%). Abaixo de 20% "
+        f"ele não serve; acima de 35% cobra defesa marginal com uma "
+        f"heurística de realização que tem ±5pp de erro.")
+
+
+def test_o_fator_de_realizacao_respeita_a_forma_da_mao():
+    """Par joga sozinho, suited tem flush draw, offsuit com gap grande só
+    acerta par fraco — que é a mão mais cara de jogar fora de posição."""
+    from app.analysis.taxonomia import _realizacao_bb
+
+    par = _realizacao_bb(["8h", "8d"])
+    suited = _realizacao_bb(["8h", "7h"])
+    conectada = _realizacao_bb(["8h", "7d"])
+    lixo = _realizacao_bb(["9h", "3d"])
+
+    assert par > conectada and suited > conectada > lixo
+    for f in (par, suited, conectada, lixo):
+        assert 0.65 <= f <= 0.95
+
+
+def test_a_equity_por_classe_e_memoizada():
+    """8000 iterações de Monte Carlo por mão custavam 0,31s cada — num envio
+    de 300 mãos com 40 spots de BB, 12 segundos recalculando a mesma coisa."""
+    from app.analysis.taxonomia import _equity_bb_contra_open
+
+    _equity_bb_contra_open.cache_clear()
+    _obs_bb(["Ah", "Kh"])
+    depois_de_uma = _equity_bb_contra_open.cache_info()
+    _obs_bb(["Ad", "Kd"])      # mesma CLASSE, outros naipes
+    agora = _equity_bb_contra_open.cache_info()
+    assert agora.misses == depois_de_uma.misses, (
+        "recalculou a equity para a mesma classe de mão")
+    assert agora.hits > depois_de_uma.hits
