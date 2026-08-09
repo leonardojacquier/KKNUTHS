@@ -51,11 +51,75 @@ def test_os_modulos_extraidos_continuam_folha():
     """A propriedade que TORNOU o corte seguro: eles não importam de volta.
     Se um dia `leitura_da_mao` precisar do `processing`, o ciclo aparece e o
     import quebra no ar, em produção, não aqui."""
-    for nome in ("leitura_da_mao.py", "menus.py"):
+    for nome in ("leitura_da_mao.py", "menus.py", "storyboard.py",
+                 "repeticao.py", "memoria_do_processo.py"):
         fonte = _fonte(nome)
         assert "from app.bot.processing" not in fonte, \
             f"{nome} importa de volta o processing — isso é ciclo"
         assert "import app.bot.processing" not in fonte, nome
+
+
+def test_modulo_extraido_nao_deixa_NOME_LIVRE_para_tras():
+    """A extração de 09/08 quebrou em produção por isto: minha análise de AST
+    olhou funções e globais do módulo de origem e NÃO olhou os imports dele.
+
+    `storyboard_spot_from_drill` chamava `drill_action` e `sizing_amounts`,
+    que o `processing` importa de `menus` no topo. No módulo novo os dois
+    viraram nome livre — `NameError` na primeira chamada, e os testes de
+    drill vermelhos.
+
+    Este teste faz a conta que faltou: todo nome CARREGADO num módulo
+    extraído tem que estar definido ou importado ali dentro.
+    """
+    import ast
+    import builtins
+
+    for nome in ("leitura_da_mao.py", "menus.py", "storyboard.py",
+                 "repeticao.py", "memoria_do_processo.py"):
+        arvore = ast.parse(_fonte(nome))
+        definidos = set(dir(builtins)) | {"annotations", "__name__", "__doc__"}
+        for n in ast.walk(arvore):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef,
+                              ast.ClassDef)):
+                definidos.add(n.name)
+            elif isinstance(n, ast.arg):
+                definidos.add(n.arg)
+            elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                definidos.add(n.id)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)):
+                for a in n.names:
+                    definidos.add((a.asname or a.name).split(".")[0])
+            elif isinstance(n, ast.ExceptHandler) and n.name:
+                definidos.add(n.name)
+            elif isinstance(n, ast.comprehension):
+                for alvo in ast.walk(n.target):
+                    if isinstance(alvo, ast.Name):
+                        definidos.add(alvo.id)
+        # ANOTAÇÃO NÃO É USO. Com `from __future__ import annotations` a
+        # anotação vira string e nunca é avaliada — `CanonicalHand` só no
+        # `-> CanonicalHand` de leitura_da_mao.py não quebra nada. Contar
+        # isso daria falso positivo e o teste seria desligado na primeira
+        # semana.
+        anotacoes = set()
+        for n in ast.walk(arvore):
+            alvos = []
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                alvos = [n.returns]
+            elif isinstance(n, ast.arg):
+                alvos = [n.annotation]
+            elif isinstance(n, ast.AnnAssign):
+                alvos = [n.annotation]
+            for a in alvos:
+                if a is None:
+                    continue
+                anotacoes |= {x.id for x in ast.walk(a)
+                              if isinstance(x, ast.Name)}
+
+        livres = {n.id for n in ast.walk(arvore)
+                  if isinstance(n, ast.Name)
+                  and isinstance(n.ctx, ast.Load)} - definidos - anotacoes
+        assert not livres, (
+            f"{nome} usa nome que não define nem importa: {sorted(livres)}")
 
 
 def test_quem_importava_do_processing_continua_importando():

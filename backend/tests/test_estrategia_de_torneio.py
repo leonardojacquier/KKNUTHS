@@ -439,3 +439,142 @@ def test_RAISE_nao_e_call_caro():
 
     assert not [o for o in observar([aumentou]) if o.codigo == "call_caro"], (
         "um RAISE virou 'pagou mais caro do que a mão vale'")
+
+
+# ---- etapa do torneio, frequência e inversão -------------------------------
+
+def _mao_de_etapa(hid, stack_bb, mesa_bb, entrou, n_jog=6):
+    """Mão com stack do HERÓI e média da MESA controlados separadamente —
+    que é o ponto: os dois eixos são ortogonais."""
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      HandFormat, PlayerSeat, Stakes, Street,
+                                      StreetName)
+
+    bb = 100.0
+    # os vilões carregam o resto para a média da mesa bater
+    resto = (mesa_bb * n_jog - stack_bb) / (n_jog - 1)
+    jog = [PlayerSeat(seat=1, name="Hero", stack=stack_bb * bb, position="CO",
+                      is_hero=True)]
+    jog += [PlayerSeat(seat=i + 2, name=f"V{i}", stack=max(resto, 1.0) * bb,
+                       position=p)
+            for i, p in enumerate(["BTN", "SB", "BB", "UTG", "MP"][:n_jog - 1])]
+    acao = (Action(actor="Hero", type=ActionType.RAISE, amount=250,
+                   to_amount=250) if entrou
+            else Action(actor="Hero", type=ActionType.FOLD))
+    return CanonicalHand(
+        site="GG", hand_id=hid, hero="Hero", format=HandFormat.TOURNAMENT,
+        source_format="txt", played_at="2026-08-01T20:00:00+00:00",
+        stakes=Stakes(small_blind=50, big_blind=bb, ante=25),
+        players=jog, hero_cards=["Ah", "Kd"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="V1", type=ActionType.POST, amount=50,
+                   post_type="sb"),
+            Action(actor="V2", type=ActionType.POST, amount=100,
+                   post_type="bb"),
+            acao])])
+
+
+def test_a_etapa_do_torneio_sai_da_MESA_e_nao_do_heroi():
+    """O eixo que faltava, e ele É medido. O corte por ante nunca separou a
+    amostra — no banco, as 517 mãos de fonte completa TÊM ante, todas. O
+    stack médio da mesa separa porque as blinds sobem mais rápido do que as
+    fichas se concentram.
+
+    E é ortogonal à profundidade do herói, que é a premissa do módulo: 18bb
+    numa mesa de 60bb é ser o curto; 18bb numa mesa de 15bb é todo mundo
+    estar curto.
+    """
+    from app.analysis.estrategia_torneio import etapa_do_torneio, faixa_de
+
+    curto_cedo = _mao_de_etapa("a", stack_bb=18, mesa_bb=60, entrou=False)
+    curto_tarde = _mao_de_etapa("b", stack_bb=18, mesa_bb=15, entrou=False)
+
+    assert etapa_do_torneio(curto_cedo) == "inicial"
+    assert etapa_do_torneio(curto_tarde) == "final"
+    # mesma faixa de stack, etapas diferentes — é isso que permite a pergunta
+    assert faixa_de(18.0) == faixa_de(18.0) == "re-shove"
+
+
+def test_frequencia_por_faixa_so_afirma_com_amostra():
+    """"Você joga X% das mãos nesta faixa" é afirmação sobre um NÚMERO, e
+    precisa de n. Faixa curta não some — sai com `dizivel=False` e o motivo,
+    porque faixa que some vira 'ele não joga isso'."""
+    from app.analysis.estrategia_torneio import (MIN_PARA_FREQUENCIA,
+                                                 frequencia_por_faixa)
+
+    maos = ([_mao_de_etapa(f"d{i}", 60, 60, entrou=(i % 4 == 0))
+             for i in range(MIN_PARA_FREQUENCIA + 10)]
+            + [_mao_de_etapa(f"r{i}", 18, 40, entrou=True) for i in range(5)])
+    linhas = {l["faixa"]: l for l in frequencia_por_faixa(maos)}
+
+    assert linhas["deep"]["dizivel"] is True
+    assert linhas["deep"]["vpip_pct"] == pytest.approx(25.0, abs=3.0)
+    assert linhas["deep"]["margem_pp"] > 0, "taxa sem margem é promessa"
+
+    assert linhas["re-shove"]["dizivel"] is False
+    assert "preciso de" in linhas["re-shove"]["por_que_nao"]
+    assert linhas["re-shove"]["maos"] == 5, "a faixa curta sumiu"
+
+
+def test_frequencia_nao_sai_de_replay_avulso():
+    """Frequência sobre mão escolhida a dedo é o VPIP 94% de novo."""
+    from app.analysis.estrategia_torneio import frequencia_por_faixa
+
+    maos = [_mao_de_etapa(f"d{i}", 60, 60, entrou=True) for i in range(80)]
+    for m in maos:
+        m.source_format = "pppoker_replay"
+    assert frequencia_por_faixa(maos) == []
+
+
+def test_inversao_compara_a_MESMA_profundidade_entre_etapas():
+    """A pergunta original do dono, finalmente mensurável.
+
+    Sem fixar o stack, a diferença entre início e fim é só o stack
+    encolhendo — que é a árvore mudando, não o jogador.
+    """
+    from app.analysis.estrategia_torneio import inversao
+
+    # mesma faixa (re-shove), MUITO mais solto no fim
+    maos = ([_mao_de_etapa(f"i{i}", 18, 60, entrou=(i % 5 == 0))
+             for i in range(40)]                       # 20% no início
+            + [_mao_de_etapa(f"f{i}", 18, 15, entrou=(i % 5 != 0))
+               for i in range(40)])                    # 80% no fim
+    out = inversao(maos)
+
+    assert out["aplicavel"] is True
+    linha = next(l for l in out["linhas"] if l["faixa"] == "re-shove")
+    assert linha["inicio"]["vpip_pct"] < linha["final"]["vpip_pct"]
+    assert linha["veredito"] == "solta perto do dinheiro"
+
+
+def test_inversao_se_cala_quando_a_diferenca_nao_separa():
+    """Os números REAIS do dono, medidos no banco em 09/08: re-shove com 42
+    mãos no início (VPIP 16,7%) e 32 no fim (15,6%).
+
+    Não há inversão nenhuma ali, e a resposta certa é o silêncio — não um
+    veredito com cara de diagnóstico. Este teste existe para que 'a
+    ferramenta não achou nada' seja um resultado, e não um bug.
+    """
+    from app.analysis.estrategia_torneio import inversao
+
+    maos = ([_mao_de_etapa(f"i{i}", 18, 60, entrou=(i < 7)) for i in range(42)]
+            + [_mao_de_etapa(f"f{i}", 18, 15, entrou=(i < 5))
+               for i in range(32)])
+    out = inversao(maos)
+
+    linha = next(l for l in out["linhas"] if l["faixa"] == "re-shove")
+    assert linha["inicio"]["maos"] == 42 and linha["final"]["maos"] == 32
+    assert linha["veredito"] is None, (
+        f"afirmou inversão com {linha['inicio']['vpip_pct']}% contra "
+        f"{linha['final']['vpip_pct']}%")
+
+
+def test_sem_os_dois_lados_a_inversao_diz_por_que_nao_da():
+    """Toda a amostra numa etapa só: comparar um grupo com nada é o tipo de
+    tabela que parece análise e não é."""
+    from app.analysis.estrategia_torneio import inversao
+
+    out = inversao([_mao_de_etapa(f"i{i}", 18, 60, entrou=False)
+                    for i in range(60)])
+    assert out["aplicavel"] is False
+    assert "início E no fim" in out["por_que"]
