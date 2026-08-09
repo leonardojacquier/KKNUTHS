@@ -118,14 +118,30 @@ por construção, procurar o extremo. Acima de 10 códigos testados
 
 ### O que os dados reais mostraram
 
-Verificado contra a produção antes de virar conselho:
+Verificado contra a produção antes de virar conselho. **O denominador é a
+oportunidade, não a mão** — para o limp isso significa pote não aberto e herói
+fora dos blinds, que é a semântica exata do detector.
+
+Remedido por SQL independente em 09/08/2026, sobre as mãos de fonte completa:
+
+| aluno | oportunidades de abrir | limps | taxa | tolerância |
+|---|---|---|---|---|
+| Leo (`6452742024`) | 116 | 2 | **1,7%** | 5% |
+| Odilon (`6104620007`) | 46 | 0 | **0%** | 5% |
+| terceiro (`8972465711`) | 16 | 0 | **0%** | 5% |
 
 | Afirmação testada | Resultado |
 |---|---|
-| "limp é o leak nº 1 do poker de clube" | **Falso para estes alunos.** Leo: 2 limps em 150 mãos. Odilon: 0 em 79. |
+| "limp é o leak nº 1 do poker de clube" | **Falso para estes alunos** — todos abaixo da tolerância, dois deles em zero. A afirmação do especialista é sobre a população, não sobre estes três. |
 | defesa de BB fraca | Leo folda 19/29 = 66% (referência 45-55%) — mas n=29 dá ±17pp, então é **suspeita**, não diagnóstico |
 | "o problema mora na faixa de re-shove" | Leo tem 103 mãos em 15-25bb, exatamente onde o especialista previu |
 | direção do erro (passivo vs largo) | era **artefato do nosso próprio conjunto de detectores** (4 passivos vs 2 largos) — corrigido |
+
+> Erro cometido ao escrever este documento e corrigido na conferência: a
+> primeira versão dizia "2 limps em 150 mãos". A contagem de limps estava
+> certa, o denominador não — 150 eram *mãos*, e o que o detector usa são as
+> **116 oportunidades de abrir**. Taxa com denominador errado é exatamente o
+> defeito que o resto deste documento existe para impedir.
 
 ---
 
