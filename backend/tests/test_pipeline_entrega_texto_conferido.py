@@ -21,8 +21,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.bot import processing as proc
-from app.ingestion.pipeline import IngestResult
 from app.models.canonical import (Action, ActionType, CanonicalHand,
                                   PlayerSeat, Stakes, Street, StreetName)
 
@@ -63,64 +61,37 @@ def _mao_do_full() -> CanonicalHand:
         collected={"KKNUThS": 32132600})
 
 
-class _RepoFalso:
-    """`enabled=True` de propósito: os guardas só gravam evento com o repo
-    ligado, e um repo desligado faria o teste passar sem medir nada.
+def _mao_de_torneio() -> CanonicalHand:
+    """Mesma estrutura, marcada como TORNEIO — é o que acorda o ramo de ICM.
 
-    Qualquer método não previsto vira um registro `__chamou__:<nome>` em vez
-    de AttributeError — assim o teste mostra o que o pipeline tocou em vez
-    de morrer na primeira surpresa.
+    Stacks rasos e desiguais de propósito: é a situação em que ignorar ICM
+    muda a decisão, não só o número.
     """
+    from app.models.canonical import HandFormat
 
-    enabled = True
-
-    def __init__(self):
-        self.events: list[tuple] = []
-
-    def log_event(self, telegram_id, username, event, detail=None):
-        self.events.append((event, detail))
-
-    def __getattr__(self, nome):
-        def _qualquer(*a, **k):
-            self.events.append((f"__chamou__:{nome}", None))
-            return None
-        return _qualquer
-
-    def evento(self, nome):
-        for ev, detalhe in self.events:
-            if ev == nome:
-                return detalhe or {}
-        return None
+    return CanonicalHand(
+        hand_id="e2e-mtt", site="PokerStars", hero="KKNUThS",
+        hero_cards=["Ad", "4h"], source_format="txt", confidence=1.0,
+        format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=500, big_blind=1000, ante=125),
+        players=[
+            PlayerSeat(seat=1, name="KKNUThS", stack=3600, is_hero=True,
+                       position="SB"),
+            PlayerSeat(seat=2, name="vilao", stack=42000, position="BB")],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="KKNUThS", type=ActionType.RAISE, amount=3600,
+                   to_amount=3600, all_in=True),
+            Action(actor="vilao", type=ActionType.CALL, amount=3600)])])
 
 
-@pytest.fixture
-def rodar(monkeypatch):
-    """Roda o pipeline com o texto de coach que o teste escolher."""
-    def _rodar(texto_do_coach: str, hand: CanonicalHand | None = None):
-        mao = hand or _mao_do_full()
-        monkeypatch.setattr(proc, "coach", lambda *a, **k: texto_do_coach)
-        monkeypatch.setattr(proc, "ingest", lambda *a, **k: IngestResult(
-            [mao], "PPPoker", "txt", confidence=1.0, needs_review=False))
-        repo = _RepoFalso()
-        saida = proc._process_upload_inner(
-            b"bruto", "txt", _TELEGRAM_ID, "tester", "pt", repo, None)
-        return saida, repo
-
-    yield _rodar
-    # estado global por telegram_id não pode vazar para o próximo teste
-    for mapa in (proc.RECENT_HANDS, proc.LAST_ANALYSIS, proc.LAST_UPLOAD_KIND,
-                 proc.LAST_HAND_META):
-        mapa.pop(_TELEGRAM_ID, None)
-
-
-def test_a_mao_impossivel_nao_chega_ao_aluno(rodar):
+def test_a_mao_impossivel_nao_chega_ao_aluno(rodar_pipeline):
     """`77` com dois setes no board e um na mão do herói: sobra um sete no
     baralho. O vilão mostrou 2d7d, que é 72s.
 
     Esta é a asserção que nenhuma substring conseguia fazer: o texto que sai
     tem a mão CERTA.
     """
-    saida, repo = rodar(TEXTO_ERRADO)
+    saida, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_do_full())
 
     assert "apareceu com 72s" in saida, (
         f"o showdown não foi corrigido no texto entregue: {saida[:300]}")
@@ -132,10 +103,10 @@ def test_a_mao_impossivel_nao_chega_ao_aluno(rodar):
     assert evento["corrigido_para"] == "72s"
 
 
-def test_a_dominancia_falsa_e_corrigida_no_texto_entregue(rodar):
+def test_a_dominancia_falsa_e_corrigida_no_texto_entregue(rodar_pipeline):
     """`77` não vira favorito contra o full do herói — e a frase que diz
     isso é reescrita, não só contada."""
-    saida, repo = rodar(TEXTO_ERRADO)
+    saida, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_do_full())
 
     assert "só perdia pra AA" in saida, (
         f"a lista de mãos não foi corrigida: {saida[:300]}")
@@ -144,13 +115,13 @@ def test_a_dominancia_falsa_e_corrigida_no_texto_entregue(rodar):
     assert evento["heroi"] == ["As", "7s"]
 
 
-def test_texto_correto_atravessa_intacto(rodar):
+def test_texto_correto_atravessa_intacto(rodar_pipeline):
     """O outro lado do portão, e o que mais dói quando falha: guarda que
     estraga texto certo é pior que guarda ausente, porque o aluno perde
     confiança no que está certo."""
     bom = ("Seu full de 7 com A só perdia pra AA aqui. O vilão apareceu com "
            "72s e você levou o pote.")
-    saida, repo = rodar(bom)
+    saida, repo, _ = rodar_pipeline(bom, _mao_do_full())
 
     assert "só perdia pra AA aqui" in saida
     assert "72s" in saida
@@ -158,10 +129,10 @@ def test_texto_correto_atravessa_intacto(rodar):
     assert repo.evento("showdown_errado") is None
 
 
-def test_o_evento_de_upload_registra_a_procedencia(rodar):
+def test_o_evento_de_upload_registra_a_procedencia(rodar_pipeline):
     """Sem isto não dá para separar depois 'analisou errado' de 'leu de uma
     fonte que não sustentava a análise'."""
-    _, repo = rodar(TEXTO_ERRADO)
+    _s, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_do_full())
 
     upload = repo.evento("upload")
     assert upload, "o upload não foi registrado"
@@ -169,7 +140,7 @@ def test_o_evento_de_upload_registra_a_procedencia(rodar):
     assert upload["hands"] == 1
 
 
-def test_a_conta_anunciada_sem_conta_e_ao_menos_registrada(rodar):
+def test_a_conta_anunciada_sem_conta_e_ao_menos_registrada(rodar_pipeline):
     """CONTRATO HONESTO, e é menos do que a documentação promete.
 
     `conta_sem_numero` DETECTA e registra; ela não corrige. O texto sai com
@@ -179,7 +150,7 @@ def test_a_conta_anunciada_sem_conta_e_ao_menos_registrada(rodar):
     """
     texto = ("A conta: você paga sempre nesse spot, sem pensar duas vezes. "
              "Seu full de 7 com A só perdia pra AA.")
-    saida, repo = rodar(texto)
+    saida, repo, _ = rodar_pipeline(texto, _mao_do_full())
 
     assert repo.evento("conta_sem_numero") is not None, (
         "a conta sem número passou sem nem ser registrada")

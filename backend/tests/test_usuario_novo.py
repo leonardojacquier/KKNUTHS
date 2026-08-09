@@ -49,15 +49,66 @@ def test_aviso_sai_do_PONTO_UNICO_onde_o_usuario_nasce():
     assert fonte.index("created.data") < fonte.index("avisar_admin_usuario_novo")
 
 
-def test_falha_no_aviso_nao_derruba_o_cadastro():
-    """Telegram fora do ar não pode impedir alguém de se cadastrar."""
-    import inspect
+def test_falha_no_aviso_nao_derruba_o_cadastro(monkeypatch):
+    """Telegram fora do ar não pode impedir alguém de se cadastrar.
 
+    Por COMPORTAMENTO: o aviso EXPLODE e o teste cobra que o usuário volte
+    assim mesmo. A versão anterior procurava `except Exception` no texto-fonte
+    e conferia como o método termina — o que passa mesmo se o `try` estiver
+    em volta do bloco errado, ou se o `raise` vier de dentro do `if`.
+    """
     from app.db.repository import Repository
 
-    fonte = inspect.getsource(Repository.get_or_create_user)
-    trecho = fonte[fonte.index("avisar_admin_usuario_novo"):]
-    assert "except Exception" in fonte[:fonte.index("avisar_admin_usuario_novo")] \
-        or "except Exception" in trecho, "aviso precisa estar protegido"
-    # o return do usuário vem DEPOIS e independe do aviso
-    assert fonte.rstrip().endswith("return created.data[0] if created.data else None")
+    class _Res:
+        def __init__(self, data=None, count=None):
+            self.data = data if data is not None else []
+            self.count = count
+
+    class _Users:
+        def __init__(self, existentes):
+            self._existentes = existentes
+            self._count = False
+
+        def select(self, *_a, count=None):
+            self._count = count == "exact"
+            return self
+
+        def eq(self, *_a):
+            return self
+
+        def insert(self, linha):
+            self._novo = linha
+            return self
+
+        def execute(self):
+            if getattr(self, "_novo", None) is not None:
+                return _Res([{**self._novo, "id": "u-novo"}])
+            if self._count:
+                return _Res([], count=7)
+            return _Res(self._existentes)
+
+    class _Cliente:
+        def table(self, _nome):
+            return _Users([])
+
+    # `client` é property sem setter e `enabled` decide o _guard — então o
+    # duplo entra por `_client`, que é o campo que a property devolve
+    repo = Repository.__new__(Repository)
+    repo.enabled = True
+    repo._client = _Cliente()
+
+    explodiu: list = []
+
+    def _avisar_quebrado(*a, **k):
+        explodiu.append(1)
+        raise RuntimeError("Telegram fora do ar")
+
+    import app.bot.notify as notify
+
+    monkeypatch.setattr(notify, "avisar_admin_usuario_novo", _avisar_quebrado)
+
+    criado = repo.get_or_create_user(555001, "novato", "pt")
+
+    assert explodiu, "o aviso nem chegou a ser tentado — o teste não mediu nada"
+    assert criado is not None, "o cadastro foi perdido porque o aviso falhou"
+    assert criado["telegram_id"] == 555001 and criado["username"] == "novato"

@@ -75,14 +75,27 @@ def test_bf_de_referencia_e_de_bolha_de_verdade():
     assert 1.3 <= BF_BOLHA_TIPICO <= 1.8
 
 
-def test_esta_ligado_na_analise():
-    import inspect
+def test_esta_ligado_na_analise(rodar_pipeline):
+    """A situação de ICM CHEGA ao prompt numa mão de torneio.
 
-    from app.bot import processing
+    Antes: `assert "situacao_icm" in inspect.getsource(...)`, que passa mesmo
+    se o retorno for descartado. Aqui o coach falso guarda o `structured` e a
+    asserção é sobre o que o modelo viu.
+    """
+    from tests.test_pipeline_entrega_texto_conferido import _mao_de_torneio
 
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "situacao_icm" in fonte
-    assert "falta_icm" in fonte
+    _saida, _repo, contexto = rodar_pipeline("Análise.", _mao_de_torneio())
+    bloco = contexto.get("situacao_icm") or contexto.get("falta_icm")
+    assert bloco, (
+        "mão de torneio foi ao modelo sem nenhuma informação de ICM — "
+        "torneio sem ICM é cash game com blind subindo")
+    # e o bloco tem que CARREGAR a conta, não só existir: sem o range
+    # encolhido o modelo recebe um rótulo e nenhum número para citar
+    assert bloco.get("quantas_somem", 0) > 0, (
+        f"o bloco de ICM foi vazio de conteúdo: {bloco}")
+    assert bloco["range_com_bolha_pct"] < bloco["range_chip_ev_pct"], (
+        "com pressão de bolha o range tem que APERTAR — se não aperta, o "
+        "ICM está sendo calculado como se fosse chip EV")
 
 
 def test_o_prompt_manda_usar_e_nao_inventar():

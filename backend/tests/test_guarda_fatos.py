@@ -72,14 +72,15 @@ def test_heroi_desconhecido_nao_inventa_correcao():
     assert conferir_dominancia(texto, ["Kh"]) == (texto, [])
 
 
-def test_esta_ligado_na_analise_e_vira_evento():
-    import inspect
+def test_esta_ligado_na_analise_e_vira_evento(rodar_pipeline):
+    """O guarda RODA e o texto entregue muda — ver
+    tests/test_pipeline_entrega_texto_conferido.py para o caso completo."""
+    from tests.test_pipeline_entrega_texto_conferido import (TEXTO_ERRADO,
+                                                             _mao_do_full)
 
-    from app.bot import processing
-
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "conferir_dominancia" in fonte
-    assert "fato_corrigido" in fonte, "erro corrigido tem que virar evento"
+    saida, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_do_full())
+    assert "só perdia pra AA" in saida, "a dominância falsa chegou ao aluno"
+    assert repo.evento("fato_corrigido"), "corrigiu e não virou evento"
 
 
 def test_conta_anunciada_sem_numero_e_flagrada():
@@ -223,12 +224,13 @@ def test_par_que_nao_cabe_no_baralho_e_flagrado():
     assert cita_mao_impossivel("ele pode ter 99 aqui", h) is None
 
 
-def test_os_guardas_novos_estao_ligados():
-    import inspect
+def test_os_guardas_novos_estao_ligados(rodar_pipeline):
+    """Os dois guardas de showdown rodam no pipeline e o texto sai limpo."""
+    from tests.test_pipeline_entrega_texto_conferido import (
+        TEXTO_ERRADO, _mao_do_full as _mao_canonica)
 
-    from app.bot import processing
+    saida, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_canonica())
+    assert "apareceu com 72s" in saida, "showdown errado chegou ao aluno"
+    assert repo.evento("showdown_errado"), "corrigiu e não virou evento"
 
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "corrigir_showdown" in fonte, "ainda só anota o showdown"
-    assert "cita_mao_impossivel" in fonte
-    assert "final_board" in fonte, "o board não chega no guarda de dominância"
+

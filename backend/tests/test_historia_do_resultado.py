@@ -100,15 +100,24 @@ def test_sem_showdown_completo_nao_inventa():
     assert narrou_azar_inexistente("cooler", None) is None
 
 
-def test_esta_ligada_na_analise_e_vira_evento():
-    import inspect
+def test_esta_ligada_na_analise_e_vira_evento(rodar_pipeline):
+    """A história do resultado CHEGA ao prompt do modelo.
 
-    from app.bot import processing
+    Antes isto era `assert "historia_do_resultado" in inspect.getsource(...)`,
+    que passa mesmo se o retorno da função for descartado. Aqui o coach falso
+    guarda o `structured` que recebeu, e a asserção é sobre o que o modelo
+    de fato viu.
+    """
+    from tests.test_pipeline_entrega_texto_conferido import _mao_do_full
 
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "historia_do_resultado" in fonte
-    assert "instrucao_historia" in fonte
-    assert "narrativa_enganosa" in fonte, "grito de azar falso vira evento"
+    _saida, _repo, contexto = rodar_pipeline("Análise qualquer.",
+                                             _mao_do_full())
+    assert contexto.get("historia_do_resultado"), (
+        "o modelo escreveu o desfecho sem receber a trajetória calculada")
+    assert contexto.get("instrucao_historia"), (
+        "a trajetória foi enviada sem a instrução de segui-la à risca — "
+        "dado sem regra o modelo ignora")
+    assert "não é opinião" in contexto["instrucao_historia"]
 
 
 def test_o_prompt_manda_seguir_a_conta():
@@ -190,14 +199,16 @@ def test_sem_showdown_nao_ha_o_que_conferir():
     assert citou_showdown_errado("", MAO_FULL) is None
 
 
-def test_showdown_errado_vira_evento():
-    import inspect
+def test_showdown_errado_vira_evento(rodar_pipeline):
+    """O evento carrega a mão CITADA e a REAL — sem os dois não dá para
+    separar 'o modelo inventou' de 'o parser leu errado'."""
+    from tests.test_pipeline_entrega_texto_conferido import (TEXTO_ERRADO,
+                                                             _mao_do_full)
 
-    from app.bot import processing
-
-    fonte = inspect.getsource(processing._process_upload_inner)
-    assert "citou_showdown_errado" in fonte
-    assert "showdown_errado" in fonte
+    _saida, repo, _ = rodar_pipeline(TEXTO_ERRADO, _mao_do_full())
+    evento = repo.evento("showdown_errado")
+    assert evento, "citou showdown errado e não virou evento"
+    assert evento["citado"] == "77" and "72s" in evento["reais"]
 
 
 def _mao_do_full():
