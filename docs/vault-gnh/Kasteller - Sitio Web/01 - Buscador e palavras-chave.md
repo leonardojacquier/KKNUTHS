@@ -1,6 +1,6 @@
 # Kasteller — Buscador de produtos e palavras-chave
 
-> Site: https://gnh.vortex369.com.br/assets/kasteller2/ (provisório; definitivo: kasteller2.vortex369.com.br)
+> Site: https://kasteller.com.py/ (provisório enquanto o DNS não sobe: https://gnh.vortex369.com.br/assets/kasteller2/)
 > Fonte: repo KKNUTHS, `assets/kasteller2/buscador/` · branch `claude/professional-website-design-qqgnfg`
 
 ## O que é

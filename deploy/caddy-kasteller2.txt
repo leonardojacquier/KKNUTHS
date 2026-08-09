@@ -1,8 +1,10 @@
 # ============================================================
-# Bloco do kasteller2.vortex369.com.br para o Caddyfile do VPS
+# Bloco do kasteller.com.py para o Caddyfile do VPS
 #
 # Pré-requisitos:
-#   1. DNS: registro A  kasteller2 → 187.127.13.220  (painel do vortex369.com.br)
+#   1. DNS (no painel do kasteller.com.py): registro A  @  → 187.127.13.220
+#      e registro A  www → 187.127.13.220. Se o domínio um dia tiver e-mail
+#      em outro servidor, NÃO tocar em MX (mesma regra da GNH).
 #   2. Os arquivos já chegam sozinhos em /opt/gnh/assets/kasteller2/
 #      pelo autodeploy da GNH (cron */2, copia assets/ do repo KKNUTHS).
 #
@@ -12,21 +14,20 @@
 #      systemctl reload caddy        # reload, NUNCA restart
 # ============================================================
 
-kasteller2.vortex369.com.br {
+kasteller.com.py, www.kasteller.com.py {
 	root * /opt/gnh/assets/kasteller2
 	encode gzip
 
 	# HTML sempre fresco; fontes, imagens e vídeo podem cachear
 	@html path / /index.html *.html
 	header @html Cache-Control "no-cache"
-	@estaticos path /fonts/* /img/* /video/* /og.jpg /favicon.*
+	@estaticos path /fonts/* /img/* /video/* /buscador/img/* /og.jpg /favicon.*
 	header @estaticos Cache-Control "public, max-age=604800"
 
 	file_server
 }
 
 # ------------------------------------------------------------
-# Enquanto o DNS não propaga, o site JÁ está acessível por:
+# Enquanto o DNS não propaga, o site segue acessível por:
 #   https://gnh.vortex369.com.br/assets/kasteller2/
-# (esse domínio serve /opt/gnh, então a pasta aparece sozinha)
 # ------------------------------------------------------------

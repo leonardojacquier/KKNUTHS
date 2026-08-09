@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Kasteller Revestimientos — porcelanatos, piedras naturales y superficies de alto padrón en Ciudad del Este. Agendá tu visita al showroom.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<!-- Open Graph — ATENÇÃO: trocar og:url e og:image pela URL definitiva no deploy -->
+<!-- Open Graph — domínio definitivo: kasteller.com.py -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Kasteller Revestimientos — Superficies que definen espacios">
 <meta property="og:description" content="Porcelanatos, piedras naturales y superficies de alto padrón. Showroom en Ciudad del Este.">
-<meta property="og:url" content="https://kasteller2.vortex369.com.br/">
-<meta property="og:image" content="https://kasteller2.vortex369.com.br/og.jpg">
+<meta property="og:url" content="https://kasteller.com.py/">
+<meta property="og:image" content="https://kasteller.com.py/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <title>Kasteller Revestimientos — Superficies que definen espacios</title>
-<link rel="canonical" href="https://kasteller2.vortex369.com.br/">
+<link rel="canonical" href="https://kasteller.com.py/">
 <meta name="copyright" content="© 2026 Kasteller Revestimientos — diseño y código originales. Reproducción no autorizada prohibida.">
 <!-- kstlr-fp:KSTLR-A7F3-2026 · obra original; historial de autoría en repositorio con fechas -->
 <!-- provisorio: quitar noindex al migrar al dominio definitivo de Kasteller -->
-<meta name="robots" content="noindex,nofollow">
+<meta name="robots" content="index,follow">
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="buscador/kasteller-buscador.css">
 <style>
@@ -1031,7 +1031,7 @@ const KT1 = (type, detail) => { const k = type + '|' + (detail || ''); if (!once
 document.addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
 document.addEventListener('contextmenu', e => { if (e.target.closest('img,video,.ph,.cell')) e.preventDefault(); });
 /* se este código rodar fora dos nossos domínios, o clone se denuncia sozinho */
-const KHOSTS = ['kasteller2.vortex369.com.br', 'gnh.vortex369.com.br', 'localhost', '127.0.0.1', ''];
+const KHOSTS = ['kasteller.com.py', 'www.kasteller.com.py', 'kasteller2.vortex369.com.br', 'gnh.vortex369.com.br', 'localhost', '127.0.0.1', ''];
 if (!KHOSTS.includes(location.hostname)) KT1('clone', location.host + location.pathname);
 
 /* landing (1x por sessão) */
