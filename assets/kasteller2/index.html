@@ -369,7 +369,10 @@
   footer{background:var(--black);color:rgba(255,255,255,.6);padding:12vh 8vw 6vh}
   .f-top{display:grid;grid-template-columns:minmax(300px,1fr) auto;gap:6vw 7vw;align-items:start}
   .f-brand img{width:100%;max-width:270px;height:auto;display:block;opacity:.95}
-  .f-cols{display:flex;gap:5vw;flex-wrap:wrap}
+  .f-cols{display:flex;gap:4vw;flex-wrap:wrap}
+  /* a coluna de Marcas existe para o crawler achar /marcas/ — sem link
+     interno, página gerada não é descoberta */
+  .f-col b+a span{font-size:13px}
   .f-col b{display:block;color:var(--cream);font-size:11px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:16px;font-weight:500}
   .f-col>a,.f-col>span{display:flex;align-items:flex-start;gap:11px;
     color:rgba(255,255,255,.55);text-decoration:none;font-size:13px;font-weight:300;
@@ -723,6 +726,15 @@
         </a>
       </div>
 
+      <div class="f-col"><b>Marcas</b>
+        <a href="/marcas/portinari/"><span>Portinari</span></a>
+        <a href="/marcas/ceusa/"><span>Ceusa</span></a>
+        <a href="/marcas/castelli/"><span>Castelli</span></a>
+        <a href="/marcas/roca/"><span>Roca</span></a>
+        <a href="/marcas/incepa/"><span>Incepa</span></a>
+        <a href="/marcas/castelatto/"><span>Castelatto</span></a>
+        <a href="/marcas/"><span>Ver todas →</span></a>
+      </div>
       <div class="f-col"><b>Seguinos</b>
         <a href="https://instagram.com/kastellerrevestimientos" target="_blank" rel="noopener">
           <svg class="f-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.2 6.9h.01"/></svg>
