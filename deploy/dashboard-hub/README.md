@@ -128,19 +128,48 @@ O `/opt/dashboard-gnh` é um git **sem remote**: existe só na VPS, e por isso n
 agente fora dela consegue ler ou escrever no portal. Publicar no GitHub resolve os
 dois lados de uma vez — leitura e deploy.
 
-### Uma vez, na VPS (dois comandos)
+### Uma vez, na VPS
+
+Não depende do `gh` (que não está instalado na VPS e não vale instalar por causa
+disto). O repositório vazio se cria pelo navegador; o resto é git puro.
+
+**1. Diagnóstico — o que a VPS já tem:**
 
 ```bash
 cd /opt/dashboard-gnh
-grep -q '^\.env' .gitignore || echo '.env*.local' >> .gitignore   # confira ANTES
-git rm --cached .env.local 2>/dev/null || true                    # se já estiver rastreado
-gh repo create leonardojacquier/dashboard-gnh --private --source=. --push
+git branch --show-current                      # o script de deploy assume 'main'
+git ls-files | grep -iE '\.env' || echo 'OK: nenhum .env rastreado'
+git check-ignore -v .env.local || echo 'ATENÇÃO: .env.local NÃO está ignorado'
+git -C /root/KKNUTHS remote -v | head -1       # como o outro repo autentica
+ssh -T git@github.com                          # 'Hi <user>!' = chave de usuário serve
 ```
 
-> [!danger] Antes do push, confirme que o `.env.local` está fora
-> Ele carrega `DATABASE_URL` e o segredo do NextAuth. `git status` não deve listá-lo.
-> Se já houver commit com ele no histórico, **troque as credenciais** depois de
-> publicar — remover do próximo commit não apaga o passado.
+> [!danger] O `.env.local` não pode ir junto
+> Ele carrega `DATABASE_URL` e o segredo do NextAuth. Se `git ls-files` listar
+> qualquer `.env`, **pare**: rode `git rm --cached .env.local`, commite, e depois de
+> publicar **troque as credenciais** — tirar do próximo commit não apaga o histórico.
+
+**2. Criar o repositório vazio** em <https://github.com/new>: nome `dashboard-gnh`,
+**Private**, e **sem** marcar README, .gitignore ou licença — qualquer arquivo inicial
+faz o primeiro push ser recusado.
+
+**3. Ligar e empurrar:**
+
+```bash
+cd /opt/dashboard-gnh
+git remote add origin git@github.com:leonardojacquier/dashboard-gnh.git   # se o ssh -T deu 'Hi'
+# senão, via HTTPS (o git pergunta usuário e senha; a senha é um Personal Access Token):
+# git remote add origin https://github.com/leonardojacquier/dashboard-gnh.git
+git push -u origin HEAD
+```
+
+> [!note] Se pedir senha toda vez
+> `git config --global credential.helper store` guarda o token — em texto plano em
+> `~/.git-credentials`. Numa VPS que é só sua, aceitável; saiba que é assim.
+
+**4. Dar acesso ao app do Claude** ao repositório novo, senão eu não enxergo:
+<https://claude.ai/admin-settings/claude-in-slack> (ou nas permissões da instalação
+do GitHub App).
 
 ### Depois, o deploy é igual ao do site
 
