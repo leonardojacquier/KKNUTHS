@@ -23,15 +23,19 @@ APP_DIR="/opt/dashboard-gnh"
 PM2_APP="dashboard-gnh"
 
 DB_URL="${1:-}"
-if [ -z "$DB_URL" ]; then
-  echo "Falta a string de conexão."
+# Atualizar não precisa da string de novo: se o .env.local já tem a linha, mantém.
+if [ -z "$DB_URL" ] && grep -qs '^MKT_DATABASE_URL=' "$APP_DIR/.env.local"; then
+  echo "→ MKT_DATABASE_URL já existe no .env.local — mantendo"
+elif [ -z "$DB_URL" ]; then
+  echo "Falta a string de conexão (só na primeira vez)."
   echo 'Uso: bash instalar-hub.sh "postgresql://hub_reader.tqvrsusrbnyahpxhnwxe:SENHA@HOST:6543/postgres"'
   exit 1
+else
+  case "$DB_URL" in
+    postgresql://hub_reader.*) : ;;
+    *) echo "A string precisa começar com postgresql://hub_reader. — confira o usuário."; exit 1 ;;
+  esac
 fi
-case "$DB_URL" in
-  postgresql://hub_reader.*) : ;;
-  *) echo "A string precisa começar com postgresql://hub_reader. — confira o usuário."; exit 1 ;;
-esac
 
 cd "$APP_DIR"
 BACKUP="$APP_DIR/.backup-hub-$(date +%Y%m%d-%H%M%S)"
@@ -52,7 +56,9 @@ curl -fsSL "$RAW/src/app/(app)/marketing/MarketingView.tsx"  -o "src/app/(app)/m
 
 # ---------- 2. variável de ambiente ----------
 touch .env.local
-if grep -q '^MKT_DATABASE_URL=' .env.local; then
+if [ -z "$DB_URL" ]; then
+  : # atualização sem argumento: a linha já está lá
+elif grep -q '^MKT_DATABASE_URL=' .env.local; then
   # substitui a linha inteira sem interpretar a URL (delimitador | não aparece em URL)
   sed -i "s|^MKT_DATABASE_URL=.*|MKT_DATABASE_URL=\"$DB_URL\"|" .env.local
   echo "→ MKT_DATABASE_URL atualizado"
