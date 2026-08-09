@@ -162,9 +162,10 @@ A partir daí: eu abro PR no `dashboard-gnh`, você aprova, e em até 5 min est�
 Sem SSH, sem build na mão. `tail -f /var/log/dashboard-autodeploy.log` mostra tudo.
 
 > [!tip] Por que cron e não GitHub Action com SSH
-> O secret `VORTEX_SSH_KEY` existe e funciona, mas a VPS roda fail2ban e é
-> compartilhada — rajada de SSH de runner já deu dor de cabeça antes. O site inteiro
-> já é publicado por cron pelo mesmo motivo.
+> Existe um workflow com SSH (`deploy-vortex.yml`), mas a VPS roda fail2ban e é
+> compartilhada — rajada de ssh/scp de runner já deu dor de cabeça antes. Foi
+> justamente por isso que o deploy do site migrou para cron; o portal segue o mesmo
+> caminho.
 
 ---
 
