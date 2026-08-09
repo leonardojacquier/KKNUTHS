@@ -108,9 +108,23 @@ exatamente esse bug (commit `9497ad8`, *resultadismo no encanamento*).
 inferior do intervalo com a tolerância. Uma taxa de 40% com n=10 tem limite
 inferior abaixo de qualquer tolerância razoável e não vira diagnóstico.
 
-**Correção para comparações múltiplas.** Varrer 15 códigos e pegar o pior é,
-por construção, procurar o extremo. Acima de 10 códigos testados
-(`CODIGOS_ATE_IC95`) a régua vira IC99.
+**Correção para comparações múltiplas.** Varrer os códigos e pegar o pior é,
+por construção, procurar o extremo. A régua é **Šidák, sem degrau**: cada
+teste roda a `1-(1-0,05)^(1/N)`, e como o portão usa o **limite inferior** de
+um IC bilateral, a cauda de interesse é metade disso.
+
+Com os 6 códigos de hoje isso dá **z = 2,63** — não 1,96. A versão anterior
+era um degrau (`Z99 se testados > 10, senão Z95`) com dois defeitos que se
+anulavam: z=2,576 está calibrado para *exatamente* N=10 e só ligava a partir
+de N=11, ou seja, apenas na faixa em que já era insuficiente; e produção passa
+`len(CODIGOS)` = 6, então o ramo endurecido **nunca executou**.
+
+| N testados | z |
+|---|---|
+| 1 | 1,96 |
+| 6 (hoje) | **2,63** |
+| 10 | 2,80 |
+| 20 | 3,02 |
 
 **Dedup de custo.** Uma mesma decisão pode disparar dois códigos — um limp de
 72o é limp de abertura *e* call caro. O custo é deduplicado por
