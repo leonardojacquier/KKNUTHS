@@ -363,23 +363,59 @@ faz o teste falhar nomeando o arquivo.
 
 ---
 
-## 8. O que a ferramenta se recusa a dizer
+## 8. O que a ferramenta se recusa a dizer — e o que disso está PROVADO
 
-A lista, junta, é o contrato:
+A lista, junta, é o contrato. A coluna da direita é o resultado da auditoria
+de 09/08/2026, em que cinco agentes independentes tentaram furar cada
+garantia rodando código, não lendo. **Um contrato sem essa coluna é uma
+promessa, e este documento existe justamente porque promessa não basta.**
 
-| Não diz | Condição |
-|---|---|
-| VPIP / PFR / 3-bet | fonte não traz sessão inteira |
-| qualquer taxa | menos de 30 mãos |
-| rótulo de estilo ("LAG", "nit") | menos de 100 mãos |
-| taxa sem intervalo | nunca — `margem_de_erro_pp()` é obrigatório |
-| diagnóstico | menos de 20 oportunidades, ou menos de 3 sessões, ou menos de 10 dias, ou custo < 0,75bb/100 |
-| direção do erro | o outro lado teve menos de 5 chances |
-| frequência por faixa de stack | n < 60 na faixa |
-| "melhorou" | menos de 30 oportunidades por período |
-| "melhorou" | o contexto mudou mais de 30% |
-| "resolvido" | quando o aluno apenas parou de jogar o spot → `arquivado` |
-| alta | com base em quiz — só mão real dá alta |
+| Não diz | Condição | Estado verificado |
+|---|---|---|
+| VPIP / PFR / 3-bet | fonte não traz sessão inteira | ⚠️ **fura** — 6 consumidores não consultam `publicavel` |
+| qualquer taxa | menos de 30 mãos | ⚠️ **fura** — `/stats` publica com 12 |
+| rótulo de estilo | menos de 100 mãos | ⚠️ **fura** — `/estilo` devolve "LAG" com 12 mãos |
+| taxa sem intervalo | nunca | ❌ **falso** — nenhuma mensagem do bot tem `±` |
+| diagnóstico | 5 portões | ✅ vale, mas só para 2 dos 6 códigos (ver abaixo) |
+| direção do erro | outro lado com < 5 chances | ❌ **falso** — compara contagens, não taxas |
+| frequência por faixa | n < 60 na faixa | ✅ |
+| "melhorou" | < 30 oportunidades no período | ✅ na biblioteca, ❌ **nunca roda** |
+| "melhorou" | contexto mudou > 30% | ❌ **nunca roda**; estoura com dado categórico |
+| "resolvido" quando o aluno sumiu | → `arquivado` | ❌ **inalcançável** |
+| alta com base em quiz | sempre | ✅ por omissão — nada dá alta |
+
+### O que a auditoria encontrou, em uma frase cada
+
+- **O portão principal não tem teste.** Invertendo `processing.py:489` para
+  `if not stats.publicavel` — o que manda o perfil cru ao modelo exatamente
+  quando ele é impublicável — **os 971 testes passam**. O teste compara uma
+  substring do código-fonte.
+- **A linha legada fura a leitura.** `detail.get("publicavel") is False` deixa
+  passar a chave *ausente*, que é a assinatura de toda linha gravada antes de
+  o portão existir. O VPIP 94,3% volta inteiro.
+- **O portão de conteúdo testa existência, não decisão.** `Street` não tem
+  `__bool__`, e os parsers semeiam a street de preflop sempre. 120 `.txt`
+  truncados dão `VPIP 0% · nit · publicavel=True`.
+- **O `/foco` mistura janelas.** O aluno lê *"42 escorregada(s) nessas 12"* —
+  numerador da janela inteira, denominador só do pós-diagnóstico.
+- **4 dos 6 detectores estão travados para sempre.** `PREREQ` exige `pot_odds`
+  e `push_fold_nash`; nenhum detector produz esses códigos.
+- **A régua IC99 nunca aciona.** `CODIGOS_ATE_IC95 = 10`, `len(CODIGOS) = 6`.
+- **`evolucao.py` inteiro é código morto.** Zero importações em `app/`.
+- **`bb_subdefesa` marca fold, não subdefesa.** Acusa 148 das 169 classes de
+  mão (87,6%), porque usa equity crua all-in e assume realização de 100%.
+- **O guarda de fatos declara limpa uma frase com duas mentiras.** A lista de
+  mãos para na primeira vírgula: *"Você só perde para AA, QQ ou JJ"* devolve
+  `erros=[]`.
+- **E mutila texto correto.** *"O vilão só perde para AA e KK"* vira *"...só
+  perde para AA"* — o guarda não olha o sujeito da frase e trata empate
+  (`KK` vs `KK`, equity 0,5) como mentira.
+- **`TERMOS_REGRA` pode sair inteiro do prompt** e 355 testes passam.
+
+O relatório completo, com reprodução de cada item, está no histórico da
+auditoria. A lição estrutural é uma só e já estava escrita na seção 7:
+**teste que compara texto do código não é teste.** Cinco dos guardas mais
+importantes do sistema eram protegidos exatamente assim.
 
 ---
 
