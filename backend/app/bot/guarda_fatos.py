@@ -30,11 +30,18 @@ _DOMINANCIA = re.compile(
     r"est[aá]\s+atr[áa]s\s+d[eo]|estava\s+atr[áa]s\s+d[eo]|"
     r"fica\s+atr[áa]s\s+d[eo]|ficava\s+atr[áa]s\s+d[eo]|"
     r"apanha(?:va)?\s+(?:para|pra|de)))"
-    # a lista de mãos para NA primeira fronteira de oração. Sem isso o
-    # `[^.;\n]+` engolia o resto da frase: "só perdia pra 77 ou AA — o vilão
-    # apareceu com 72s" virava uma lista só, e a correção comia o trecho
-    # depois do travessão.
-    r"\s+(?P<maos>[^.;,\n—–]{1,60})", re.I)
+    # A LISTA ACEITA VÍRGULA, e é `_so_a_lista` quem a corta.
+    #
+    # Excluir a vírgula na regex parecia seguro e escondia o pior defeito do
+    # guarda: "Você só perde para AA, QQ ou JJ" capturava só `AA`. Como AA é
+    # verdade, o guarda devolvia `erros=[]` — declarava a frase LIMPA com
+    # duas mentiras dentro, e o evento `fato_corrigido` não disparava. Medido
+    # em 09/08; pior que não checar, porque o portal registra a análise como
+    # conferida.
+    #
+    # O travessão e o ponto seguem fora: "só perdia pra 77 ou AA — o vilão
+    # apareceu com 72s" não pode virar uma lista só.
+    r"\s+(?P<maos>[^.;\n—–]{1,80})", re.I)
 
 # A MESMA mentira com a ordem trocada: "Só AA e QQ te viram favorito" (lição
 # 26, real, com KK na mão). O verbo vem DEPOIS das mãos, então o padrão de
@@ -42,7 +49,7 @@ _DOMINANCIA = re.compile(
 # porque copia o título ("Só X te vira favorito") em vez da frase corrida.
 _DOMINANCIA_INVERTIDA = re.compile(
     r"(?P<abre>\bs[óo]|\bapenas|\bsomente)\s+"
-    r"(?P<maos>[^.;,\n—–]{1,60}?)\s+"
+    r"(?P<maos>[^.;\n—–]{1,80}?)\s+"
     r"(?P<fecha>(?:te\s+)?(?:vira(?:m|ram|va|vam)?\s+favorito|"
     r"ganha(?:m|va|vam)?\s+de\s+(?:voc[êe]|vc|ti|si)|"
     r"te\s+bate(?:m|ria|riam)?|"
@@ -139,6 +146,34 @@ def conferir_dominancia(texto: str, hero: list[str],
 
     erros: list[str] = []
 
+    def _e_sobre_o_heroi(inicio: int, frase: str = "") -> bool:
+        """A afirmação é sobre a mão do ALUNO?
+
+        `conferir_dominancia` sempre conferiu contra `hero_cards` sem olhar de
+        quem a frase fala. "O vilão só perde para AA e KK" com o herói de KK
+        virava "O vilão só perde para AA" — o guarda apagando informação
+        CERTA sobre o oponente. Medido em 09/08.
+
+        Mas SUJEITO não basta, e a primeira versão desta função quebrou o caso
+        que criou o módulo: "O vilão só te vira favorito com QQ ou AA" tem
+        sujeito de terceira pessoa E é sobre o herói, porque o objeto é o
+        "te". O que decide é a referência ao aluno DENTRO da própria frase;
+        o sujeito só desempata quando ela não existe.
+        """
+        if re.search(r"\b(te|voc[êe]|vc|ti|contigo)\b", frase or "", re.I):
+            return True
+        antes = texto[max(0, inicio - 60):inicio].lower()
+        # corta na fronteira de oração anterior: sujeito de outra frase não
+        # governa esta
+        for corte in (".", ";", "\n", "—", "–"):
+            if corte in antes:
+                antes = antes.rsplit(corte, 1)[1]
+        if re.search(r"\b(voc[êe]|vc|seu|sua|teu|tua)\b", antes):
+            return True
+        return not re.search(
+            r"\b(o\s+vil[ãa]o|o\s+oponente|o\s+advers[áa]rio|ele|ela|"
+            r"o\s+outro|o\s+cara)\b", antes)
+
     def _verdade(citadas: list[str]) -> tuple[list[str], str] | None:
         """(mentiras, lista_certa) — None quando a frase já está correta."""
         vencem = quem_ganha_do_heroi(hero, citadas, board)
@@ -152,8 +187,10 @@ def conferir_dominancia(texto: str, hero: list[str],
         return mentiras, " ou ".join(_pares_que_ganham(hero, board)) or "nada"
 
     def _corrige(m: re.Match) -> str:
-        trecho = m.group("maos")
-        citadas = maos_citadas(trecho)
+        if not _e_sobre_o_heroi(m.start(), m.group(0)):
+            return m.group(0)
+        lista, cauda = _so_a_lista(m.group("maos"))
+        citadas = maos_citadas(lista)
         if not citadas:
             return m.group(0)
         achado = _verdade(citadas)
@@ -162,10 +199,11 @@ def conferir_dominancia(texto: str, hero: list[str],
         mentiras, certo = achado
         erros.extend(mentiras)
         # preserva o resto da frase depois das mãos (", e isso é raro")
-        resto = _cauda(trecho, citadas)
-        return f"{m.group('abre')} {certo}{resto}"
+        return f"{m.group('abre')} {certo}{cauda}"
 
     def _corrige_invertida(m: re.Match) -> str:
+        if not _e_sobre_o_heroi(m.start(), m.group(0)):
+            return m.group(0)
         citadas = maos_citadas(m.group("maos"))
         if not citadas:
             return m.group(0)
@@ -182,6 +220,30 @@ def conferir_dominancia(texto: str, hero: list[str],
         log.warning("guarda de fatos: mão citada como favorita sem ser: %s",
                     ", ".join(erros))
     return novo, erros
+
+
+_LIGA = re.compile(r"^[\s,]*(?:e|ou|nem)?[\s,]*$", re.I)
+
+
+def _so_a_lista(trecho: str) -> tuple[str, str]:
+    """Corta o trecho no ponto em que ele deixa de ser enumeração de mãos.
+
+    Aceitar vírgula na regex é o que permite ver "AA, QQ ou JJ" inteiro — mas
+    também deixaria entrar "AA, e por isso você paga". A diferença é
+    verificável: entre duas mãos de uma lista só cabem vírgula, espaço e
+    conector ("e", "ou", "nem"). Qualquer outra palavra fecha a lista.
+
+    Devolve (lista, cauda).
+    """
+    achadas = list(_MAO.finditer(trecho or ""))
+    if not achadas:
+        return trecho, ""
+    fim = achadas[0].end()
+    for anterior, seguinte in zip(achadas, achadas[1:]):
+        if not _LIGA.match(trecho[anterior.end():seguinte.start()]):
+            break
+        fim = seguinte.end()
+    return trecho[:fim], trecho[fim:]
 
 
 def _cauda(trecho: str, citadas: list[str]) -> str:

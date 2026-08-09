@@ -424,43 +424,19 @@ promessa, e este documento existe justamente porque promessa não basta.**
 
 Conferida por execução em 09/08, e não por memória. O que fechou saiu daqui.
 
-**1. O guarda de fatos declara limpa uma frase com duas mentiras.** A lista
-de mãos para na primeira vírgula:
-
-```
-entrada: "Você só perde para AA, QQ ou JJ."
-erros  : []          <- diz que está limpo
-```
-
-Pior que não checar: o evento `fato_corrigido` não dispara e o portal
-registra a análise como conferida.
-
-**2. E ele mutila texto correto.** *"O vilão só perde para AA e KK"* com o
-herói de KK vira *"...só perde para AA"*. Duas causas somadas: o guarda nunca
-olha o **sujeito** da frase, e trata empate exato (`KK` vs `KK`, equity 0,5)
-como mentira.
-
-**3. O guarda de fato só vive em 1 dos 4 caminhos de texto.** Não roda no
-`followup` — a conversa livre, onde "só perde para QQ" é mais provável ainda
-porque o aluno pergunta justamente sobre mãos —, nem no botão da explicação
-simples, nem no relatório mão a mão. Fixado como teste em
-`test_guarda_saida_na_conversa.py` para a lacuna não voltar a ser invisível.
-
-**4. Não há paginação em `get_hands_para_perfil`.** Zero `.range()` no
+**1. Não há paginação em `get_hands_para_perfil`.** Zero `.range()` no
 repositório. O corte de 1.000 linhas do PostgREST trunca em silêncio, e as
 mãos que não desceram são reportadas ao coach como "amostra curada" — mão
 legítima descrita como escolhida a dedo. Só morde acima de 1.000 mãos por
 aluno; o maior hoje tem 349.
 
-**5. `ADMIN_TOKEN` em dois scripts de `deploy/oneshot/`.** O cookie já não é
+**2. `ADMIN_TOKEN` em dois scripts de `deploy/oneshot/`.** O cookie já não é
 o segredo mestre, mas `2026-08-02-link-do-portal*.sh` seguem no repo fazendo
 `curl ".../admin?key=$ADMIN_TOKEN"` e mandando esse link por Telegram. Query
 string vai para o log do Caddy.
 
-**6. A simulação de placebo do ciclo de alta não terminou.** É o número que
-provaria que aluno cuja habilidade não muda não recebe alta. O desenho é
-defensável — a barra é a tolerância do código, externa e fixa, e a alta exige
-o limite superior abaixo dela — mas isso é argumento, não medida.
+**3. Frequência sem margem em `/stats` e `/estilo`.** A frequência por faixa
+de stack já sai com `±`; esses dois comandos ainda não.
 
 A lição estrutural é uma só, e já estava escrita na seção 7: **teste que
 compara texto do código não é teste.** Cinco dos guardas mais importantes do

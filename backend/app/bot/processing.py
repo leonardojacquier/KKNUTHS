@@ -1055,6 +1055,37 @@ def _notebook_from_session(prev: dict | None, telegram_id: int) -> None:
                      args=(prev, telegram_id), daemon=True).start()
 
 
+def _conferir_fatos_da_conversa(telegram_id: int, username: str | None,
+                                texto: str, ctx: dict) -> str:
+    """Aplica o guarda dos fatos a um texto de CONVERSA (ou de simplificação).
+
+    Até 09/08 `conferir_dominancia` e `corrigir_showdown` rodavam num único
+    lugar: a análise do upload. A conversa livre e o botão da explicação
+    simples entregavam texto novo, gerado pelo modelo, sem nenhuma
+    conferência de fato de poker — e a conversa é o caminho em que o aluno
+    PERGUNTA sobre mãos, então a chance de o modelo afirmar dominância falsa
+    ali é maior, não menor.
+
+    Devolve o texto conferido. Nunca levanta: conversa que morre é pior que
+    conversa não conferida.
+    """
+    from app.bot.guarda_fatos import conferir_dominancia
+
+    mao = (ctx.get("context") or {}).get("mao") or {}
+    cartas = list(mao.get("hero_cards") or [])
+    if len(cartas) != 2:
+        return texto
+    board = list(mao.get("final_board") or [])
+    texto, mentiras = conferir_dominancia(texto, cartas, board)
+    if mentiras:
+        repo = get_repository()
+        if repo.enabled:
+            repo.log_event(telegram_id, username, "fato_corrigido",
+                           {"maos": mentiras[:6], "heroi": cartas,
+                            "onde": "conversa"})
+    return texto
+
+
 def process_followup(telegram_id: int, username: str | None, question: str) -> str | None:
     """Continua a conversa sobre a última análise. None se não há contexto.
 
@@ -1181,6 +1212,15 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             _stash_charts(telegram_id, extra_specs, ctx.get("user_id"))
     except Exception as exc:
         log.warning("guarda da saída falhou: %s", exc)
+
+    # GUARDA DOS FATOS TAMBÉM AQUI. Ele rodava só na análise do upload, e a
+    # conversa livre é onde "só perde para QQ" é MAIS provável — é nela que o
+    # aluno pergunta justamente sobre mãos. A mão da conversa é a mesma da
+    # análise, então as cartas estão no contexto.
+    try:
+        answer = _conferir_fatos_da_conversa(telegram_id, username, answer, ctx)
+    except Exception as exc:
+        log.warning("guarda dos fatos na conversa falhou: %s", exc)
 
     ctx["history"] = (ctx["history"] + [{"q": question, "a": answer}])[-_HISTORY_CAP:]
     persist_conversation(telegram_id)

@@ -234,3 +234,110 @@ def test_os_guardas_novos_estao_ligados(rodar_pipeline):
     assert repo.evento("showdown_errado"), "corrigiu e não virou evento"
 
 
+
+
+# ---- os três furos do guarda, achados na auditoria de 09/08 ---------------
+
+def test_a_virgula_nao_esconde_o_resto_da_lista():
+    """O PIOR dos três, porque falha em silêncio.
+
+    `[^.;,\\n—–]` excluía a vírgula, então "Você só perde para AA, QQ ou JJ"
+    capturava apenas `AA`. Como AA é verdade, o guarda devolvia `erros=[]` —
+    declarava a frase LIMPA com duas mentiras dentro. E aí o evento
+    `fato_corrigido` não dispara e o portal registra a análise como
+    conferida: pior que não checar.
+    """
+    novo, erros = conferir_dominancia("Você só perde para AA, QQ ou JJ.", KK)
+    assert set(erros) == {"QQ", "JJ"}, (
+        f"a lista parou na primeira vírgula: {erros}")
+    assert "QQ" not in novo and "JJ" not in novo
+    assert "AA" in novo
+
+
+def test_virgula_que_NAO_e_lista_nao_e_engolida():
+    """O outro lado: aceitar vírgula não pode fazer a lista comer a frase.
+    Entre duas mãos de uma enumeração só cabem vírgula, espaço e conector."""
+    t = "Só perde para AA, e por isso você paga esse all-in."
+    novo, erros = conferir_dominancia(t, KK)
+    assert erros == [] and novo == t
+
+    # e com uma mão DEPOIS do texto que não é lista: "QQ" está na frase mas
+    # não na enumeração. Sem o cortador, ela entraria e a correção comeria
+    # metade da frase.
+    t2 = "Você só perde para AA, e com QQ ele até paga mais leve."
+    novo2, erros2 = conferir_dominancia(t2, KK)
+    assert erros2 == [], f"pegou QQ que estava fora da lista: {erros2}"
+    assert novo2 == t2
+
+
+def test_frase_sobre_o_VILAO_nao_e_conferida_contra_o_heroi():
+    """O guarda apagava informação CERTA sobre o oponente.
+
+    "O vilão só perde para AA e KK" com o herói de KK virava "...só perde
+    para AA": o guarda conferia contra `hero_cards` sem olhar de quem a frase
+    fala. Guarda que estraga texto certo custa mais confiança que guarda
+    ausente.
+    """
+    t = "O vilão só perde para AA e KK nesse spot."
+    novo, erros = conferir_dominancia(t, KK)
+    assert erros == [] and novo == t
+
+    for outra in ("O oponente só está atrás de AA e KK.",
+                  "Ele só perde para AA e KK."):
+        assert conferir_dominancia(outra, KK) == (outra, [])
+
+
+def test_mas_sujeito_de_terceira_pessoa_NAO_basta_para_pular():
+    """A primeira versão do portão de sujeito quebrou o caso que criou este
+    módulo inteiro.
+
+    "O vilão só te vira favorito com QQ ou AA" tem sujeito de terceira pessoa
+    E é sobre o herói, porque o objeto é o "te". O que decide é a referência
+    ao aluno DENTRO da frase; o sujeito só desempata quando ela não existe.
+    """
+    t = "O vilão só te vira favorito com QQ ou AA, e isso é raro."
+    novo, erros = conferir_dominancia(t, KK)
+    assert erros == ["QQ"], "voltou a deixar passar o caso do print de 07/08"
+    assert "QQ" not in novo and "e isso é raro" in novo
+
+
+def test_o_guarda_de_fatos_roda_na_CONVERSA(monkeypatch):
+    """Ele vivia num caminho só: a análise do upload.
+
+    A conversa livre é onde "só perde para QQ" é MAIS provável — é nela que o
+    aluno pergunta justamente sobre mãos. O texto novo saía do modelo barato
+    e ia ao aluno sem nenhuma conferência de fato de poker.
+    """
+    from app.bot import processing as proc
+
+    eventos = []
+
+    class _Repo:
+        enabled = True
+
+        def log_event(self, tg, u, ev, det=None):
+            eventos.append((ev, det))
+
+        def __getattr__(self, _n):
+            return lambda *a, **k: None
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _Repo())
+    ctx = {"context": {"mao": {"hero_cards": ["Kh", "Kd"],
+                               "final_board": []}}}
+
+    saida = proc._conferir_fatos_da_conversa(
+        1, "t", "Aqui você só perde para QQ, então pode pagar.", ctx)
+
+    assert "QQ" not in saida, f"a mentira chegou ao aluno na conversa: {saida}"
+    assert any(ev == "fato_corrigido" and (d or {}).get("onde") == "conversa"
+               for ev, d in eventos), (
+        "corrigiu na conversa e não registrou de onde veio")
+
+
+def test_sem_as_cartas_da_mao_a_conversa_passa_intacta():
+    """Sem saber a mão do herói não dá para conferir nada — e inventar
+    correção é pior que não conferir."""
+    from app.bot import processing as proc
+
+    t = "Aqui você só perde para QQ."
+    assert proc._conferir_fatos_da_conversa(1, "t", t, {"context": {}}) == t

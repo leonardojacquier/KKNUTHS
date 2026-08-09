@@ -119,22 +119,39 @@ def test_guarda_que_explode_nao_derruba_a_conversa(conversa, monkeypatch):
         "não remediada em vez de erro")
 
 
-def test_o_guarda_de_FATOS_nao_roda_na_conversa(conversa, monkeypatch):
-    """LACUNA CONHECIDA, fixada como teste para não ser esquecida.
+def test_o_guarda_de_FATOS_agora_roda_na_conversa():
+    """Esta era a LACUNA CONHECIDA, fixada como teste em 09/08 com a
+    instrução "se um dia isso mudar, apague este teste e escreva um de
+    comportamento no lugar". Mudou no mesmo dia, e é isso que está abaixo.
 
-    `conferir_dominancia` e `corrigir_showdown` rodam só na análise de
-    upload. Na conversa livre — onde "só perde para QQ" é mais provável
-    ainda, porque o aluno pergunta exatamente sobre mãos — nenhum guarda de
-    FATO de poker roda; só o de saída, que trata pedido não atendido.
-
-    Se um dia isso mudar, este teste quebra e a mudança é deliberada. Ele
-    NÃO está aqui para dizer que está certo — está para impedir que a
-    lacuna volte a ser invisível.
+    O que fica aqui é só o vínculo: se alguém remover a chamada do
+    `process_followup`, o teste de comportamento logo abaixo é quem falha.
     """
     import inspect
 
     fonte = inspect.getsource(proc.process_followup)
-    assert "conferir_dominancia" not in fonte, (
-        "o guarda de fatos passou a rodar na conversa — ótimo. Apague este "
-        "teste, escreva um de comportamento no lugar, e tire a lacuna do "
-        "METODO.md")
+    assert "_conferir_fatos_da_conversa" in fonte
+
+
+def test_a_dominancia_falsa_e_corrigida_NA_CONVERSA(conversa, monkeypatch):
+    """Fim a fim pelo `process_followup`, e não pela função isolada.
+
+    O guarda de fatos vivia num caminho só — a análise do upload. A conversa
+    livre entregava texto novo, do modelo, sem nenhuma conferência de fato de
+    poker. E é nela que o aluno pergunta justamente sobre mãos.
+    """
+    repo = conversa("Aqui você só perde para QQ, então pode pagar tranquilo.")
+    proc.lembrar(proc.LAST_ANALYSIS, _TG, {
+        "context": {"mao": {"hero_cards": ["Kh", "Kd"], "final_board": []}},
+        "history": [], "user_id": None})
+
+    import app.bot.guarda_saida as gs
+
+    monkeypatch.setattr(gs, "conferir_e_remediar",
+                        lambda tg, q, a, tem: (a, []))
+
+    saida = proc.process_followup(_TG, "tester", "KK contra 4-bet, pago?")
+    assert "QQ" not in saida, (
+        f"a dominância falsa chegou ao aluno na conversa: {saida!r}")
+    assert "AA" in saida, "corrigiu apagando em vez de pôr a verdade"
+    assert any(ev == "fato_corrigido" for ev in repo.eventos)

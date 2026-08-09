@@ -172,3 +172,65 @@ def test_o_treino_escolhe_afericao_pelo_historico():
 
     fonte = inspect.getsource(handlers._send_treino)
     assert "e_afericao" in fonte and "drill_verdicts" in fonte
+
+
+def test_placebo_aluno_que_nao_muda_nao_recebe_alta():
+    """A prova que faltava, e a mais importante do módulo.
+
+    O aluno é escolhido para intervenção por estar no EXTREMO da flutuação,
+    então a janela seguinte melhora sozinha — regressão à média. Se o critério
+    de alta fosse derivado daquela janela (`taxa * 0,4`, como era até 09/08),
+    essa melhora fantasma viraria alta.
+
+    Com o alvo sendo a TOLERÂNCIA DO CÓDIGO — externa, fixa, conhecida antes
+    de olhar o aluno — e a alta exigindo o limite SUPERIOR abaixo dela, a
+    barra não se move. Aqui a habilidade NÃO muda em nenhum dos casos.
+
+    Medido com 4.000 sorteios por célula (aqui reduzido para a suíte rodar
+    rápido):
+
+        taxa real   n=62    n=120
+             2%    28,9%    31,2%   <- ESTÁ curado (2% < 5%): alta é correta
+             5%     4,5%     1,4%   <- na linha: erro nominal, e cai com n
+            10%     0,1%     0,0%
+            20%     0,0%     0,0%
+            35%     0,0%     0,0%
+    """
+    import random
+
+    from app.analysis.bayes import shrunk_rate
+    from app.analysis.evolucao import MELHOROU, medir
+    from app.analysis.problemas import criterio_de_alta, pode_dar_alta
+
+    alta = criterio_de_alta({"codigo": "limp_de_abertura",
+                             "taxa_mean": 100.0, "taxa_lo": 90.0})
+    limiar, n = alta["limiar"], alta["n_minimo"]
+    rnd = random.Random(20260809)
+
+    def _fracao_de_altas(p_verdadeiro, sorteios=800):
+        altas = 0
+        for _ in range(sorteios):
+            erros = sum(rnd.random() < p_verdadeiro for _ in range(n))
+            m = medir({"taxa": 100.0},
+                      {"oportunidades": n, "escorregadas": erros}, limiar)
+            if m.veredito != MELHOROU:
+                continue
+            _, _lo, hi = shrunk_rate(erros, n, 20.0, 6.0)
+            ok, _ = pode_dar_alta(
+                {"oportunidades": n, "post_hi": round(hi, 1),
+                 "limiar": limiar, "janelas": 4, "dias": 20}, False, True)
+            altas += ok
+        return altas / sorteios
+
+    # ACIMA da referência: a habilidade não mudou e ele NÃO está curado
+    for p in (0.10, 0.20, 0.35):
+        taxa = _fracao_de_altas(p)
+        assert taxa <= 0.01, (
+            f"aluno com taxa real de {p*100:.0f}% (referência {limiar}%) "
+            f"recebeu alta em {taxa*100:.1f}% das simulações sem mudar nada")
+
+    # ABAIXO da referência: ele ESTÁ curado, e aí a alta é o comportamento
+    # certo. Um sistema que nunca dá alta é tão inútil quanto um que sempre dá.
+    assert _fracao_de_altas(0.02) > 0.10, (
+        "aluno genuinamente abaixo da referência nunca recebe alta — o ciclo "
+        "não fecha e o aluno abandona")
