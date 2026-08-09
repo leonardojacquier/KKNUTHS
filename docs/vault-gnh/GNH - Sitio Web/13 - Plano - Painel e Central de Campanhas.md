@@ -10,15 +10,19 @@ status: aguardando aprovação
 [[00 - Indice|← Índice]]
 
 > [!abstract] Em uma frase
-> Um **hub** em `gnhorizons.com/hub/` onde se vê e se opera todo o marketing digital
-> dos dois sites: indicadores, campanhas, páginas, performance técnica, presença em
-> buscadores e redes — com o Telegram como controle remoto e o fluxo de deploy que
-> já existe como motor de publicação.
+> Um **hub** onde se vê e se opera todo o marketing digital dos dois sites:
+> indicadores, campanhas, páginas, performance técnica, presença em buscadores e
+> redes — com o Telegram como controle remoto e o fluxo de deploy que já existe
+> como motor de publicação. A tela pode viver em `gnhorizons.com/hub/` **ou dentro
+> do dashboard da Vortex369**: o que se constrói é a camada de dados, e ela serve
+> as duas.
 
 > [!info] Como este plano cresceu
 > Começou como "painel de indicadores + central de campanhas" (07/08). Em 09/08
 > virou hub de marketing a pedido do dono, incluindo desenvolvimento de páginas,
-> performance e redes sociais. Os módulos A, B e C são os originais; D a G são novos.
+> performance e redes sociais. Os módulos A, B e C são os originais; D a H são novos. No mesmo dia veio o pedido
+> de acoplar a tela ao dashboard da Vortex369 — daí o módulo A ter virado A1 (dados)
+> e A2 (tela).
 
 ## A regra que segura o escopo
 
