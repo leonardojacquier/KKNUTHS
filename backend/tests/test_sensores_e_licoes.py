@@ -114,14 +114,53 @@ def test_card_compartilhavel_carrega_origem():
     assert "?start=card" in fonte
 
 
-def test_destilador_nunca_publica_sozinho():
+def test_destilador_nunca_publica_sozinho(monkeypatch):
     """Publicar é decisão humana — uma lição errada no grupo do clube
-    destrói a credibilidade com o público exato de aquisição."""
-    import inspect
+    destrói a credibilidade com o público exato de aquisição.
 
-    from scripts import destilar_licoes
+    Por COMPORTAMENTO, olhando o que chega ao banco. A versão anterior fazia
+    `assert '"publicada": True' not in fonte`, e a gravação real é
+    `insert({**licao, "hand_analysis_id": ...})` — se `destilar()` passar a
+    devolver `publicada` dentro do dicionário, o literal nunca aparece no
+    fonte e o campo vai para a estante mesmo assim. É o mesmo modo de falha
+    que deixou passar a inversão de um portão em 09/08.
+    """
+    from scripts import destilar_licoes as d
 
-    fonte = inspect.getsource(destilar_licoes)
-    assert '"publicada": True' not in fonte
-    assert "publicada" not in fonte.split("def main")[1], \
-        "main() não toca no campo publicada"
+    gravados: list[dict] = []
+
+    class _T:
+        def insert(self, payload):
+            gravados.append(payload)
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": [{"id": "L1"}]})()
+
+    class _Repo:
+        enabled = True
+
+        class client:
+            @staticmethod
+            def table(_):
+                return _T()
+
+        @staticmethod
+        def log_event(*a, **k):
+            return None
+
+    analise = {"id": "A1", "hero_cards": ["Kh", "Kd"],
+               "final_board": ["2c", "7c", "9h"]}
+    monkeypatch.setattr(d, "get_repository", lambda: _Repo())
+    monkeypatch.setattr(d, "candidatas", lambda *a, **k: [analise])
+    monkeypatch.setattr(d, "destilar", lambda _a: {
+        "titulo": "Overpair em board seco",
+        "corpo": "Com KK em board 2-7-9 você segue apostando.",
+        "categoria": "postflop"})
+
+    assert d.main() == 0
+    assert gravados, "nada foi gravado — o teste não exercitou a escrita"
+    for payload in gravados:
+        assert payload.get("publicada") is not True, (
+            "o destilador publicou sozinho: `publicada` chegou True ao banco")
+        assert payload["hand_analysis_id"] == "A1"
