@@ -1,4 +1,16 @@
 User-agent: *
 Allow: /
 
+# crawlers de IA — liberados de propósito: queremos ser citados
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://kasteller.com.py/sitemap.xml

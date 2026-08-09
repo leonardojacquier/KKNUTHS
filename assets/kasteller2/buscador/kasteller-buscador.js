@@ -139,8 +139,9 @@
       $count.textContent = res.length + ' producto' + (res.length === 1 ? '' : 's');
       $empty.classList.toggle('show', res.length === 0);
       $more.hidden = res.length <= visibles;
+      ultimoTotal = res.length;
       if (res.length === 0 && (query || chips.length)) {
-        track('busqueda-vacia', query || chips.map(function (c) { return c.valor; }).join(','));
+        agendaBusqueda('busqueda-vacia', query || chips.map(function (c) { return c.valor; }).join(','));
       }
       renderChips();
     }
@@ -177,14 +178,40 @@
     }
 
     /* ---------- eventos ---------- */
-    var deb, trackDeb;
+    var deb, trackDeb, ultimoTotal = 0, pendente = null;
+
+    /* Registrar a cada pausa de 1,2 s inflava tudo: "porcelanato" virava 11 eventos
+       (poc, poce, porce, porcen...). Agora o termo fica PENDENTE e só é gravado se o
+       seguinte não for uma continuação dele — ou seja, quando o visitante parou de
+       digitar de verdade. O evento leva junto quantos resultados apareceram. */
+    function agendaBusqueda(tipo, termo) {
+      if (!termo) return;
+      if (pendente && norm(termo).indexOf(norm(pendente.termo)) === 0) {
+        pendente = { tipo: tipo, termo: termo, total: ultimoTotal };  // continuação: substitui, não grava
+        return;
+      }
+      if (pendente) track(pendente.tipo, pendente.termo + ' [' + pendente.total + ']');
+      pendente = { tipo: tipo, termo: termo, total: ultimoTotal };
+    }
+    function gravaPendente() {
+      if (!pendente) return;
+      track(pendente.tipo, pendente.termo + ' [' + (pendente.total || ultimoTotal) + ']');
+      pendente = null;
+    }
+
     $in.addEventListener('input', function () {
       query = $in.value; visibles = LOTE;
       clearTimeout(deb);
       deb = setTimeout(function () { render(); sugiere(); }, 90);
       clearTimeout(trackDeb);
-      trackDeb = setTimeout(function () { if (norm(query)) track('busqueda', query); }, 1200);
+      trackDeb = setTimeout(function () {
+        if (norm(query)) { agendaBusqueda('busqueda', query); }
+        setTimeout(gravaPendente, 2600);   // ninguém continuou digitando: é busca final
+      }, 1200);
     });
+    /* sair do campo encerra a busca na hora, sem esperar o timer */
+    $in.addEventListener('blur', gravaPendente);
+    addEventListener('beforeunload', gravaPendente);
     $sugs.addEventListener('click', function (e) {
       var s = e.target.closest('.kb__sug');
       if (!s) return;
