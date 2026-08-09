@@ -62,6 +62,49 @@ Estava em 14400 (4 h) e foi baixado para 300 durante a migração. Com 14400, um
 demora até 4 horas para chegar em quem já tinha consultado o domínio — foi o que fez o
 site aparecer no celular e continuar velho no desktop por horas.
 
+### Quando os dois nameservers discordam
+
+Durante a migração, `ns1` e `ns2.breadhosting.com.br` responderam **IPs diferentes**
+por alguns minutos — o `ns1` já com o VPS, o `ns2` ainda com o cPanel. O visitante
+caía num ou noutro conforme o resolvedor sorteava. No Chrome isso aparece como
+**dois IPs** no `chrome://net-internals/#dns`, o que parece registro A duplicado
+(e não é).
+
+Como distinguir propagação em curso de falha real — comparar o **serial da zona**:
+
+```bash
+python3 - <<'EOF'
+import dns.query, dns.message, socket
+for ns in ['ns1.breadhosting.com.br','ns2.breadhosting.com.br']:
+    ip = socket.gethostbyname(ns)
+    r = dns.query.udp(dns.message.make_query('kasteller.com.py','SOA'), ip, timeout=10)
+    for rr in r.answer:
+        for i in rr: print(ns, 'serial', i.serial)
+EOF
+```
+
+- **Serial igual, respostas diferentes** → o slave acabou de receber a zona e está
+  aplicando. Espere (foi o caso: sincronizou em ~20 s).
+- **Serial diferente** → o slave não recebeu a atualização. Aí sim é chamado no suporte.
+
+### O cache que o `ipconfig /flushdns` não alcança
+
+O `flushdns` limpa só o Windows. Se o **roteador** faz de servidor DNS da rede
+(`nslookup` mostra `Servidor: 192.168.88.1`, um MikroTik), ele responde de novo com o
+valor velho — cache atrás de cache. Sinais: o flush "funciona" e a resposta não muda.
+
+Saídas, da melhor para a mais rápida:
+
+1. **Limpar no roteador** (resolve para toda a rede): MikroTik → `IP → DNS → Cache →
+   Flush Cache`. Não precisa reiniciar.
+2. **DNS do computador para `1.1.1.1`** — conserto individual e imediato.
+   ⚠️ Quebra nomes **internos** da rede (servidor local, NAS, impressora), porque o
+   resolvedor público não os conhece. Voltar para automático depois.
+
+O Chrome ainda tem cache próprio: `chrome://net-internals/#dns` → *Clear host cache*
+**e** `#sockets` → *Flush socket pools*. Se "Usar DNS seguro" estiver ligado em
+`chrome://settings/security`, ele ignora o resolvedor do sistema.
+
 ## O bloco do Caddy
 
 Guardado em `deploy/caddy-kasteller2.txt`. Vive no Caddyfile **compartilhado** do VPS:
