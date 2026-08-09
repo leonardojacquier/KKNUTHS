@@ -3953,3 +3953,35 @@ def test_o_manual_cobre_TODO_comando_que_o_aluno_ve():
     assert not faltando, (
         f"o menu do bot oferece {faltando} e o manual não explica — o aluno "
         f"vê o comando e não acha o que ele faz")
+
+
+def test_o_menu_do_telegram_oferece_todo_comando_de_aluno():
+    """O menu '/' é a única descoberta que o aluno tem.
+
+    Comando registrado e fora do menu é comando que só existe para quem já
+    sabe que ele existe — foi assim que `/foco` quase ficou invisível
+    (entrou no menu, mas não no manual; ver o teste do manual).
+
+    A regra é estrutural, não uma lista à mão: todo `CommandHandler` aparece
+    no menu, EXCETO os que têm porteiro de dono (`ADMIN_TELEGRAM_ID` no
+    corpo). Assim um comando novo de aluno quebra este teste, e um comando
+    novo de dono não gera falso alarme.
+    """
+    import inspect
+    import re
+
+    from app.bot import handlers
+
+    fonte = inspect.getsource(handlers)
+    registrados = set(re.findall(r'CommandHandler\("([a-z_]+)"', fonte))
+    no_menu = set(re.findall(r'BotCommand\("([a-z_]+)"', fonte))
+
+    assert not (no_menu - registrados), (
+        f"o menu anuncia comando que não existe: {sorted(no_menu - registrados)}")
+
+    for nome in sorted(registrados - no_menu):
+        fn = getattr(handlers, f"cmd_{nome}", None)
+        corpo = inspect.getsource(fn) if fn else ""
+        assert "ADMIN_TELEGRAM_ID" in corpo, (
+            f"/{nome} está registrado, NÃO está no menu do Telegram e não é "
+            f"comando de dono — o aluno não tem como descobrir que ele existe")

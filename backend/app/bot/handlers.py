@@ -85,7 +85,18 @@ WELCOME = (
 
 
 async def _set_bot_menu(app: Application) -> None:
-    """Menu '/' do Telegram — precisa refletir TODOS os comandos vivos."""
+    """Menu '/' do Telegram — todo comando DE ALUNO, e só eles.
+
+    A regra não é "todos os comandos vivos", como esta docstring dizia: os
+    quatro do dono (`/licoes`, `/planode`, `/quem`, `/termo`) ficam fora de
+    propósito. Anunciar no menu público um comando que responde "só o dono"
+    é convidar o aluno a bater numa porta trancada.
+
+    O que a lista precisa refletir é o conjunto de comandos SEM porteiro —
+    e é isso que `test_o_menu_do_telegram_oferece_todo_comando_de_aluno`
+    cobra, comparando com os `CommandHandler` registrados em vez de com uma
+    lista escrita à mão.
+    """
     from telegram import BotCommand
 
     try:
