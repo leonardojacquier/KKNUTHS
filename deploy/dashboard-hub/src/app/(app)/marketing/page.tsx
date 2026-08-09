@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const SITES = ['gnh', 'kasteller'] as const;
 const PERIODOS = [7, 30, 90] as const;
 
-type Props = { searchParams: Promise<{ site?: string; dias?: string }> };
+type Props = { searchParams: Promise<{ site?: string; dias?: string; bots?: string }> };
 
 export default async function Page({ searchParams }: Props) {
   const sp = await searchParams;
@@ -16,6 +16,9 @@ export default async function Page({ searchParams }: Props) {
   const site = SITES.includes(sp.site as (typeof SITES)[number]) ? sp.site! : 'todos';
   const dias = PERIODOS.includes(Number(sp.dias) as (typeof PERIODOS)[number]) ? Number(sp.dias) : 30;
   const sitesFiltro = site === 'todos' ? [...SITES] : [site];
+  // por padrão os crawlers ficam de fora: 63 sessões en-US sem um clique
+  // distorcem qualquer leitura de público. O botão deixa ver o bruto.
+  const verBots = sp.bots === '1';
 
   const [porDia, anterior, origens, paises, buscas, paginas, detalhes, horas] = await Promise.all([
     sqlMkt`
@@ -33,18 +36,20 @@ export default async function Page({ searchParams }: Props) {
          and dia > current_date - ${dias * 2}::int and dia <= current_date - ${dias}::int`,
 
     sqlMkt`
-      select origen, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos
+      select origen, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos,
+             sum(sesiones_todas)::int as sesiones_todas, sum(bots)::int as bots
         from hub.v_origen
        where site = any(${sitesFiltro}) and dia > current_date - ${dias}::int
-       group by origen having sum(sesiones) > 0
-       order by sesiones desc`,
+       group by origen having sum(sesiones_todas) > 0
+       order by sesiones_todas desc`,
 
     sqlMkt`
-      select pais, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos
+      select pais, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos,
+             sum(sesiones_todas)::int as sesiones_todas, sum(bots)::int as bots
         from hub.v_pais
        where site = any(${sitesFiltro}) and dia > current_date - ${dias}::int
-       group by pais having sum(sesiones) > 0
-       order by sesiones desc`,
+       group by pais having sum(sesiones_todas) > 0
+       order by sesiones_todas desc`,
 
     sqlMkt`
       select site, termino, sin_resultado, sum(veces)::int as veces,
@@ -93,6 +98,7 @@ export default async function Page({ searchParams }: Props) {
     <MarketingView
       site={site}
       dias={dias}
+      verBots={verBots}
       porDia={porDia as unknown as Dia[]}
       origens={origens as unknown as Origen[]}
       paises={paises as unknown as Pais[]}

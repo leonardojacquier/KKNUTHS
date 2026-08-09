@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 
 export type Dia = { site: string; dia: string; sesiones: number; personas: number; bots: number; con_contacto: number; eventos: number; duracion_media_seg: number };
-export type Origen = { origen: string; sesiones: number; contactos: number };
-export type Pais = { pais: string; sesiones: number; contactos: number };
+export type Origen = { origen: string; sesiones: number; contactos: number; sesiones_todas: number; bots: number };
+export type Pais = { pais: string; sesiones: number; contactos: number; sesiones_todas: number; bots: number };
 export type Busca = { site: string; termino: string; sin_resultado: boolean; veces: number; sesiones: number; ultima: string };
 export type Pagina = { site: string; path: string; sesiones: number; contactos: number };
 export type Detalhe = { site: string; type: string; detail: string; veces: number; sesiones: number };
@@ -19,7 +19,7 @@ export type Hora = { hora: number; sesiones: number; contactos: number };
 export type Insight = { tono: 'bueno' | 'alerta' | 'neutro'; titulo: string; texto: string; accion: string };
 
 type Props = {
-  site: string; dias: number;
+  site: string; dias: number; verBots: boolean;
   porDia: Dia[]; origens: Origen[]; paises: Pais[]; buscas: Busca[];
   paginas: Pagina[]; detalhes: Detalhe[]; horas: Hora[]; insights: Insight[];
 };
@@ -52,7 +52,9 @@ const TIPO_LABEL: Record<string, string> = {
   filtro: 'Filtro usado', porta: 'Puerta de entrada', idioma: 'Idioma elegido',
 };
 
-export function MarketingView({ site, dias, porDia, origens, paises, buscas, paginas, detalhes, horas, insights }: Props) {
+export function MarketingView({ site, dias, verBots, porDia, origens, paises, buscas, paginas, detalhes, horas, insights }: Props) {
+  // com bots ligado, a coluna de sessões passa a ser o número bruto
+  const ses = (r: { sesiones: number; sesiones_todas: number }) => (verBots ? r.sesiones_todas : r.sesiones);
   const kpi = useMemo(() => {
     const personas = porDia.reduce((s, d) => s + d.personas, 0);
     const contactos = porDia.reduce((s, d) => s + d.con_contacto, 0);
@@ -99,10 +101,12 @@ export function MarketingView({ site, dias, porDia, origens, paises, buscas, pag
           </p>
         </div>
         <div className="flex gap-2">
-          <Filtro atual={site} campo="site" site={site} dias={dias}
+          <Filtro atual={site} campo="site" site={site} dias={dias} verBots={verBots}
                   opcoes={[['todos', 'Los dos'], ['gnh', 'GNH'], ['kasteller', 'Kasteller']]} />
-          <Filtro atual={String(dias)} campo="dias" site={site} dias={dias}
+          <Filtro atual={String(dias)} campo="dias" site={site} dias={dias} verBots={verBots}
                   opcoes={[['7', '7 días'], ['30', '30 días'], ['90', '90 días']]} />
+          <Filtro atual={verBots ? '1' : '0'} campo="bots" site={site} dias={dias} verBots={verBots}
+                  opcoes={[['0', 'Sin bots'], ['1', 'Con bots']]} />
         </div>
       </header>
 
@@ -175,13 +179,14 @@ export function MarketingView({ site, dias, porDia, origens, paises, buscas, pag
       <div className="grid gap-6 lg:grid-cols-2">
         <Card titulo="De dónde vienen" icon={<Globe size={16} />}>
           <Rolagem>
-            <Tabela cabecalho={['Origen', ['Sesiones', 'num'], ['Contactos', 'num'], ['Conv.', 'num']]}>
+            <Tabela cabecalho={colsBots(verBots, 'Origen')}>
               {origens.map((o) => (
                 <tr key={o.origen} className="border-t border-slate-100">
                   <td className="py-2 pr-3">{ORIGEM_LABEL[o.origen] ?? o.origen}</td>
-                  <td className="py-2 text-right tabular-nums">{o.sesiones}</td>
+                  <td className="py-2 text-right tabular-nums">{ses(o)}</td>
+                  {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{o.bots}</td>}
                   <td className="py-2 text-right tabular-nums">{o.contactos}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(o.contactos, o.sesiones)}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(o.contactos, ses(o))}</td>
                 </tr>
               ))}
             </Tabela>
@@ -195,15 +200,18 @@ export function MarketingView({ site, dias, porDia, origens, paises, buscas, pag
         </Card>
 
         <Card titulo="Geografía" icon={<MapPin size={16} />}
-              nota="Deducida de la zona horaria del navegador — sin IP y sin geolocalización.">
+              nota={verBots
+                ? 'Con bots: los crawlers aparecen como “Américas (otro)”, “Europa”, “Asia (otro)” — son datacenters, no público.'
+                : 'Deducida de la zona horaria del navegador — sin IP y sin geolocalización. Los crawlers están fuera.'}>
           <Rolagem>
-            <Tabela cabecalho={['País', ['Sesiones', 'num'], ['Contactos', 'num'], ['Conv.', 'num']]}>
+            <Tabela cabecalho={colsBots(verBots, 'País')}>
               {paises.map((p) => (
                 <tr key={p.pais} className="border-t border-slate-100">
                   <td className="py-2 pr-3">{p.pais}</td>
-                  <td className="py-2 text-right tabular-nums">{p.sesiones}</td>
+                  <td className="py-2 text-right tabular-nums">{ses(p)}</td>
+                  {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{p.bots}</td>}
                   <td className="py-2 text-right tabular-nums">{p.contactos}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, p.sesiones)}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, ses(p))}</td>
                 </tr>
               ))}
             </Tabela>
@@ -284,6 +292,13 @@ export function MarketingView({ site, dias, porDia, origens, paises, buscas, pag
 
 /* ---------- peças ---------- */
 
+/** Com bots ligado entra uma coluna a mais, entre sessões e contatos. */
+function colsBots(verBots: boolean, primeira: string): Col[] {
+  const base: Col[] = [primeira, ['Sesiones', 'num']];
+  if (verBots) base.push(['Bots', 'num']);
+  return base.concat([['Contactos', 'num'], ['Conv.', 'num']]);
+}
+
 function pct(parte: number, total: number) {
   return total ? `${((parte / total) * 100).toFixed(0)}%` : '—';
 }
@@ -298,13 +313,15 @@ function Rolagem({ children, alta }: { children: React.ReactNode; alta?: boolean
   return <div className={`overflow-y-auto overflow-x-auto ${alta ? 'max-h-[28rem]' : 'max-h-72'}`}>{children}</div>;
 }
 
-function Filtro({ atual, campo, opcoes, site, dias }: {
-  atual: string; campo: 'site' | 'dias'; opcoes: [string, string][]; site: string; dias: number;
+function Filtro({ atual, campo, opcoes, site, dias, verBots }: {
+  atual: string; campo: 'site' | 'dias' | 'bots'; opcoes: [string, string][];
+  site: string; dias: number; verBots: boolean;
 }) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-slate-200">
       {opcoes.map(([valor, label]) => {
-        const params = new URLSearchParams({ site, dias: String(dias) });
+        // todo filtro carrega o estado dos outros dois, senão trocar um zera o resto
+        const params = new URLSearchParams({ site, dias: String(dias), bots: verBots ? '1' : '0' });
         params.set(campo, valor);
         const ativo = atual === valor;
         return (
