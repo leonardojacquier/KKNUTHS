@@ -771,7 +771,10 @@ addEventListener('pageshow', (e) => { if (e.persisted && !location.hash) scrollT
    "maybe" para VP9 pero en muchos iPhone la reproducción real falla y la
    celda queda NEGRA (visto en producción el 01/08). */
 const KASTELLER_LOOP = "video/kasteller-hero.mp4";
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* sem GSAP o site vira a versão estática — é o mesmo caminho de quem pede
+   "reduzir movimento", que já está escrito e testado. Assim uma queda do CDN
+   custa as animações, não o analytics nem o formulário de lead. */
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || !HAS_GSAP;
 if (!reduced) document.documentElement.classList.add('js');
 
 /* marquee de marcas: só anima na tela. Fica aqui em cima, antes de
@@ -966,7 +969,7 @@ document.querySelectorAll('.stat b').forEach(el => {
 });
 
 /* ---------- 5) reveals genéricos ---------- */
-gsap.utils.toArray('.cat, .mat, .step').forEach((el, i) => {
+document.querySelectorAll('.cat, .mat, .step').forEach((el, i) => {
   if (reduced) return;
   gsap.to(el, {
     opacity: 1, y: 0, duration: 1, ease: "power3.out",
@@ -1012,11 +1015,22 @@ if (!reduced) {
 }
 
 /* ---------- header sólido após o hero ---------- */
-ScrollTrigger.create({
-  trigger: "#manifesto", start: "top 90px", end: "max",
-  onEnter: () => document.getElementById('siteHeader').classList.add('solid'),
-  onLeaveBack: () => document.getElementById('siteHeader').classList.remove('solid')
-});
+/* não é enfeite: sem o fundo sólido o menu fica ilegível sobre as fotos.
+   Por isso tem caminho próprio quando o GSAP não carregou. */
+const solido = (on) => document.getElementById('siteHeader').classList.toggle('solid', on);
+if (HAS_GSAP) {
+  ScrollTrigger.create({
+    trigger: "#manifesto", start: "top 90px", end: "max",
+    onEnter: () => solido(true), onLeaveBack: () => solido(false)
+  });
+} else {
+  const manif = document.getElementById('manifesto');
+  if (manif) {
+    const ver = () => solido(manif.getBoundingClientRect().top <= 90);
+    addEventListener('scroll', ver, { passive: true });
+    ver();
+  }
+}
 
 /* ---------- menú mobile ---------- */
 const burger = document.getElementById('burger');
@@ -1051,7 +1065,50 @@ const sbInsert = (table, row) => {
     }).catch(() => {});
   } catch (e) {}
 };
-const KT = (type, detail) => sbInsert("kasteller_events", { type, detail: detail || "", path: location.pathname, session_id: SID });
+/* ---------- origem da visita (first touch) ----------
+   O referrer só existe na página de entrada: se não guardar ali, some. É
+   resolvido uma vez por sessão e viaja em TODOS os eventos, então dá para
+   atribuir qualquer conversão à origem dela.
+   Atenção: o Google Maps e a Busca do Google mandam o MESMO referrer
+   (https://www.google.com/). Para separar a ficha de empresa é preciso pôr
+   ?utm_source=google-business no link do site dentro do perfil — o utm_source
+   sempre ganha do referrer. */
+const KREDES = [
+  [/(^|\.)maps\.google\./, 'google-maps'],
+  [/com\.google\.android\.apps\.maps/, 'google-maps'],
+  [/(^|\.)google\./, 'google'],
+  [/(^|\.)instagram\.com$/, 'instagram'],
+  [/(^|\.)(facebook|fb)\.com$/, 'facebook'],
+  [/(wa\.me|whatsapp\.com)$/, 'whatsapp'],
+  [/(^|\.)tiktok\.com$/, 'tiktok'],
+  [/(^|\.)(linkedin\.com|lnkd\.in)$/, 'linkedin'],
+  [/(^|\.)(twitter\.com|x\.com|t\.co)$/, 'x'],
+  [/(^|\.)(bing\.com|duckduckgo\.com|search\.yahoo\.com)$/, 'buscador'],
+  /* motores generativos: é o que o trabalho de GEO (llms.txt, JSON-LD) quer mover */
+  [/(^|\.)(chatgpt\.com|openai\.com)$/, 'chatgpt'],
+  [/(^|\.)perplexity\.ai$/, 'perplexity'],
+  [/(^|\.)(gemini|bard)\.google\.com$/, 'gemini'],
+  [/(^|\.)claude\.ai$/, 'claude']
+];
+const KREF = (() => {
+  try { const g = sessionStorage.getItem('kref'); if (g) return g; } catch (e) {}
+  let o = '';
+  try {
+    o = (new URLSearchParams(location.search).get('utm_source') || '')
+      .toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+  } catch (e) {}
+  if (!o) {
+    const r = document.referrer;
+    let h = '';
+    if (r) { try { h = new URL(r).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) {} }
+    if (!h) o = 'directo';
+    else if (h === location.hostname.replace(/^www\./, '')) o = 'interno';
+    else { const m = KREDES.find(p => p[0].test(h)); o = m ? m[1] : h.slice(0, 40); }
+  }
+  try { sessionStorage.setItem('kref', o); } catch (e) {}
+  return o;
+})();
+const KT = (type, detail) => sbInsert("kasteller_events", { type, detail: detail || "", path: location.pathname, session_id: SID, ref: KREF });
 document.querySelectorAll('.unicci-link').forEach(a =>
   a.addEventListener('click', () => KT('unicci', 'header')));
 const once = {};
@@ -1067,7 +1124,7 @@ if (!KHOSTS.includes(location.hostname)) KT1('clone', location.host + location.p
 /* landing (1x por sessão) */
 if (!sessionStorage.getItem('klanded')) {
   try { sessionStorage.setItem('klanded', '1'); } catch (e) {}
-  KT('landing', document.referrer || 'directo');
+  KT('landing', KREF);   /* a origem crua agora vive na coluna ref, normalizada */
 }
 
 /* payoff do hero: zoom completo (progress > .74 do pin) + faixa do menu */

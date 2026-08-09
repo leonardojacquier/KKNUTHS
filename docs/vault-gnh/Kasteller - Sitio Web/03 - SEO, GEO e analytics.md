@@ -115,7 +115,9 @@ rotativas, decorativas) ficou com `alt=""` + `aria-hidden="true"`, que é como s
       "Consultar" no lugar — funciona, mas foto converte mais.
 - [ ] **Google Business Profile** da Kasteller no endereço do showroom. Resolve de
       vez o mapa do rodapé (hoje o Google rotula o ponto com a ficha da Transcamilo)
-      e entra nas buscas locais de "revestimientos Ciudad del Este".
+      e entra nas buscas locais de "revestimientos Ciudad del Este". O conteúdo da
+      ficha já está escrito em [[GNH - Sitio Web/15 - Fichas do Google (GNH e Kasteller)]]
+      — inclusive o risco de criar no mesmo endereço da GNH.
 - [ ] **Reavaliar as buscas** daqui a ~1 semana, agora com dados limpos e com a
       contagem de resultados — mostra onde o catálogo é raso.
 - [ ] Sitemap ainda é escrito à mão pelo gerador; se surgirem mais seções, revisar.

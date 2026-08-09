@@ -1,7 +1,7 @@
 ---
 titulo: Analytics e rastreamento
 tags: [gnh, analytics, supabase, telegram, dados]
-atualizado: 2026-07-29
+atualizado: 2026-08-09
 ---
 
 # Analytics e rastreamento
@@ -23,11 +23,41 @@ O que interessa não é quem entrou, é **o que a pessoa procurou**.
 
 ## Tabelas no Supabase
 
-**`events`** — `id`, `type`, `detail`, `path`, `session_id`, `created_at`
+**`events`** — `id`, `type`, `detail`, `path`, `session_id`, **`ref`**, `created_at`
+**`kasteller_events`** — mesmas colunas, site da Kasteller
 **`leads`** — `id`, `nombre`, `empresa`, `whatsapp`, `producto`, `mensaje`, `origen`, `session_id`, `created_at`
 
 RLS: a chave anon só permite **INSERT**. Ler exige a função protegida por token.
 Por isso a chave anon pode viver no JavaScript público sem risco.
+
+### `ref` — de onde veio a visita (09/08/2026)
+
+Até aqui não gravávamos origem nenhuma: Instagram, Google e quem digitou o endereço
+eram indistinguíveis. A coluna `ref` resolve isso e vai em **todo** evento, não só no
+`landing` — assim qualquer conversão pode ser atribuída.
+
+O valor é resolvido **uma vez por sessão** e guardado no `sessionStorage`. Tem que ser
+assim: o referrer só existe na página de entrada; quem navega para a segunda página
+já o perde.
+
+Ordem de decisão: `utm_source` da URL → referrer normalizado → `directo`.
+
+| Valor | Vem de |
+|---|---|
+| `google` | busca do Google (e o clique no site **de dentro** da ficha de empresa) |
+| `google-maps` | referrer literal `maps.google.com` ou o app do Maps no Android |
+| `google-business` | só com `?utm_source=google-business` no campo *Sitio web* da ficha |
+| `instagram`, `facebook`, `whatsapp`, `tiktok`, `linkedin`, `x` | redes |
+| `chatgpt`, `perplexity`, `gemini`, `claude` | motores generativos — é o que o GEO quer mover |
+| `buscador` | Bing, DuckDuckGo, Yahoo |
+| `interno` | mesmo domínio (navegação entre páginas) |
+| `directo` | sem referrer: link digitado, app, PDF, QR |
+| *domínio cru* | qualquer outro, guardado como veio |
+
+> [!warning] Maps e Busca mandam o mesmo referrer
+> Os dois chegam como `https://www.google.com/`. Separar a ficha de empresa **só** é
+> possível com o UTM no link do perfil — ver
+> [[15 - Fichas do Google (GNH e Kasteller)]].
 
 ## Tipos de evento
 

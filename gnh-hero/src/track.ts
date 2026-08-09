@@ -43,6 +43,61 @@ function post(table: string, row: Record<string, unknown>): Promise<boolean> {
   }).then((r) => r.ok).catch(() => false)
 }
 
+/* ---------- origen de la visita (first touch) ----------
+   El referrer solo existe en la página de entrada: si no se guarda ahí, se
+   pierde. Se resuelve una vez por sesión y viaja en TODOS los eventos, así
+   cualquier conversión se puede atribuir a su origen.
+
+   Ojo: Google Maps y la Búsqueda de Google mandan el mismo referrer
+   (https://www.google.com/). Para separar el perfil de empresa hay que poner
+   ?utm_source=google-business en el enlace del sitio dentro del perfil — el
+   utm_source siempre gana sobre el referrer. */
+const REDES: Array<[RegExp, string]> = [
+  [/(^|\.)maps\.google\./, 'google-maps'],
+  [/com\.google\.android\.apps\.maps/, 'google-maps'],
+  [/(^|\.)google\./, 'google'],
+  [/(^|\.)instagram\.com$/, 'instagram'],
+  [/(^|\.)(facebook|fb)\.com$/, 'facebook'],
+  [/(wa\.me|whatsapp\.com)$/, 'whatsapp'],
+  [/(^|\.)tiktok\.com$/, 'tiktok'],
+  [/(^|\.)(linkedin\.com|lnkd\.in)$/, 'linkedin'],
+  [/(^|\.)(twitter\.com|x\.com|t\.co)$/, 'x'],
+  [/(^|\.)(bing\.com|duckduckgo\.com|search\.yahoo\.com)$/, 'buscador'],
+  // motores generativos: es lo que el trabajo de GEO (llms.txt, JSON-LD) busca mover
+  [/(^|\.)(chatgpt\.com|openai\.com)$/, 'chatgpt'],
+  [/(^|\.)perplexity\.ai$/, 'perplexity'],
+  [/(^|\.)(gemini|bard)\.google\.com$/, 'gemini'],
+  [/(^|\.)claude\.ai$/, 'claude'],
+]
+
+function origen(): string {
+  try {
+    const guardado = sessionStorage.getItem('gnh-ref')
+    if (guardado) return guardado
+  } catch { /* sin storage: se recalcula por carga, no rompe */ }
+
+  let o = ''
+  try {
+    o = (new URLSearchParams(location.search).get('utm_source') ?? '')
+      .toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30)
+  } catch { /* noop */ }
+
+  if (!o) {
+    const r = document.referrer
+    if (!r) o = 'directo'
+    else {
+      let h = ''
+      try { h = new URL(r).hostname.toLowerCase().replace(/^www\./, '') } catch { /* noop */ }
+      if (!h) o = 'directo'
+      else if (h === location.hostname.replace(/^www\./, '')) o = 'interno'
+      else o = REDES.find(([re]) => re.test(h))?.[1] ?? h.slice(0, 40)
+    }
+  }
+
+  try { sessionStorage.setItem('gnh-ref', o) } catch { /* noop */ }
+  return o
+}
+
 /** Registra un evento de negocio (fire-and-forget). */
 export function track(type: string, detail = ''): void {
   void post('events', {
@@ -50,6 +105,7 @@ export function track(type: string, detail = ''): void {
     detail: detail.slice(0, 200),
     path: location.pathname.slice(0, 120),
     session_id: sid(),
+    ref: origen(),
   })
 }
 
