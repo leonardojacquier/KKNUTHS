@@ -32,8 +32,9 @@ status: em produção
 | [[09 - Operacao diaria]] | Receitas do dia a dia: publicar, adicionar produto, trocar promoção |
 | [[10 - Pendencias e roadmap]] | O que falta, em ordem de impacto |
 | [[11 - Decisoes]] | Decisões tomadas e o porquê — para não revisitar |
-| [[12 - Glossario]]
-- [[13 - Plano - Painel e Central de Campanhas]] 🆕 *(aguardando aprovação)* | Termos que aparecem na documentação |
+| [[12 - Glossario]] | Termos que aparecem na documentação |
+| [[13 - Plano - Painel e Central de Campanhas]] | Plano do painel de indicadores e da central de artes *(aguardando aprovação)* |
+| [[14 - Acessibilidade e H1]] | O H1 que o JS apagava, alvos de toque e `alt` nas imagens |
 
 ---
 

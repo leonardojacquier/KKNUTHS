@@ -43,8 +43,8 @@ export function mountFooter(slotId = 'footer-slot'): void {
               <div class="foot-store-info">
                 <p class="font-semibold text-white">${t.ciudad}</p>
                 <p class="text-sm">${t.dir}</p>
-                ${t.tel ? `<p class="text-sm">Tel: <a href="tel:+595${t.tel.replace(/\D/g, '').replace(/^0/, '')}" class="hover:text-orange">${t.tel}</a></p>` : ''}
-                <a href="${t.share}" target="_blank" rel="noopener" class="text-orange hover:underline text-sm">Ver en Google Maps →</a>
+                ${t.tel ? `<p class="text-sm">Tel: <a href="tel:+595${t.tel.replace(/\D/g, '').replace(/^0/, '')}" class="foot-link hover:text-orange">${t.tel}</a></p>` : ''}
+                <a href="${t.share}" target="_blank" rel="noopener" class="foot-link text-orange hover:underline text-sm">Ver en Google Maps →</a>
               </div>
             </div>`).join('')}
         </div>
@@ -65,10 +65,10 @@ export function mountFooter(slotId = 'footer-slot'): void {
         </div>
         <div class="md:justify-self-end">
           <h4 class="font-display text-sm font-bold uppercase tracking-[0.2em] text-white">Contacto</h4>
-          <ul class="mt-4 space-y-2 text-sm">
-            <li><a href="tel:+595995360060" class="hover:text-orange">+595 995 360060</a></li>
-            <li><a href="mailto:comercial@gnhorizons.com" class="hover:text-orange">comercial@gnhorizons.com</a></li>
-            <li><a href="${SOCIAL.whatsapp}" target="_blank" rel="noopener" class="hover:text-orange">WhatsApp</a></li>
+          <ul class="mt-2 text-sm">
+            <li><a href="tel:+595995360060" class="foot-link hover:text-orange">+595 995 360060</a></li>
+            <li><a href="mailto:comercial@gnhorizons.com" class="foot-link hover:text-orange">comercial@gnhorizons.com</a></li>
+            <li><a href="${SOCIAL.whatsapp}" target="_blank" rel="noopener" class="foot-link hover:text-orange">WhatsApp</a></li>
           </ul>
         </div>
       </div>

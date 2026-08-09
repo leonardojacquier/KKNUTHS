@@ -116,17 +116,20 @@ a.vh-cta { text-decoration: none; }
   display: flex; align-items: center; gap: 18px;
 }
 .vh-segs { display: flex; gap: 10px; flex: 1; }
+/* a barrinha continua com 4px, mas o botão tem 44px de altura de toque:
+   o padding transparente vira área clicável e o traço fica no content-box */
 .vh-seg {
   position: relative; flex: 1; max-width: 150px; height: 4px; border-radius: 3px;
-  background: rgba(255,255,255,.24); border: 0; padding: 0; cursor: pointer; overflow: hidden;
+  background: rgba(255,255,255,.24); border: 0; cursor: pointer;
+  padding: 20px 0; background-clip: content-box; box-sizing: content-box;
 }
-.vh-seg-fill { position: absolute; inset: 0; width: 0; background: #fff; border-radius: 3px; }
+.vh-seg-fill { position: absolute; inset: 20px 0; width: 0; background: #fff; border-radius: 3px; }
 .vh-seg.is-done .vh-seg-fill { width: 100%; }
 .vh-seg.is-active .vh-seg-fill { animation: vh-fill var(--vh-dur, 5200ms) linear forwards; }
 .v-showcase.is-paused .vh-seg.is-active .vh-seg-fill { animation-play-state: paused; }
 @keyframes vh-fill { from { width: 0; } to { width: 100%; } }
 .vh-pause {
-  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
   background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: #fff; cursor: pointer;
   transition: background .25s;
 }
@@ -160,6 +163,20 @@ a.vh-cta { text-decoration: none; }
   .vh-seg.is-active .vh-seg-fill { animation: none; width: 100%; }
 }
 
+
+/* cabeçalho do catálogo — carrega o <h1> da página (ver renderCatalog) */
+#catalog { scroll-margin-top: 88px; }  /* o header é sticky: sem isso o H1 fica escondido atrás dele */
+.v-cat-head { margin-bottom: 26px; }
+.v-cat-eyebrow {
+  font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .3em; color: #F26D21;
+}
+.v-cat-h1 {
+  font-family: 'Satoshi', sans-serif; font-weight: 800; font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.08; letter-spacing: -.02em; color: #0F172A; margin: 10px 0 0; max-width: 22ch;
+}
+.v-cat-h1 span { color: #1E3A8A; }
+.v-cat-sub { color: rgba(15, 23, 42, .68); font-size: 16px; margin-top: 12px; max-width: 60ch; }
 
 /* deck de categorias (mesmo movimento do institucional) */
 .v-deck { display: flex; gap: 14px; margin-top: 8px; }
@@ -326,11 +343,13 @@ a.vh-cta { text-decoration: none; }
   backdrop-filter: blur(4px); white-space: nowrap;
 }
 .v-card:hover .v-media-hint, .v-media-link:focus-visible .v-media-hint { opacity: 1; }
-.v-name a { color: inherit; text-decoration: none; }
+/* o padding dá 45px de área de toque; a margem negativa devolve o espaço,
+   então o cartão não muda de altura */
+.v-name a { color: inherit; text-decoration: none; display: inline-block; padding: 13px 0; margin: -13px 0; }
 .v-name a:hover { color: var(--orange, #F26D21); }
 .v-card-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; }
 .v-doc {
-  display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px;
+  display: inline-flex; align-items: center; min-height: 44px; padding: 6px 16px;
   border: 1px solid #D8DEE8; border-radius: 100px; background: #fff;
   font-family: 'Satoshi', sans-serif; font-size: 12.5px; font-weight: 700;
   color: #14213D; text-decoration: none; transition: background .2s, border-color .2s;
@@ -345,7 +364,7 @@ a.vh-cta { text-decoration: none; }
 .v-name { font-family: 'Satoshi', sans-serif; font-weight: 700; font-size: 17px; color: #0F172A; margin-top: 3px; }
 .v-note { font-size: 13.5px; color: #5B6472; margin-top: 4px; }
 .v-cta {
-  margin-top: 14px; display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+  margin-top: 14px; display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
   font-weight: 700; font-size: 14px; color: #F26D21; text-decoration: none; transition: gap 0.25s;
 }
 .v-cta:hover { gap: 11px; }
@@ -437,7 +456,7 @@ a.vh-cta { text-decoration: none; }
 }
 .v-promo-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .v-promo-cta, .v-promo-wa {
-  display: inline-flex; align-items: center; min-height: 42px; padding: 9px 20px;
+  display: inline-flex; align-items: center; min-height: 44px; padding: 10px 20px;
   border-radius: 100px; font-family: 'Satoshi', sans-serif; font-weight: 700;
   font-size: 14px; text-decoration: none;
 }
@@ -570,10 +589,12 @@ a.vh-cta { text-decoration: none; }
 
 /* ===== tablas de modelos dentro de las tarjetas de producto ===== */
 .v-specs { margin: 2px 0 10px; }
-.v-specs summary { cursor: pointer; color: #1E3A8A; font-weight: 600; font-size: 13.5px; min-height: 34px; display: flex; align-items: center; list-style-position: inside; }
+.v-specs summary { cursor: pointer; color: #1E3A8A; font-weight: 600; font-size: 13.5px; min-height: 44px; display: flex; align-items: center; list-style-position: inside; }
 .v-specs summary:hover { color: #F26D21; }
 .v-specs-scroll { max-height: 220px; overflow: auto; border: 1px solid #E4E8F1; border-radius: 10px; margin-top: 6px; }
 .v-specs table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .v-specs th { position: sticky; top: 0; background: #0F172A; color: #fff; padding: 6px 9px; text-align: left; white-space: nowrap; font-weight: 600; }
 .v-specs td { padding: 5px 9px; border-top: 1px solid #EEF1F6; white-space: nowrap; color: #3c4250; }
+/* "Ver ficha" dentro da tabela: 44px de alto sem engordar a linha */
+.v-specs td a { display: inline-flex; align-items: center; min-height: 44px; margin: -11px 0; padding: 0 4px; }
 .v-specs tr:nth-child(even) td { background: #F7F9FC; }

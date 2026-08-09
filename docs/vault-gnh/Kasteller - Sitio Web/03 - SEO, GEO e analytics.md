@@ -92,6 +92,21 @@ na hora. O evento passa a levar a contagem de resultados: `porcelanato [895]`.
 
 Medido no navegador digitando "porcelanato" letra a letra: **1 evento, era 11**.
 
+## `alt` nas imagens (09/08/2026)
+
+30 das 50 imagens da home chegavam sem `alt` — os cartões do buscador saíam com
+`alt=""` fixo. Agora o `cardHTML` monta a descrição a partir do próprio produto:
+
+```
+Community Sgr Nat — Ceusa, porcelanato · 80X80 · natural
+```
+
+Isso abre o **Google Imagens** para o catálogo, que até aqui não tinha texto nenhum
+para indexar — e é o que um leitor de tela precisa ouvir. O mosaico do hero (14 fotos
+rotativas, decorativas) ficou com `alt=""` + `aria-hidden="true"`, que é como se diz
+"pule isto" sem parecer esquecimento. Detalhes em
+[[GNH - Sitio Web/14 - Acessibilidade e H1]].
+
 ## O que ainda falta
 
 - [ ] **Páginas por produto** (`/marcas/<marca>/<produto>/`) — o passo seguinte

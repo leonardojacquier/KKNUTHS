@@ -624,12 +624,12 @@
   <div class="ruler" aria-hidden="true"></div>
   <div class="track-wrap">
     <div class="track" id="track">
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1sPj7HMCIKVUX1T7UOvEeS1Bwiyk-ux5c" alt=""></div><figcaption><span>Residencia AV</span><span>2025</span></figcaption></figure>
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1GXMNQgfDaiq8AxX2NQhjWae-mcvblXzv" alt=""></div><figcaption><span>Casa Patio</span><span>2025</span></figcaption></figure>
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1Prt0CJ4mM_rYogEE-UdabWVFmGAqFp_Y" alt=""></div><figcaption><span>Loft Centro</span><span>2024</span></figcaption></figure>
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1KDK8bPunvRXp5jjdqEkUzzMKSCDtIT19" alt=""></div><figcaption><span>Torre Jardín</span><span>2024</span></figcaption></figure>
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1MAOjyYh5DnATQFW2fsnUdPsDwlaq3D3l" alt=""></div><figcaption><span>Casa Bosque</span><span>2023</span></figcaption></figure>
-      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1l2qAaOSfxwpWcN2gV8MctEz1O8dDrs19" alt=""></div><figcaption><span>Showroom K</span><span>2023</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1sPj7HMCIKVUX1T7UOvEeS1Bwiyk-ux5c" alt="Residencia AV — revestimientos Kasteller aplicados, 2025"></div><figcaption><span>Residencia AV</span><span>2025</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1GXMNQgfDaiq8AxX2NQhjWae-mcvblXzv" alt="Casa Patio — porcelanato de gran formato Kasteller, 2025"></div><figcaption><span>Casa Patio</span><span>2025</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1Prt0CJ4mM_rYogEE-UdabWVFmGAqFp_Y" alt="Loft Centro — revestimientos Kasteller, 2024"></div><figcaption><span>Loft Centro</span><span>2024</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1KDK8bPunvRXp5jjdqEkUzzMKSCDtIT19" alt="Torre Jardín — fachada con revestimientos Kasteller, 2024"></div><figcaption><span>Torre Jardín</span><span>2024</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1MAOjyYh5DnATQFW2fsnUdPsDwlaq3D3l" alt="Casa Bosque — piedra natural y porcelanato Kasteller, 2023"></div><figcaption><span>Casa Bosque</span><span>2023</span></figcaption></figure>
+      <figure class="proj"><div class="ph"><img loading="lazy" decoding="async" data-src="1l2qAaOSfxwpWcN2gV8MctEz1O8dDrs19" alt="Showroom K — showroom Kasteller en Ciudad del Este, 2023"></div><figcaption><span>Showroom K</span><span>2023</span></figcaption></figure>
     </div>
   </div>
   </div>
@@ -886,7 +886,9 @@ for (let r = 1; r <= ROWS; r++) for (let c = 1; c <= COLS; c++) {
   } else {
     const img = document.createElement('img');
     cargaFoto(img, photos[p++ % photos.length], `https://picsum.photos/seed/kh${r}${c}/900/700`, true);
-    img.alt = "";
+    /* mosaico é pano de fundo: alt vazio + aria-hidden é o jeito certo de dizer
+       "decorativo" — leitor de tela pula em vez de ler 14 fotos sem sentido */
+    img.alt = ""; img.setAttribute('aria-hidden', 'true');
     fadeImg(img);
     cell.appendChild(img);
   }

@@ -641,7 +641,15 @@ function selectCategory(id: string, scroll = false): void {
 
 function renderCatalog(): void {
   const root = document.getElementById('catalog')!
+  /* o bloco .v-seo que estava aqui some ao pintar o catálogo — e com ele ia embora
+     o único <h1> da página. Como o Google renderiza JS, a versão indexada ficava
+     sem H1. O cabeçalho abaixo devolve esse H1, agora visível. */
   root.innerHTML = `
+    <header class="v-cat-head">
+      <span class="v-cat-eyebrow">Catálogo B2B</span>
+      <h1 class="v-cat-h1">Equipos y materiales para <span>construcción e industria</span> en Paraguay y Brasil</h1>
+      <p class="v-cat-sub">Siete líneas, cotización directa por WhatsApp. Elegí una para ver los productos.</p>
+    </header>
     <div class="v-deck">${CATALOG.map(deckPanel).join('')}</div>
     <div class="v-products" id="v-products"></div>`
 

@@ -32,6 +32,12 @@
   function track(tipo, detalle) {
     try { if (typeof window.KT === 'function') window.KT(tipo, detalle); } catch (e) {}
   }
+  /* nomes de produto entram em atributos HTML (alt, title) — aspas e & quebrariam a tag */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
   /* ---------- carga de dados ---------- */
   function carga(cb) {
@@ -117,17 +123,25 @@
 
     /* ---------- render ---------- */
     function cardHTML(pr) {
-      var ph = pr.img
-        ? '<div class="kb__ph"><img loading="lazy" src="' + pr.img + '" alt="" ' +
-          'onload="this.classList.add(\'ok\')" onerror="this.parentNode.className=\'kb__ph kb__ph--txt\';this.outerHTML=\'<span>' + pr.nombre + '</span>\'">' +
-          '<span class="kb__marca">' + pr.marca + '</span></div>'
-        : '<div class="kb__ph kb__ph--txt"><span>' + pr.nombre + '</span>' +
-          '<span class="kb__marca">' + pr.marca + '</span></div>';
       var meta = [pr.tipo, pr.formato !== 'VARIOS' ? pr.formato : null, pr.acabado]
         .filter(Boolean).join(' · ');
-      return '<a class="kb__card" href="' + (pr.url || '#') + '" target="_blank" rel="noopener" data-id="' + pr.id + '">' +
-        ph + '<div class="kb__info"><div class="kb__nombre">' + pr.nombre + '</div>' +
-        '<div class="kb__meta">' + meta + '</div></div></a>';
+      /* alt descritivo: quem usa leitor de tela ouve o produto, e o Google Imagens
+         passa a ter do que indexar ("Bianco Carrara — Portinari, Porcelanato · 60x120") */
+      var alt = esc(pr.nombre + ' — ' + pr.marca + (meta ? ', ' + meta : ''));
+      var nome = esc(pr.nombre);
+      /* o nome vai no data-n e o fallback usa textContent: nome com aspas ou &
+         quebrava a string JS que ficava dentro do atributo onerror */
+      var ph = pr.img
+        ? '<div class="kb__ph" data-n="' + nome + '"><img loading="lazy" src="' + esc(pr.img) + '" alt="' + alt + '" ' +
+          'onload="this.classList.add(\'ok\')" ' +
+          'onerror="var p=this.parentNode;p.className=\'kb__ph kb__ph--txt\';' +
+          'var s=document.createElement(\'span\');s.textContent=p.dataset.n;this.replaceWith(s)">' +
+          '<span class="kb__marca">' + esc(pr.marca) + '</span></div>'
+        : '<div class="kb__ph kb__ph--txt"><span>' + nome + '</span>' +
+          '<span class="kb__marca">' + esc(pr.marca) + '</span></div>';
+      return '<a class="kb__card" href="' + esc(pr.url || '#') + '" target="_blank" rel="noopener" data-id="' + esc(pr.id) + '">' +
+        ph + '<div class="kb__info"><div class="kb__nombre">' + nome + '</div>' +
+        '<div class="kb__meta">' + esc(meta) + '</div></div></a>';
     }
 
     function render() {

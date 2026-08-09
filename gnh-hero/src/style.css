@@ -125,7 +125,7 @@
 
 /* ---------- rodapé social ---------- */
 .foot-social {
-  width: 42px; height: 42px; border-radius: 11px;
+  width: 44px; height: 44px; border-radius: 11px;
   display: grid; place-items: center;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -145,6 +145,8 @@
 .foot-map { width: 100%; height: 170px; border: 0; display: block; filter: grayscale(0.2); }
 .foot-store-info { padding: 16px 18px; }
 .foot-store-info p { margin-bottom: 2px; }
+/* links de texto do rodapé: 44px de altura de toque sem virar botão */
+.foot-link { display: inline-flex; align-items: center; min-height: 44px; }
 
 /* ---------- WhatsApp flotante ---------- */
 .wa-float {

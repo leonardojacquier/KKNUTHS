@@ -109,10 +109,10 @@ svg{display:block}
 .btn-ghost:hover{background:rgba(255,255,255,.12);box-shadow:none;border-color:rgba(255,255,255,.7)}
 .nav .btn{min-height:44px;padding:10px 22px;font-size:15px}
 .lang{display:flex;gap:4px}
-.lang button{font-family:var(--font-head);font-weight:600;font-size:11.5px;letter-spacing:.03em;color:rgba(255,255,255,.62);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 8px;min-height:30px;cursor:pointer;transition:color .25s,background .25s,border-color .25s}
+.lang button{font-family:var(--font-head);font-weight:600;font-size:11.5px;letter-spacing:.03em;color:rgba(255,255,255,.62);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 10px;min-width:44px;min-height:44px;cursor:pointer;transition:color .25s,background .25s,border-color .25s}
 .lang button:hover{color:#fff;border-color:rgba(255,255,255,.4)}
 .lang button.on{color:#fff;background:var(--orange);border-color:var(--orange)}
-@media(max-width:420px){.lang button{padding:4px 6px;font-size:10.5px}}
+@media(max-width:420px){.lang button{padding:4px 7px;font-size:10.5px}}
 .menu-toggle{display:none;background:none;border:0;cursor:pointer;padding:10px;min-width:44px;min-height:44px}
 .menu-toggle svg{stroke:#fff}
 @media(max-width:900px){
@@ -538,8 +538,10 @@ footer{background:var(--navy-ink);color:rgba(255,255,255,.6);padding:60px 0 0}
   .foot-grid>div:last-child{justify-self:center;text-align:center}
   .foot-grid .logo{justify-content:center}.social{justify-content:center}}
 footer h4{color:#fff;font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
-footer p{font-size:15.5px;margin-bottom:8px}
+footer p{font-size:15.5px;margin-bottom:2px}
 footer a{color:rgba(255,255,255,.75);text-decoration:none;transition:color .25s}
+/* contato do rodapé: 44px de altura de toque (o parágrafo perdeu a margem em troca) */
+footer p>a:only-child{display:inline-flex;align-items:center;min-height:44px}
 footer a:hover{color:var(--orange-soft)}
 .social{display:flex;gap:12px;margin-top:18px}
 .social a{
@@ -826,7 +828,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 .cat .deck-logo.on-chip{background:#fff;padding:7px 12px;border-radius:10px;height:46px}
 /* enlaces FletePar dentro de la caja del deck */
 .cat .fp-links{display:flex;flex-direction:column;gap:2px;margin-top:4px}
-.cat .fp-links a{display:flex;align-items:center;gap:9px;min-height:40px;color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;border-bottom:1px solid rgba(255,255,255,.09)}
+.cat .fp-links a{display:flex;align-items:center;gap:9px;min-height:44px;color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;border-bottom:1px solid rgba(255,255,255,.09)}
 .cat .fp-links a:last-child{border-bottom:0}
 .cat .fp-links a:hover{color:var(--orange-soft)}
 .cat .fp-links svg{width:18px;height:18px;stroke:var(--orange-soft);color:var(--orange-soft);flex-shrink:0}
@@ -1041,7 +1043,7 @@ zh: {
 .local-info{padding:24px 26px}
 .local-info h3{font-size:20px;margin-bottom:8px}
 .local-info p{color:var(--muted);font-size:15.5px;line-height:1.65;margin:0}
-.local-info a.plain{color:inherit;text-decoration:none}
+.local-info a.plain{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px}
 .local-info a.plain:hover{color:var(--orange)}
 .local-info .llink{display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:var(--orange);font-weight:600;font-size:14.5px;text-decoration:none;min-height:44px}
 .local-info .llink svg{width:16px;height:16px;stroke:currentColor}
