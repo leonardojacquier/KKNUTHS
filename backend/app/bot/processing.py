@@ -1900,6 +1900,21 @@ def prepare_report(telegram_id: int, username: str | None,
     from app.analysis.prep import dicas_para, parse_tournament_profile
 
     torneio = parse_tournament_profile(args_text)
+
+    # ESTRUTURA MEDIDA. Até aqui o formato saía só da palavra digitada: sem
+    # "turbo" na frase, não havia formato nenhum, e a preparação perdia a
+    # metade que decide (quando o push/fold começa). O nível e o horário
+    # estão em toda mão de torneio — dá para medir em vez de perguntar.
+    from app.analysis.estrutura import escolher, medir
+    from app.analysis.estrutura import texto as texto_da_estrutura
+
+    estrutura = escolher(medir(src_hands), torneio.get("buyin"))
+    if estrutura is not None and not torneio.get("formato"):
+        # "lento" não tem dicas próprias; as de "regular" já falam de
+        # estrutura lenta ("paciência", "implied existe de verdade aqui")
+        torneio["formato"] = ("regular" if estrutura.ritmo == "lento"
+                              else estrutura.ritmo)
+
     dicas = dicas_para(torneio)
     ctx: dict = {
         "torneio_de_hoje": torneio if torneio.get("descricao") else None,
@@ -1910,6 +1925,8 @@ def prepare_report(telegram_id: int, username: str | None,
         "leaks": detect_leaks(src_hands[:150]),
         "tilt": detect_mental(src_hands[:300]),
     }
+    if estrutura is not None:
+        ctx["estrutura_medida"] = estrutura._asdict()
     if user:
         notes = repo.get_notes(user["id"], limit=6)
         if notes:
@@ -1920,6 +1937,17 @@ def prepare_report(telegram_id: int, username: str | None,
     briefing = prepare_briefing(ctx)
     if not briefing:
         return None
+
+    # o bloco da estrutura é DETERMINÍSTICO: os números vão como foram
+    # medidos, sem passar pelo modelo para serem recontados
+    if estrutura is not None:
+        briefing += "\n\n" + texto_da_estrutura(estrutura)
+        dito = parse_tournament_profile(args_text).get("formato")
+        if dito and dito != estrutura.ritmo:
+            briefing += (
+                f"\n⚠️ Você disse *{dito}* e eu medi *{estrutura.ritmo}* no "
+                f"seu histórico. Se o torneio de hoje é outro, vale o que "
+                f"você disse — o número acima é do que você já jogou.")
 
     # ranges do formato como imagem: turbo/hyper vivem de push/fold (anexa o
     # equilíbrio de shove do SB); estrutura lenta ganha a referência de open
