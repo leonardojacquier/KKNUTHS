@@ -80,13 +80,60 @@ def test_cartas_da_mao_le_o_canonical():
     assert _cartas_da_mao(_Repo(), None) == {}
 
 
-def test_o_main_conta_o_que_barrou():
+def test_o_main_conta_o_que_barrou(monkeypatch):
     """Barrar em silêncio esconde o defeito: 'lições: 0 novas' parece dia
     fraco quando na verdade o destilador escreveu mentira."""
-    import inspect
+    import destilar_licoes as d
 
-    import destilar_licoes
+    gravados, eventos = [], []
 
-    fonte = inspect.getsource(destilar_licoes.main)
-    assert "mentiu_sobre_poker" in fonte
-    assert "mentiras_barradas" in fonte
+    class _T:
+        def insert(self, payload):
+            gravados.append(payload)
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": [{"id": "L1"}]})()
+
+    class _Repo:
+        enabled = True
+
+        class client:
+            @staticmethod
+            def table(_):
+                return _T()
+
+        @staticmethod
+        def log_event(_tg, _u, ev, detalhe=None):
+            eventos.append((ev, detalhe or {}))
+
+    # a mão é KK; a lição afirma que o vilão tinha AA e que "sempre paga" —
+    # é a #26 do caso real, que nasceu errada e foi para a estante
+    verdadeira = {"id": "A1", "hero_cards": ["Kh", "Kd"],
+                  "final_board": ["2c", "7c", "9h", "Ac", "Th"]}
+    boa = {"titulo": "Overpair em board seco",
+           "spot": "KK no BTN, flop 2-7-9 rainbow.",
+           "licao": "Segue apostando um terço: ele tem poucos pares fortes."}
+    mentirosa = {"titulo": "Só perde para QQ",
+                 "spot": "KK contra all-in curto.",
+                 "licao": "Com KK você só perde para QQ nesse spot."}
+
+    monkeypatch.setattr(d, "get_repository", lambda: _Repo())
+    monkeypatch.setattr(d, "candidatas", lambda *a, **k: [verdadeira,
+                                                         dict(verdadeira,
+                                                              id="A2")])
+    saidas = iter([boa, mentirosa])
+    monkeypatch.setattr(d, "destilar", lambda _a: next(saidas))
+
+    assert d.main() == 0
+
+    titulos = [g["titulo"] for g in gravados]
+    assert titulos == ["Overpair em board seco"], (
+        f"a lição com fato falso foi para a estante: {titulos}")
+
+    nome, detalhe = eventos[-1]
+    assert nome == "licoes_destiladas"
+    assert detalhe["novas"] == 1
+    assert detalhe["mentiras_barradas"] == 1, (
+        "barrou em silêncio: 'lições: 0 novas' parece dia fraco quando na "
+        "verdade o destilador escreveu mentira")

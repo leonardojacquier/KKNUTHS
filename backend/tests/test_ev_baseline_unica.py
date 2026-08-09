@@ -70,14 +70,54 @@ def test_fronteira_do_spot_e_indiferenca_de_verdade():
 
 
 def test_spot_mostra_vs_fold_e_nao_o_absoluto():
-    import inspect
+    """O /spot roda e os NÚMEROS do texto são os mesmos do gráfico.
 
-    from app.bot import processing
+    A versão anterior procurava três substrings no texto-fonte, e a última
+    tinha um fallback que buscava no módulo INTEIRO quando não achava a
+    função — ou seja, bastava a string existir em qualquer outro lugar de
+    3.600 linhas.
 
-    fonte = inspect.getsource(processing.texto_do_spot) \
-        if hasattr(processing, "texto_do_spot") else ""
-    if not fonte:                      # nome interno mudou: busca no módulo
-        fonte = inspect.getsource(processing)
-    assert 'sorted(sol["ev_vs_fold"].items()' in fonte
-    assert "bb a mais que foldar" in fonte
-    assert "tanto faz agir ou foldar" in fonte
+    O que este teste fixa é a baseline: tudo em bb A MAIS QUE FOLDAR. Com o
+    EV absoluto a legenda dizia "verde = melhor que foldar" ao lado de outro
+    número, e a fronteira saía errada — indiferença é `ev == ev do fold`
+    (negativo, ~-0.6bb), não `ev` perto de zero. KTs aparecia como "quase
+    indiferente" valendo +0.95bb a mais que foldar, que é um call óbvio.
+    """
+    import re
+
+    from app.analysis.allin_engine import available, solve_spot
+    from app.bot.processing import spot_reply
+
+    if not available():
+        pytest.skip("solver de all-in indisponível neste ambiente")
+
+    saida = spot_reply("reshove btn 12 co")
+    assert saida, "o /spot não entendeu um spot que ele documenta aceitar"
+    texto, specs = saida
+
+    # 1) os números do texto são os de ev_vs_fold, não os absolutos
+    # os MESMOS argumentos que `spot_reply` monta a partir de "reshove btn
+    # 12 co" — resolver com outros parâmetros compararia dois spots
+    sol = solve_spot("reshove", "BTN", 12.0, 0.125, 1.0, "CO", 2.2, 0)
+    melhores = re.search(r"Melhores.*?: (.+)", texto).group(1)
+    for mao, valor in re.findall(r"([AKQJT2-9]{2}[so]?) \(([+-][\d.]+)\)",
+                                 melhores):
+        assert abs(float(valor) - sol["ev_vs_fold"][mao]) < 0.05, (
+            f"{mao} saiu {valor}, mas vs-fold é "
+            f"{sol['ev_vs_fold'][mao]:+.1f} — texto e gráfico divergem")
+        assert abs(float(valor) - sol["ev"][mao]) > 0.05 \
+            or sol["ev"][mao] == sol["ev_vs_fold"][mao], (
+            f"{mao} saiu com o EV ABSOLUTO, que é a baseline errada")
+
+    # 2) a fronteira é |vs-fold| pequeno, e mão obviamente forte não entra
+    fronteira = re.search(r"fronteira.*?: (.+)", texto)
+    if fronteira:
+        for mao in [m.strip() for m in fronteira.group(1).split(",")]:
+            assert abs(sol["ev_vs_fold"][mao]) <= 0.25, (
+                f"{mao} está na 'fronteira' valendo "
+                f"{sol['ev_vs_fold'][mao]:+.1f}bb a mais que foldar")
+        assert "AA" not in fronteira.group(1)
+
+    # 3) e a legenda combina com a unidade dos números acima
+    assert "bb a mais que foldar" in texto
+    assert specs and specs[-1][4] == "ev", "o gráfico de EV não foi pedido"

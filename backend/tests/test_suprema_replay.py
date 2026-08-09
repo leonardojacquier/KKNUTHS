@@ -230,15 +230,22 @@ def test_bot_reconhece_o_link_e_manda_para_o_parser():
     assert replay_link_info("https://r.supremapoker.net/")["share_key"] is None
 
 
-def test_pipeline_tem_o_ramo_suprema():
-    import inspect
+def test_pipeline_tem_o_ramo_suprema(monkeypatch):
+    """O pipeline DESPACHA para o parser da Suprema.
 
+    Substring no fonte de `ingest` passa mesmo se o ramo estiver morto. Aqui
+    o parser é trocado por um espião: se ele não for chamado, o link cairia
+    no detector de texto e viraria "não entendi".
+    """
     from app.ingestion import pipeline
 
-    fonte = inspect.getsource(pipeline.ingest)
-    assert "suprema_replay" in fonte, (
-        "o pipeline precisa despachar suprema_replay, senão o link cai no "
-        "detector de texto e vira 'não entendi'")
+    chamou = []
+    import app.parsers.suprema_replay as sr
+
+    monkeypatch.setattr(sr, "fetch_and_parse",
+                        lambda link: chamou.append(link) or None)
+    pipeline.ingest(b"https://r.supremapoker.net/x?k=abc", "suprema_replay")
+    assert chamou, "o pipeline não despachou para o parser da Suprema"
 
 
 def test_handler_despacha_os_dois_clubes():
