@@ -1,7 +1,7 @@
 ---
 titulo: "Plano: Painel de indicadores + Central de Campanhas"
 tags: [gnh, plano, painel, campanhas, telegram]
-atualizado: 2026-08-07
+atualizado: 2026-08-09
 status: aguardando aprovação
 ---
 
@@ -34,6 +34,7 @@ O plano transforma esse fluxo manual em processo com formato, validação e venc
 | Peça | Onde | Papel no plano |
 |---|---|---|
 | Supabase `events` + `kasteller_events` | projeto `tqvrsusrbnyahpxhnwxe` | fonte única dos indicadores |
+| Coluna `ref` (origem da visita) | migration de 09/08 | a aba **Origens** do painel, que antes era impossível |
 | Função `resumen_dia()` com token | `deploy/supabase/fase6-analytics.sql` | modelo de acesso seguro por RPC |
 | Bot Telegram `/resumo /ontem /semana` | `deploy/telegram/gnh-bot.py` (systemd no VPS) | base do controle remoto |
 | Resumo diário 20h no Telegram | cron no VPS | canal de alertas |
@@ -51,7 +52,7 @@ Página estática servida pelo próprio site, **protegida por token secreto na U
 RPC do Supabase que **exigem o token** (mesmo modelo do `resumen_dia()` — a chave
 anon sozinha não lê nada).
 
-**Telas (uma página, 4 abas):**
+**Telas (uma página, 5 abas):**
 
 1. **Hoje / Semana** — visitantes, funil porta→ventas→WhatsApp, comparativo com a
    semana anterior, linha do tempo por dia.
@@ -60,6 +61,9 @@ anon sozinha não lê nada).
 3. **Buscas** — o que se busca no site e **o que não encontra** (busquedas vacías),
    GNH e Kasteller lado a lado. É o ciclo que já rendeu palavras-chave no Kasteller.
 4. **Kasteller** — visitantes, seções vistas, produtos abertos, cliques WhatsApp.
+5. **Origens** *(nova, 09/08)* — de onde vêm as sessões e **quais convertem**:
+   Google, Instagram, WhatsApp, ficha do Google, ChatGPT/Perplexity, directo.
+   Só existe porque a coluna `ref` entrou; ver [[05 - Analytics e rastreamento]].
 
 **Entregas:** views SQL agregadas + RPCs com token (migration) · página `/panel/`
 (HTML único, gráficos leves, mesmo padrão visual do site) · link no vault.
@@ -182,7 +186,7 @@ faz o resto. **Guard-rails:** só chats da allowlist comandam; o bot só toca
 
 | Fase | Entrega | Custo | Depende de |
 |---|---|---|---|
-| **1** | Painel `/panel/` com 4 abas + RPCs com token | 1–2 sessões | — |
+| **1** | Painel `/panel/` com 5 abas + RPCs com token | 1–2 sessões | — |
 | **2** | Refactor campanhas → dados + `build-campana` + vigência automática | 2–3 sessões | — |
 | **3** | Telegram consulta (`/campana`, `/buscas`, `/kasteller`, alertas) | 1 sessão | 1 |
 | **4** | GitHub Action: pasta em `campanas/` → publica sozinho | 1 sessão | 2 |
