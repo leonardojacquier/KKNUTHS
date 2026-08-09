@@ -196,3 +196,61 @@ def test_o_portal_mostra_travessao_e_nao_zero():
     assert taxa(None) == "—"
     assert "±" in taxa(23.3, 305)
     assert taxa(0.0) == "0.0", "zero de verdade continua sendo zero"
+
+
+# ---- o mesmo erro pelo outro lado -----------------------------------------
+
+def _resumo(n, fonte="csv"):
+    """Mão-resumo como o csv_tracker produz: cartas, resultado e data, SEM a
+    ação street a street."""
+    from app.models.canonical import CanonicalHand, PlayerSeat, Stakes
+
+    return [CanonicalHand(
+        site="Tracker", hand_id=f"c{i}", hero="Hero", source_format=fonte,
+        stakes=Stakes(small_blind=0.5, big_blind=1.0),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True)],
+        hero_cards=["Ah", "Kd"], streets=[]) for i in range(n)]
+
+
+def test_mao_resumo_nao_vira_vpip_zero():
+    """O VPIP 94% AO CONTRÁRIO, e por um caminho que o portão de fonte não
+    cobria: CSV de tracker É export de sessão inteira (fonte legítima), mas
+    não traz a ação — então não sabe dizer se o herói pagou ou largou.
+
+    Antes desta trava, 120 mãos de CSV davam `VPIP 0% · nit (tight-passive)`
+    marcado como PUBLICÁVEL, para um jogador que talvez jogue 40%.
+    """
+    from app.analysis.stats import compute_player_stats
+
+    s = compute_player_stats(_resumo(120), player=None)
+    assert s.hands == 0, "mão sem ação não pode entrar no denominador"
+    assert s.publicavel is False
+    assert "não tenho a ação" in s.label
+    assert s.detail["maos_sem_acao"] == 120
+
+
+def test_o_csv_continua_valendo_para_o_que_ele_sabe():
+    """A trava é sobre FREQUÊNCIA. Volume e resultado ao longo do tempo
+    continuam saindo do CSV — jogar fora a fonte inteira seria exagero na
+    direção oposta."""
+    from app.analysis.stats import FONTES_COMPLETAS
+
+    assert "csv" in FONTES_COMPLETAS
+
+
+def test_mistura_de_resumo_e_mao_completa_conta_so_a_completa():
+    from app.analysis.stats import compute_player_stats
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    completa = CanonicalHand(
+        site="GG", hand_id="g1", hero="Hero", source_format="txt",
+        stakes=Stakes(small_blind=0.5, big_blind=1.0),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True)],
+        hero_cards=["Ah", "Kd"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="Hero", type=ActionType.RAISE, amount=3,
+                   to_amount=3)])])
+    s = compute_player_stats(_resumo(50) + [completa], player=None)
+    assert s.hands == 1 and s.vpip == 100.0
+    assert s.detail["maos_sem_acao"] == 50

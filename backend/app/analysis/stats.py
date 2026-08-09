@@ -121,9 +121,20 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
     three_bet_opps = 0
     post_bets = post_raises = post_calls = 0
 
+    sem_acao = 0
     for h in hands:
         target = player if player is not None else h.hero
         if not target or target not in {p.name for p in h.players}:
+            continue
+        # MÃO-RESUMO NÃO MEDE FREQUÊNCIA. CSV de tracker traz cartas,
+        # resultado e data — sem a ação street a street. Ela passa pelo
+        # portão de FONTE (é export de sessão inteira, legítimo para volume
+        # e resultado) e mesmo assim não sabe dizer se o herói pagou ou
+        # largou. Contá-la no denominador dava VPIP 0% e rótulo "nit" para
+        # quem talvez jogue 40% — o incidente do VPIP 94% ao contrário, e
+        # marcado como publicável.
+        if not h.street(StreetName.PREFLOP):
+            sem_acao += 1
             continue
         n += 1
 
@@ -177,11 +188,16 @@ def compute_player_stats(hands: list[CanonicalHand], player: str | None = None,
     stats = PlayerStats(player=player or "hero", hands=n)
     if descartadas:
         stats.detail["maos_fora_da_amostra"] = descartadas
+    if sem_acao:
+        stats.detail["maos_sem_acao"] = sem_acao
     if n == 0:
-        if descartadas:
+        if descartadas or sem_acao:
             stats.detail["amostra_viesada"] = True
-            stats.label = ("sem amostra de sessão — só mãos avulsas, que não "
-                           "medem frequência")
+            stats.label = (
+                "sem amostra de sessão — só mãos avulsas, que não medem "
+                "frequência" if descartadas else
+                "só mãos-resumo (CSV de tracker): tenho o resultado, não "
+                "tenho a ação para medir frequência")
         return stats
 
     stats.vpip = round(100 * vpip_h / n, 1)
