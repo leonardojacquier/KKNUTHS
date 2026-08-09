@@ -199,3 +199,72 @@ def test_erros_em_streets_diferentes_contam_separado():
 
     fonte = inspect.getsource(estrategia_torneio.por_faixa)
     assert "(o.hand_id, o.street)" in fonte
+
+
+# ---- chegou na tela? -------------------------------------------------------
+
+def test_o_relatorio_html_traz_a_secao_de_faixas():
+    """Módulo que ninguém liga não existe. A tabela vem ANTES das auditorias
+    de all-in e pós-flop: aquelas listam spots e o aluno se perde na lista
+    sem saber por onde começar; esta responde 'por onde começar'."""
+    from app.analysis.handreport import build_report_html
+
+    html = build_report_html([_limp(20, "a"), _limp(20, "b"), _limp(50, "c")])
+    assert "Onde o EV foi embora" in html
+    assert html.index("Onde o EV foi embora") < html.index("Mãos jogadas")
+
+    # e a ordem em relação às auditorias fica travada na montagem
+    import inspect
+
+    from app.analysis import handreport
+
+    fonte = inspect.getsource(handreport.build_report_html)
+    assert fonte.index("_tabela_faixas") < fonte.index("_tabela_auditoria")
+
+
+def test_o_html_avisa_o_que_a_tabela_nao_afirma():
+    from app.analysis.handreport import build_report_html
+
+    html = build_report_html([_limp(20, "a"), _limp(20, "b")])
+    assert "não sai daqui é frequência" in html.lower() \
+        or "NÃO sai daqui é frequência" in html
+
+
+def test_a_secao_nao_derruba_o_relatorio_se_falhar():
+    """Relatório inteiro não pode morrer por causa de uma seção nova."""
+    import app.analysis.estrategia_torneio as et
+    from app.analysis.handreport import build_report_html
+
+    original = et.por_faixa
+    et.por_faixa = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    try:
+        html = build_report_html([_limp(20, "a")])
+        assert "Mãos jogadas" in html, "a seção quebrada levou o resto junto"
+        assert "Onde o EV foi embora" not in html
+    finally:
+        et.por_faixa = original
+
+
+def test_o_torneio_manda_a_leitura_junto_do_quadro():
+    """A curva mostra O QUE aconteceu; a leitura por faixa mostra ONDE o EV
+    foi embora. Sem ela o aluno via a linha cair e não sabia o motivo."""
+    import inspect
+
+    from app.bot import handlers
+
+    fonte = inspect.getsource(handlers.cmd_torneio)
+    assert "estrategia_do_torneio" in fonte
+    assert fonte.index("reply_photo") < fonte.index("estrategia_do_torneio"), \
+        "a leitura vem depois do quadro, não antes"
+
+
+def test_o_quadro_e_a_leitura_olham_as_mesmas_maos():
+    """Se cada um buscasse por conta própria, os dois se contradiriam no dia
+    em que o aluno mandasse dois torneios no mesmo minuto."""
+    import inspect
+
+    from app.bot import processing
+
+    for fn in (processing.tournament_board_report,
+               processing.estrategia_do_torneio):
+        assert "maos_do_ultimo_torneio" in inspect.getsource(fn)

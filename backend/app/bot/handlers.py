@@ -414,6 +414,15 @@ async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     png, cap = board
     await update.message.reply_photo(png, caption=cap)
+    # a curva mostra O QUE aconteceu; a leitura por faixa de stack mostra
+    # ONDE o EV foi embora. Vai como mensagem separada porque a legenda de
+    # foto do Telegram corta em 1024 e o relatório é o conteúdo, não enfeite.
+    from app.bot.processing import estrategia_do_torneio
+
+    leitura = await asyncio.to_thread(estrategia_do_torneio,
+                                      update.effective_user.id)
+    if leitura:
+        await _safe_reply(update.message, leitura)
 
 
 async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

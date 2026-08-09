@@ -1356,25 +1356,42 @@ def evolution_report(telegram_id: int) -> tuple[bytes | None, str]:
     return png, text
 
 
-def tournament_board_report(telegram_id: int) -> tuple[bytes, str] | None:
-    """Quadro-resumo do torneio mais recente do usuário (None sem material)."""
+def maos_do_ultimo_torneio(telegram_id: int) -> list[CanonicalHand]:
+    """As mãos do torneio mais recente — o quadro e a leitura de estratégia
+    olham exatamente o MESMO conjunto (senão os dois se contradizem)."""
     repo = get_repository()
-    hands: list[CanonicalHand] = []
     if repo.enabled:
         user = repo.get_or_create_user(telegram_id, None)
         all_hands = repo.get_all_hands(user["id"]) if user else []
         tourneys = [h for h in all_hands if h.tournament_id]
         if tourneys:
             latest = max(tourneys, key=lambda h: h.played_at or "")
-            hands = [h for h in tourneys
-                     if h.tournament_id == latest.tournament_id]
-    if not hands:
-        hands = [h for h in RECENT_HANDS.get(telegram_id, []) if h.tournament_id]
+            return [h for h in tourneys
+                    if h.tournament_id == latest.tournament_id]
+    return [h for h in RECENT_HANDS.get(telegram_id, []) if h.tournament_id]
+
+
+def tournament_board_report(telegram_id: int) -> tuple[bytes, str] | None:
+    """Quadro-resumo do torneio mais recente do usuário (None sem material)."""
+    hands = maos_do_ultimo_torneio(telegram_id)
     if len(hands) < 2:
         return None
     from app.analysis.tournament_board import render_tournament_board
 
     return render_tournament_board(hands)
+
+
+def estrategia_do_torneio(telegram_id: int) -> str:
+    """Onde o EV foi embora, por profundidade de stack. '' sem material.
+
+    Acompanha o quadro do /torneio porque a curva do stack mostra O QUE
+    aconteceu e não POR QUÊ: o aluno via a linha cair e não sabia em que
+    faixa ele estava deixando dinheiro.
+    """
+    from app.analysis.estrategia_torneio import por_faixa, texto
+
+    hands = maos_do_ultimo_torneio(telegram_id)
+    return texto(por_faixa(hands)) if len(hands) >= 2 else ""
 
 
 def indicator_chart(telegram_id: int, indicator: str) -> bytes | None:

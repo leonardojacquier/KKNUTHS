@@ -388,6 +388,52 @@ def _tabela_posflop(linhas: list[dict]) -> str:
             + "".join(rows) + "</table>")
 
 
+
+def _tabela_faixas(hands: list) -> str:
+    """ONDE O EV FOI EMBORA, por profundidade de stack.
+
+    Vem antes das auditorias de propósito: as tabelas de all-in e pós-flop
+    listam spots, e o aluno se perde na lista sem saber por onde começar.
+    Esta responde "por onde começar" com número.
+    """
+    try:
+        from app.analysis.estrategia_torneio import onde_doi_mais, por_faixa
+
+        linhas = por_faixa(hands)
+    except Exception:
+        return ""
+    if not linhas:
+        return ""
+    esc = _html.escape
+    tr = []
+    for l in linhas:
+        lado = l.direcao_confiavel
+        obs = (f"{l.direcao[lado]} para o mesmo lado: {lado} demais"
+               if lado else ("—" if l.erros else "nenhum erro"))
+        tr.append(
+            f"<tr><td><b>{esc(l.faixa)}</b><br>"
+            f"<span style='color:#828A84;font-size:11px'>{esc(l.o_que_muda)}"
+            f"</span></td>"
+            f"<td class=n>{l.maos}</td><td class=n>{l.spots}</td>"
+            f"<td class=n>{l.erros}</td>"
+            f"<td class=n>{l.ev_perdido_bb:.1f}</td>"
+            f"<td>{esc(obs)}</td></tr>")
+    pior = onde_doi_mais(linhas)
+    remate = (f"<p style='margin:6px 0 0'>A faixa que mais custou foi "
+              f"<b>{esc(pior.faixa)}</b>: {pior.ev_perdido_bb:.1f}bb.</p>"
+              if pior else "")
+    return ("<h2>Onde o EV foi embora — por profundidade de stack</h2>"
+            "<p style='color:#828A84;font-size:11.5px;margin:2px 0 8px'>"
+            "Cada spot auditável tem resposta certa, então a conta de EV vale "
+            "mesmo com poucas mãos na faixa. O que NÃO sai daqui é frequência "
+            "(&ldquo;você joga X% nesta faixa&rdquo;) — isso precisaria de 60+ "
+            "mãos <i>na faixa</i>.</p>"
+            "<table class=audit><tr><th>Faixa (stack efetivo)</th><th>Mãos</th>"
+            "<th>Spots</th><th>Erros</th><th>EV perdido (bb)</th>"
+            "<th>Direção</th></tr>"
+            + "".join(tr) + "</table>" + remate)
+
+
 def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                       board_png: bytes | None = None,
                       per_hand_analysis: dict[str, str] | None = None,
@@ -521,6 +567,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
 </div>
 {board_img}
 {coach_html}
+{_tabela_faixas(hands)}
 {_tabela_auditoria(auditoria or [])}
 {_tabela_pre_deep(pre_deep or [])}
 {_tabela_posflop(posflop or [])}
