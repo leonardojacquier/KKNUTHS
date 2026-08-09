@@ -361,3 +361,81 @@ def test_o_poder_e_declarado_e_nao_prometido():
     assert 30.0 < poder < 65.0, (
         f"poder de {poder:.0f}% para 35% vs 20% com 60 por lado — se subiu "
         f"muito, o limiar afrouxou; se caiu, a ferramenta ficou muda")
+
+
+def test_uma_decisao_nao_alimenta_os_DOIS_lados_da_direcao():
+    """Um limp de 72o dispara `limp_de_abertura` (passivo) E `call_caro`
+    (solto). Contar os dois é a MESMA ficha nos dois pratos da balança — e
+    uma decisão não pode ser prova de passividade e de soltura ao mesmo
+    tempo. Quando os códigos apontam para lados opostos, o honesto é não
+    contar nenhum.
+
+    Medido em 09/08 numa amostra de 24 mãos com 12 limps: `direcao` saía
+    {passivo: 12, solto: 24} e `chances` {passivo: 48, solto: 24}.
+    """
+    from app.analysis.estrategia_torneio import por_faixa
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      HandFormat, PlayerSeat, Stakes, Street,
+                                      StreetName)
+
+    def _limp(hid):
+        bb = 100.0
+        return CanonicalHand(
+            site="GG", hand_id=hid, hero="Hero",
+            format=HandFormat.TOURNAMENT, source_format="txt",
+            played_at="2026-08-01T20:00:00+00:00",
+            stakes=Stakes(small_blind=50, big_blind=bb, ante=25),
+            players=[PlayerSeat(seat=1, name="Hero", stack=18 * bb,
+                                position="CO", is_hero=True),
+                     PlayerSeat(seat=2, name="V", stack=18 * bb,
+                                position="BTN"),
+                     PlayerSeat(seat=3, name="O", stack=18 * bb,
+                                position="SB")],
+            hero_cards=["7h", "2d"],
+            streets=[Street(name=StreetName.PREFLOP, actions=[
+                Action(actor="O", type=ActionType.POST, amount=50,
+                       post_type="sb"),
+                Action(actor="V", type=ActionType.POST, amount=100,
+                       post_type="bb"),
+                Action(actor="Hero", type=ActionType.CALL, amount=100,
+                       to_amount=100)])])
+
+    linha = por_faixa([_limp(f"h{i}") for i in range(12)])[0]
+    ambiguos = min(linha.direcao["passivo"], linha.direcao["solto"])
+    assert ambiguos == 0, (
+        f"a mesma decisão apareceu nos dois lados: {linha.direcao}")
+    assert linha.direcao_confiavel is None, (
+        "afirmou direção a partir de decisões que apontam para os dois lados")
+
+
+def test_RAISE_nao_e_call_caro():
+    """"Pagou mais caro do que a mão vale" para quem AUMENTOU é erro de
+    categoria, não de conta — e o preço usado (`to_call/(pote+to_call)`) é o
+    de pagar.
+
+    Medido em 09/08: 24 mãos, 12 delas com raise, e as 24 acusadas.
+    """
+    from app.analysis.taxonomia import observar
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      HandFormat, PlayerSeat, Stakes, Street,
+                                      StreetName)
+
+    bb = 100.0
+    aumentou = CanonicalHand(
+        site="GG", hand_id="r1", hero="Hero", format=HandFormat.TOURNAMENT,
+        source_format="txt", played_at="2026-08-01T20:00:00+00:00",
+        stakes=Stakes(small_blind=50, big_blind=bb, ante=25),
+        players=[PlayerSeat(seat=1, name="Hero", stack=18 * bb, position="CO",
+                            is_hero=True),
+                 PlayerSeat(seat=2, name="V", stack=18 * bb, position="BTN"),
+                 PlayerSeat(seat=3, name="O", stack=18 * bb, position="SB")],
+        hero_cards=["7h", "2d"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="O", type=ActionType.POST, amount=50, post_type="sb"),
+            Action(actor="V", type=ActionType.POST, amount=100,
+                   post_type="bb"),
+            Action(actor="Hero", type=ActionType.RAISE, amount=250,
+                   to_amount=250)])])
+
+    assert not [o for o in observar([aumentou]) if o.codigo == "call_caro"], (
+        "um RAISE virou 'pagou mais caro do que a mão vale'")

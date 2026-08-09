@@ -119,6 +119,24 @@ def played_facts(h: CanonicalHand) -> dict:
                 "street": d["street"], "pagou_bb": d["to_call_bb"],
                 "pote_bb": d["pot_bb"], "equity_minima": round(req, 2),
                 "equity_vs_aleatoria": round(eq, 2) if eq else None,
+                # QUAL foi a ação. `!= "fold"` junta CALL e RAISE, e o preço
+                # calculado acima é o de PAGAR: aplicá-lo a um raise diz
+                # "pagou mais caro do que a mão vale" para quem não pagou —
+                # erro de categoria, não de conta. Medido em 09/08: 24 mãos,
+                # 12 delas com raise, e as 24 acusadas de call caro.
+                "acao": d["actual"],
+            })
+        elif d["to_call_bb"] > 0 and d["actual"] == "fold":
+            # O FOLD TAMBÉM É OPORTUNIDADE. Sem ele o denominador só tem as
+            # mãos em que o herói pagou, e a taxa vira P(erro | pagou) em vez
+            # de P(erro | teve preço na frente) — o mesmo defeito que o
+            # bb_subdefesa tinha, num código marcado como custo "exato".
+            key_numbers.append({
+                "street": d["street"], "pagou_bb": 0.0,
+                "pote_bb": d["pot_bb"],
+                "equity_minima": round(
+                    d["to_call_bb"] / (d["pot_bb"] + d["to_call_bb"]), 2),
+                "equity_vs_aleatoria": None, "acao": "fold",
             })
         elif d["actual"] in ("bet", "raise") and d["pot_bb"]:
             key_numbers.append({

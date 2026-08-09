@@ -344,11 +344,29 @@ def _shove_curto(h: CanonicalHand, ctx: dict) -> Iterable[Observacao]:
 @detector
 def _call_caro(h: CanonicalHand, ctx: dict) -> Iterable[Observacao]:
     """Pagou pedindo mais equity do que a mão tem. Custo EXATO: o déficit
-    de equity vezes o que estava em jogo."""
+    de equity vezes o que estava em jogo.
+
+    SÓ CALL. Raise e bet não são "pagar", e o preço de `equity_minima` é o de
+    pagar — aplicá-lo a um raise é erro de categoria. Medido em 09/08: numa
+    amostra de 24 mãos com 12 raises, as 24 apareciam como call caro, e a
+    direção do erro no /torneio saía "solto demais" por causa disso.
+
+    O FOLD entra como oportunidade (escorregada=False): sem ele a taxa vira
+    P(erro | pagou), que é ~100% por construção.
+    """
     from app.analysis.handreport import played_facts
 
     for n in (played_facts(h).get("numbers") or []):
-        if "equity_minima" not in n or n.get("equity_vs_aleatoria") is None:
+        if "equity_minima" not in n:
+            continue
+        acao = (n.get("acao") or "").lower()
+        if acao not in ("call", "fold"):
+            continue
+        if acao == "fold":
+            yield Observacao("call_caro", False, 0.0, h.hand_id,
+                             n.get("street") or "?", ctx["stack_bb"])
+            continue
+        if n.get("equity_vs_aleatoria") is None:
             continue
         deficit = n["equity_minima"] - n["equity_vs_aleatoria"]
         caro = deficit > 0.05

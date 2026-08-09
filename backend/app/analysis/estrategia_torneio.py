@@ -201,18 +201,34 @@ def por_faixa(hands: list[CanonicalHand]) -> list[LinhaDaFaixa]:
         por_codigo: dict[str, dict] = {}
         direcao = {"passivo": 0, "solto": 0}
         chances = {"passivo": 0, "solto": 0}
+        # DIREÇÃO CONTA DECISÃO, NÃO CÓDIGO. Um limp de 72o dispara
+        # `limp_de_abertura` (passivo) E `call_caro` (solto): contar os dois
+        # é a MESMA ficha alimentando os dois lados do veredito. Pior, uma
+        # decisão não pode ser prova de passividade e de soltura ao mesmo
+        # tempo — quando os códigos daquela decisão apontam para lados
+        # opostos, a resposta honesta é não contar nenhum.
+        por_decisao: dict[tuple, dict] = {}
         for o in obs:
             c = por_codigo.setdefault(o.codigo, {"spots": 0, "erros": 0,
                                                  "ev": 0.0})
             c["spots"] += 1
-            d = _DIRECAO.get(o.codigo)
-            if d:
-                chances[d] += 1          # o spot existiu, errando ou não
             if o.escorregada:
                 c["erros"] += 1
                 c["ev"] += o.custo_bb
-                if d:
-                    direcao[d] += 1
+            d = _DIRECAO.get(o.codigo)
+            if not d:
+                continue
+            k = (o.hand_id, o.street)
+            reg = por_decisao.setdefault(k, {"lados": set(), "erros": set()})
+            reg["lados"].add(d)
+            if o.escorregada:
+                reg["erros"].add(d)
+
+        for reg in por_decisao.values():
+            if len(reg["lados"]) == 1:
+                chances[next(iter(reg["lados"]))] += 1
+            if len(reg["erros"]) == 1:
+                direcao[next(iter(reg["erros"]))] += 1
         for c in por_codigo.values():
             c["ev"] = round(c["ev"], 2)
         # UMA DECISÃO, UM CUSTO. Os códigos não são mutuamente exclusivos: um

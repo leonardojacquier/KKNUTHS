@@ -391,3 +391,24 @@ def test_o_caminho_que_fala_com_o_aluno_usa_o_MESMO_criterio():
     # o caso concreto do achado: call_caro com limite inferior de 8% contra
     # tolerância de 25% não pode aparecer como leak
     assert "call_caro" not in publicados
+
+
+def test_foldar_diante_de_um_preco_ENTRA_no_denominador_do_call_caro():
+    """Sem o fold, a taxa vira P(erro | pagou) — que é ~100% por construção,
+    porque só quem pagou pode ter pago caro.
+
+    É o mesmo defeito que o `bb_subdefesa` tinha, num código marcado como
+    custo "exato": o denominador só continha a ação errada.
+    """
+    from app.analysis.taxonomia import observar
+
+    bb = 100.0
+    foldou = _mao("BB", ["7h", "2d"], [
+        _post("Out", 50, "sb"), _post("Hero", 100, "bb"),
+        Action(actor="Vil", type=ActionType.RAISE, amount=300, to_amount=300),
+        Action(actor="Hero", type=ActionType.FOLD)], hid="fold1")
+
+    obs = [o for o in observar([foldou]) if o.codigo == "call_caro"]
+    assert obs, "foldar diante de um preço não virou oportunidade de call caro"
+    assert all(not o.escorregada for o in obs), (
+        "foldar foi contado como PAGAR caro")
