@@ -289,3 +289,54 @@ def texto(d: Defesa | None, escuras: list[ApostaEnfrentada],
             linhas.append("• Sua frequência de defesa não abre espaço para "
                           "blefe automático.")
     return "\n".join(linhas)
+
+
+class LinhaEscura(NamedTuple):
+    """Uma mão em que o vilão agrediu pós-flop e ninguém viu as cartas."""
+    hand_id: str
+    linha: str
+    rua: str                     # onde foi a última agressão dele
+    sinais: tuple[str, ...]
+    levou_o_pote: bool
+    fracao_do_pote: float | None  # só quando a agressão final foi no river
+
+
+def linhas_escuras(hands: list, vilao: str, so_pos_flop: bool = True
+                   ) -> list[LinhaEscura]:
+    """TODAS as linhas de agressão sem showdown do vilão — não só as que o
+    herói enfrentou no river.
+
+    O recorte anterior (aposta de river contra o herói) fazia a seção das
+    escuras sair VAZIA em torneio real: na maior parte das mãos o herói já
+    foldou antes, e a agressão do vilão acontece contra os outros. O dono
+    abriu um dossiê e não viu escura nenhuma — o filtro era o defeito.
+
+    `so_pos_flop` de propósito: open de pré-flop é rotina (o PFR já conta
+    isso) e listaria centenas de mãos. Linha é história pós-flop.
+
+    "Levou o pote" é FATO (está em `collected`), não leitura: agressão sem
+    showdown que levou o pote significa que todos largaram — é exatamente a
+    mão que nenhuma taxa de blefe cobre, e a razão de esta lista existir.
+    """
+    from app.analysis.dossie import _linha_do_vilao
+
+    saida: list[LinhaEscura] = []
+    for h in (hands or []):
+        mostradas = getattr(h, "shown_cards", None) or {}
+        if mostradas.get(vilao):
+            continue
+        legiveis, agrediu_em, linha = _linha_do_vilao(h, vilao)
+        if agrediu_em is None or (so_pos_flop and agrediu_em == "preflop"):
+            continue
+        fracao = None
+        if agrediu_em == "river":
+            e = aposta_enfrentada(h)
+            if e is not None and e.vilao == vilao:
+                fracao = e.fracao_do_pote
+        saida.append(LinhaEscura(
+            hand_id=str(getattr(h, "hand_id", "") or ""),
+            linha=linha, rua=agrediu_em,
+            sinais=_sinais_da_linha(h, vilao, fracao),
+            levou_o_pote=bool((getattr(h, "collected", None) or {}).get(vilao)),
+            fracao_do_pote=fracao))
+    return saida

@@ -140,6 +140,38 @@ def test_o_dossie_carrega_as_tres_camadas(base):
         '"provavelmente blefou X%"', ""), "a taxa proibida entrou"
 
 
+def test_o_dossie_mostra_a_agressao_contra_OUTROS_jogadores(base, monkeypatch):
+    """O defeito relatado pelo dono: dossiê sem escura nenhuma. Causa: o
+    recorte antigo só via aposta de river contra o herói — e na maioria das
+    mãos de torneio o herói já foldou. Agora toda agressão pós-flop sem
+    showdown entra, com a linha, a rua e a observação."""
+    contra_outro = CanonicalHand(
+        hand_id="x1", site="GGPoker", tournament_id="t2",
+        played_at="2026-08-01T23:00:00", hero="Hero",
+        stakes=Stakes(big_blind=100),
+        players=[PlayerSeat(seat=1, name="Hero", stack=5000, is_hero=True),
+                 PlayerSeat(seat=2, name="v2", stack=5000),
+                 PlayerSeat(seat=3, name="outro", stack=5000)],
+        hero_cards=["7h", "2c"], final_board=["Qs", "7s", "2d", "9c"],
+        shown_cards={}, collected={"v2": 1900.0},
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+                     Action(actor="Hero", type=ActionType.FOLD),
+                     Action(actor="v2", type=ActionType.RAISE, amount=250,
+                            to_amount=250),
+                     Action(actor="outro", type=ActionType.CALL, amount=250)]),
+                 Street(name=StreetName.FLOP, actions=[
+                     Action(actor="outro", type=ActionType.CHECK),
+                     Action(actor="v2", type=ActionType.BET, amount=300),
+                     Action(actor="outro", type=ActionType.FOLD)])])
+    monkeypatch.setattr(P, "RECENT_HANDS", {7: _base() + [contra_outro]})
+
+    html = P.dossie_doc(7, "v2", 1)[0].decode("utf-8")
+    assert "Agrediu e ninguém viu" in html
+    assert "levou o pote" in html
+    assert "por que estas mãos estão aqui sem veredito" in html, (
+        "a observação pedida pelo dono não está no documento")
+
+
 def test_vilao_de_OUTRO_torneio_nao_vaza_para_este(base):
     """v1 jogou o t1. Pedir v1 no t2 tem que dizer quem estava no t2 — não
     montar o dossiê com mãos do torneio errado."""

@@ -287,7 +287,81 @@ def test_sem_nada_o_texto_e_vazio():
     assert texto(None, [], "v1") == ""
 
 
-# ---- 6) a ligação -----------------------------------------------------------
+# ---- 6) as linhas escuras (a lista AMPLA) -----------------------------------
+
+def _mao_contra_outro(hid, ruas_de_barril=("flop", "turn"), levou=True,
+                      mostra=False):
+    """Herói folda pré; vilão agride contra um TERCEIRO. Era a mão invisível:
+    o recorte antigo só via aposta de river contra o herói, e o dossiê do
+    dono saiu sem escura nenhuma."""
+    st = [Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="v1", type=ActionType.RAISE, amount=250, to_amount=250),
+        Action(actor="outro", type=ActionType.CALL, amount=250)])]
+    for nome, enum in (("flop", StreetName.FLOP), ("turn", StreetName.TURN)):
+        acoes = [Action(actor="outro", type=ActionType.CHECK)]
+        if nome in ruas_de_barril:
+            acoes += [Action(actor="v1", type=ActionType.BET, amount=300),
+                      Action(actor="outro", type=ActionType.CALL
+                             if nome != ruas_de_barril[-1]
+                             else ActionType.FOLD, amount=300)]
+        st.append(Street(name=enum, actions=acoes))
+    return CanonicalHand(
+        hand_id=hid, site="GG", tournament_id="t1", hero="Hero",
+        stakes=Stakes(big_blind=100),
+        players=[PlayerSeat(seat=1, name="Hero", stack=5000, is_hero=True),
+                 PlayerSeat(seat=2, name="v1", stack=5000),
+                 PlayerSeat(seat=3, name="outro", stack=5000)],
+        hero_cards=["7h", "2c"], final_board=["Qs", "7s", "2d", "9c"],
+        shown_cards={"v1": ["As", "Ad"]} if mostra else {},
+        collected={"v1": 1900.0} if levou else {}, streets=st)
+
+
+def test_agressao_contra_OUTROS_entra_nas_linhas_escuras():
+    """O caso do dossiê vazio: herói fora da mão, vilão de barril contra um
+    terceiro. É a maioria das mãos de um torneio real."""
+    from app.analysis.defesa import linhas_escuras
+
+    le = linhas_escuras([_mao_contra_outro("h1")], "v1")
+    assert len(le) == 1
+    e = le[0]
+    assert e.rua == "turn"
+    assert "aposta flop" in e.linha and "aposta turn" in e.linha
+    assert e.levou_o_pote is True
+
+
+def test_open_de_preflop_sozinho_NAO_e_linha_escura():
+    """Open é rotina — o PFR já conta. Listar cada open afogaria as linhas
+    que interessam em centenas de mãos de ruído."""
+    from app.analysis.defesa import linhas_escuras
+
+    so_open = _mao_contra_outro("h1", ruas_de_barril=())
+    assert linhas_escuras([so_open], "v1") == []
+
+
+def test_quem_mostrou_nao_e_escura():
+    from app.analysis.defesa import linhas_escuras
+
+    assert linhas_escuras([_mao_contra_outro("h1", mostra=True)], "v1") == []
+
+
+def test_linha_escura_sem_pote_levado_e_registro_fiel():
+    from app.analysis.defesa import linhas_escuras
+
+    le = linhas_escuras([_mao_contra_outro("h1", levou=False)], "v1")
+    assert le[0].levou_o_pote is False
+
+
+def test_a_fracao_so_existe_quando_a_agressao_final_foi_no_river():
+    """No flop/turn o denominador é outro — número de river numa aposta de
+    turn seria fração errada com cara de certa."""
+    from app.analysis.defesa import linhas_escuras
+
+    le = linhas_escuras([_mao_contra_outro("h1")], "v1")
+    assert le[0].fracao_do_pote is None
+
+
+# ---- 7) a ligação -----------------------------------------------------------
 
 def test_o_vilao_entrega_a_defesa_junto(monkeypatch):
     import app.bot.processing as P

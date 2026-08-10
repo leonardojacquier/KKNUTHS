@@ -15,7 +15,13 @@ from __future__ import annotations
 
 import html as _html
 
-from app.analysis.defesa import Defesa, medir as medir_defesa, nao_vistas
+from app.analysis.defesa import (
+    Defesa,
+    LinhaEscura,
+    linhas_escuras,
+    medir as medir_defesa,
+    nao_vistas,
+)
 from app.analysis.dossie import Dossie, MaoMostrada, montar
 from app.analysis.equity import pretty_cards
 from app.analysis.mesa import medir as medir_mesa
@@ -78,7 +84,11 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                   if li.nome.strip().lower() == nome.strip().lower()), None)
     d: Dossie | None = montar(hands, nome)
     defesa: Defesa | None = medir_defesa(hands, nome)
-    escuras = nao_vistas(hands, nome)
+    # a lista AMPLA: toda agressão pós-flop sem showdown, não só a aposta de
+    # river que o herói enfrentou — com o recorte antigo a seção saía vazia
+    # em torneio real (na maioria das mãos o herói já tinha foldado)
+    escuras = linhas_escuras(hands, nome)
+    enfrentadas = {e.hand_id: e for e in nao_vistas(hands, nome)}
     apareceu = any(
         (p.name or "").strip().lower() == nome.strip().lower()
         for h in hands for p in (getattr(h, "players", None) or ()))
@@ -138,23 +148,35 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "abaixo.</div>")
 
     if escuras:
-        partes.append(f"<h2>Apostou o river e ninguém viu "
-                      f"({len(escuras)})</h2>")
-        for e in escuras:
+        levou = sum(1 for e in escuras if e.levou_o_pote)
+        partes.append(f"<h2>Agrediu e ninguém viu ({len(escuras)} — "
+                      f"levou o pote em {levou})</h2>")
+        teto = 24
+        for e in escuras[:teto]:
             tam = (f" · {e.fracao_do_pote:g}× pote" if e.fracao_do_pote
                    else "")
+            contra = enfrentadas.get(e.hand_id)
+            fim = (f" — você: {_esc(contra.resposta)}" if contra
+                   else (" — levou o pote" if e.levou_o_pote else ""))
             sin = (f"<div class='sinais'>⚑ {_esc(' · '.join(e.sinais))}</div>"
                    if e.sinais else "")
             partes.append(
-                f"<div class='mao escura'><div class='linha'>"
-                f"{_esc(e.linha_do_vilao)}{tam} — você: {_esc(e.resposta)}"
-                f"</div>{sin}</div>")
+                f"<div class='mao escura'>"
+                f"<span class='papel neutro'>{_esc(e.rua)}</span>"
+                f"<div class='linha'>{_esc(e.linha)}{tam}{fim}</div>"
+                f"{sin}</div>")
+        if len(escuras) > teto:
+            partes.append(f"<div class='sub'>…e mais "
+                          f"{len(escuras) - teto} linhas.</div>")
         partes.append(
-            "<div class='nota'>⚑ são fatos da linha, não veredito: cada um "
-            "cabe tanto num blefe quanto num valor polarizado. Não existe "
-            "\"provavelmente blefou X%\" aqui: o vilão só mostra quando "
-            "alguém paga, e uma taxa tirada dos showdowns mediria quem "
-            "pagou, não ele.</div>")
+            "<div class='nota'><b>Observação — por que estas mãos estão "
+            "aqui sem veredito:</b> a linha é o único fato que existe delas. "
+            "⚑ marca traços da jogada (três barris, overbet, draw que não "
+            "bateu) que cabem tanto num blefe quanto num valor polarizado. "
+            "Não existe \"provavelmente blefou X%\": o vilão só mostra "
+            "quando alguém paga, e uma taxa tirada dos showdowns mediria "
+            "quem pagou, não ele. \"Levou o pote\" é registro, não "
+            "leitura.</div>")
 
     if defesa:
         pct = round(100 * defesa.fold_taxa)
