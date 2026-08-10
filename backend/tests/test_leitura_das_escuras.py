@@ -114,12 +114,15 @@ def _mao_escura(hid="h1", board=None):
                      Action(actor="outro", type=ActionType.FOLD)])])
 
 
-def test_o_dossie_traz_a_mao_INTEIRA_e_a_leitura():
+def test_o_dossie_traz_a_mao_INTEIRA_e_a_leitura(monkeypatch):
+    import app.analysis.dossie_html as DH
     from app.analysis.dossie_html import build_dossie_html
 
+    # sem imagem, o filme em TEXTO é a mão inteira — o storyboard tem teste
+    # próprio; aqui se prende o conteúdo do filme
+    monkeypatch.setattr(DH, "_strip", lambda *a, **k: "")
     html = build_dossie_html("v1", [_mao_escura(f"h{i}") for i in range(3)],
                              {"site": "GGPoker", "data": "2026-08-01"})
-    # o filme, rua a rua, com board e valores em bb
     assert "*PREFLOP*" in html, "a mão inteira não está no documento"
     assert "aumenta para 2.5bb" in html
     assert "*FLOP*" in html and "Q♥" in html
@@ -137,20 +140,49 @@ def test_a_leitura_do_documento_nao_vira_percentual():
     trecho = html[html.index("Agrediu e ninguém viu"):]
     import re
 
-    percentuais = re.findall(r"\d+\s*%", trecho)
+    # só o texto VISÍVEL: o CSS da imagem tem width:100% e não é prosa
+    visivel = re.sub(r"<[^>]*>", " ", trecho)
+    percentuais = re.findall(r"\d+\s*%", visivel)
     assert not percentuais, (
         f"percentual dentro da seção das escuras: {percentuais}")
 
 
+def test_o_dossie_traz_o_STORYBOARD_igual_ao_relatorio():
+    """O pedido do dono: as imagens das mãos, como no /relatorio. São PIL —
+    custo zero de modelo — e entram nas mostradas E nas escuras."""
+    from app.analysis.dossie_html import build_dossie_html
+
+    com_showdown = _mao_escura("sd")
+    com_showdown.shown_cards = {"v1": ["Jd", "Th"]}
+    maos = [com_showdown] + [_mao_escura(f"e{i}") for i in range(2)]
+    html = build_dossie_html("v1", maos, {})
+    assert html.count("data:image/png;base64") == 3, (
+        "cada mão (mostrada e escura) tem que carregar seu storyboard")
+
+
+def test_imagem_que_falha_cai_para_o_filme_em_texto(monkeypatch):
+    """PIL indisponível ou mão torta: o documento continua, com o filme em
+    texto no lugar da imagem — nunca um buraco."""
+    import app.analysis.dossie_html as DH
+    from app.analysis.dossie_html import build_dossie_html
+
+    monkeypatch.setattr(DH, "_strip", lambda *a, **k: "")
+    html = build_dossie_html("v1", [_mao_escura()], {})
+    assert "data:image/png" not in html
+    assert "*PREFLOP*" in html, "sem imagem E sem filme em texto"
+
+
 def test_filme_que_falha_nao_derruba_o_documento(monkeypatch):
-    """`_walk_hand` explodindo numa mão torta não pode matar o dossiê — cai
-    para a linha resumida daquela mão."""
+    """Imagem E filme falhando numa mão torta não matam o dossiê — cai para
+    a linha resumida daquela mão."""
+    import app.analysis.dossie_html as DH
     import app.bot.processing as P
     from app.analysis.dossie_html import build_dossie_html
 
     def _explode(h):
         raise RuntimeError("mão torta")
 
+    monkeypatch.setattr(DH, "_strip", lambda *a, **k: "")
     monkeypatch.setattr(P, "_walk_hand", _explode)
     html = build_dossie_html("v1", [_mao_escura()], {})
     assert html and "Agrediu e ninguém viu" in html

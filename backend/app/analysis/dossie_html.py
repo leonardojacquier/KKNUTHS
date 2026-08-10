@@ -65,13 +65,28 @@ def _classe_do_papel(papel: str) -> str:
     return "valor" if papel.startswith("valor") else "neutro"
 
 
-def _mao_mostrada(m: MaoMostrada) -> str:
+def _strip(h, seq: int, nota: str) -> str:
+    """O storyboard da mão — a MESMA imagem do /relatorio, gerada por código
+    (PIL), sem custo de modelo.
+
+    Sem try próprio de propósito: `_hand_strip_img` JÁ devolve '' em
+    qualquer falha ("nunca quebra o relatório") — um segundo guarda aqui é
+    código morto, e a mutação que o removia passava em tudo."""
+    if h is None:
+        return ""
+    from app.analysis.handreport import _hand_strip_img
+
+    return _hand_strip_img(h, seq, {}, None, nota)
+
+
+def _mao_mostrada(m: MaoMostrada, h=None, seq: int = 0) -> str:
     extra = "blefe" if m.papel == "blefe" else ""
     desc = f" — {_esc(m.descricao)}" if m.descricao else ""
+    img = _strip(h, seq, f"{m.papel}: {m.descricao or ''}")
     return (f"<div class='mao {extra}'>"
             f"<span class='cartas'>{_esc(pretty_cards(list(m.cartas)))}</span>"
             f" <span class='papel {_classe_do_papel(m.papel)}'>{_esc(m.papel)}"
-            f"</span>{desc}"
+            f"</span>{desc}{img}"
             f"<div class='linha'>board {_esc(pretty_cards(list(m.board)))}"
             f" · {_esc(m.linha)}</div></div>")
 
@@ -127,21 +142,22 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "um — os números acima falam por si, com a margem "
                       "junto.</div>")
 
+    por_id_todas = {str(getattr(h, "hand_id", "") or ""): h for h in hands}
+    seq = 0
     if d:
-        if d.blefes:
-            partes.append(f"<h2>Agrediu com mão fraca — blefe visto "
-                          f"({len(d.blefes)})</h2>")
-            partes += [_mao_mostrada(m) for m in d.blefes]
-        if d.valor:
-            partes.append(f"<h2>Apostou por valor ({len(d.valor)})</h2>")
-            partes += [_mao_mostrada(m) for m in d.valor]
-        if d.pagou:
-            partes.append(f"<h2>Pagou até o showdown ({len(d.pagou)})</h2>")
-            partes += [_mao_mostrada(m) for m in d.pagou]
-        if d.outras:
-            partes.append(f"<h2>Mostrou sem agredir no fim "
-                          f"({len(d.outras)})</h2>")
-            partes += [_mao_mostrada(m) for m in d.outras]
+        for titulo, grupo in (
+                (f"Agrediu com mão fraca — blefe visto ({len(d.blefes)})",
+                 d.blefes),
+                (f"Apostou por valor ({len(d.valor)})", d.valor),
+                (f"Pagou até o showdown ({len(d.pagou)})", d.pagou),
+                (f"Mostrou sem agredir no fim ({len(d.outras)})", d.outras)):
+            if not grupo:
+                continue
+            partes.append(f"<h2>{titulo}</h2>")
+            for m in grupo:
+                seq += 1
+                partes.append(_mao_mostrada(m, por_id_todas.get(m.hand_id),
+                                            seq))
     else:
         partes.append("<h2>Showdowns</h2><div class='nota'>Ele não mostrou "
                       "nenhuma mão neste torneio — tudo que há são as linhas "
@@ -166,11 +182,15 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             sin = (f"<div class='sinais'>⚑ {_esc(' · '.join(e.sinais))}</div>"
                    if e.sinais else "")
 
-            # A MÃO INTEIRA, rua a rua — a linha resumida escondia o resto
-            # da mesa, e o dono cobrou: sem o filme não dá para estudar
+            # A MÃO INTEIRA — o storyboard do /relatorio (imagem, custo
+            # zero de modelo); o filme em texto entra quando a imagem falha
             historia = ""
             h = por_id.get(e.hand_id)
-            if h is not None:
+            seq += 1
+            img = _strip(h, seq, "")
+            if img:
+                historia = img
+            elif h is not None:
                 try:
                     filme, _decs = _walk_hand(h)
                     historia = ("<div class='linha'>"
