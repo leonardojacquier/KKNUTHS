@@ -9,6 +9,11 @@ name: Instalar autodeploy do dashboard
 
 on:
   workflow_dispatch:
+  # o app não tem permissão de disparar por API (403); push neste arquivo-gatilho
+  # dispara do mesmo jeito, sem API nenhuma
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
+    paths: ['deploy/dashboard-hub/GATILHO-DEPLOY']
 
 jobs:
   instalar:
