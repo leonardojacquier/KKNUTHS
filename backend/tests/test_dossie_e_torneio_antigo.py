@@ -126,7 +126,9 @@ def test_o_dossie_do_torneio_anterior_acha_o_vilao_de_la(base):
     assert isinstance(doc, tuple), doc
     data, fname, caption = doc
     html = data.decode("utf-8")
-    assert "v1" in html and fname == "dossie-v1.html"
+    assert "v1" in html
+    assert fname.startswith("dossie-v1-") and fname.endswith(".html"), (
+        f"nome fixo faz o celular abrir a cópia antiga: {fname}")
     assert "Dossiê" in html
 
 

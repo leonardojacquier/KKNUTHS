@@ -53,7 +53,14 @@ def dossie_doc(telegram_id: int, nome: str,
                f"Mostradas, escuras com sinais, e a sua defesa. "
                f"Abre no navegador.")
     seguro = "".join(c if c.isalnum() else "-" for c in nome)[:30]
-    return (html.encode("utf-8"), f"dossie-{seguro}.html", caption)
+    # nome ÚNICO por geração: com nome fixo, o celular abria a cópia BAIXADA
+    # da geração anterior e o dono via "tudo igual" com o código novo no ar.
+    # Aconteceu em 10/08 — uma tarde de funcionalidade invisível.
+    from datetime import datetime, timedelta, timezone
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    return (html.encode("utf-8"),
+            f"dossie-{seguro}-{agora:%d%m-%H%M}.html", caption)
 
 
 def resolver_escolha(telegram_id: int, ref: str) -> int | None:

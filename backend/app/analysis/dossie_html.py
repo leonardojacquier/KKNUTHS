@@ -282,9 +282,14 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                           f"Sua frequência não abre espaço para blefe "
                           f"automático.</div>")
 
-    partes.append("<div class='foot'>KKNuths ♠ — dossiê determinístico: "
-                  "todo número sai das suas mãos, nenhum passa por modelo. "
-                  "Rótulo só quando o intervalo estatístico sustenta.</div>")
+    from datetime import datetime, timedelta, timezone
+
+    gerado = datetime.now(timezone(timedelta(hours=-3)))
+    partes.append(f"<div class='foot'>KKNuths ♠ — dossiê determinístico: "
+                  f"todo número sai das suas mãos, nenhum passa por modelo. "
+                  f"Rótulo só quando o intervalo estatístico sustenta. "
+                  f"<b>Gerado em {gerado:%d/%m %H:%M}</b> — se você está "
+                  f"vendo outra data aqui, este é um arquivo antigo.</div>")
     return (f"<!doctype html><html lang=pt-BR><head><meta charset=utf-8>"
             f"<title>Dossiê — {_esc(nome)}</title><style>{_CSS}</style>"
             f"</head><body>{''.join(partes)}</body></html>")
