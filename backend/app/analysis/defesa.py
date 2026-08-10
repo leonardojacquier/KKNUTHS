@@ -46,6 +46,7 @@ class ApostaEnfrentada(NamedTuple):
     resposta: str                   # fold | call | raise
     houve_showdown: bool
     linha_do_vilao: str
+    sinais: tuple[str, ...] = ()    # fatos da linha — nunca veredito
 
 
 class Defesa(NamedTuple):
@@ -92,6 +93,53 @@ def _linha(hand: Any, nome: str) -> str:
     return _linha_do_vilao(hand, nome)[2]
 
 
+def _agrediu_na(hand: Any, nome: str, rua: str) -> bool:
+    for st in (getattr(hand, "streets", None) or ()):
+        if str(getattr(st.name, "value", st.name)).lower() != rua:
+            continue
+        return any(a.actor == nome and a.type in _AGRESSIVAS
+                   for a in (st.actions or ()))
+    return False
+
+
+def _sinais_da_linha(hand: Any, vilao: str,
+                     fracao: float | None) -> tuple[str, ...]:
+    """Fatos OBSERVÁVEIS da linha que terminou na aposta do river.
+
+    São as marcas que um coach apontaria olhando a mão — "overbet", "três
+    barris", "o draw do flop não bateu" — e nada além delas. Cada uma é
+    verdadeira tanto num blefe quanto num valor polarizado; por isso saem
+    como sinais, e o veredito continua não existindo. A tentação aqui é
+    somar sinais e chamar de probabilidade — seria o mesmo número proibido
+    entrando pela porta dos fundos.
+    """
+    sinais: list[str] = []
+    if fracao is not None and fracao > 1.0:
+        sinais.append(f"overbet ({fracao:g}× pote)")
+
+    flop = _agrediu_na(hand, vilao, "flop")
+    turn = _agrediu_na(hand, vilao, "turn")
+    if flop and turn:
+        sinais.append("três barris")
+    elif not flop and not turn:
+        board = list(getattr(hand, "final_board", None) or ())
+        if len(board) >= 5:
+            sinais.append("acordou só no river")
+
+    board = list(getattr(hand, "final_board", None) or ())
+    if len(board) >= 5:
+        naipes_flop = [c[1] for c in board[:3]]
+        for naipe in set(naipes_flop):
+            no_board_todo = [c[1] for c in board].count(naipe)
+            if naipes_flop.count(naipe) == 2 and no_board_todo == 2:
+                sinais.append("o flush draw do flop não bateu")
+                break
+        naipes = [c[1] for c in board]
+        if naipes.count(board[4][1]) >= 3:
+            sinais.append("o river fechou flush possível")
+    return tuple(sinais)
+
+
 def aposta_enfrentada(hand: Any) -> ApostaEnfrentada | None:
     """A PRIMEIRA aposta do river feita por um vilão com o herói ainda na
     mão, e o que o herói fez diante dela. None quando não houve.
@@ -128,13 +176,15 @@ def aposta_enfrentada(hand: Any) -> ApostaEnfrentada | None:
     fracao = round(b / pote, 3) if b > 0 and pote > 0 else None
 
     mostradas = getattr(hand, "shown_cards", None) or {}
+    nome_vilao = str(aposta.actor)
     return ApostaEnfrentada(
         hand_id=str(getattr(hand, "hand_id", "") or ""),
-        vilao=str(aposta.actor),
+        vilao=nome_vilao,
         fracao_do_pote=fracao,
         resposta=str(tipo).lower(),
-        houve_showdown=bool(mostradas.get(aposta.actor)),
-        linha_do_vilao=_linha(hand, str(aposta.actor)))
+        houve_showdown=bool(mostradas.get(nome_vilao)),
+        linha_do_vilao=_linha(hand, nome_vilao),
+        sinais=_sinais_da_linha(hand, nome_vilao, fracao))
 
 
 def _wilson_lo(k: int, n: int, z: float = 1.96) -> float:
@@ -205,12 +255,15 @@ def texto(d: Defesa | None, escuras: list[ApostaEnfrentada],
             tam = (f" ({e.fracao_do_pote:g}× pote)" if e.fracao_do_pote
                    else "")
             linhas.append(f"• _{e.linha_do_vilao}_{tam} — você: {e.resposta}")
+            if e.sinais:
+                linhas.append("  ⚑ " + " · ".join(e.sinais))
         if len(escuras) > limite:
             linhas.append(f"_…e mais {len(escuras) - limite}._")
         linhas.append(
-            "_Sem showdown não existe \"provavelmente blefou\": quem paga é "
-            "quem vê, e esse filtro entortaria qualquer taxa. O que dá para "
-            "medir é a sua defesa:_")
+            "_⚑ são fatos da linha, não veredito: cada um cabe tanto num "
+            "blefe quanto num valor polarizado. Sem showdown não existe "
+            "\"provavelmente blefou\" — quem paga é quem vê, e esse filtro "
+            "entortaria qualquer taxa. O que dá para medir é a sua defesa:_")
 
     if d is not None:
         pct = round(100 * d.fold_taxa)

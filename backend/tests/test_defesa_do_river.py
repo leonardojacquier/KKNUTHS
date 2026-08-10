@@ -187,7 +187,80 @@ def test_nao_vistas_exclui_showdown():
     assert [e.hand_id for e in escuras] == ["f1"]
 
 
-# ---- 4) o texto -------------------------------------------------------------
+# ---- 4) os sinais da linha (fatos, nunca veredito) --------------------------
+
+def _mao_com_linha(hid, board, bet=650.0, flop_bet=True, turn_bet=True):
+    """Vilão com linha controlável rua a rua, herói folda o river."""
+    ruas = [Street(name=StreetName.PREFLOP, actions=[
+                Action(actor="v1", type=ActionType.RAISE, amount=200,
+                       to_amount=200),
+                Action(actor="Hero", type=ActionType.CALL, amount=200)])]
+    for nome, agrediu in ((StreetName.FLOP, flop_bet),
+                          (StreetName.TURN, turn_bet)):
+        acoes = [Action(actor="Hero", type=ActionType.CHECK)]
+        if agrediu:
+            acoes += [Action(actor="v1", type=ActionType.BET, amount=150),
+                      Action(actor="Hero", type=ActionType.CALL, amount=150)]
+        else:
+            acoes.append(Action(actor="v1", type=ActionType.CHECK))
+        ruas.append(Street(name=nome, actions=acoes))
+    ruas.append(Street(name=StreetName.RIVER, actions=[
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="v1", type=ActionType.BET, amount=bet),
+        Action(actor="Hero", type=ActionType.FOLD)]))
+    return CanonicalHand(
+        hand_id=hid, site="GG", stakes=Stakes(big_blind=100), hero="Hero",
+        players=[PlayerSeat(seat=1, name="Hero", stack=5000, is_hero=True),
+                 PlayerSeat(seat=2, name="v1", stack=5000)],
+        hero_cards=["Ah", "Kd"], final_board=board, shown_cards={},
+        streets=ruas)
+
+
+def test_sinais_do_blefe_classico_draw_perdido_e_tres_barris():
+    """A linha que todo coach aponta: draw de copas no flop que NÃO bate,
+    três barris, overbet no fim."""
+    e = aposta_enfrentada(_mao_com_linha(
+        "h", ["Qh", "7h", "2d", "9c", "3s"], bet=1400.0))
+    assert "três barris" in e.sinais
+    assert "o flush draw do flop não bateu" in e.sinais
+    assert any(s.startswith("overbet") for s in e.sinais)
+    assert "o river fechou flush possível" not in e.sinais
+
+
+def test_sinais_do_river_que_fecha_o_flush_e_do_acordou_tarde():
+    e = aposta_enfrentada(_mao_com_linha(
+        "h", ["Qh", "7h", "2d", "9c", "3h"], flop_bet=False, turn_bet=False))
+    assert "acordou só no river" in e.sinais
+    assert "o river fechou flush possível" in e.sinais
+    assert "o flush draw do flop não bateu" not in e.sinais, (
+        "o draw BATEU — marcar como perdido inverte a leitura")
+    assert "três barris" not in e.sinais
+
+
+def test_linha_comum_nao_ganha_sinal_inventado():
+    """Aposta de meio pote, um barril, board seco: nenhum sinal. Sinal em
+    toda mão é o mesmo que sinal em nenhuma."""
+    e = aposta_enfrentada(_mao_com_linha(
+        "h", ["Qs", "7h", "2d", "9c", "3s"], bet=500.0, turn_bet=False))
+    assert e.sinais == (), e.sinais
+
+
+def test_dois_barris_nao_sao_tres():
+    e = aposta_enfrentada(_mao_com_linha(
+        "h", ["Qs", "7h", "2d", "9c", "3s"], bet=500.0, flop_bet=True,
+        turn_bet=False))
+    assert "três barris" not in e.sinais
+    assert "acordou só no river" not in e.sinais
+
+
+def test_os_sinais_aparecem_no_texto_com_a_bandeira_e_o_aviso():
+    maos = [_mao_com_linha("h", ["Qh", "7h", "2d", "9c", "3s"], bet=1400.0)]
+    t = texto(medir(maos, "v1"), nao_vistas(maos, "v1"), "v1")
+    assert "⚑" in t and "três barris" in t
+    assert "não veredito" in t, "a bandeira sem o aviso vira acusação"
+
+
+# ---- 5) o texto -------------------------------------------------------------
 
 def test_as_escuras_saem_com_fatos_e_SEM_probabilidade():
     maos = ([mao(f"f{i}", ActionType.FOLD) for i in range(9)]
@@ -214,7 +287,7 @@ def test_sem_nada_o_texto_e_vazio():
     assert texto(None, [], "v1") == ""
 
 
-# ---- 5) a ligação -----------------------------------------------------------
+# ---- 6) a ligação -----------------------------------------------------------
 
 def test_o_vilao_entrega_a_defesa_junto(monkeypatch):
     import app.bot.processing as P
