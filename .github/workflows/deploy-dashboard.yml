@@ -1,0 +1,63 @@
+name: Instalar autodeploy do dashboard
+
+# Roda NO runner do GitHub e entra na VPS por SSH (mesma chave do deploy-vortex).
+# Faz o que seria o "último comando": puxa a main do dashboard-gnh, instala o
+# cron de autodeploy, builda e reinicia o pm2. Depois disso, todo push na main
+# do dashboard-gnh entra no ar sozinho em até 5 min — ninguém digita mais nada.
+#
+# Sem o secret VORTEX_SSH_KEY o workflow avisa e sai verde, como o deploy-vortex.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  instalar:
+    runs-on: ubuntu-latest
+    env:
+      VORTEX_HOST: srv1555380.hstgr.cloud
+      VORTEX_USER: root
+      HAS_KEY: ${{ secrets.VORTEX_SSH_KEY != '' }}
+    steps:
+      - name: Secret ausente — nada a fazer
+        if: env.HAS_KEY != 'true'
+        run: echo "::error::VORTEX_SSH_KEY não configurado em Settings → Secrets do KKNUTHS. Sem ele o runner não alcança a VPS."
+
+      - name: Configurar chave SSH
+        if: env.HAS_KEY == 'true'
+        env:
+          KEY_RAW: ${{ secrets.VORTEX_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          # aceita a chave em texto plano OU em base64 (à prova de cópia)
+          if [[ "$KEY_RAW" == *"PRIVATE KEY"* ]]; then
+            printf '%s\n' "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            printf '%s' "$KEY_RAW" | tr -d ' \t\n\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
+          fi
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1 || { echo "::error::VORTEX_SSH_KEY inválida"; exit 1; }
+          ssh-keyscan -4 -T 10 -H "$VORTEX_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Instalar cron + primeira publicação
+        if: env.HAS_KEY == 'true'
+        run: |
+          # UMA conexão só (a VPS roda fail2ban); o build acontece lá dentro.
+          ssh -4 -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              "$VORTEX_USER@$VORTEX_HOST" 'bash -lc "
+            set -euo pipefail
+            cd /opt/dashboard-gnh
+            git fetch origin main
+            git reset --hard origin/main
+            cp deploy/vps-autodeploy-dashboard.sh /opt/dashboard-autodeploy.sh
+            chmod +x /opt/dashboard-autodeploy.sh
+            ( crontab -l 2>/dev/null | grep -v dashboard-autodeploy ; \
+              echo \"*/5 * * * * /opt/dashboard-autodeploy.sh >/dev/null 2>&1\" ) | crontab -
+            echo \"== cron instalado ==\"; crontab -l | grep dashboard-autodeploy
+            rm -rf .next-prev; [ -d .next ] && cp -a .next .next-prev || true
+            npm run build
+            pm2 restart dashboard-gnh --update-env
+            echo \"== PRONTO: \$(git rev-parse --short HEAD) no ar ==\"
+          "'
