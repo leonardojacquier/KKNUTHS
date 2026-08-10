@@ -86,8 +86,12 @@ CATEGORIAS: tuple[Categoria, ...] = (
         Comando("range", "Gráficos de range 13×13",
                 "gráficos 13×13: `/range btn` · `/range sb 10` · "
                 "`/range sb 10 ev` · `/range sb 10 icm 1.5`"),
-        Comando("vilao", "Dossiê de um oponente 🎯",
-                "dossiê de um oponente que já apareceu nas suas mãos"),
+        Comando("vilao", "Perfil de um oponente 🎯",
+                "perfil rápido de um oponente, no chat: frequências, "
+                "showdowns e como explorar"),
+        Comando("dossie", "Dossiê HTML de um vilão 🔍",
+                "dossiê completo em HTML de um vilão num torneio: "
+                "`/dossie fulano` · `/dossie fulano 2` (torneio anterior)"),
         Comando("banca", "Risco de ruína 💰",
                 "risco de ruína e downswing esperado para a sua banca"),
         Comando("ask", "Busque no seu histórico",

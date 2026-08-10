@@ -277,9 +277,12 @@ def test_o_quadro_e_a_leitura_olham_as_mesmas_maos():
 
     from app.bot import processing
 
+    # com o /torneio N, a fonte comum virou `maos_do_torneio(tg, escolha)` —
+    # e os DOIS têm que passar a MESMA escolha para a mesma fonte
     for fn in (processing.tournament_board_report,
                processing.estrategia_do_torneio):
-        assert "maos_do_ultimo_torneio" in inspect.getsource(fn)
+        fonte = inspect.getsource(fn)
+        assert "maos_do_torneio(telegram_id, escolha)" in fonte, fn.__name__
 
 
 # ---- direção do erro: comparar CONTAGENS é decidir pelo denominador -------

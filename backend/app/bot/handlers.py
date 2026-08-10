@@ -460,13 +460,58 @@ async def cmd_foco(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _safe_reply(update.message, txt)
 
 
-async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quadro-resumo do último campeonato enviado (curva do stack + KPIs)."""
-    await _log(update, "torneio")
-    from app.bot.processing import tournament_board_report
+async def cmd_dossie(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """/dossie <vilão> [N] — dossiê HTML do vilão no torneio N (1 = último)."""
+    import io as _io
 
-    board = await asyncio.to_thread(tournament_board_report, update.effective_user.id)
+    args = list(ctx.args or [])
+    escolha = 1
+    if args and args[-1].isdigit():
+        escolha = max(1, int(args.pop()))
+    nome = " ".join(args).strip()
+    await _log(update, "dossie_cmd", nome=nome[:40], escolha=escolha)
+    if not nome:
+        await update.message.reply_markdown(
+            "Uso: `/dossie <vilão>` (torneio mais recente) ou "
+            "`/dossie <vilão> 2` (o anterior).\nOs nomes aparecem na mesa "
+            "do /torneio.")
+        return
+    from app.bot.processing import dossie_doc
+
+    doc = await asyncio.to_thread(dossie_doc, update.effective_user.id,
+                                  nome, escolha)
+    if doc is None:
+        await update.message.reply_text(
+            "Ainda não tenho torneio seu na base — manda o hand history "
+            "de um que eu monto o dossiê.")
+        return
+    if isinstance(doc, str):
+        await update.message.reply_text(doc)
+        return
+    data, fname, caption = doc
+    await update.message.reply_document(document=_io.BytesIO(data),
+                                        filename=fname,
+                                        caption=caption[:1000])
+
+
+async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quadro de um torneio: o último, ou `/torneio 2` para o anterior."""
+    escolha = 1
+    if ctx.args and ctx.args[0].isdigit():
+        escolha = max(1, int(ctx.args[0]))
+    await _log(update, "torneio", escolha=escolha)
+    from app.bot.processing import tournament_board_report, torneios_do_usuario
+
+    board = await asyncio.to_thread(tournament_board_report,
+                                    update.effective_user.id, escolha)
     if not board:
+        ts = await asyncio.to_thread(torneios_do_usuario, update.effective_user.id)
+        if escolha > 1 and ts:
+            # pediu o 5º e só existem 3: dizer isso, nunca cair no último calado
+            await update.message.reply_markdown(
+                f"Você tem *{len(ts)}* torneio(s) na base — não existe um "
+                f"nº {escolha}.\n" + _indice_de_torneios(ts))
+            return
         await update.message.reply_text(
             "Ainda não tenho um torneio seu com mãos suficientes. Envie o hand "
             "history do torneio (arquivo ou colado) que eu monto o quadro."
@@ -480,9 +525,26 @@ async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     from app.bot.processing import estrategia_do_torneio
 
     leitura = await asyncio.to_thread(estrategia_do_torneio,
-                                      update.effective_user.id)
+                                      update.effective_user.id, escolha)
+    ts = await asyncio.to_thread(torneios_do_usuario, update.effective_user.id)
+    if len(ts) > 1:
+        leitura = (leitura or "") + "\n\n" + _indice_de_torneios(ts, escolha)
     if leitura:
         await _safe_reply(update.message, leitura)
+
+
+def _indice_de_torneios(ts: list[dict], atual: int = 0) -> str:
+    """O índice que faz os torneios antigos existirem: sem ele, só quem
+    adivinha que `/torneio 2` funciona chega neles."""
+    linhas = ["🗂 *Seus torneios* (`/torneio N` abre · `/dossie <vilão> N`):"]
+    for i, t in enumerate(ts[:6], start=1):
+        marca = " ← este" if i == atual else ""
+        sala = (t["site"] or "?").split(" · ")[0]
+        linhas.append(f"{i}. {sala} · {t['data'] or 'sem data'} · "
+                      f"{len(t['maos'])} mãos{marca}")
+    if len(ts) > 6:
+        linhas.append(f"_…e mais {len(ts) - 6} antigos._")
+    return "\n".join(linhas)
 
 
 async def cmd_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1980,6 +2042,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("treino", cmd_treino))
     app.add_handler(CommandHandler("range", cmd_range))
     app.add_handler(CommandHandler("vilao", cmd_vilao))
+    app.add_handler(CommandHandler("dossie", cmd_dossie))
     app.add_handler(CommandHandler("leitura", cmd_leitura))
     app.add_handler(CommandHandler("banca", cmd_banca))
     app.add_handler(CallbackQueryHandler(on_hr_answer, pattern=r"^hr:"))

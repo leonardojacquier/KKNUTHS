@@ -1245,6 +1245,12 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     return answer
 
 
+# /dossie: extraído para caber no teto de linhas (mesmo padrão do
+# lobby_flow: repo e índice resolvidos VIA processing em tempo de chamada,
+# senão os dublês dos testes são ignorados em silêncio).
+from app.bot.torneio_flow import dossie_doc  # noqa: E402
+
+
 def report_doc_for_user(telegram_id: int,
                         username: str | None) -> tuple[bytes, str, str] | None:
     """/relatorio: relatório mão a mão do ÚLTIMO torneio do usuário no banco.
@@ -1398,24 +1404,55 @@ def evolution_report(telegram_id: int) -> tuple[bytes | None, str]:
     return png, text
 
 
-def maos_do_ultimo_torneio(telegram_id: int) -> list[CanonicalHand]:
-    """As mãos do torneio mais recente — o quadro e a leitura de estratégia
-    olham exatamente o MESMO conjunto (senão os dois se contradizem)."""
+def torneios_do_usuario(telegram_id: int) -> list[dict]:
+    """Os torneios do aluno, do mais recente para o mais antigo.
+
+    É o índice que destrava "quero ver OUTRO torneio": o /torneio sempre
+    abriu só o último, e os anteriores ficavam no banco sem porta. Cada
+    entrada: {tournament_id, site, data, maos}.
+    """
     repo = get_repository()
     if repo.enabled:
         user = repo.get_or_create_user(telegram_id, None)
         all_hands = repo.get_all_hands(user["id"]) if user else []
-        tourneys = [h for h in all_hands if h.tournament_id]
-        if tourneys:
-            latest = max(tourneys, key=lambda h: h.played_at or "")
-            return [h for h in tourneys
-                    if h.tournament_id == latest.tournament_id]
-    return [h for h in RECENT_HANDS.get(telegram_id, []) if h.tournament_id]
+    else:
+        all_hands = RECENT_HANDS.get(telegram_id, [])
+    grupos: dict[str, list] = {}
+    for h in all_hands:
+        if h.tournament_id:
+            grupos.setdefault(str(h.tournament_id), []).append(h)
+    saida = []
+    for tid, maos in grupos.items():
+        quando = max((h.played_at or "" for h in maos), default="")
+        saida.append({"tournament_id": tid,
+                      "site": next((h.site for h in maos if h.site), ""),
+                      "data": quando[:10] if quando else "",
+                      "maos": maos})
+    saida.sort(key=lambda t: max((h.played_at or "" for h in t["maos"]),
+                                 default=""), reverse=True)
+    return saida
 
 
-def tournament_board_report(telegram_id: int) -> tuple[bytes, str] | None:
-    """Quadro-resumo do torneio mais recente do usuário (None sem material)."""
-    hands = maos_do_ultimo_torneio(telegram_id)
+def maos_do_torneio(telegram_id: int, escolha: int = 1) -> list[CanonicalHand]:
+    """As mãos do N-ésimo torneio mais recente (1 = último). [] fora da
+    lista — quem chama diz quantos existem em vez de cair no último calado:
+    pedir o 5º e receber o 1º é resposta errada com cara de certa."""
+    ts = torneios_do_usuario(telegram_id)
+    if not 1 <= escolha <= len(ts):
+        return []
+    return ts[escolha - 1]["maos"]
+
+
+def maos_do_ultimo_torneio(telegram_id: int) -> list[CanonicalHand]:
+    """O quadro e a leitura de estratégia olham exatamente o MESMO conjunto
+    (senão os dois se contradizem)."""
+    return maos_do_torneio(telegram_id, 1)
+
+
+def tournament_board_report(telegram_id: int,
+                            escolha: int = 1) -> tuple[bytes, str] | None:
+    """Quadro-resumo de um torneio do usuário (1 = o mais recente)."""
+    hands = maos_do_torneio(telegram_id, escolha)
     if len(hands) < 2:
         return None
     from app.analysis.tournament_board import render_tournament_board
@@ -1452,7 +1489,7 @@ def foco_reply(telegram_id: int, username: str | None = None) -> str:
     return r["texto"]
 
 
-def estrategia_do_torneio(telegram_id: int) -> str:
+def estrategia_do_torneio(telegram_id: int, escolha: int = 1) -> str:
     """Onde o EV foi embora, por profundidade de stack. '' sem material.
 
     Acompanha o quadro do /torneio porque a curva do stack mostra O QUE
@@ -1462,7 +1499,7 @@ def estrategia_do_torneio(telegram_id: int) -> str:
     from app.analysis.estrategia_torneio import (por_faixa, texto,
                                                  texto_da_frequencia)
 
-    hands = maos_do_ultimo_torneio(telegram_id)
+    hands = maos_do_torneio(telegram_id, escolha)
     if len(hands) < 2:
         return ""
     fora = [texto(por_faixa(hands))]

@@ -196,7 +196,7 @@ def test_o_torneio_entrega_a_mesa_junto_da_leitura(monkeypatch):
     import app.bot.processing as P
 
     maos = gerar({"cf5b672d": (254, 74, 36)})
-    monkeypatch.setattr(P, "maos_do_ultimo_torneio", lambda tg: maos)
+    monkeypatch.setattr(P, "maos_do_torneio", lambda tg, escolha=1: maos)
 
     class _Repo:
         enabled = False
