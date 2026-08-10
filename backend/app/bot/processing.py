@@ -2395,6 +2395,16 @@ def villain_report(telegram_id: int, name: str) -> str:
         l += [f"• {e}" for e in prof["exploits"]]
     if prof.get("aviso"):
         l.append(f"\n⚠️ _{prof['aviso']}_")
+    # AS MÃOS. A frequência acima responde "que tipo de jogador é ele"; o
+    # aluno na mesa pergunta "o que esse cara aposta no river?". Carta virada
+    # responde isso sem precisar de amostra nem de margem — ele VIU.
+    from app.analysis.dossie import montar
+    from app.analysis.dossie import texto as texto_do_dossie
+
+    d = montar(hands, prof["vilao"])
+    if d is not None:
+        l.append("\n" + texto_do_dossie(d))
+
     l.append("\n💬 _Pergunta 'como jogo contra ele?' que o coach monta o plano._")
     return "\n".join(l)
 
