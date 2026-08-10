@@ -2728,3 +2728,167 @@ def _snapshot_to_canonical(data: dict, fingerprint: str | None = None) -> Canoni
     if data.get("winner") and hand.total_pot:
         hand.collected[str(data["winner"])] = float(hand.total_pot)
     return hand
+
+
+# ---------------------------------------------------------------- lobby ----
+_LOBBY_PROMPT = (
+    "Você recebe um print da tela de INFORMAÇÕES/ESTRUTURA de um torneio de "
+    "poker (lobby). Transcreva o que está ESCRITO, sem interpretar nem "
+    "converter, e devolva APENAS JSON:\n"
+    "{\n"
+    '  "nome": "<nome do torneio ou null>",\n'
+    '  "buyin": 0, "taxa": 0,           // "100 (85+15)" -> buyin 85, taxa 15\n'
+    '  "fichas_iniciais": 0,            // "100K" -> 100000\n'
+    '  "minutos_por_nivel": 0,          // "15 min / Blinds sobem" -> 15\n'
+    '  "late_reg_nivel": 0,             // "Nível 5 / Late reg." -> 5\n'
+    '  "pausa_min": 0, "pausa_cada_min": 0,   // "Pausa: 5 min/55 min" -> 5, 55\n'
+    '  "rebuy": "<texto como está, ou null>",\n'
+    '  "addon": "<texto como está, ou null>",\n'
+    '  "jogadores": 0, "faixa_max": 0,  // "Faixa de jogadores: 5-200" -> 200\n'
+    '  "niveis": [{"nivel":1,"sb":25,"bb":50,"ante":0}, ...]\n'
+    "}\n"
+    "REGRAS:\n"
+    "- Sufixo vira número: 10K = 10000, 1,5K = 1500. Separador de milhar "
+    "('1,000' / '1.000') NÃO é decimal — 1,000 é mil.\n"
+    "- 'Blinds 25/50' = sb 25, bb 50. Ante em coluna própria; sem ante, 0.\n"
+    "- Transcreva TODOS os níveis visíveis, na ordem, sem pular linha.\n"
+    "- Campo que não aparece na tela = null. NÃO deduza, NÃO complete a "
+    "escada, NÃO calcule nada. Se só a tabela de blinds estiver visível, "
+    "devolva os outros campos como null.\n"
+    "- Ignore selos/ícones ao lado do nível (o 'R' de rebuy, por exemplo): "
+    "eles não são números."
+)
+
+_LOBBY_VERIFY_PROMPT = (
+    "Você fez uma PRIMEIRA leitura deste print de lobby de torneio (JSON "
+    "abaixo). Olhe a imagem DE NOVO e confira apenas: minutos_por_nivel, "
+    "fichas_iniciais, late_reg_nivel e a TABELA de níveis (nível, sb, bb, "
+    "ante), linha por linha. Responda APENAS JSON:\n"
+    '{"confere": true|false,\n'
+    ' "divergencias": ["nivel 9: li bb 2000, a 1ª leitura diz 2500", ...],\n'
+    ' "correcao": {"minutos_por_nivel":0, "fichas_iniciais":0, '
+    '"late_reg_nivel":0, "niveis":[...]}}\n'
+    "Em 'correcao' inclua SÓ o que a 1ª leitura errou (vazio se conferiu).\n\n"
+    "1ª leitura:\n"
+)
+
+LAST_LOBBY_CHECK: dict | None = None
+
+
+def _lobby_do_json(data: dict):
+    """dict cru -> `Lobby`. Sem níveis não há lobby: devolve None.
+
+    Tudo o mais é opcional de propósito — sala diferente mostra campo
+    diferente, e a conta lá em `analysis/lobby.py` já cala sozinha no que
+    faltar. Preencher buraco com padrão é o jeito silencioso de inventar.
+    """
+    from app.analysis.lobby import Lobby, Nivel
+
+    def _num(v):
+        if isinstance(v, (int, float)):
+            return float(v)
+        if not isinstance(v, str):
+            return None
+        t = v.strip().upper().replace(".", "").replace(",", "")
+        mult = 1000 if t.endswith("K") else (10**6 if t.endswith("M") else 1)
+        t = t.rstrip("KM")
+        try:
+            return float(t) * mult
+        except ValueError:
+            return None
+
+    niveis = []
+    for n in (data.get("niveis") or []):
+        if not isinstance(n, dict):
+            continue
+        bb, nivel = _num(n.get("bb")), _num(n.get("nivel"))
+        if not bb or bb <= 0 or nivel is None:
+            continue
+        niveis.append(Nivel(int(nivel), _num(n.get("sb")) or 0.0, bb,
+                            _num(n.get("ante")) or 0.0))
+    if not niveis:
+        return None
+
+    lr = _num(data.get("late_reg_nivel"))
+    fx = _num(data.get("faixa_max"))
+    jg = _num(data.get("jogadores"))
+    return Lobby(
+        niveis=tuple(sorted(niveis, key=lambda n: n.nivel)),
+        nome=(data.get("nome") or None), buyin=_num(data.get("buyin")),
+        taxa=_num(data.get("taxa")),
+        fichas_iniciais=_num(data.get("fichas_iniciais")),
+        minutos_por_nivel=_num(data.get("minutos_por_nivel")),
+        late_reg_nivel=int(lr) if lr else None,
+        pausa_min=_num(data.get("pausa_min")),
+        pausa_cada_min=_num(data.get("pausa_cada_min")),
+        rebuy=(data.get("rebuy") or None), addon=(data.get("addon") or None),
+        jogadores=int(jg) if jg else None, faixa_max=int(fx) if fx else None)
+
+
+def extract_lobby_from_image(image_bytes: bytes,
+                             media_type: str = "image/png"):
+    """Print do lobby -> `Lobby`. None sem chave, sem lib ou em falha.
+
+    DUAS PASSADAS, como o print de mão: extração e depois conferência linha a
+    linha da tabela. Aqui a segunda importa mais que lá — um blind lido
+    errado no meio da escada não parece errado, e vira plano de jogo com ar
+    de certeza. A divergência fica em `LAST_LOBBY_CHECK` para o coach pedir
+    confirmação ao aluno em vez de seguir calado.
+
+    A conta NÃO acontece aqui. Isto transcreve; `analysis/lobby.py` calcula.
+    """
+    global LAST_LOBBY_CHECK
+    LAST_LOBBY_CHECK = None
+    set_tarefa("leitura_lobby")
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        b64 = base64.standard_b64encode(image_bytes).decode()
+        img = {"type": "image",
+               "source": {"type": "base64", "media_type": media_type,
+                          "data": b64}}
+        resp = _create(client, model=settings.analysis_model, max_tokens=2048,
+                       temperature=0.0,
+                       messages=[{"role": "user",
+                                  "content": [img, {"type": "text",
+                                                    "text": _LOBBY_PROMPT}]}])
+        texto = "".join(b.text for b in resp.content if b.type == "text")
+        data = json.loads(_strip_code_fence(texto))
+
+        divergencias: list[str] = []
+        try:
+            core = {k: data.get(k) for k in
+                    ("minutos_por_nivel", "fichas_iniciais", "late_reg_nivel",
+                     "niveis")}
+            resp2 = _create(
+                client, model=settings.analysis_model, max_tokens=2048,
+                temperature=0.0,
+                messages=[{"role": "user", "content": [
+                    img, {"type": "text",
+                          "text": _LOBBY_VERIFY_PROMPT
+                          + json.dumps(core, ensure_ascii=False)}]}])
+            check = json.loads(_strip_code_fence(
+                "".join(b.text for b in resp2.content if b.type == "text")))
+            divergencias = [str(d) for d in (check.get("divergencias") or [])]
+            # a 2ª leitura MANDA nos campos em que ela discorda: ela olhou a
+            # imagem sabendo o que conferir, que é tarefa mais fácil
+            for campo, valor in (check.get("correcao") or {}).items():
+                if valor not in (None, "", [], 0):
+                    data[campo] = valor
+        except Exception as exc:
+            logging.getLogger("llm").warning("conferência do lobby falhou: %s",
+                                             exc)
+        LAST_LOBBY_CHECK = {"divergencias": divergencias,
+                            "conferido": not divergencias}
+        return _lobby_do_json(data)
+    except Exception as exc:
+        logging.getLogger("llm").warning("extract_lobby_from_image falhou: %s",
+                                         exc)
+        return None
