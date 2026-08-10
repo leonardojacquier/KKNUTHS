@@ -8,12 +8,10 @@ name: Instalar autodeploy do dashboard
 # Sem o secret VORTEX_SSH_KEY o workflow avisa e sai verde, como o deploy-vortex.
 
 on:
+  # Só manual. O gatilho por push foi removido: a porta 22 da VPS é filtrada por
+  # IP (firewall Hostinger), então o runner do GitHub nunca conecta — testado,
+  # 3 timeouts. Fica aqui para o dia em que o IP do runner for liberado.
   workflow_dispatch:
-  # o app não tem permissão de disparar por API (403); push neste arquivo-gatilho
-  # dispara do mesmo jeito, sem API nenhuma
-  push:
-    branches: [claude/professional-website-design-qqgnfg]
-    paths: ['deploy/dashboard-hub/GATILHO-DEPLOY']
 
 jobs:
   instalar:
