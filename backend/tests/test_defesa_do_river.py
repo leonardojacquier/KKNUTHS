@@ -1,0 +1,229 @@
+"""Sem showdown não há "provavelmente blefou" — há a SUA defesa, exata.
+
+O pedido era marcar onde o vilão "provavelmente blefou" nas mãos sem
+showdown. Medido na base antes de escrever o módulo: nas 39 mãos em que um
+vilão apostou o river e FOI PAGO, mão fraca em 2 (5% ± 7pp). Mas essas 39
+são as mãos em que alguém pagou; as 88 escuras são as em que todos largaram.
+A seleção incide exatamente sobre a coisa a estimar — paga-se quando se
+desconfia — então qualquer taxa transportada dali seria invenção com cara
+de medida.
+
+O que estes testes prendem:
+
+  1. a conta do teorema: aposta `b` em pote `p` lucra como blefe se o herói
+     folda mais que b/(p+b). Com 0,65× pote, 39% — NÃO 61% (61% é a defesa
+     mínima; confundir os dois inverte o veredito);
+  2. o veredito de overfold sai pelo PISO de Wilson, não pela média — média
+     alta com intervalo largo é relato, não acusação;
+  3. o texto das mãos escuras carrega fatos (linha, tamanho, sua resposta)
+     e NENHUMA probabilidade;
+  4. pote antes do river: raise conta "até" (to_amount), não "mais".
+"""
+from __future__ import annotations
+
+import pytest
+
+from app.analysis.defesa import (
+    MINIMO_PARA_VEREDITO,
+    _pote_antes_do_river,
+    _wilson_lo,
+    aposta_enfrentada,
+    medir,
+    nao_vistas,
+    texto,
+)
+from app.models.canonical import (
+    Action,
+    ActionType,
+    CanonicalHand,
+    PlayerSeat,
+    Stakes,
+    Street,
+    StreetName,
+)
+
+BOARD = ["Qs", "7h", "2d", "9c", "3s"]
+
+
+def mao(hid, resposta, mostra=False, bet=650.0, vilao="v1"):
+    """Pré 200+200, flop 300+300 => pote 1000 no river. Vilão aposta `bet`."""
+    riv = [Action(actor="Hero", type=ActionType.CHECK),
+           Action(actor=vilao, type=ActionType.BET, amount=bet)]
+    if resposta is not None:
+        riv.append(Action(actor="Hero", type=resposta,
+                          amount=bet if resposta == ActionType.CALL else 0))
+    return CanonicalHand(
+        hand_id=hid, site="GG", stakes=Stakes(big_blind=100), hero="Hero",
+        players=[PlayerSeat(seat=1, name="Hero", stack=5000, is_hero=True),
+                 PlayerSeat(seat=2, name=vilao, stack=5000)],
+        hero_cards=["Ah", "Kd"], final_board=BOARD,
+        shown_cards={vilao: ["Jd", "Th"]} if mostra else {},
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+                     Action(actor=vilao, type=ActionType.RAISE,
+                            amount=200, to_amount=200),
+                     Action(actor="Hero", type=ActionType.CALL, amount=200)]),
+                 Street(name=StreetName.FLOP, actions=[
+                     Action(actor="Hero", type=ActionType.CHECK),
+                     Action(actor=vilao, type=ActionType.BET, amount=300),
+                     Action(actor="Hero", type=ActionType.CALL, amount=300)]),
+                 Street(name=StreetName.RIVER, actions=riv)])
+
+
+# ---- 1) a conta -------------------------------------------------------------
+
+def test_o_pote_antes_do_river_soma_as_streets_anteriores():
+    assert _pote_antes_do_river(mao("h", ActionType.FOLD)) == 1000.0
+
+
+def test_raise_conta_ATE_e_nao_MAIS():
+    """3-bet pré com to_amount: somar `amount` de novo infla o pote e
+    derruba a fração — o limiar sai errado para baixo."""
+    h = mao("h", ActionType.FOLD)
+    h.streets[0].actions.insert(1, Action(
+        actor="Hero", type=ActionType.RAISE, amount=600, to_amount=600))
+    h.streets[0].actions[2] = Action(actor="v1", type=ActionType.RAISE,
+                                     amount=1400, to_amount=1400)
+    h.streets[0].actions.append(Action(actor="Hero", type=ActionType.CALL,
+                                       amount=800))
+    # v1: 200 depois até 1400 = 1400; Hero: 600 + 800 = 1400; flop 600
+    assert _pote_antes_do_river(h) == 3400.0
+
+
+def test_a_fracao_e_o_limiar_do_teorema():
+    """0,65× pote => blefe lucra a partir de 39% de fold — não 61%."""
+    e = aposta_enfrentada(mao("h", ActionType.FOLD))
+    assert e.fracao_do_pote == 0.65
+    d = medir([mao(f"h{i}", ActionType.FOLD) for i in range(10)], "v1")
+    assert d.limiar_fold == pytest.approx(0.394, abs=0.001)
+    assert not (0.60 <= d.limiar_fold <= 0.62), (
+        "o limiar virou a defesa mínima (1-b/(p+b)) — inverteria o veredito")
+
+
+def test_valores_ausentes_nao_viram_fracao_inventada():
+    e = aposta_enfrentada(mao("h", ActionType.FOLD, bet=0.0))
+    assert e is None or e.fracao_do_pote is None
+
+
+# ---- 2) o veredito pelo piso, não pela média --------------------------------
+
+def test_overfold_so_quando_o_PISO_passa_o_limiar():
+    """8 folds em 10 a 0,65×: piso de Wilson 49% > 39% => overfold."""
+    maos = ([mao(f"f{i}", ActionType.FOLD) for i in range(8)]
+            + [mao(f"c{i}", ActionType.CALL) for i in range(2)])
+    d = medir(maos, "v1")
+    assert d.veredito == "overfold"
+    assert d.fold_lo > d.limiar_fold
+
+
+def test_media_alta_com_intervalo_largo_NAO_acusa():
+    """6 folds em 8: média 75%, mas o piso (~41%) fica abaixo do limiar de
+    uma aposta grande — relato sim, acusação não."""
+    maos = ([mao(f"f{i}", ActionType.FOLD, bet=1500.0) for i in range(6)]
+            + [mao(f"c{i}", ActionType.CALL, bet=1500.0) for i in range(2)])
+    d = medir(maos, "v1")
+    assert d.fold_taxa == 0.75
+    assert d.veredito == "ok", (d.fold_lo, d.limiar_fold)
+
+
+def test_amostra_curta_relata_sem_veredito():
+    maos = [mao(f"f{i}", ActionType.FOLD) for i in range(MINIMO_PARA_VEREDITO - 1)]
+    d = medir(maos, "v1")
+    assert d.veredito == "amostra_curta"
+    assert "veredito não" in texto(d, [], "v1")
+
+
+def test_wilson_e_piso_de_verdade():
+    assert _wilson_lo(8, 10) == pytest.approx(0.49, abs=0.02)
+    assert _wilson_lo(0, 0) == 0.0
+    assert _wilson_lo(10, 10) < 1.0, "10/10 com certeza absoluta não existe"
+
+
+# ---- 3) o que entra e o que não entra ---------------------------------------
+
+def test_so_conta_quando_o_heroi_DECIDIU():
+    """Vilão apostou e a mão acabou sem resposta do herói (ele já estava
+    fora): não houve defesa para medir."""
+    assert aposta_enfrentada(mao("h", None)) is None
+
+
+def test_aposta_do_HEROI_nao_e_defesa():
+    h = mao("h", ActionType.FOLD)
+    h.streets[2].actions = [Action(actor="Hero", type=ActionType.BET, amount=650),
+                            Action(actor="v1", type=ActionType.CALL, amount=650)]
+    assert aposta_enfrentada(h) is None
+
+
+def test_bet_do_heroi_com_raise_do_vilao_mede_a_defesa_contra_o_RAISE():
+    """Herói aposta, vilão dá raise, herói folda. A agressão enfrentada é a
+    do VILÃO — sem o filtro de ator, a primeira ação agressiva do river é a
+    do próprio herói e o "vilão" do evento viraria "Hero" (e o `medir` sem
+    filtro contaria o herói se defendendo de si mesmo)."""
+    h = mao("h", None)
+    h.streets[2].actions = [
+        Action(actor="Hero", type=ActionType.BET, amount=500),
+        Action(actor="v1", type=ActionType.RAISE, amount=1500, to_amount=1500),
+        Action(actor="Hero", type=ActionType.FOLD)]
+    e = aposta_enfrentada(h)
+    assert e is not None and e.vilao == "v1", e
+    assert e.resposta == "fold"
+    d = medir([h])
+    assert d.apostas == 1 and d.folds == 1
+
+
+def test_filtro_por_vilao_e_por_todos():
+    maos = ([mao(f"a{i}", ActionType.FOLD, vilao="v1") for i in range(3)]
+            + [mao(f"b{i}", ActionType.FOLD, vilao="v2") for i in range(2)])
+    assert medir(maos, "v1").apostas == 3
+    assert medir(maos, "v2").apostas == 2
+    assert medir(maos).apostas == 5
+    assert medir(maos, "ninguem") is None
+    assert medir([], "v1") is None
+
+
+def test_nao_vistas_exclui_showdown():
+    maos = [mao("f1", ActionType.FOLD),                 # escura
+            mao("c1", ActionType.CALL, mostra=True)]    # vista
+    escuras = nao_vistas(maos, "v1")
+    assert [e.hand_id for e in escuras] == ["f1"]
+
+
+# ---- 4) o texto -------------------------------------------------------------
+
+def test_as_escuras_saem_com_fatos_e_SEM_probabilidade():
+    maos = ([mao(f"f{i}", ActionType.FOLD) for i in range(9)]
+            + [mao("c0", ActionType.CALL, mostra=True)])
+    t = texto(medir(maos, "v1"), nao_vistas(maos, "v1"), "v1", limite=3)
+    assert "ninguém viu" in t and "e mais 6" in t
+    assert "aumenta pré · aposta flop · aposta river" in t
+    assert "0.65× pote" in t
+    assert "provavelmente" not in t.replace(
+        'não existe "provavelmente blefou"', ""), (
+        "apareceu um 'provavelmente' fora da negação")
+    assert "blefou X" not in t
+
+
+def test_overfold_no_texto_carrega_o_piso():
+    maos = ([mao(f"f{i}", ActionType.FOLD) for i in range(8)]
+            + [mao(f"c{i}", ActionType.CALL) for i in range(2)])
+    t = texto(medir(maos, "v1"), [], "v1")
+    assert "folda demais" in t and "≥49%" in t
+    assert "39%" in t, "o limiar do teorema sumiu do texto"
+
+
+def test_sem_nada_o_texto_e_vazio():
+    assert texto(None, [], "v1") == ""
+
+
+# ---- 5) a ligação -----------------------------------------------------------
+
+def test_o_vilao_entrega_a_defesa_junto(monkeypatch):
+    import app.bot.processing as P
+
+    maos = ([mao(f"f{i}", ActionType.FOLD) for i in range(8)]
+            + [mao(f"c{i}", ActionType.CALL, mostra=(i == 0))
+               for i in range(2)])
+    monkeypatch.setattr(P, "_user_hands", lambda *a, **k: maos)
+    saida = P.villain_report(7, "v1")
+    assert "Sua defesa contra a aposta de river" in saida
+    assert "folda demais" in saida
+    assert "ninguém viu" in saida
