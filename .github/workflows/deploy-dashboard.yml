@@ -77,8 +77,12 @@ jobs:
       - name: Instalar cron + primeira publicação
         if: env.HAS_KEY == 'true'
         run: |
-          # UMA conexão só (a VPS roda fail2ban); o build acontece lá dentro.
-          ssh -4 -i ~/.ssh/deploy_key \
+          # a porta 22 deu timeout na 1ª tentativa: diagnóstico + 3 tentativas
+          echo "resolvendo: $(getent hosts "$VORTEX_HOST" | head -1)"
+          timeout 8 bash -c "echo > /dev/tcp/$VORTEX_HOST/22" 2>/dev/null \
+            && echo "porta 22: ABERTA para este runner" \
+            || echo "porta 22: FECHADA/filtrada para este runner (do seu PC abre — filtro por IP?)"
+          tentar() { ssh -4 -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
               -o ServerAliveInterval=30 \
@@ -96,4 +100,11 @@ jobs:
             npm run build
             pm2 restart dashboard-gnh --update-env
             echo \"== PRONTO: \$(git rev-parse --short HEAD) no ar ==\"
-          "'
+          "'; }
+          for i in 1 2 3; do
+            tentar && exit 0
+            echo "tentativa $i falhou; aguardando 25s (fail2ban-friendly)"
+            sleep 25
+          done
+          echo "::error::A VPS não aceitou SSH deste runner em 3 tentativas — porta 22 filtrada por IP (firewall Hostinger?)."
+          exit 1
