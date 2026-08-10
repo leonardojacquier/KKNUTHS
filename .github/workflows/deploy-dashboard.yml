@@ -33,14 +33,36 @@ jobs:
           KEY_RAW: ${{ secrets.VORTEX_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          # aceita a chave em texto plano OU em base64 (à prova de cópia)
-          if [[ "$KEY_RAW" == *"PRIVATE KEY"* ]]; then
-            printf '%s\n' "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
-          else
-            printf '%s' "$KEY_RAW" | tr -d ' \t\n\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
+          ok() { ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; }
+          tenta() { printf '%s\n' "$1" > ~/.ssh/deploy_key; chmod 600 ~/.ssh/deploy_key; ok; }
+
+          # o secret já falhou uma vez como "inválido": tentamos cada formato de
+          # colagem que existe na natureza, do mais provável ao menos
+          LIMPO=$(printf '%s' "$KEY_RAW" | tr -d '\r')
+          if   tenta "$LIMPO"; then echo "chave OK (texto plano)"
+          # colada numa linha só com \n literais
+          elif tenta "$(printf '%s' "$LIMPO" | sed 's/\\n/\n/g')"; then echo "chave OK (\\n literais)"
+          # base64 da chave inteira
+          elif printf '%s' "$LIMPO" | tr -d ' \t\n' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
+               && chmod 600 ~/.ssh/deploy_key && ok; then echo "chave OK (base64)"
+          # colada numa linha só SEM quebras: reconstrói o PEM (header/footer + corpo de 64 col)
+          elif [[ "$LIMPO" == *"PRIVATE KEY-----"* ]]; then
+            corpo=$(printf '%s' "$LIMPO" | sed -E 's/-----BEGIN [A-Z ]*PRIVATE KEY-----//; s/-----END [A-Z ]*PRIVATE KEY-----//' | tr -d ' \n')
+            tipo=$(printf '%s' "$LIMPO" | grep -oE 'BEGIN [A-Z ]*PRIVATE KEY' | sed 's/BEGIN //')
+            { echo "-----BEGIN $tipo-----"; printf '%s' "$corpo" | fold -w 64; echo; echo "-----END $tipo-----"; } > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            ok && echo "chave OK (reconstruída de linha única)" || { diag=1; }
+          else diag=1; fi
+
+          if [ "${diag:-0}" = 1 ]; then
+            # diagnóstico SEM vazar a chave: só forma, nunca conteúdo
+            echo "::error::VORTEX_SSH_KEY não é uma chave privada utilizável. Diagnóstico:"
+            echo "  tamanho: $(printf '%s' "$KEY_RAW" | wc -c) bytes; linhas: $(printf '%s' "$KEY_RAW" | wc -l)"
+            printf '%s' "$KEY_RAW" | grep -q 'PRIVATE KEY' && echo "  contém cabeçalho PRIVATE KEY: sim" || echo "  contém cabeçalho PRIVATE KEY: NÃO (não é a chave privada?)"
+            printf '%s' "$KEY_RAW" | grep -q 'ENCRYPTED' && echo "  chave protegida por SENHA: sim — o runner não digita senha; gere uma sem passphrase"
+            printf '%s' "$KEY_RAW" | grep -q 'ssh-rsa\|ssh-ed25519' && ! printf '%s' "$KEY_RAW" | grep -q 'PRIVATE' && echo "  parece a chave PÚBLICA (.pub) — o secret precisa da PRIVADA"
+            exit 1
           fi
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1 || { echo "::error::VORTEX_SSH_KEY inválida"; exit 1; }
           ssh-keyscan -4 -T 10 -H "$VORTEX_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Instalar cron + primeira publicação
