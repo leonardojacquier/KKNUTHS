@@ -91,6 +91,49 @@ def test_leitura_nunca_carrega_percentual():
         assert "%" not in tudo, tudo
 
 
+# ---- o plano contra ele -----------------------------------------------------
+
+def test_o_plano_junta_estilo_showdowns_e_defesa_com_evidencia():
+    from app.analysis.leitura_vilao import plano_contra
+
+    plano = plano_contra(rotulo="solto-passivo", gap_pp=15, vpip_pct=34,
+                         margem_pp=6, blefes_vistos=2, overfold=True,
+                         fold_pct=80, limiar_pct=39)
+    tudo = " | ".join(plano)
+    assert "3-bet mais por valor" in tudo and "VPIP 34%" in tudo
+    assert "valor mais fino" in tudo and "15pp" in tudo
+    assert "pague mais leve" in tudo and "2 blefe" in tudo
+    assert "correção mais urgente é SUA" in tudo and "80%" in tudo
+    # cada conselho carrega a evidência — nenhum sai "seco"
+    assert all("(" in c for c in plano), plano
+
+
+def test_so_valor_mostrado_vira_conselho_de_fold():
+    from app.analysis.leitura_vilao import plano_contra
+
+    plano = plano_contra(valor_visto=3)
+    assert any("fold da mão média" in c for c in plano)
+    assert not any("pague mais leve" in c for c in plano)
+
+
+def test_sem_evidencia_o_plano_diz_ISSO_em_vez_de_inventar():
+    from app.analysis.leitura_vilao import plano_contra
+
+    plano = plano_contra()
+    assert len(plano) == 1 and "jogue o padrão" in plano[0]
+
+
+def test_o_plano_esta_no_documento():
+    from app.analysis.dossie_html import build_dossie_html
+
+    html = build_dossie_html("v1", [_mao_escura(f"h{i}") for i in range(3)],
+                             {})
+    assert "Como jogar contra ele" in html
+    assert "sem evidência, sem conselho" in html.lower().replace(
+        "sem evidência, sem conselho", "sem evidência, sem conselho")
+    assert "Como jogar contra ele" in html
+
+
 # ---- no documento -----------------------------------------------------------
 
 def _mao_escura(hid="h1", board=None):

@@ -134,9 +134,26 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
     partes = [f"<h1>🔍 Dossiê — {_esc(nome)}</h1>",
               f"<div class='sub'>{_esc(sub)}</div>",
               f"<div class='kpis'>{''.join(kpis)}</div>"]
-    if linha and linha.exploit:
-        partes.append(f"<div class='nota'><b>Como explorar:</b> "
-                      f"{_esc(linha.exploit)}</div>")
+    # A SÍNTESE — "como jogar contra ele": estilo, showdowns e a defesa do
+    # aluno, num plano só, cada conselho com a evidência entre parênteses
+    from app.analysis.leitura_vilao import plano_contra
+
+    plano = plano_contra(
+        rotulo=(linha.rotulo if linha else ""),
+        gap_pp=(round(100 * linha.gap) if linha else None),
+        vpip_pct=(round(100 * linha.vpip) if linha else None),
+        margem_pp=(round(100 * linha.vpip_margem) if linha else None),
+        blefes_vistos=(len(d.blefes) if d else 0),
+        valor_visto=(len(d.valor) if d else 0),
+        overfold=bool(defesa and defesa.veredito == "overfold"),
+        fold_pct=(round(100 * defesa.fold_taxa) if defesa else None),
+        limiar_pct=(round(100 * defesa.limiar_fold)
+                    if defesa and defesa.limiar_fold else None))
+    partes.append(
+        "<div class='nota'><b>🎯 Como jogar contra ele</b><br>• "
+        + "<br>• ".join(_esc(c) for c in plano)
+        + "<br><i>Cada conselho carrega a evidência que o sustenta — sem "
+        "evidência, sem conselho.</i></div>")
     if linha and not linha.rotulo:
         partes.append("<div class='nota'>Sem rótulo: a amostra não sustenta "
                       "um — os números acima falam por si, com a margem "

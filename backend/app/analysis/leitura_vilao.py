@@ -112,3 +112,51 @@ def ler_linha(sinais: tuple[str, ...], board: list[str], rotulo: str = "",
                    razoes=tuple(pro_blefe + pro_valor),
                    representa=_o_que_representa(board, sinais),
                    conselho=conselho)
+
+
+def plano_contra(rotulo: str = "", gap_pp: int | None = None,
+                 vpip_pct: int | None = None, margem_pp: int | None = None,
+                 blefes_vistos: int = 0, valor_visto: int = 0,
+                 overfold: bool = False, fold_pct: int | None = None,
+                 limiar_pct: int | None = None) -> list[str]:
+    """O plano de jogo contra ELE — a síntese que o dono pediu.
+
+    Cada conselho carrega a evidência entre parênteses: conselho sem a
+    origem é opinião, e opinião o aluno já tem de graça. Tudo vem do que os
+    módulos mediram (rótulo sustentado, gap, showdowns, defesa) — nada de
+    modelo, nada de taxa inventada.
+    """
+    plano: list[str] = []
+
+    if "solto" in rotulo and vpip_pct is not None:
+        plano.append(f"Pré-flop: 3-bet mais por valor — os opens dele "
+                     f"carregam mão fraca (VPIP {vpip_pct}%"
+                     + (f" ±{margem_pp}" if margem_pp else "") + ", solto "
+                     "sustentado pelo intervalo)")
+    if "fechado" in rotulo:
+        plano.append("Pré-flop: roube os blinds dele sem medo — e abandone "
+                     "quando ele acordar (perfil fechado sustentado)")
+    if "passivo" in rotulo and gap_pp is not None:
+        plano.append(f"Pós-flop: aposte por valor mais fino — ele paga e "
+                     f"não ataca (gap de {gap_pp}pp entre entrar e atacar)")
+        plano.append(f"Quando ELE aposta, respeite — agressão de quem "
+                     f"quase nunca agride costuma ser honesta (o outro lado "
+                     f"do mesmo gap de {gap_pp}pp)")
+
+    if blefes_vistos:
+        plano.append(f"River: pague mais leve — ele blefa de verdade "
+                     f"(mostrou {blefes_vistos} blefe(s) neste torneio)")
+    elif valor_visto:
+        plano.append(f"River: o fold da mão média tende a estar certo — "
+                     f"todas as {valor_visto} mãos que ele mostrou "
+                     f"agredindo eram valor")
+
+    if overfold and fold_pct is not None and limiar_pct is not None:
+        plano.append(f"A correção mais urgente é SUA: contra ele você "
+                     f"largou {fold_pct}% das apostas de river (o blefe "
+                     f"dele lucra acima de {limiar_pct}%) — pague mais")
+
+    if not plano:
+        plano.append("Ainda não há evidência que sustente um plano "
+                     "específico — jogue o padrão e deixe a amostra crescer")
+    return plano
