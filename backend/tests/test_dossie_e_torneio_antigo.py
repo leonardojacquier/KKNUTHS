@@ -189,6 +189,101 @@ def test_o_handler_separa_nome_com_espaco_do_indice():
         inspect.getsource(handlers)
 
 
+# ---- escolher pelo código ou pela lista --------------------------------------
+
+def test_o_codigo_da_sala_resolve_para_o_torneio_certo(base):
+    """`/torneio 303773218` tem que abrir AQUELE torneio, esteja onde
+    estiver na lista — código não envelhece quando entra torneio novo,
+    que é o defeito do índice."""
+    from app.bot.torneio_flow import resolver_escolha
+
+    assert resolver_escolha(7, "t1") == 2
+    assert resolver_escolha(7, "t2") == 1
+    assert resolver_escolha(7, "2") == 2      # curto = posição na lista
+    assert resolver_escolha(7, "1") == 1
+
+
+def test_codigo_desconhecido_da_None_e_nunca_o_ultimo(base):
+    """Ele pediu um torneio ESPECÍFICO; entregar outro é pior que "não
+    achei"."""
+    from app.bot.torneio_flow import resolver_escolha
+
+    assert resolver_escolha(7, "99999999") is None
+    assert resolver_escolha(7, "7") is None      # posição que não existe
+    assert resolver_escolha(7, "") is None
+    # e o código casa por INTEIRO: "t" é começo de t1 e t2, e prefixo
+    # devolveria o primeiro que aparecesse — um torneio que ele não pediu
+    assert resolver_escolha(7, "t") is None
+
+
+def test_id_numerico_longo_e_codigo_e_nao_posicao(monkeypatch):
+    """Torneio da sala com id '303773218': 5+ dígitos NUNCA vira posição —
+    virar posição 303 milhões seria só um jeito engraçado de falhar, mas um
+    id de 3 dígitos que colidisse com posição seria resposta errada."""
+    import app.bot.processing as P2
+    from app.bot.torneio_flow import resolver_escolha
+
+    maos = [_mao(f"c{i}", "303773218", f"2026-08-02T2{i%10}:00:00",
+                 vilao="v3") for i in range(24)]
+
+    class _Repo:
+        enabled = False
+
+        def __getattr__(self, _n):
+            return lambda *a, **k: None
+
+    monkeypatch.setattr(P2, "get_repository", lambda: _Repo())
+    monkeypatch.setattr(P2, "RECENT_HANDS", {7: maos})
+    assert resolver_escolha(7, "303773218") == 1
+
+
+def test_o_teclado_da_lista_tem_um_botao_por_torneio():
+    from app.bot import handlers
+
+    ts = [{"tournament_id": "t2", "site": "GGPoker", "data": "2026-08-01",
+           "maos": [1] * 24},
+          {"tournament_id": "t1", "site": "PokerStars", "data": "2026-07-01",
+           "maos": [1] * 10}]
+    kb = handlers._teclado_de_torneios(ts, atual=1)
+    botoes = [b for linha in kb.inline_keyboard for b in linha]
+    assert [b.callback_data for b in botoes] == ["tor:1", "tor:2"]
+    assert "▸" in botoes[0].text, "o torneio aberto tem que estar marcado"
+    assert "PokerStars" in botoes[1].text
+
+
+def test_um_torneio_so_nao_ganha_teclado():
+    """Botão para escolher entre um é ruído."""
+    from app.bot import handlers
+
+    ts = [{"tournament_id": "t1", "site": "GG", "data": "2026-08-01",
+           "maos": [1] * 24}]
+    assert handlers._teclado_de_torneios(ts) is None
+
+
+def test_o_botao_esta_registrado_e_compartilha_o_caminho_do_comando():
+    """Clique sem handler é botão morto; e o botão tem que mandar no MESMO
+    fluxo do comando — dois caminhos de envio é dois jeitos de divergirem."""
+    import inspect
+
+    from app.bot import handlers
+
+    fonte = inspect.getsource(handlers)
+    assert 'CallbackQueryHandler(on_torneio_escolhido, pattern=r"^tor:")'         in fonte
+    assert "_enviar_torneio" in inspect.getsource(handlers.on_torneio_escolhido)
+    assert "_enviar_torneio" in inspect.getsource(handlers.cmd_torneio)
+
+
+def test_o_dossie_aceita_o_codigo_do_torneio(base):
+    """`/dossie v1 t1` — o handler resolve o código; aqui o processing com o
+    índice resolvido continua sendo a única porta."""
+    from app.bot.torneio_flow import resolver_escolha
+
+    escolha = resolver_escolha(7, "t1")
+    doc = P.dossie_doc(7, "v1", escolha)
+    assert isinstance(doc, tuple)
+    assert "v1" in doc[0].decode("utf-8")
+
+
 def test_o_indice_do_torneio_aparece_no_rodape():
     from app.bot import handlers
 
@@ -199,4 +294,4 @@ def test_o_indice_do_torneio_aparece_no_rodape():
     t = handlers._indice_de_torneios(ts, atual=1)
     assert "1. GGPoker · 2026-08-01 · 24 mãos ← este" in t
     assert "2. PokerStars" in t
-    assert "/torneio N" in t and "/dossie" in t
+    assert "/torneio N" in t and "/dossie" in t and "código" in t

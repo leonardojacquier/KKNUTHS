@@ -61,8 +61,9 @@ CATEGORIAS: tuple[Categoria, ...] = (
                 "transição"),
         Comando("evolucao", "Sua linha do tempo",
                 "sua linha do tempo (VPIP, PFR, resultado…) com gráficos"),
-        Comando("torneio", "Quadro do último torneio",
-                "quadro do último torneio: curva do stack mão a mão"),
+        Comando("torneio", "Quadro de um torneio",
+                "quadro de um torneio: o último, ou escolha na lista de "
+                "botões — `/torneio 2` e `/torneio <código>` também valem"),
         Comando("relatorio", "Relatório mão a mão 📋",
                 "o torneio inteiro analisado, mão por mão (HTML)"),
         Comando("prova", "Auditar a ferramenta 🔬",

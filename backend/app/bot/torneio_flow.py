@@ -54,3 +54,29 @@ def dossie_doc(telegram_id: int, nome: str,
                f"Abre no navegador.")
     seguro = "".join(c if c.isalnum() else "-" for c in nome)[:30]
     return (html.encode("utf-8"), f"dossie-{seguro}.html", caption)
+
+
+def resolver_escolha(telegram_id: int, ref: str) -> int | None:
+    """'2' -> índice 2; '303773218' -> o torneio COM ESSE CÓDIGO. None = não achei.
+
+    A regra da ambiguidade: primeiro CÓDIGO, por match EXATO (código não
+    envelhece quando entra torneio novo — posição envelhece); só depois,
+    dígitos viram posição, e posição fora da lista dá None. Um código
+    desconhecido também dá None em vez de cair no último calado: ele pediu
+    um torneio específico, e receber outro é pior que "não achei".
+
+    (Sem guarda de comprimento: um código de 9 dígitos que não existisse
+    viraria a posição 303 milhões — fora da lista, None do mesmo jeito.
+    Guarda que não muda resultado é código morto.)
+    """
+    ref = (ref or "").strip()
+    if not ref:
+        return None
+    ts = _p().torneios_do_usuario(telegram_id)
+    for i, t in enumerate(ts, start=1):
+        if t["tournament_id"] == ref:
+            return i
+    if ref.isdigit():
+        n = int(ref)
+        return n if 1 <= n <= len(ts) else None
+    return None

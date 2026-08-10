@@ -467,7 +467,18 @@ async def cmd_dossie(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     args = list(ctx.args or [])
     escolha = 1
     if args and args[-1].isdigit():
-        escolha = max(1, int(args.pop()))
+        # até 4 dígitos = posição na lista; 5+ = código da sala, e código só
+        # sai da lista de argumentos se EXISTIR (senão é parte do nome)
+        if len(args[-1]) <= 4:
+            escolha = max(1, int(args.pop()))
+        else:
+            from app.bot.torneio_flow import resolver_escolha
+
+            achado = await asyncio.to_thread(
+                resolver_escolha, update.effective_user.id, args[-1])
+            if achado is not None:
+                escolha = achado
+                args.pop()
     nome = " ".join(args).strip()
     await _log(update, "dossie_cmd", nome=nome[:40], escolha=escolha)
     if not nome:
@@ -495,48 +506,93 @@ async def cmd_dossie(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_torneio(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quadro de um torneio: o último, ou `/torneio 2` para o anterior."""
+    """Quadro de um torneio: o último, `/torneio 2` (posição na lista) ou
+    `/torneio 303773218` (código da sala). Sem argumento, vem com botões
+    para abrir qualquer um dos armazenados."""
+    tg_id = update.effective_user.id
     escolha = 1
-    if ctx.args and ctx.args[0].isdigit():
-        escolha = max(1, int(ctx.args[0]))
+    if ctx.args:
+        from app.bot.torneio_flow import resolver_escolha
+
+        ref = ctx.args[0]
+        escolha = await asyncio.to_thread(resolver_escolha, tg_id, ref)
+        if escolha is None:
+            from app.bot.processing import torneios_do_usuario
+
+            ts = await asyncio.to_thread(torneios_do_usuario, tg_id)
+            # nunca cair no último calado: ele pediu UM torneio específico
+            await update.message.reply_markdown(
+                f"Não achei torneio *{ref}* na sua base"
+                + (f" — você tem {len(ts)}:\n" + _indice_de_torneios(ts)
+                   if ts else ". Manda o hand history que eu guardo."),
+                reply_markup=_teclado_de_torneios(ts))
+            return
     await _log(update, "torneio", escolha=escolha)
+    await _enviar_torneio(update.message, tg_id, escolha)
+
+
+async def _enviar_torneio(message, tg_id: int, escolha: int) -> None:
+    """O quadro + a leitura de UM torneio. Compartilhado entre o comando e o
+    botão da lista — dois caminhos de envio é dois jeitos de divergirem."""
     from app.bot.processing import tournament_board_report, torneios_do_usuario
 
-    board = await asyncio.to_thread(tournament_board_report,
-                                    update.effective_user.id, escolha)
+    board = await asyncio.to_thread(tournament_board_report, tg_id, escolha)
     if not board:
-        ts = await asyncio.to_thread(torneios_do_usuario, update.effective_user.id)
-        if escolha > 1 and ts:
-            # pediu o 5º e só existem 3: dizer isso, nunca cair no último calado
-            await update.message.reply_markdown(
-                f"Você tem *{len(ts)}* torneio(s) na base — não existe um "
-                f"nº {escolha}.\n" + _indice_de_torneios(ts))
-            return
-        await update.message.reply_text(
+        await message.reply_text(
             "Ainda não tenho um torneio seu com mãos suficientes. Envie o hand "
             "history do torneio (arquivo ou colado) que eu monto o quadro."
         )
         return
     png, cap = board
-    await update.message.reply_photo(png, caption=cap)
+    await message.reply_photo(png, caption=cap)
     # a curva mostra O QUE aconteceu; a leitura por faixa de stack mostra
     # ONDE o EV foi embora. Vai como mensagem separada porque a legenda de
     # foto do Telegram corta em 1024 e o relatório é o conteúdo, não enfeite.
     from app.bot.processing import estrategia_do_torneio
 
-    leitura = await asyncio.to_thread(estrategia_do_torneio,
-                                      update.effective_user.id, escolha)
-    ts = await asyncio.to_thread(torneios_do_usuario, update.effective_user.id)
+    leitura = await asyncio.to_thread(estrategia_do_torneio, tg_id, escolha)
+    ts = await asyncio.to_thread(torneios_do_usuario, tg_id)
+    teclado = _teclado_de_torneios(ts, atual=escolha)
     if len(ts) > 1:
         leitura = (leitura or "") + "\n\n" + _indice_de_torneios(ts, escolha)
     if leitura:
-        await _safe_reply(update.message, leitura)
+        await _safe_reply(message, leitura, reply_markup=teclado)
+
+
+async def on_torneio_escolhido(update: Update,
+                               ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botão da lista de torneios: abre o quadro daquele torneio."""
+    query = update.callback_query
+    await query.answer()
+    try:
+        escolha = int(query.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        return
+    await _log(update, "torneio", escolha=escolha, via="botao")
+    await _enviar_torneio(query.message, update.effective_user.id, escolha)
+
+
+def _teclado_de_torneios(ts: list[dict], atual: int = 0):
+    """Um botão por torneio armazenado — escolher tem que ser um toque, não
+    um número decorado. O atual fica marcado e continua clicável (reabrir é
+    inofensivo)."""
+    if len(ts) < 2:
+        return None
+    linhas = []
+    for i, t in enumerate(ts[:8], start=1):
+        sala = (t["site"] or "?").split(" · ")[0]
+        marca = "▸ " if i == atual else ""
+        linhas.append([InlineKeyboardButton(
+            f"{marca}{sala} · {t['data'] or 'sem data'} · "
+            f"{len(t['maos'])} mãos", callback_data=f"tor:{i}")])
+    return InlineKeyboardMarkup(linhas)
 
 
 def _indice_de_torneios(ts: list[dict], atual: int = 0) -> str:
     """O índice que faz os torneios antigos existirem: sem ele, só quem
     adivinha que `/torneio 2` funciona chega neles."""
-    linhas = ["🗂 *Seus torneios* (`/torneio N` abre · `/dossie <vilão> N`):"]
+    linhas = ["🗂 *Seus torneios* — toca no botão, ou `/torneio N` · "
+              "`/torneio <código>` · `/dossie <vilão> N`:"]
     for i, t in enumerate(ts[:6], start=1):
         marca = " ← este" if i == atual else ""
         sala = (t["site"] or "?").split(" · ")[0]
@@ -1815,11 +1871,13 @@ def _post_kb(kind: str | None) -> InlineKeyboardMarkup:
 
 
 async def _safe_reply(message, text: str, simplify_btn: bool = False,
-                      kind: str | None = None) -> None:
+                      kind: str | None = None, reply_markup=None) -> None:
     """Envia respeitando o limite de 4096 chars do Telegram; se o Markdown do LLM
     vier malformado (entidades desbalanceadas), reenvia como texto puro.
     `simplify_btn`: anexa o botão 🎈 ao último pedaço (respostas do coach).
-    `kind`: adiciona os botões contextuais de pós-análise ('tournament'|'hand')."""
+    `kind`: adiciona os botões contextuais de pós-análise ('tournament'|'hand').
+    `reply_markup`: teclado explícito para o último pedaço (perde para `kind`,
+    que é o fluxo pós-análise)."""
     from telegram.error import BadRequest
 
     chunks = [text[i:i + 3900] for i in range(0, len(text), 3900)] or [text]
@@ -1830,6 +1888,8 @@ async def _safe_reply(message, text: str, simplify_btn: bool = False,
             kb = _post_kb(kind)
         elif last and simplify_btn:
             kb = _SIMPLIFY_KB
+        elif last and reply_markup is not None:
+            kb = reply_markup
         try:
             await message.reply_markdown(chunk, reply_markup=kb)
         except BadRequest:
@@ -2059,6 +2119,7 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_drill_answer, pattern=r"^drill:"))
     app.add_handler(CallbackQueryHandler(on_go, pattern=r"^go:"))
     app.add_handler(CallbackQueryHandler(on_menu, pattern=r"^menu:"))
+    app.add_handler(CallbackQueryHandler(on_torneio_escolhido, pattern=r"^tor:"))
     app.add_handler(CallbackQueryHandler(on_range_button, pattern=r"^rng:"))
     app.add_handler(CallbackQueryHandler(on_simplify, pattern=r"^simp$"))
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))

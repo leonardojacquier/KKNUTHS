@@ -264,7 +264,11 @@ def test_o_torneio_manda_a_leitura_junto_do_quadro():
 
     from app.bot import handlers
 
-    fonte = inspect.getsource(handlers.cmd_torneio)
+    # o envio saiu para `_enviar_torneio`, compartilhado entre o comando e o
+    # botão da lista — a leitura tem que estar LÁ, e o comando tem que passar
+    # por lá
+    assert "_enviar_torneio" in inspect.getsource(handlers.cmd_torneio)
+    fonte = inspect.getsource(handlers._enviar_torneio)
     assert "estrategia_do_torneio" in fonte
     assert fonte.index("reply_photo") < fonte.index("estrategia_do_torneio"), \
         "a leitura vem depois do quadro, não antes"
