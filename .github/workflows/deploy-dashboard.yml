@@ -45,6 +45,15 @@ jobs:
           # base64 da chave inteira
           elif printf '%s' "$LIMPO" | tr -d ' \t\n' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
                && chmod 600 ~/.ssh/deploy_key && ok; then echo "chave OK (base64)"
+          # só o corpo base64, sem as linhas BEGIN/END (o caso deste secret: 340
+          # bytes, 4 linhas, nenhum cabeçalho). Se decodifica para openssh-key-v1,
+          # é uma chave OpenSSH sem a moldura — basta devolver a moldura.
+          elif printf '%s' "$LIMPO" | tr -d ' \n' | base64 -d 2>/dev/null | head -c 14 | grep -q '^openssh-key-v1'; then
+            { echo "-----BEGIN OPENSSH PRIVATE KEY-----"
+              printf '%s' "$LIMPO" | tr -d ' \n' | fold -w 70; echo
+              echo "-----END OPENSSH PRIVATE KEY-----"; } > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            ok && echo "chave OK (corpo sem moldura, remontada)" || diag=1
           # colada numa linha só SEM quebras: reconstrói o PEM (header/footer + corpo de 64 col)
           elif [[ "$LIMPO" == *"PRIVATE KEY-----"* ]]; then
             corpo=$(printf '%s' "$LIMPO" | sed -E 's/-----BEGIN [A-Z ]*PRIVATE KEY-----//; s/-----END [A-Z ]*PRIVATE KEY-----//' | tr -d ' \n')
