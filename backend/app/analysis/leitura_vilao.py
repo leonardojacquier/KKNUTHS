@@ -58,9 +58,34 @@ def _naipe_do_draw(board: list[str]) -> str:
     return "?"
 
 
+# Frases equivalentes para o mesmo conselho: num dossiê com 20 escuras, a
+# MESMA frase 20 vezes vira papel de parede e o aluno para de ler. A escolha
+# é determinística (variacao = nº da mão no documento), o SENTIDO não muda —
+# e a variação 0 é o texto original, para que nada que o cite quebre.
+_CONSELHOS = {
+    "blefe": (
+        "pague mais leve nesses spots — um bluff-catcher decente vira call",
+        "esse é o spot de alargar o call — mão que aguenta um par médio "
+        "já paga",
+        "contra essa linha, herói de bluff-catcher: pagar leve aqui tende "
+        "a ser lucro"),
+    "valor": (
+        "só continue com mão que aguenta showdown — o meio do range é fold",
+        "fold disciplinado com a mão média — continue só com o topo",
+        "sem mão de showdown, largue: pagar por curiosidade aqui é caro"),
+    "polarizada": (
+        "pague com bluff-catcher ou largue a mão média — o pior lugar é "
+        "o meio",
+        "decida nos extremos: bluff-catcher paga, mão média larga",
+        "o range dele aqui é tudo-ou-nada — trate a sua mão média como "
+        "fold e o bluff-catcher como call"),
+}
+
+
 def ler_linha(sinais: tuple[str, ...], board: list[str], rotulo: str = "",
               ja_mostrou_blefe: bool = False,
-              ja_mostrou_valor: bool = False) -> Leitura:
+              ja_mostrou_valor: bool = False,
+              variacao: int = 0) -> Leitura:
     """A leitura de UMA linha escura. Determinística e citável.
 
     O peso maior é o que ele JÁ MOSTROU neste torneio — é a única evidência
@@ -95,16 +120,12 @@ def ler_linha(sinais: tuple[str, ...], board: list[str], rotulo: str = "",
     polariza = any(s.startswith("overbet") for s in sinais)
     if len(pro_blefe) > len(pro_valor):
         inclinacao = "blefe"
-        conselho = ("pague mais leve nesses spots — um bluff-catcher "
-                    "decente vira call")
     elif len(pro_valor) > len(pro_blefe):
         inclinacao = "valor"
-        conselho = ("só continue com mão que aguenta showdown — o meio do "
-                    "range é fold")
     else:
         inclinacao = "polarizada"
-        conselho = ("pague com bluff-catcher ou largue a mão média — o pior "
-                    "lugar é o meio")
+    frases = _CONSELHOS[inclinacao]
+    conselho = frases[variacao % len(frases)]
     if polariza and inclinacao != "blefe":
         conselho += " (o overbet poucas vezes é mão média: ou muito, ou nada)"
 
@@ -162,6 +183,105 @@ def plano_contra(rotulo: str = "", gap_pp: int | None = None,
     return plano
 
 
+# --------------------------------------------------------------- fatos ----
+class Fatos(NamedTuple):
+    """Fatos OBSERVÁVEIS de uma mão do vilão — o que a narrativa ainda não
+    contava. Cada campo é derivado só das ações e do board; nada é leitura.
+    """
+    check_raise_em: str | None    # rua onde ele deu check e depois raise
+    comprometeu: float | None     # fração do stack inicial que ele pôs
+    multiway: bool                # 3+ jogadores agiram no flop
+    textura_flop: str             # "dois naipes e conectado", "seco"...
+    posicao_no_flop: str | None   # fora de posição | em posição | no meio
+    fracoes: dict                 # rua -> [frações do pote das apostas dele]
+    overbet_river: bool
+    acordou_no_river: bool        # nenhuma agressão até o river
+
+
+def _textura(flop: list[str]) -> str:
+    """A textura do flop em palavras — fato do board, não leitura."""
+    if len(flop) < 3:
+        return ""
+    naipes = [c[1].lower() for c in flop]
+    ranks = sorted(_RANKS.index(c[0].upper()) for c in flop)
+    partes = []
+    mais = max(naipes.count(n) for n in set(naipes))
+    partes.append({3: "monotone", 2: "dois naipes"}.get(mais, "arco-íris"))
+    if len(set(ranks)) < 3:
+        partes.append("pareado")
+    elif ranks[2] - ranks[0] <= 4:
+        partes.append("conectado")
+    else:
+        partes.append("seco")
+    return " e ".join(partes)
+
+
+_RANKS = "23456789TJQKA"
+
+
+def fatos_da_mao(hand, vilao: str) -> Fatos:
+    """Extrai os fatos de UMA mão. Determinístico; alimenta os padrões."""
+    from app.models.canonical import ActionType
+
+    check_raise_em = None
+    posto = 0.0
+    fracoes: dict[str, list[float]] = {}
+    pote = 0.0
+    atores_flop: list[str] = []
+    agrediu_antes_do_river = False
+    agrediu_river = False
+    overbet_river = False
+    for st in (getattr(hand, "streets", None) or ()):
+        rua = str(getattr(st.name, "value", st.name)).lower()
+        na_street: dict[str, float] = {}
+        deu_check = False
+        for a in (st.actions or ()):
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - na_street.get(a.actor, 0.0)
+            add = max(0.0, add)
+            if rua == "flop" and a.actor not in atores_flop:
+                atores_flop.append(a.actor)
+            if a.actor == vilao:
+                posto += add
+                if a.type == ActionType.CHECK:
+                    deu_check = True
+                if (a.type == ActionType.RAISE and deu_check
+                        and rua != "preflop" and check_raise_em is None):
+                    check_raise_em = rua
+                if a.type in (ActionType.BET, ActionType.RAISE):
+                    if rua in ("flop", "turn"):
+                        agrediu_antes_do_river = True
+                    if rua != "preflop" and pote > 0 and add > 0:
+                        fr = add / pote
+                        fracoes.setdefault(rua, []).append(fr)
+                        if rua == "river":
+                            agrediu_river = True
+                            if fr > 1.0:
+                                overbet_river = True
+            na_street[a.actor] = na_street.get(a.actor, 0.0) + add
+            pote += add
+
+    stack = next((float(p.stack) for p in (getattr(hand, "players", None)
+                                           or ())
+                  if p.name == vilao and getattr(p, "stack", None)), 0.0)
+    pos = None
+    if len(atores_flop) >= 2 and vilao in atores_flop:
+        i = atores_flop.index(vilao)
+        pos = ("fora de posição" if i == 0
+               else "em posição" if i == len(atores_flop) - 1 else "no meio")
+    board = list(getattr(hand, "final_board", None) or ())
+    return Fatos(
+        check_raise_em=check_raise_em,
+        comprometeu=round(posto / stack, 2) if stack > 0 and posto else None,
+        multiway=len(atores_flop) >= 3,
+        textura_flop=_textura(board[:3]),
+        posicao_no_flop=pos,
+        fracoes={r: fs for r, fs in fracoes.items()},
+        overbet_river=overbet_river,
+        acordou_no_river=agrediu_river and not agrediu_antes_do_river)
+
+
 # ------------------------------------------------------------- narrativa ----
 def _tamanho(fracao: float) -> str:
     if fracao > 1.1:
@@ -202,12 +322,17 @@ def narrar_mao(hand, vilao: str) -> list[str]:
     board = list(getattr(hand, "final_board", None) or ())
     pos = next((p.position for p in (getattr(hand, "players", None) or ())
                 if p.name == vilao and getattr(p, "position", None)), None)
+    stack = next((float(p.stack) for p in (getattr(hand, "players", None)
+                                           or ())
+                  if p.name == vilao and getattr(p, "stack", None)), 0.0)
     frases: list[str] = []
     pote = 0.0
+    posto = 0.0
     idx_rua = {"flop": 3, "turn": 4, "river": 5}
     for st in (getattr(hand, "streets", None) or ()):
         rua = str(getattr(st.name, "value", st.name)).lower()
         na_street: dict[str, float] = {}
+        checkou = False
         acoes = list(st.actions or ())
         for i, a in enumerate(acoes):
             add = a.amount
@@ -232,9 +357,20 @@ def narrar_mao(hand, vilao: str) -> list[str]:
                     carta = (f" — o {rua} ({board[n - 1]}) "
                              f"{_a_carta_mudou(board, n - 1)}"
                              if n and len(board) >= n else "")
-                    verbo = "aumentou:" if a.type == ActionType.RAISE                         else ""
+                    # check-raise é OUTRA jogada, não um "aumentou" qualquer
+                    # — esconder a mão forte e armar é o sinal mais caro que
+                    # a narrativa deixava passar
+                    verbo = ("check-raise: " if (checkou and
+                                                 a.type == ActionType.RAISE)
+                             else "aumentou: "
+                             if a.type == ActionType.RAISE else "")
+                    aviso = ""
+                    if stack > 0 and (posto + add) / stack >= 0.5:
+                        aviso = (f" (já comprometeu "
+                                 f"{round(100 * (posto + add) / stack)}% "
+                                 f"do stack)")
                     frases.append(f"{rua}: {verbo}{_tamanho(add / pote)}"
-                                  f"{carta}")
+                                  f"{carta}{aviso}")
                 # a reação da mesa à agressão dele
                 depois = acoes[i + 1:]
                 fugiram = [x.actor for x in depois
@@ -248,6 +384,10 @@ def narrar_mao(hand, vilao: str) -> list[str]:
                     reacao.append(", ".join(fugiram[:2]) + " largou")
                 if reacao and frases:
                     frases[-1] += " → " + "; ".join(reacao)
+            if a.actor == vilao:
+                if a.type == ActionType.CHECK:
+                    checkou = True
+                posto += add
             na_street[a.actor] = na_street.get(a.actor, 0.0) + add
             pote += add
     return frases

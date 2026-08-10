@@ -279,9 +279,18 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "abaixo.</div>")
 
     if escuras:
-        from app.analysis.leitura_vilao import ler_linha, narrar_mao
+        from app.analysis.leitura_vilao import (
+            fatos_da_mao,
+            ler_linha,
+            narrar_mao,
+        )
+        from app.analysis.padroes import contexto as contexto_padroes
+        from app.analysis.padroes import medir as medir_padroes
         from app.bot.processing import _walk_hand
 
+        # os padrões DELE no torneio inteiro, medidos UMA vez — cada mão
+        # escura ganha o contexto do que ele costuma fazer
+        padroes = medir_padroes(hands, nome)
         por_id = {str(getattr(h, "hand_id", "") or ""): h for h in hands}
         levou = sum(1 for e in escuras if e.levou_o_pote)
         partes.append(f"<h2>Agrediu e ninguém viu ({len(escuras)} — "
@@ -327,6 +336,17 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                                  + "<br>📖 ".join(_esc(f) for f in frases)
                                  + "</div>")
 
+            # O CONTEXTO — esta mão diante dos padrões DELE no torneio:
+            # "é a 3ª vez que ele overbeta", "este sizing foge da mediana
+            # dele". É o que um coach lembra e a análise mão-a-mão esquecia.
+            padroes_html = ""
+            if h is not None:
+                ctx = contexto_padroes(padroes, fatos_da_mao(h, nome))
+                if ctx:
+                    padroes_html = ("<div class='sinais'>📊 "
+                                    + "<br>📊 ".join(_esc(c) for c in ctx)
+                                    + "</div>")
+
             # AS CARTAS PROVÁVEIS — contagem de combos do range SUPOSTO
             # (top-PFR% medido), com a suposição escrita na frase. Só nas
             # mãos em que ELE atacou o pré: quem só pagou entra com um range
@@ -355,7 +375,8 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             board = board_h
             lt = ler_linha(e.sinais, board, rotulo=rotulo_dele,
                            ja_mostrou_blefe=bool(d and d.blefes),
-                           ja_mostrou_valor=bool(d and d.valor))
+                           ja_mostrou_valor=bool(d and d.valor),
+                           variacao=seq)
             razoes = ("<br>• " + "<br>• ".join(_esc(r) for r in lt.razoes)
                       if lt.razoes else "")
             leitura_html = (
@@ -370,7 +391,8 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             partes.append(
                 f"<div class='mao escura'>"
                 f"<span class='papel neutro'>{_esc(e.rua)}</span>{tam}{fim}"
-                f"{historia}{narrativa}{sin}{combos_html}{leitura_html}</div>")
+                f"{historia}{narrativa}{padroes_html}{sin}{combos_html}"
+                f"{leitura_html}</div>")
         if len(escuras) > teto:
             partes.append(f"<div class='sub'>…e mais "
                           f"{len(escuras) - teto} linhas.</div>")
