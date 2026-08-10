@@ -479,19 +479,29 @@ def render_hand_strip(spot: dict) -> bytes:
         img.paste(logo, (sc(pad), sc(26)), logo)
     tx = pad + 122
     left(tx, 28, spot.get("title") or "Análise da mão", 30, CREAM)
-    sub = f"VOCÊ · {spot.get('position') or '?'}"
-    if spot.get("stack_bb") is not None:
-        sub += f" · {spot['stack_bb']:g}bb"
-    if spot.get("blinds"):
-        sub += f" · blinds {spot['blinds']}"
+    # `subtitle`/`tagline` permitem centrar a figura em OUTRO jogador (dossiê
+    # do vilão): sem eles o header dizia "VOCÊ" e estampava as cartas do
+    # HERÓI mesmo em mão que era do vilão — informação errada com selo bonito
+    sub = spot.get("subtitle")
+    if not sub:
+        sub = f"VOCÊ · {spot.get('position') or '?'}"
+        if spot.get("stack_bb") is not None:
+            sub += f" · {spot['stack_bb']:g}bb"
+        if spot.get("blinds"):
+            sub += f" · blinds {spot['blinds']}"
     left(tx, 74, sub, 19, GOLD)
-    left(tx, 106, "o filme da mão — quadro a quadro", 16, MUTED, bold=False)
+    left(tx, 106, spot.get("tagline") or "o filme da mão — quadro a quadro",
+         16, MUTED, bold=False)
     hc = spot.get("hero_cards") or []
     cw, ch = 76, 106
     hx = SW - pad - len(hc[:2]) * (cw + 10) + 10
     for i, c in enumerate(hc[:2]):
         _card(d, sc(hx + i * (cw + 10) + cw / 2), sc(head_h / 2), c,
               w=sc(cw), h=sc(ch))
+    if not hc and spot.get("cards_note"):
+        # o lugar das cartas diz POR QUE não há cartas ("não vistas") —
+        # vazio ali pareceria defeito da figura, não fato da mão
+        right(SW - pad, head_h / 2 - 12, spot["cards_note"], 20, MUTED)
 
     # ---------- STREETS ----------
     y = head_h

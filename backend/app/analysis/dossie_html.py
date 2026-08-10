@@ -51,6 +51,9 @@ background:#F7F9F7;border-radius:6px;padding:6px 10px;margin:6px 0}
 padding:8px 14px;margin:14px 0;font-size:12px}
 .alerta{border:1px solid #B3502E;border-radius:10px;background:#FBEDE8;
 padding:8px 14px;margin:14px 0;font-size:12.5px}
+.duo{display:flex;gap:10px;flex-wrap:wrap}
+.duo>div{flex:1;min-width:260px;border:1px solid #DDE3DE;border-radius:8px;
+padding:8px 12px;font-size:12px} .duo i{color:#828A84;font-size:10.5px}
 .foot{color:#828A84;font-size:11px;margin-top:18px}
 """
 
@@ -65,24 +68,98 @@ def _classe_do_papel(papel: str) -> str:
     return "valor" if papel.startswith("valor") else "neutro"
 
 
-def _strip(h, seq: int, nota: str) -> str:
-    """O storyboard da mão — a MESMA imagem do /relatorio, gerada por código
-    (PIL), sem custo de modelo.
+_RUA_CURTA = {"preflop": "pré", "flop": "flop", "turn": "turn",
+              "river": "river"}
 
-    Sem try próprio de propósito: `_hand_strip_img` JÁ devolve '' em
-    qualquer falha ("nunca quebra o relatório") — um segundo guarda aqui é
-    código morto, e a mutação que o removia passava em tudo."""
+
+def _situacao_do_heroi(h) -> str:
+    """Onde VOCÊ ficou nesta mão — uma linha, para o header da figura.
+
+    O dossiê é do vilão; as suas cartas entram só como contexto ("você
+    largou no pré com 7♥2♣"), nunca mais como as cartas grandes do header."""
+    hero = getattr(h, "hero", None)
+    cartas = pretty_cards(list(getattr(h, "hero_cards", None) or []))
+    rua_fold = None
+    for st in (getattr(h, "streets", None) or ()):
+        rua = str(getattr(st.name, "value", st.name)).lower()
+        if any(getattr(a, "actor", None) == hero
+               and str(getattr(a.type, "value", a.type)).lower() == "fold"
+               for a in (st.actions or ())):
+            rua_fold = _RUA_CURTA.get(rua, rua)
+            break
+    fim = f"largou no {rua_fold}" if rua_fold else "foi até o fim"
+    return f"você: {cartas} — {fim}" if cartas else f"você {fim}"
+
+
+def espec_do_vilao(h, vilao: str, titulo: str, nota: str) -> dict | None:
+    """O spec da figura CENTRADO NO VILÃO — puro, testável sem PIL.
+
+    Antes o dossiê reaproveitava `_hand_strip_img` do /relatorio, e o header
+    saía com "VOCÊ" e as cartas do HERÓI — numa mão em que o aluno foldou
+    7♥2♣ no pré, o dossiê do vilão estampava 7♥2♣. O dono viu e vetou.
+    Aqui: cartas do VILÃO quando houve showdown, "cartas não vistas" quando
+    não; posição/stack/blinds DELE; e o herói vira uma linha de contexto."""
+    from app.analysis.tools import fmt_chips as _fc
+    from app.bot.processing import hand_storyboard_streets
+
+    bands = hand_storyboard_streets(h)
+    if not bands:
+        return None
+    assento = next((p for p in (getattr(h, "players", None) or ())
+                    if p.name == vilao), None)
+    bb = float(getattr(getattr(h, "stakes", None), "big_blind", 0) or 0)
+    sub = vilao.strip()[:18]
+    if assento is not None and getattr(assento, "position", None):
+        sub += f" · {assento.position}"
+    if assento is not None and bb > 0 and getattr(assento, "stack", None):
+        sub += f" · {round(assento.stack / bb, 1):g}bb"
+    sb = getattr(getattr(h, "stakes", None), "small_blind", None)
+    if sb and bb:
+        sub += f" · blinds {_fc(sb)}/{_fc(bb)}"
+    cartas = list((getattr(h, "shown_cards", None) or {}).get(vilao) or [])
+    if len(nota) > 260:                  # mesmo teto do /relatorio
+        nota = nota[:257].rstrip() + "…"
+    return {
+        "title": titulo,
+        "subtitle": sub,
+        "tagline": _situacao_do_heroi(h),
+        "hero_cards": cartas,            # as do VILÃO — a figura só exibe
+        "cards_note": "" if cartas else "cartas não vistas",
+        "streets": bands,
+        "math": {},
+        "verdict": "",                   # sem selo: figura é filme, não juízo
+        "verdict_text": nota,
+        "correct": "",
+    }
+
+
+def _strip(h, vilao: str, seq: int, nota: str) -> str:
+    """O storyboard da mão sob a ótica do VILÃO — PIL, custo zero de modelo.
+
+    O try existe pela mesma regra do /relatorio: a figura nunca derruba o
+    documento — falhou, sai '' e o filme em texto assume."""
     if h is None:
         return ""
-    from app.analysis.handreport import _hand_strip_img
+    try:
+        import base64
 
-    return _hand_strip_img(h, seq, {}, None, nota)
+        from app.analysis.hand_figure import render_hand_strip
+
+        spec = espec_do_vilao(h, vilao, f"Mão #{seq} — {vilao.strip()[:18]}",
+                              nota)
+        if spec is None:
+            return ""
+        b64 = base64.standard_b64encode(render_hand_strip(spec)).decode()
+        return (f"<img class=strip style='width:100%;border-radius:8px;"
+                f"margin:10px 0' src='data:image/png;base64,{b64}'>")
+    except Exception:
+        return ""
 
 
-def _mao_mostrada(m: MaoMostrada, h=None, seq: int = 0) -> str:
+def _mao_mostrada(m: MaoMostrada, vilao: str, h=None, seq: int = 0) -> str:
     extra = "blefe" if m.papel == "blefe" else ""
     desc = f" — {_esc(m.descricao)}" if m.descricao else ""
-    img = _strip(h, seq, f"{m.papel}: {m.descricao or ''}")
+    img = _strip(h, vilao, seq, f"{m.papel}: {m.descricao or ''}")
     return (f"<div class='mao {extra}'>"
             f"<span class='cartas'>{_esc(pretty_cards(list(m.cartas)))}</span>"
             f" <span class='papel {_classe_do_papel(m.papel)}'>{_esc(m.papel)}"
@@ -159,6 +236,27 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "um — os números acima falam por si, com a margem "
                       "junto.</div>")
 
+    # OS DOIS RETRATOS — o que ele mostrou vs o que ele fez. A divergência
+    # entre eles é a conclusão que nenhum dos dois dá sozinho, e só sai
+    # quando a amostra sustenta (Wilson, mesma régua de sempre).
+    from app.analysis.perfil_duplo import montar as montar_duplo
+    from app.analysis.perfil_duplo import texto as texto_duplo
+
+    duplo = montar_duplo(hands, nome, d)
+    if duplo.a or duplo.b:
+        la, lb = texto_duplo(duplo)
+        partes.append(
+            "<h2>⚖️ O mesmo jogador, dois retratos</h2><div class='duo'>"
+            f"<div><b>Retrato A — showdown</b><br>{_esc(la)}<br>"
+            f"<i>viés declarado: só existe showdown quando alguém paga — "
+            f"esta é a amostra das mãos PAGAS</i></div>"
+            f"<div><b>Retrato B — linha</b><br>{_esc(lb)}<br>"
+            f"<i>não precisa de carta nenhuma: cobre toda a agressão dele, "
+            f"inclusive a que ninguém pagou para ver</i></div></div>")
+        if duplo.divergencia:
+            partes.append(f"<div class='alerta'><b>⚡ Onde os retratos "
+                          f"divergem:</b> {_esc(duplo.divergencia)}</div>")
+
     por_id_todas = {str(getattr(h, "hand_id", "") or ""): h for h in hands}
     seq = 0
     if d:
@@ -173,8 +271,8 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             partes.append(f"<h2>{titulo}</h2>")
             for m in grupo:
                 seq += 1
-                partes.append(_mao_mostrada(m, por_id_todas.get(m.hand_id),
-                                            seq))
+                partes.append(_mao_mostrada(m, nome,
+                                            por_id_todas.get(m.hand_id), seq))
     else:
         partes.append("<h2>Showdowns</h2><div class='nota'>Ele não mostrou "
                       "nenhuma mão neste torneio — tudo que há são as linhas "
@@ -204,7 +302,7 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             historia = ""
             h = por_id.get(e.hand_id)
             seq += 1
-            img = _strip(h, seq, "")
+            img = _strip(h, nome, seq, "")
             if img:
                 historia = img
             elif h is not None:
@@ -229,8 +327,32 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                                  + "<br>📖 ".join(_esc(f) for f in frases)
                                  + "</div>")
 
+            # AS CARTAS PROVÁVEIS — contagem de combos do range SUPOSTO
+            # (top-PFR% medido), com a suposição escrita na frase. Só nas
+            # mãos em que ELE atacou o pré: quem só pagou entra com um range
+            # que o PFR não descreve, e contar seria fingir precisão.
+            combos_html = ""
+            board_h = list(getattr(h, "final_board", None) or ()) if h else []
+            if (linha is not None and linha.pfr > 0
+                    and "aumenta pré" in e.linha):
+                from app.analysis.combos import contar, linhas as linhas_combos
+
+                cont = contar(
+                    linha.pfr, board_h,
+                    list(getattr(h, "hero_cards", None) or []),
+                    f"PFR medido: {round(100 * linha.pfr)}%, "
+                    f"{linha.maos} mãos")
+                if cont:
+                    lcs = linhas_combos(cont)
+                    combos_html = (
+                        "<div class='nota'>🃏 <b>Cartas prováveis</b> "
+                        "<i>(contagem dado o range suposto — a suposição "
+                        "está na frase)</i><br>" + _esc(lcs[0]) + "<br>• "
+                        + "<br>• ".join(_esc(x.lstrip("• "))
+                                        for x in lcs[1:]) + "</div>")
+
             # A LEITURA — recomendação de coach com as razões à mostra
-            board = list(getattr(h, "final_board", None) or ()) if h else []
+            board = board_h
             lt = ler_linha(e.sinais, board, rotulo=rotulo_dele,
                            ja_mostrou_blefe=bool(d and d.blefes),
                            ja_mostrou_valor=bool(d and d.valor))
@@ -248,7 +370,7 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             partes.append(
                 f"<div class='mao escura'>"
                 f"<span class='papel neutro'>{_esc(e.rua)}</span>{tam}{fim}"
-                f"{historia}{narrativa}{sin}{leitura_html}</div>")
+                f"{historia}{narrativa}{sin}{combos_html}{leitura_html}</div>")
         if len(escuras) > teto:
             partes.append(f"<div class='sub'>…e mais "
                           f"{len(escuras) - teto} linhas.</div>")
