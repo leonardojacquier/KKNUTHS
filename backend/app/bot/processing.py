@@ -1869,6 +1869,100 @@ def _extract_metas(text: str) -> list[str]:
         r"^META\s*\d\s*:\s*(.+)$", text or "", _re.MULTILINE) if m.strip()][:2]
 
 
+# a última estrutura fotografada. As nomeadas (`lobby:<slug>`) ficam como
+# acervo; esta é o ponteiro para a que vale agora — sem ela, o /preparar teria
+# que adivinhar qual das guardadas é a de hoje.
+CHAVE_ATUAL = "lobby:atual"
+
+
+def _lobby_guardado(repo, user):
+    """A última estrutura que o aluno fotografou, ou None.
+
+    Vive em `user_meta` porque é dado DELE e tem que sobreviver ao deploy:
+    fotografar de novo antes de cada torneio seria o mesmo que não guardar.
+    """
+    if not (user and getattr(repo, "enabled", False)):
+        return None
+    try:
+        from app.analysis.lobby import Lobby, Nivel
+
+        bruto = repo.get_user_meta(user["id"], CHAVE_ATUAL)
+        if not bruto:
+            return None
+        niveis = tuple(Nivel(*n) if isinstance(n, (list, tuple)) else Nivel(**n)
+                       for n in (bruto.get("niveis") or []))
+        if not niveis:
+            return None
+        return Lobby(**{**bruto, "niveis": niveis})
+    except Exception:
+        log.warning("estrutura guardada ilegível", exc_info=True)
+        return None
+
+
+def _slug_do_torneio(nome: str | None) -> str:
+    """Chave estável para guardar a estrutura. Sem nome, uma só por aluno —
+    melhor sobrescrever que perder."""
+    import re as _re
+
+    limpo = _re.sub(r"[^a-z0-9]+", "-", (nome or "").lower()).strip("-")
+    return f"lobby:{limpo[:40] or 'ultimo'}"
+
+
+def processar_lobby(content: bytes, media: str, telegram_id: int,
+                    username: str | None) -> str:
+    """Print do lobby -> estrutura lida, CONFERIDA e guardada.
+
+    Guardar é o que faz isto valer a pena: ele fotografa uma vez e o
+    /preparar usa daí em diante. Sem memória, seria uma leitura bonita que
+    ele teria que repetir antes de todo torneio.
+
+    A conferência contra as mãos dele do mesmo clube vem junto e vai no
+    texto — leitura de tela erra, e erro que não aparece vira plano de jogo.
+    """
+    from app.agent.llm import extract_lobby_from_image
+    from app.analysis.lobby import conferir_com_maos
+    from app.analysis.lobby import texto as texto_do_lobby
+
+    lobby = extract_lobby_from_image(content, media)
+    if lobby is None:
+        return ("Não consegui ler a estrutura nesse print. Manda a tela de "
+                "*Informações do jogo* (a aba com a tabela de blinds) — "
+                "quanto mais níveis aparecerem, melhor.")
+
+    repo = get_repository()
+    user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
+    maos = repo.get_hands_para_perfil(user["id"])[0] if user else []
+    conferencia = conferir_com_maos(lobby, maos)
+
+    if user:
+        try:
+            guardavel = {k: (list(v) if isinstance(v, tuple) else v)
+                         for k, v in lobby._asdict().items()}
+            repo.set_user_meta(user["id"], _slug_do_torneio(lobby.nome),
+                               guardavel)
+            repo.set_user_meta(user["id"], CHAVE_ATUAL, guardavel)
+        except Exception:
+            log.warning("não consegui guardar a estrutura do lobby",
+                        exc_info=True)
+
+    partes = [texto_do_lobby(lobby, conferencia)]
+
+    from app.agent.llm import LAST_LOBBY_CHECK
+
+    divergencias = (LAST_LOBBY_CHECK or {}).get("divergencias") or []
+    if divergencias:
+        partes.append("⚠️ *Li com dúvida:* " + "; ".join(divergencias[:3])
+                      + "\nConfere esses números e me corrige se estiver errado.")
+    partes.append("_Guardei. É só mandar /preparar antes do torneio._")
+
+    if repo.enabled:
+        repo.log_event(telegram_id, username, "lobby_lido",
+                       {"nome": lobby.nome, "niveis": len(lobby.niveis),
+                        "confere": f"{conferencia[0]}/{conferencia[1]}",
+                        "divergencias": len(divergencias)})
+    return "\n\n".join(partes)
+
+
 def prepare_report(telegram_id: int, username: str | None,
                    args_text: str = "") -> str | None:
     """/preparar — briefing pré-torneio a partir dos dados do PRÓPRIO aluno.
@@ -1908,6 +2002,10 @@ def prepare_report(telegram_id: int, username: str | None,
     from app.analysis.estrutura import escolher, medir
     from app.analysis.estrutura import texto as texto_da_estrutura
 
+    # LOBBY GUARDADO manda na estrutura MEDIDA: ele descreve o torneio que
+    # vai começar; a medida descreve o que já passou. E é a única fonte para
+    # o circuito de clube, onde a mão chega por print, sem horário.
+    do_lobby = _lobby_guardado(repo, user)
     estrutura = escolher(medir(src_hands), torneio.get("buyin"))
     if estrutura is not None and not torneio.get("formato"):
         # "lento" não tem dicas próprias; as de "regular" já falam de
@@ -1927,6 +2025,22 @@ def prepare_report(telegram_id: int, username: str | None,
     }
     if estrutura is not None:
         ctx["estrutura_medida"] = estrutura._asdict()
+    if do_lobby is not None:
+        from app.analysis.lobby import quando_vira_push_fold
+
+        pf = quando_vira_push_fold(do_lobby)
+        ctx["estrutura_do_lobby"] = {
+            "nome": do_lobby.nome,
+            "minutos_por_nivel": do_lobby.minutos_por_nivel,
+            "push_fold_nivel": pf.nivel if pf else None,
+            "push_fold_minuto": pf.minuto if pf else None}
+        if not torneio.get("formato") and do_lobby.minutos_por_nivel:
+            from app.analysis.estrutura import _ritmo
+
+            r = _ritmo(do_lobby.minutos_por_nivel)
+            torneio["formato"] = "regular" if r == "lento" else r
+            dicas = dicas_para(torneio)
+            ctx["dicas_do_formato"] = dicas or None
     if user:
         notes = repo.get_notes(user["id"], limit=6)
         if notes:
@@ -1940,7 +2054,13 @@ def prepare_report(telegram_id: int, username: str | None,
 
     # o bloco da estrutura é DETERMINÍSTICO: os números vão como foram
     # medidos, sem passar pelo modelo para serem recontados
-    if estrutura is not None:
+    if do_lobby is not None:
+        from app.analysis.lobby import conferir_com_maos
+        from app.analysis.lobby import texto as texto_do_lobby
+
+        briefing += "\n\n" + texto_do_lobby(
+            do_lobby, conferir_com_maos(do_lobby, src_hands))
+    elif estrutura is not None:
         briefing += "\n\n" + texto_da_estrutura(estrutura)
         dito = parse_tournament_profile(args_text).get("formato")
         if dito and dito != estrutura.ritmo:

@@ -963,6 +963,39 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _send_pending_charts(update.message, tg_user.id)
 
 
+_LOBBY_NA_LEGENDA = re.compile(
+    r"\b(lobby|estrutura|estrut|blinds?|n[ií]veis|preparar)\b", re.IGNORECASE)
+
+
+def _pede_leitura_de_lobby(legenda: str | None) -> bool:
+    """A legenda diz que a foto é do LOBBY, e não da mesa.
+
+    Palavra na legenda em vez de adivinhação: distinguir as duas telas sem
+    ler a imagem é impossível, e ler a imagem duas vezes custa duas análises
+    da cota do aluno. O manual e a resposta do /preparar ensinam a legenda.
+    """
+    return bool(_LOBBY_NA_LEGENDA.search(legenda or ""))
+
+
+async def _tratar_lobby(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await _log(update, "lobby_recebido")
+    aviso = await update.message.reply_text(
+        "🏟 Recebido. Lendo a estrutura do torneio…")
+    foto = update.message.photo[-1]
+    arquivo = await ctx.bot.get_file(foto.file_id)
+    conteudo = bytes(await arquivo.download_as_bytearray())
+    tg_user = update.effective_user
+    from app.bot.processing import processar_lobby
+
+    texto = await asyncio.to_thread(processar_lobby, conteudo, "image/jpeg",
+                                    tg_user.id, _uname(tg_user))
+    try:
+        await aviso.delete()
+    except Exception:
+        pass          # aviso é cosmético; a resposta é que importa
+    await _safe_reply(update.message, texto)
+
+
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Print da mesa enviado como foto (não como arquivo)."""
     # Compartilhar direto do app do clube manda a imagem PROMOCIONAL (mesa
@@ -975,6 +1008,14 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     rl = replay_link_info(update.message.caption or "", legenda=True)
     if rl:
         await _tratar_replay(update, rl)
+        return
+
+    # PRINT DO LOBBY, não da mesa. Sem este desvio a foto da estrutura ia
+    # para o leitor de MÃO, que procura cartas e stacks numa tela que não
+    # tem nenhum dos dois — e o aluno recebia "não consegui ler", gastando
+    # uma análise da cota para dizer nada.
+    if _pede_leitura_de_lobby(update.message.caption):
+        await _tratar_lobby(update, ctx)
         return
 
     await _log(update, "print_recebido")
