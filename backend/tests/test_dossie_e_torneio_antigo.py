@@ -168,8 +168,9 @@ def test_o_dossie_mostra_a_agressao_contra_OUTROS_jogadores(base, monkeypatch):
     html = P.dossie_doc(7, "v2", 1)[0].decode("utf-8")
     assert "Agrediu e ninguém viu" in html
     assert "levou o pote" in html
-    assert "por que estas mãos estão aqui sem veredito" in html, (
+    assert "a linha é o único fato" in html, (
         "a observação pedida pelo dono não está no documento")
+    assert "RECOMENDAÇÃO" in html, "a leitura perdeu o rótulo de recomendação"
 
 
 def test_vilao_de_OUTRO_torneio_nao_vaza_para_este(base):

@@ -148,10 +148,15 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "abaixo.</div>")
 
     if escuras:
+        from app.analysis.leitura_vilao import ler_linha
+        from app.bot.processing import _walk_hand
+
+        por_id = {str(getattr(h, "hand_id", "") or ""): h for h in hands}
         levou = sum(1 for e in escuras if e.levou_o_pote)
         partes.append(f"<h2>Agrediu e ninguém viu ({len(escuras)} — "
                       f"levou o pote em {levou})</h2>")
         teto = 24
+        rotulo_dele = linha.rotulo if linha else ""
         for e in escuras[:teto]:
             tam = (f" · {e.fracao_do_pote:g}× pote" if e.fracao_do_pote
                    else "")
@@ -160,23 +165,50 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                    else (" — levou o pote" if e.levou_o_pote else ""))
             sin = (f"<div class='sinais'>⚑ {_esc(' · '.join(e.sinais))}</div>"
                    if e.sinais else "")
+
+            # A MÃO INTEIRA, rua a rua — a linha resumida escondia o resto
+            # da mesa, e o dono cobrou: sem o filme não dá para estudar
+            historia = ""
+            h = por_id.get(e.hand_id)
+            if h is not None:
+                try:
+                    filme, _decs = _walk_hand(h)
+                    historia = ("<div class='linha'>"
+                                + "<br>".join(_esc(li) for li in filme)
+                                + "</div>")
+                except Exception:
+                    historia = ""
+
+            # A LEITURA — recomendação de coach com as razões à mostra
+            board = list(getattr(h, "final_board", None) or ()) if h else []
+            lt = ler_linha(e.sinais, board, rotulo=rotulo_dele,
+                           ja_mostrou_blefe=bool(d and d.blefes),
+                           ja_mostrou_valor=bool(d and d.valor))
+            razoes = ("<br>• " + "<br>• ".join(_esc(r) for r in lt.razoes)
+                      if lt.razoes else "")
+            leitura_html = (
+                f"<div class='nota'>🧭 <b>Leitura: pende para "
+                f"{_esc(lt.inclinacao)}</b> <i>(leitura de coach, não "
+                f"medição)</i>{razoes}<br>"
+                f"<b>A linha representa:</b> {_esc(lt.representa)}.<br>"
+                f"<b>Recomendação:</b> {_esc(lt.conselho)}.</div>")
+
+            if not historia:
+                historia = f"<div class='linha'>{_esc(e.linha)}</div>"
             partes.append(
                 f"<div class='mao escura'>"
-                f"<span class='papel neutro'>{_esc(e.rua)}</span>"
-                f"<div class='linha'>{_esc(e.linha)}{tam}{fim}</div>"
-                f"{sin}</div>")
+                f"<span class='papel neutro'>{_esc(e.rua)}</span>{tam}{fim}"
+                f"{historia}{sin}{leitura_html}</div>")
         if len(escuras) > teto:
             partes.append(f"<div class='sub'>…e mais "
                           f"{len(escuras) - teto} linhas.</div>")
         partes.append(
-            "<div class='nota'><b>Observação — por que estas mãos estão "
-            "aqui sem veredito:</b> a linha é o único fato que existe delas. "
-            "⚑ marca traços da jogada (três barris, overbet, draw que não "
-            "bateu) que cabem tanto num blefe quanto num valor polarizado. "
-            "Não existe \"provavelmente blefou X%\": o vilão só mostra "
-            "quando alguém paga, e uma taxa tirada dos showdowns mediria "
-            "quem pagou, não ele. \"Levou o pote\" é registro, não "
-            "leitura.</div>")
+            "<div class='nota'><b>Observação:</b> nestas mãos a linha é o "
+            "único fato; as cartas dele ninguém viu. A leitura 🧭 é "
+            "RECOMENDAÇÃO — pesa os sinais da jogada, o perfil sustentado "
+            "dele e o que ele já mostrou neste torneio — e por isso diz "
+            "\"pende para\", nunca um percentual: \"blefa X%\" exigiria "
+            "showdown, e o vilão só mostra quando alguém paga.</div>")
 
     if defesa:
         pct = round(100 * defesa.fold_taxa)
