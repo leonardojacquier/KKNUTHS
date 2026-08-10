@@ -1467,6 +1467,18 @@ def estrategia_do_torneio(telegram_id: int) -> str:
         return ""
     fora = [texto(por_faixa(hands))]
 
+    # A MESA: quem estava nela e quem é explorável, com o gap VPIP−PFR
+    # sustentado por intervalo. É deste torneio — mesmo conjunto do quadro.
+    try:
+        from app.analysis.mesa import medir as medir_mesa
+        from app.analysis.mesa import texto as texto_da_mesa
+
+        bloco_mesa = texto_da_mesa(medir_mesa(hands))
+        if bloco_mesa:
+            fora.append("\n\n" + bloco_mesa)
+    except Exception as exc:
+        log.warning("mesa do torneio falhou: %s", exc)
+
     # FREQUÊNCIA e INVERSÃO são perguntas sobre o HISTÓRICO, não sobre o
     # último torneio: "com que frequência você entra com 18bb" precisa de
     # dezenas de mãos naquela faixa, e um torneio raramente entrega isso.
