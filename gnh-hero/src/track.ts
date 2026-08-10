@@ -122,6 +122,20 @@ export function saveLead(l: { nombre: string; empresa?: string; whatsapp: string
   })
 }
 
+/** Aparato del visitante. Decide más que parece: en celular el CTA tiene que
+ *  estar visible sin scroll, y una ficha PDF de 3 MB es otra experiencia. */
+function aparato(): string {
+  try {
+    const uad = (navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData
+    if (uad && typeof uad.mobile === 'boolean') return uad.mobile ? 'celular' : 'computadora'
+  } catch { /* noop */ }
+  const ua = navigator.userAgent || ''
+  // iPad moderno se anuncia como Mac: el desempate es la pantalla táctil
+  if (/iPad|Tablet/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'tablet'
+  if (/Mobi|Android|iPhone|iPod/i.test(ua)) return 'celular'
+  return 'computadora'
+}
+
 /** Primer contacto de la sesión (first touch): zona horaria + idioma del
  *  navegador como señal de origen — sin IP y sin llamada externa. Se dispara
  *  una sola vez por sesión, en la página donde el visitante entra. */
@@ -140,7 +154,14 @@ export function trackLanding(): void {
   let src = ''
   try { src = (new URLSearchParams(location.search).get('utm_source') ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) } catch { /* noop */ }
   const entry = src ? `${base}-${src}` : base
-  track('landing', `${tz}|${lang}|${entry}`)
+  // qué campaña, no sólo qué red: ?utm_campaign=generador-38kva
+  let camp = ''
+  try {
+    camp = (new URLSearchParams(location.search).get('utm_campaign') ?? '')
+      .toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40)
+  } catch { /* noop */ }
+  // el formato crece por el final: fila vieja con 3 campos sigue leyéndose igual
+  track('landing', `${tz}|${lang}|${entry}|${aparato()}|${camp}`)
 }
 
 /** Delegación global: [data-ev], clics a WhatsApp y descargas de fichas. */

@@ -1130,7 +1130,25 @@ if (!sessionStorage.getItem('klanded')) {
      coluna ref, então não precisa mais ocupar este campo. */
   var ktz = '';
   try { ktz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
-  KT('landing', ktz + '|' + (navigator.language || '').slice(0, 5) + '|home');
+  /* aparelho: em celular o CTA precisa caber sem rolagem, então vale medir */
+  var kap = 'computadora';
+  try {
+    var uad = navigator.userAgentData;
+    if (uad && typeof uad.mobile === 'boolean') { kap = uad.mobile ? 'celular' : 'computadora'; }
+    else {
+      var kua = navigator.userAgent || '';
+      /* iPad novo se anuncia como Mac: o desempate é a tela sensível ao toque */
+      if (/iPad|Tablet/i.test(kua) || (/Macintosh/.test(kua) && navigator.maxTouchPoints > 1)) kap = 'tablet';
+      else if (/Mobi|Android|iPhone|iPod/i.test(kua)) kap = 'celular';
+    }
+  } catch (e) {}
+  var kcamp = '';
+  try {
+    kcamp = (new URLSearchParams(location.search).get('utm_campaign') || '')
+      .toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+  } catch (e) {}
+  /* o formato cresce pelo fim: linha antiga com 3 campos continua sendo lida igual */
+  KT('landing', ktz + '|' + (navigator.language || '').slice(0, 5) + '|home|' + kap + '|' + kcamp);
 }
 
 /* payoff do hero: zoom completo (progress > .74 do pin) + faixa do menu */

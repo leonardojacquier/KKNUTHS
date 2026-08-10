@@ -1,13 +1,15 @@
 import { sqlMkt } from '@/lib/db-mkt';
 import { MarketingView } from './MarketingView';
-import type { Dia, Origen, Pais, Busca, Pagina, Detalhe, Hora, Insight } from './MarketingView';
+import type { Dia, Origen, Pais, Busca, Pagina, Detalhe, Hora, Aparato, Campana, Insight } from './MarketingView';
 
 export const dynamic = 'force-dynamic';
 
 const SITES = ['gnh', 'kasteller'] as const;
 const PERIODOS = [7, 30, 90] as const;
 
-type Props = { searchParams: Promise<{ site?: string; dias?: string; bots?: string }> };
+type Props = { searchParams: Promise<{ site?: string; dias?: string; bots?: string; t?: string }> };
+
+const ABAS = ['resumen', 'origen', 'conducta'] as const;
 
 export default async function Page({ searchParams }: Props) {
   const sp = await searchParams;
@@ -19,8 +21,9 @@ export default async function Page({ searchParams }: Props) {
   // por padrão os crawlers ficam de fora: 63 sessões en-US sem um clique
   // distorcem qualquer leitura de público. O botão deixa ver o bruto.
   const verBots = sp.bots === '1';
+  const aba = ABAS.includes(sp.t as (typeof ABAS)[number]) ? sp.t! : 'resumen';
 
-  const [porDia, anterior, origens, paises, buscas, paginas, detalhes, horas] = await Promise.all([
+  const [porDia, anterior, origens, paises, buscas, paginas, detalhes, horas, aparatos, campanas] = await Promise.all([
     sqlMkt`
       select site, dia::text, sesiones::int, personas::int, bots::int,
              con_contacto::int, eventos::int, duracion_media_seg::int
@@ -82,6 +85,21 @@ export default async function Page({ searchParams }: Props) {
         from hub.v_hora
        where site = any(${sitesFiltro})
        group by hora order by hora`,
+
+    sqlMkt`
+      select aparato, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos
+        from hub.v_aparato
+       where site = any(${sitesFiltro}) and dia > current_date - ${dias}::int
+       group by aparato having sum(sesiones) > 0
+       order by sesiones desc`,
+
+    sqlMkt`
+      select campana, origen, sum(sesiones)::int as sesiones, sum(contactos)::int as contactos
+        from hub.v_campana
+       where site = any(${sitesFiltro}) and dia > current_date - ${dias}::int
+       group by campana, origen having sum(sesiones) > 0
+       order by sesiones desc
+       limit 40`,
   ]);
 
   const insights = analisar(
@@ -99,6 +117,9 @@ export default async function Page({ searchParams }: Props) {
       site={site}
       dias={dias}
       verBots={verBots}
+      aba={aba}
+      aparatos={aparatos as unknown as Aparato[]}
+      campanas={campanas as unknown as Campana[]}
       porDia={porDia as unknown as Dia[]}
       origens={origens as unknown as Origen[]}
       paises={paises as unknown as Pais[]}

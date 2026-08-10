@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import {
   Users, MessageCircle, Percent, Search, Globe, FileText, MapPin, Clock, MousePointerClick, Lightbulb,
+  Megaphone, Smartphone,
 } from 'lucide-react';
 
 export type Dia = { site: string; dia: string; sesiones: number; personas: number; bots: number; con_contacto: number; eventos: number; duracion_media_seg: number };
@@ -16,12 +17,15 @@ export type Busca = { site: string; termino: string; sin_resultado: boolean; vec
 export type Pagina = { site: string; path: string; sesiones: number; contactos: number };
 export type Detalhe = { site: string; type: string; detail: string; veces: number; sesiones: number };
 export type Hora = { hora: number; sesiones: number; contactos: number };
+export type Aparato = { aparato: string; sesiones: number; contactos: number };
+export type Campana = { campana: string; origen: string; sesiones: number; contactos: number };
 export type Insight = { tono: 'bueno' | 'alerta' | 'neutro'; titulo: string; texto: string; accion: string };
 
 type Props = {
-  site: string; dias: number; verBots: boolean;
+  site: string; dias: number; verBots: boolean; aba: string;
   porDia: Dia[]; origens: Origen[]; paises: Pais[]; buscas: Busca[];
-  paginas: Pagina[]; detalhes: Detalhe[]; horas: Hora[]; insights: Insight[];
+  paginas: Pagina[]; detalhes: Detalhe[]; horas: Hora[];
+  aparatos: Aparato[]; campanas: Campana[]; insights: Insight[];
 };
 
 /** Nomes que o time entende, no lugar do slug técnico da coluna `ref`. */
@@ -52,7 +56,15 @@ const TIPO_LABEL: Record<string, string> = {
   filtro: 'Filtro usado', porta: 'Puerta de entrada', idioma: 'Idioma elegido',
 };
 
-export function MarketingView({ site, dias, verBots, porDia, origens, paises, buscas, paginas, detalhes, horas, insights }: Props) {
+const APARATO_LABEL: Record<string, string> = {
+  celular: 'Celular', computadora: 'Computadora', tablet: 'Tablet',
+  'sin dato': 'Sin dato (antes del 10/08)',
+};
+
+export function MarketingView({
+  site, dias, verBots, aba, porDia, origens, paises, buscas, paginas, detalhes, horas,
+  aparatos, campanas, insights,
+}: Props) {
   // com bots ligado, a coluna de sessões passa a ser o número bruto
   const ses = (r: { sesiones: number; sesiones_todas: number }) => (verBots ? r.sesiones_todas : r.sesiones);
   const kpi = useMemo(() => {
@@ -101,11 +113,11 @@ export function MarketingView({ site, dias, verBots, porDia, origens, paises, bu
           </p>
         </div>
         <div className="flex gap-2">
-          <Filtro atual={site} campo="site" site={site} dias={dias} verBots={verBots}
+          <Filtro atual={site} campo="site" site={site} dias={dias} verBots={verBots} aba={aba}
                   opcoes={[['todos', 'Los dos'], ['gnh', 'GNH'], ['kasteller', 'Kasteller']]} />
-          <Filtro atual={String(dias)} campo="dias" site={site} dias={dias} verBots={verBots}
+          <Filtro atual={String(dias)} campo="dias" site={site} dias={dias} verBots={verBots} aba={aba}
                   opcoes={[['7', '7 días'], ['30', '30 días'], ['90', '90 días']]} />
-          <Filtro atual={verBots ? '1' : '0'} campo="bots" site={site} dias={dias} verBots={verBots}
+          <Filtro atual={verBots ? '1' : '0'} campo="bots" site={site} dias={dias} verBots={verBots} aba={aba}
                   opcoes={[['0', 'Sin bots'], ['1', 'Con bots']]} />
         </div>
       </header>
@@ -140,152 +152,200 @@ export function MarketingView({ site, dias, verBots, porDia, origens, paises, bu
         </div>
       </section>
 
-      <Card titulo="Personas por día">
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={serie}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E7EAF0" />
-              <XAxis dataKey="dia" fontSize={12} />
-              <YAxis allowDecimals={false} fontSize={12} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="gnh" name="GNH" stroke="#F26D21" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="kasteller" name="Kasteller" stroke="#2E7D5B" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      {/* ---------- abas: a página parou de ser uma pilha de tabelas ---------- */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {([['resumen', 'Resumen'], ['origen', 'De dónde vienen'], ['conducta', 'Qué hacen']] as [string, string][]).map(([v, label]) => (
+          <Link key={v} href={`/marketing?${new URLSearchParams({ site, dias: String(dias), bots: verBots ? '1' : '0', t: v })}`}
+                className={`min-h-[44px] px-4 py-2 text-sm ${aba === v
+                  ? 'border-b-2 border-orange font-bold text-navy'
+                  : 'text-slate-500 hover:text-navy'}`}>
+            {label}
+          </Link>
+        ))}
+      </div>
 
-      <Card titulo="A qué hora entran" icon={<Clock size={16} />}
-            nota="Hora local de Asunción, todo el histórico. Sirve para elegir horario de post y de guardia en el WhatsApp.">
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={serieHoras}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E7EAF0" vertical={false} />
-              <XAxis dataKey="hora" fontSize={11} interval={1} />
-              <YAxis allowDecimals={false} fontSize={11} />
-              <Tooltip />
-              <Bar dataKey="sesiones" name="Sesiones" radius={[3, 3, 0, 0]}>
-                {serieHoras.map((h) => (
-                  <Cell key={h.hora} fill={h.contactos > 0 ? '#2E7D5B' : '#94A3B8'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">Barra verde = en esa hora alguien llegó a escribir.</p>
-      </Card>
+      {aba === 'resumen' && (
+        <>
+        <Card titulo="Personas por día">
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={serie}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E7EAF0" />
+                <XAxis dataKey="dia" fontSize={12} />
+                <YAxis allowDecimals={false} fontSize={12} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="gnh" name="GNH" stroke="#F26D21" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="kasteller" name="Kasteller" stroke="#2E7D5B" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+        <Card titulo="A qué hora entran" icon={<Clock size={16} />}
+              nota="Hora local de Asunción, todo el histórico. Sirve para elegir horario de post y de guardia en el WhatsApp.">
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={serieHoras}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E7EAF0" vertical={false} />
+                <XAxis dataKey="hora" fontSize={11} interval={1} />
+                <YAxis allowDecimals={false} fontSize={11} />
+                <Tooltip />
+                <Bar dataKey="sesiones" name="Sesiones" radius={[3, 3, 0, 0]}>
+                  {serieHoras.map((h) => (
+                    <Cell key={h.hora} fill={h.contactos > 0 ? '#2E7D5B' : '#94A3B8'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Barra verde = en esa hora alguien llegó a escribir.</p>
+        </Card>
+        </>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {aba === 'origen' && (
+        <div className="grid gap-6 lg:grid-cols-2">
         <Card titulo="De dónde vienen" icon={<Globe size={16} />}>
-          <Rolagem>
-            <Tabela cabecalho={colsBots(verBots, 'Origen')}>
-              {origens.map((o) => (
-                <tr key={o.origen} className="border-t border-slate-100">
-                  <td className="py-2 pr-3">{ORIGEM_LABEL[o.origen] ?? o.origen}</td>
-                  <td className="py-2 text-right tabular-nums">{ses(o)}</td>
-                  {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{o.bots}</td>}
-                  <td className="py-2 text-right tabular-nums">{o.contactos}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(o.contactos, ses(o))}</td>
-                </tr>
-              ))}
-            </Tabela>
-          </Rolagem>
-          {origens.some((o) => o.origen === 'sin dato') && (
-            <p className="mt-3 text-xs text-slate-500">
-              «Sin dato» son sesiones anteriores al 09/08/2026, cuando empezamos a registrar el origen.
-              No son visitas directas — simplemente no lo sabemos.
-            </p>
-          )}
-        </Card>
-
-        <Card titulo="Geografía" icon={<MapPin size={16} />}
-              nota={verBots
-                ? 'Con bots: los crawlers aparecen como “Américas (otro)”, “Europa”, “Asia (otro)” — son datacenters, no público.'
-                : 'Deducida de la zona horaria del navegador — sin IP y sin geolocalización. Los crawlers están fuera.'}>
-          <Rolagem>
-            <Tabela cabecalho={colsBots(verBots, 'País')}>
-              {paises.map((p) => (
-                <tr key={p.pais} className="border-t border-slate-100">
-                  <td className="py-2 pr-3">{p.pais}</td>
-                  <td className="py-2 text-right tabular-nums">{ses(p)}</td>
-                  {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{p.bots}</td>}
-                  <td className="py-2 text-right tabular-nums">{p.contactos}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, ses(p))}</td>
-                </tr>
-              ))}
-            </Tabela>
-          </Rolagem>
-        </Card>
-
-        <Card titulo="Búsquedas sin resultado" icon={<Search size={16} />}
-              nota="Cada línea es alguien que buscó y se fue con las manos vacías: o falta el producto, o falta la palabra.">
-          {vazias.length === 0 ? (
-            <p className="text-sm text-slate-500">Nadie buscó algo que no esté. Buena señal.</p>
-          ) : (
+  <Rolagem>
+    <Tabela cabecalho={colsBots(verBots, 'Origen')}>
+      {origens.map((o) => (
+        <tr key={o.origen} className="border-t border-slate-100">
+          <td className="py-2 pr-3">{ORIGEM_LABEL[o.origen] ?? o.origen}</td>
+          <td className="py-2 text-right tabular-nums">{ses(o)}</td>
+          {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{o.bots}</td>}
+          <td className="py-2 text-right tabular-nums">{o.contactos}</td>
+          <td className="py-2 text-right tabular-nums text-slate-500">{pct(o.contactos, ses(o))}</td>
+        </tr>
+      ))}
+    </Tabela>
+  </Rolagem>
+  {origens.some((o) => o.origen === 'sin dato') && (
+    <p className="mt-3 text-xs text-slate-500">
+      «Sin dato» son sesiones anteriores al 09/08/2026, cuando empezamos a registrar el origen.
+      No son visitas directas — simplemente no lo sabemos.
+    </p>
+  )}
+</Card>
+          <Card titulo="Campañas" icon={<Megaphone size={16} />}
+                nota="Sólo aparece acá quien entró por un link con ?utm_campaign=. Sin ese parámetro en el link del post, la visita cae en “sin campaña”.">
             <Rolagem>
-              <Tabela cabecalho={['Término', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
-                {vazias.map((b) => (
-                  <tr key={`${b.site}-${b.termino}`} className="border-t border-slate-100">
-                    <td className="py-2 pr-3 font-medium">{b.termino}</td>
-                    <td className="py-2 text-slate-500">{b.site}</td>
-                    <td className="py-2 text-right tabular-nums">{b.sesiones}</td>
-                    <td className="py-2 text-right tabular-nums text-slate-500">{b.veces}</td>
+              <Tabela cabecalho={['Campaña', 'Red', ['Sesiones', 'num'], ['Contactos', 'num']]}>
+                {campanas.map((c) => (
+                  <tr key={`${c.campana}-${c.origen}`} className="border-t border-slate-100">
+                    <td className="py-2 pr-3">{c.campana === 'sin campaña'
+                      ? <span className="text-slate-400">Sin campaña (tráfico normal)</span> : c.campana}</td>
+                    <td className="py-2 text-slate-500">{ORIGEM_LABEL[c.origen] ?? c.origen}</td>
+                    <td className="py-2 text-right tabular-nums">{c.sesiones}</td>
+                    <td className="py-2 text-right tabular-nums">{c.contactos}</td>
                   </tr>
                 ))}
               </Tabela>
             </Rolagem>
-          )}
-        </Card>
+          </Card>
+        <Card titulo="Geografía" icon={<MapPin size={16} />}
+      nota={verBots
+        ? 'Con bots: los crawlers aparecen como “Américas (otro)”, “Europa”, “Asia (otro)” — son datacenters, no público.'
+        : 'Deducida de la zona horaria del navegador — sin IP y sin geolocalización. Los crawlers están fuera.'}>
+  <Rolagem>
+    <Tabela cabecalho={colsBots(verBots, 'País')}>
+      {paises.map((p) => (
+        <tr key={p.pais} className="border-t border-slate-100">
+          <td className="py-2 pr-3">{p.pais}</td>
+          <td className="py-2 text-right tabular-nums">{ses(p)}</td>
+          {verBots && <td className="py-2 text-right tabular-nums text-slate-400">{p.bots}</td>}
+          <td className="py-2 text-right tabular-nums">{p.contactos}</td>
+          <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, ses(p))}</td>
+        </tr>
+      ))}
+    </Tabela>
+  </Rolagem>
+</Card>
+          <Card titulo="Celular o computadora" icon={<Smartphone size={16} />}
+                nota="Empezamos a medir el 10/08/2026 — lo de antes aparece como “sin dato”.">
+            <Tabela cabecalho={['Aparato', ['Sesiones', 'num'], ['Contactos', 'num'], ['Conv.', 'num']]}>
+              {aparatos.map((a) => (
+                <tr key={a.aparato} className="border-t border-slate-100">
+                  <td className="py-2 pr-3">{APARATO_LABEL[a.aparato] ?? a.aparato}</td>
+                  <td className="py-2 text-right tabular-nums">{a.sesiones}</td>
+                  <td className="py-2 text-right tabular-nums">{a.contactos}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(a.contactos, a.sesiones)}</td>
+                </tr>
+              ))}
+            </Tabela>
+          </Card>
+        </div>
+      )}
 
-        <Card titulo="Lo más buscado" icon={<Search size={16} />}>
-          <Rolagem>
-            <Tabela cabecalho={['Término', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
-              {comResultado.map((b) => (
-                <tr key={`${b.site}-${b.termino}`} className="border-t border-slate-100">
-                  <td className="py-2 pr-3">{b.termino}</td>
-                  <td className="py-2 text-slate-500">{b.site}</td>
-                  <td className="py-2 text-right tabular-nums">{b.sesiones}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-500">{b.veces}</td>
+      {aba === 'conducta' && (
+        <>
+          <div className="grid gap-6 lg:grid-cols-2">
+          <Card titulo="Búsquedas sin resultado" icon={<Search size={16} />}
+        nota="Cada línea es alguien que buscó y se fue con las manos vacías: o falta el producto, o falta la palabra.">
+    {vazias.length === 0 ? (
+      <p className="text-sm text-slate-500">Nadie buscó algo que no esté. Buena señal.</p>
+    ) : (
+      <Rolagem>
+        <Tabela cabecalho={['Término', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
+          {vazias.map((b) => (
+            <tr key={`${b.site}-${b.termino}`} className="border-t border-slate-100">
+              <td className="py-2 pr-3 font-medium">{b.termino}</td>
+              <td className="py-2 text-slate-500">{b.site}</td>
+              <td className="py-2 text-right tabular-nums">{b.sesiones}</td>
+              <td className="py-2 text-right tabular-nums text-slate-500">{b.veces}</td>
+            </tr>
+          ))}
+        </Tabela>
+      </Rolagem>
+    )}
+  </Card>
+          <Card titulo="Lo más buscado" icon={<Search size={16} />}>
+    <Rolagem>
+      <Tabela cabecalho={['Término', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
+        {comResultado.map((b) => (
+          <tr key={`${b.site}-${b.termino}`} className="border-t border-slate-100">
+            <td className="py-2 pr-3">{b.termino}</td>
+            <td className="py-2 text-slate-500">{b.site}</td>
+            <td className="py-2 text-right tabular-nums">{b.sesiones}</td>
+            <td className="py-2 text-right tabular-nums text-slate-500">{b.veces}</td>
+          </tr>
+        ))}
+      </Tabela>
+    </Rolagem>
+  </Card>
+          </div>
+        <Card titulo="Dónde hacen clic" icon={<MousePointerClick size={16} />}
+              nota="Productos, promociones, fichas, secciones y filtros — ordenado por cuánta gente distinta lo tocó.">
+          <Rolagem alta>
+            <Tabela cabecalho={['Qué', 'Tipo', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
+              {detalhes.map((d) => (
+                <tr key={`${d.site}-${d.type}-${d.detail}`} className="border-t border-slate-100">
+                  <td className="max-w-[24rem] truncate py-2 pr-3" title={d.detail}>{d.detail}</td>
+                  <td className="py-2 text-slate-500">{TIPO_LABEL[d.type] ?? d.type}</td>
+                  <td className="py-2 text-slate-500">{d.site}</td>
+                  <td className="py-2 text-right tabular-nums">{d.sesiones}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-500">{d.veces}</td>
                 </tr>
               ))}
             </Tabela>
           </Rolagem>
         </Card>
-      </div>
-
-      <Card titulo="Dónde hacen clic" icon={<MousePointerClick size={16} />}
-            nota="Productos, promociones, fichas, secciones y filtros — ordenado por cuánta gente distinta lo tocó.">
-        <Rolagem alta>
-          <Tabela cabecalho={['Qué', 'Tipo', 'Sitio', ['Personas', 'num'], ['Veces', 'num']]}>
-            {detalhes.map((d) => (
-              <tr key={`${d.site}-${d.type}-${d.detail}`} className="border-t border-slate-100">
-                <td className="max-w-[24rem] truncate py-2 pr-3" title={d.detail}>{d.detail}</td>
-                <td className="py-2 text-slate-500">{TIPO_LABEL[d.type] ?? d.type}</td>
-                <td className="py-2 text-slate-500">{d.site}</td>
-                <td className="py-2 text-right tabular-nums">{d.sesiones}</td>
-                <td className="py-2 text-right tabular-nums text-slate-500">{d.veces}</td>
-              </tr>
-            ))}
-          </Tabela>
-        </Rolagem>
-      </Card>
-
-      <Card titulo="Páginas" icon={<FileText size={16} />}>
-        <Rolagem alta>
-          <Tabela cabecalho={['Página', 'Sitio', ['Sesiones', 'num'], ['Contactos', 'num'], ['Conv.', 'num']]}>
-            {paginas.map((p) => (
-              <tr key={`${p.site}-${p.path}`} className="border-t border-slate-100">
-                <td className="max-w-[24rem] truncate py-2 pr-3" title={p.path}>{p.path}</td>
-                <td className="py-2 text-slate-500">{p.site}</td>
-                <td className="py-2 text-right tabular-nums">{p.sesiones}</td>
-                <td className="py-2 text-right tabular-nums">{p.contactos}</td>
-                <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, p.sesiones)}</td>
-              </tr>
-            ))}
-          </Tabela>
-        </Rolagem>
-      </Card>
+        <Card titulo="Páginas" icon={<FileText size={16} />}>
+          <Rolagem alta>
+            <Tabela cabecalho={['Página', 'Sitio', ['Sesiones', 'num'], ['Contactos', 'num'], ['Conv.', 'num']]}>
+              {paginas.map((p) => (
+                <tr key={`${p.site}-${p.path}`} className="border-t border-slate-100">
+                  <td className="max-w-[24rem] truncate py-2 pr-3" title={p.path}>{p.path}</td>
+                  <td className="py-2 text-slate-500">{p.site}</td>
+                  <td className="py-2 text-right tabular-nums">{p.sesiones}</td>
+                  <td className="py-2 text-right tabular-nums">{p.contactos}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-500">{pct(p.contactos, p.sesiones)}</td>
+                </tr>
+              ))}
+            </Tabela>
+          </Rolagem>
+        </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -313,15 +373,15 @@ function Rolagem({ children, alta }: { children: React.ReactNode; alta?: boolean
   return <div className={`overflow-y-auto overflow-x-auto ${alta ? 'max-h-[28rem]' : 'max-h-72'}`}>{children}</div>;
 }
 
-function Filtro({ atual, campo, opcoes, site, dias, verBots }: {
-  atual: string; campo: 'site' | 'dias' | 'bots'; opcoes: [string, string][];
-  site: string; dias: number; verBots: boolean;
+function Filtro({ atual, campo, opcoes, site, dias, verBots, aba }: {
+  atual: string; campo: 'site' | 'dias' | 'bots' | 't'; opcoes: [string, string][];
+  site: string; dias: number; verBots: boolean; aba: string;
 }) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-slate-200">
       {opcoes.map(([valor, label]) => {
         // todo filtro carrega o estado dos outros dois, senão trocar um zera o resto
-        const params = new URLSearchParams({ site, dias: String(dias), bots: verBots ? '1' : '0' });
+        const params = new URLSearchParams({ site, dias: String(dias), bots: verBots ? '1' : '0', t: aba });
         params.set(campo, valor);
         const ativo = atual === valor;
         return (
