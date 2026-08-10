@@ -181,7 +181,7 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                       "abaixo.</div>")
 
     if escuras:
-        from app.analysis.leitura_vilao import ler_linha
+        from app.analysis.leitura_vilao import ler_linha, narrar_mao
         from app.bot.processing import _walk_hand
 
         por_id = {str(getattr(h, "hand_id", "") or ""): h for h in hands}
@@ -216,6 +216,19 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
                 except Exception:
                     historia = ""
 
+            # A NARRATIVA — a mão narrada pelos números DELA: sizing em
+            # fração do pote NAQUELE momento, o que cada carta do runout
+            # mudou, e como a mesa reagiu. Duas mãos só saem iguais se
+            # foram jogadas igual — é a análise individualizada que o dono
+            # pediu para as mãos em que ele já tinha foldado.
+            narrativa = ""
+            if h is not None:
+                frases = narrar_mao(h, nome)
+                if frases:
+                    narrativa = ("<div class='sinais'>📖 "
+                                 + "<br>📖 ".join(_esc(f) for f in frases)
+                                 + "</div>")
+
             # A LEITURA — recomendação de coach com as razões à mostra
             board = list(getattr(h, "final_board", None) or ()) if h else []
             lt = ler_linha(e.sinais, board, rotulo=rotulo_dele,
@@ -235,7 +248,7 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
             partes.append(
                 f"<div class='mao escura'>"
                 f"<span class='papel neutro'>{_esc(e.rua)}</span>{tam}{fim}"
-                f"{historia}{sin}{leitura_html}</div>")
+                f"{historia}{narrativa}{sin}{leitura_html}</div>")
         if len(escuras) > teto:
             partes.append(f"<div class='sub'>…e mais "
                           f"{len(escuras) - teto} linhas.</div>")

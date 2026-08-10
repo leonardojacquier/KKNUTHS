@@ -160,3 +160,94 @@ def plano_contra(rotulo: str = "", gap_pp: int | None = None,
         plano.append("Ainda não há evidência que sustente um plano "
                      "específico — jogue o padrão e deixe a amostra crescer")
     return plano
+
+
+# ------------------------------------------------------------- narrativa ----
+def _tamanho(fracao: float) -> str:
+    if fracao > 1.1:
+        return f"overbet ({fracao:.1f}× pote)"
+    if fracao >= 0.75:
+        return f"aposta grande ({round(100 * fracao)}% do pote)"
+    if fracao >= 0.40:
+        return f"aposta média ({round(100 * fracao)}% do pote)"
+    return f"aposta pequena ({round(100 * fracao)}% do pote)"
+
+
+def _a_carta_mudou(board: list[str], ate: int) -> str:
+    """O que a carta `board[ate]` fez neste board. Fato, não leitura."""
+    carta, antes = board[ate], board[:ate]
+    ranks = "23456789TJQKA"
+    naipes = [c[1].lower() for c in antes]
+    fatos = []
+    if naipes.count(carta[1].lower()) >= 2:
+        fatos.append(f"completou flush possível de "
+                     f"{_ICONE.get(carta[1].lower(), carta[1])}")
+    if carta[0].upper() in [c[0].upper() for c in antes]:
+        fatos.append("pareou o board")
+    topo = max((c[0].upper() for c in antes), key=lambda r: ranks.index(r))
+    if ranks.index(carta[0].upper()) > ranks.index(topo):
+        fatos.append(f"overcard (acima do {_NOME[topo]})")
+    return " e ".join(fatos) if fatos else "brick"
+
+
+def narrar_mao(hand, vilao: str) -> list[str]:
+    """A mão DELE narrada pelos números DELA — o que individualiza a análise.
+
+    Uma frase por rua em que ele agiu: o tamanho em fração do pote naquele
+    momento (não no fim), o que a carta da rua mudou, e como a mesa reagiu.
+    Duas mãos só saem com o mesmo texto se foram de fato jogadas igual.
+    """
+    from app.models.canonical import ActionType
+
+    board = list(getattr(hand, "final_board", None) or ())
+    pos = next((p.position for p in (getattr(hand, "players", None) or ())
+                if p.name == vilao and getattr(p, "position", None)), None)
+    frases: list[str] = []
+    pote = 0.0
+    idx_rua = {"flop": 3, "turn": 4, "river": 5}
+    for st in (getattr(hand, "streets", None) or ()):
+        rua = str(getattr(st.name, "value", st.name)).lower()
+        na_street: dict[str, float] = {}
+        acoes = list(st.actions or ())
+        for i, a in enumerate(acoes):
+            add = a.amount
+            if a.type == ActionType.RAISE and a.to_amount:
+                add = a.to_amount - na_street.get(a.actor, 0.0)
+            add = max(0.0, add)
+            if a.actor == vilao and a.type in (ActionType.BET,
+                                               ActionType.RAISE):
+                if rua == "preflop":
+                    bb = float(getattr(getattr(hand, "stakes", None),
+                                       "big_blind", 0) or 0)
+                    alvo = (a.to_amount or a.amount)
+                    quanto = (f"para {alvo / bb:g}bb" if bb > 0 and alvo
+                              else "")
+                    de_onde = f" do {pos}" if pos else ""
+                    verbo = ("3-bet" if any(
+                        x.type == ActionType.RAISE and x.actor != vilao
+                        for x in acoes[:i]) else "abriu")
+                    frases.append(f"pré: {verbo}{de_onde} {quanto}".rstrip())
+                elif pote > 0 and add > 0:
+                    n = idx_rua.get(rua)
+                    carta = (f" — o {rua} ({board[n - 1]}) "
+                             f"{_a_carta_mudou(board, n - 1)}"
+                             if n and len(board) >= n else "")
+                    verbo = "aumentou:" if a.type == ActionType.RAISE                         else ""
+                    frases.append(f"{rua}: {verbo}{_tamanho(add / pote)}"
+                                  f"{carta}")
+                # a reação da mesa à agressão dele
+                depois = acoes[i + 1:]
+                fugiram = [x.actor for x in depois
+                           if x.type == ActionType.FOLD]
+                pagaram = [x.actor for x in depois
+                           if x.type == ActionType.CALL]
+                reacao = []
+                if pagaram:
+                    reacao.append(", ".join(pagaram[:2]) + " pagou")
+                if fugiram:
+                    reacao.append(", ".join(fugiram[:2]) + " largou")
+                if reacao and frases:
+                    frases[-1] += " → " + "; ".join(reacao)
+            na_street[a.actor] = na_street.get(a.actor, 0.0) + add
+            pote += add
+    return frases

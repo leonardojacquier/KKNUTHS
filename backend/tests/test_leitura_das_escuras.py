@@ -134,6 +134,88 @@ def test_o_plano_esta_no_documento():
     assert "Como jogar contra ele" in html
 
 
+# ---- a narrativa individualizada --------------------------------------------
+
+def _mao_narravel(bet_flop=150.0, bet_turn=650.0, bet_river=2900.0,
+                  board=None):
+    board = board or ["Qh", "7h", "2d", "9c", "3h"]
+    ruas = [Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="v1", type=ActionType.RAISE, amount=250, to_amount=250),
+        Action(actor="outro", type=ActionType.CALL, amount=250)])]
+    for nome, bet in ((StreetName.FLOP, bet_flop), (StreetName.TURN, bet_turn)):
+        ruas.append(Street(name=nome, actions=[
+            Action(actor="outro", type=ActionType.CHECK),
+            Action(actor="v1", type=ActionType.BET, amount=bet),
+            Action(actor="outro", type=ActionType.CALL, amount=bet)]))
+    ruas.append(Street(name=StreetName.RIVER, actions=[
+        Action(actor="outro", type=ActionType.CHECK),
+        Action(actor="v1", type=ActionType.BET, amount=bet_river),
+        Action(actor="outro", type=ActionType.FOLD)]))
+    return CanonicalHand(
+        hand_id="n1", site="GG", hero="Hero", stakes=Stakes(big_blind=100),
+        players=[PlayerSeat(seat=1, name="Hero", stack=5000, is_hero=True),
+                 PlayerSeat(seat=2, name="v1", stack=5000, position="BTN"),
+                 PlayerSeat(seat=3, name="outro", stack=5000)],
+        hero_cards=["7s", "2c"], final_board=board, shown_cards={},
+        streets=ruas)
+
+
+def test_a_narrativa_conta_a_mao_pelos_numeros_DELA():
+    """Sizing em fração do pote NAQUELE momento, carta do runout, reação da
+    mesa — é o que individualiza: o herói foldou pré e mesmo assim a mão
+    dele vira análise."""
+    from app.analysis.leitura_vilao import narrar_mao
+
+    frases = narrar_mao(_mao_narravel(), "v1")
+    tudo = " | ".join(frases)
+    assert "abriu do BTN para 2.5bb" in tudo
+    assert "aposta pequena (30% do pote)" in tudo    # 150 em 500
+    assert "aposta grande (81% do pote)" in tudo     # 650 em 800
+    assert "overbet (1.4× pote)" in tudo             # 2900 em 2100
+    assert "completou flush possível de ♥" in tudo   # river 3h
+    assert "outro pagou" in tudo and "outro largou" in tudo
+
+
+def test_duas_maos_diferentes_saem_com_narrativas_diferentes():
+    """"Individualizada" tem definição: mudou o sizing, muda o texto."""
+    from app.analysis.leitura_vilao import narrar_mao
+
+    a = narrar_mao(_mao_narravel(bet_turn=650.0), "v1")
+    b = narrar_mao(_mao_narravel(bet_turn=200.0), "v1")
+    assert a != b
+    assert any("aposta pequena (25% do pote)" in f for f in b)
+
+
+def test_o_pote_da_fracao_e_o_do_MOMENTO_e_nao_o_final():
+    """150 no flop é 30% do pote de 500 dali — não uma fração do pote final
+    de 4900. Errar o denominador mente o sizing inteiro."""
+    from app.analysis.leitura_vilao import narrar_mao
+
+    frases = narrar_mao(_mao_narravel(), "v1")
+    flop = next(f for f in frases if f.startswith("flop"))
+    assert "30% do pote" in flop, flop
+
+
+def test_river_brick_e_dito_brick():
+    from app.analysis.leitura_vilao import narrar_mao
+
+    frases = narrar_mao(_mao_narravel(board=["Qh", "7h", "2d", "9c", "3s"]),
+                        "v1")
+    river = next(f for f in frases if f.startswith("river"))
+    assert "brick" in river
+    assert "flush" not in river
+
+
+def test_a_narrativa_esta_nas_escuras_do_documento():
+    from app.analysis.dossie_html import build_dossie_html
+
+    html = build_dossie_html("v1", [_mao_narravel()], {})
+    assert "📖" in html
+    assert "abriu do BTN" in html
+    assert "aposta grande (81% do pote)" in html
+
+
 # ---- no documento -----------------------------------------------------------
 
 def _mao_escura(hid="h1", board=None):
@@ -183,11 +265,13 @@ def test_a_leitura_do_documento_nao_vira_percentual():
     trecho = html[html.index("Agrediu e ninguém viu"):]
     import re
 
-    # só o texto VISÍVEL: o CSS da imagem tem width:100% e não é prosa
+    # só o texto VISÍVEL: o CSS da imagem tem width:100% e não é prosa.
+    # E "% do pote" é SIZING — fato da aposta, não probabilidade. O proibido
+    # continua sendo o percentual de crença ("blefa 60%").
     visivel = re.sub(r"<[^>]*>", " ", trecho)
-    percentuais = re.findall(r"\d+\s*%", visivel)
+    percentuais = re.findall(r"\d+\s*%(?! do pote)", visivel)
     assert not percentuais, (
-        f"percentual dentro da seção das escuras: {percentuais}")
+        f"percentual de crença dentro da seção das escuras: {percentuais}")
 
 
 def test_o_dossie_traz_o_STORYBOARD_igual_ao_relatorio():
