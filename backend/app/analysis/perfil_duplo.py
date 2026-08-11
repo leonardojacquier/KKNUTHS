@@ -40,6 +40,7 @@ class PerfilShowdown(NamedTuple):
     valor: int                  # inclui valor fino
     blefes: int
     pagou: int
+    outras: int                 # mostrou sem agredir no fim — a conta FECHA
     rotulo: str                 # honesto no que mostrou | mostrou blefe | ...
 
 
@@ -81,7 +82,9 @@ def perfil_showdown(d: Dossie | None) -> PerfilShowdown | None:
     else:
         rotulo = "só pagou/mostrou"
     return PerfilShowdown(n=d.showdowns, valor=valor, blefes=blefes,
-                          pagou=pagou, rotulo=rotulo)
+                          pagou=pagou,
+                          outras=d.showdowns - valor - blefes - pagou,
+                          rotulo=rotulo)
 
 
 def _agrediu(st: Any, nome: str) -> bool:
@@ -201,9 +204,14 @@ def texto(p: PerfilDuplo) -> list[str]:
     """As linhas dos dois retratos — para o chat e para o HTML formatarem."""
     linhas: list[str] = []
     if p.a:
-        linhas.append(f"Pelo que ele MOSTROU ({p.a.n} mãos): {p.a.rotulo} — "
-                      f"{p.a.valor} valor · {p.a.blefes} blefe · "
-                      f"{p.a.pagou} pagou")
+        # a conta FECHA na tela: valor+blefe+pagou+só mostrou = n (o dono
+        # viu "2 valor · 0 blefe · 4 pagou" num retrato de 10 e estranhou)
+        l1 = (f"Pelo que ele MOSTROU ({p.a.n} mãos): {p.a.rotulo} — "
+              f"{p.a.valor} valor · {p.a.blefes} blefe · "
+              f"{p.a.pagou} pagou")
+        if p.a.outras:
+            l1 += f" · {p.a.outras} só mostrou"
+        linhas.append(l1)
     else:
         linhas.append("Pelo que ele MOSTROU: nada — nenhum showdown dele")
     if p.b:

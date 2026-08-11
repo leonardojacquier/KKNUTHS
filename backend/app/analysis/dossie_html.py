@@ -51,6 +51,9 @@ background:#F7F9F7;border-radius:6px;padding:6px 10px;margin:6px 0}
 padding:8px 14px;margin:14px 0;font-size:12px}
 .alerta{border:1px solid #B3502E;border-radius:10px;background:#FBEDE8;
 padding:8px 14px;margin:14px 0;font-size:12.5px}
+.sintese{border:1px solid #2E7D5B;border-left:5px solid #2E7D5B;
+border-radius:10px;background:#F2F8F4;padding:10px 16px;margin:14px 0;
+font-size:13px;line-height:1.6}
 .duo{display:flex;gap:10px;flex-wrap:wrap}
 .duo>div{flex:1;min-width:260px;border:1px solid #DDE3DE;border-radius:8px;
 padding:8px 12px;font-size:12px} .duo i{color:#828A84;font-size:10.5px}
@@ -168,9 +171,13 @@ def _mao_mostrada(m: MaoMostrada, vilao: str, h=None, seq: int = 0) -> str:
             f" · {_esc(m.linha)}</div></div>")
 
 
-def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
-                      ) -> str | None:
-    """O documento. None quando o vilão não aparece nessas mãos."""
+def build_dossie_html(nome: str, hands: list, torneio: dict | None = None,
+                      sintese: str | None = None) -> str | None:
+    """O documento. None quando o vilão não aparece nessas mãos.
+
+    `sintese`: prosa de coach vinda de IA, JÁ conferida pelo chamador
+    (analysis.sintese.conferir) — este módulo continua sem chamar modelo;
+    ele só exibe o que passou na conferência, com o selo dizendo isso."""
     mesa = medir_mesa(hands)
     linha = next((li for li in (mesa.linhas if mesa else ())
                   if li.nome.strip().lower() == nome.strip().lower()), None)
@@ -211,6 +218,14 @@ def build_dossie_html(nome: str, hands: list, torneio: dict | None = None
     partes = [f"<h1>🔍 Dossiê — {_esc(nome)}</h1>",
               f"<div class='sub'>{_esc(sub)}</div>",
               f"<div class='kpis'>{''.join(kpis)}</div>"]
+    if sintese:
+        corpo = _esc(sintese).replace("\n\n", "<br><br>").replace("\n", "<br>")
+        partes.append(
+            f"<div class='sintese'>🧠 <b>Leitura do coach</b><br>{corpo}"
+            f"<div class='sub' style='margin-top:6px'>Texto por IA sobre as "
+            f"medições abaixo — cada número da prosa foi conferido pelo "
+            f"código contra os dados; texto com número inventado não é "
+            f"exibido.</div></div>")
     # A SÍNTESE — "como jogar contra ele": estilo, showdowns e a defesa do
     # aluno, num plano só, cada conselho com a evidência entre parênteses
     from app.analysis.leitura_vilao import plano_contra

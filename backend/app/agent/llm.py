@@ -1912,6 +1912,57 @@ def prepare_briefing(ctx: dict, lang: str = "pt") -> str | None:
         return None
 
 
+def sintese_do_dossie(fatos: dict) -> str | None:
+    """A voz de coach do dossiê: prosa que amarra os retratos, a defesa e
+    os padrões — SEM criar número nenhum.
+
+    O chamador (torneio_flow) passa o texto pela conferência determinística
+    (analysis.sintese.conferir): número que não está nos fatos, texto fora.
+    Por isso a instrução mais importante aqui é a proibição de aritmética —
+    o descarte silencioso é o custo de um modelo que "só resumiu"."""
+    set_tarefa("sintese_dossie")
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    system = (
+        "Você é um coach de poker brasileiro lendo o dossiê de UM vilão "
+        "para seu aluno. Escreva a síntese: como esse cara joga e como "
+        "explorá-lo. Papo de mesa, direto, registro 'você', PROIBIDO "
+        "adjetivar e mencionar 'dados/sistema/dossiê'. " + TERMOS_REGRA +
+        "\nREGRA DURA DOS NÚMEROS: use APENAS números que aparecem no "
+        "contexto, copiados literalmente. NUNCA some, divida, converta em "
+        "porcentagem nem arredonde ('11 de 15' não vira 73%). Ordinais por "
+        "extenso ('segunda barrela', nunca '2ª'). Um número fora do "
+        "contexto descarta o texto inteiro — na dúvida, fale qualitativo.\n"
+        "CONTEÚDO (2 a 3 parágrafos curtos, ~120-160 palavras, sem "
+        "cabeçalho, sem lista): 1) o retrato dele — junte o pré-flop, o que "
+        "mostrou e a linha; se houver divergencia_entre_retratos, ela é o "
+        "centro do texto. 2) como jogar contra: as 2-3 instruções mais "
+        "lucrativas, cada uma amarrada a um fato citado. Se "
+        "sua_defesa_no_river tiver veredito overfold, feche com a correção "
+        "do ALUNO. Termine com uma instrução acionável, não com resumo.")
+    try:
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        resp = _create(client,
+            model=settings.analysis_model,
+            max_tokens=600,
+            temperature=0.2,
+            system=system,
+            messages=[{"role": "user", "content": json.dumps(
+                fatos, ensure_ascii=False, indent=2)}],
+        )
+        out = "".join(b.text for b in resp.content if b.type == "text").strip()
+        return out or None
+    except Exception as exc:
+        logging.getLogger("llm").warning("sintese_do_dossie falhou: %s", exc)
+        return None
+
+
 # A FORMA do 🎈. A análise já sai em português simples e já glosa os números
 # — pedir "mais simples" sem impor forma devolvia um parágrafo quase igual.
 # O que muda de verdade é a ESTRUTURA: veredito numa frase, o porquê em

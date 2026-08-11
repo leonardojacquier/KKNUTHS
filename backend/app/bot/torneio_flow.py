@@ -34,7 +34,30 @@ def dossie_doc(telegram_id: int, nome: str,
 
     from app.analysis.dossie_html import build_dossie_html
 
-    html = build_dossie_html(nome, hands, t)
+    # A SÍNTESE por IA (pedido do dono: "ponha um pouco de IA") — com a
+    # conferência da casa: todo número da prosa tem que existir nos fatos
+    # medidos; número inventado descarta o texto e o dossiê sai como sempre.
+    sintese = None
+    try:
+        from app.agent.llm import sintese_do_dossie
+        from app.analysis.sintese import conferir, fatos_do_dossie
+
+        fatos = fatos_do_dossie(nome, hands)
+        texto = sintese_do_dossie(fatos)
+        if texto:
+            invento = conferir(texto, fatos)
+            if invento:
+                import logging
+
+                logging.getLogger("dossie").warning(
+                    "síntese descartada — números fora dos fatos: %s",
+                    invento[:6])
+            else:
+                sintese = texto
+    except Exception:
+        sintese = None
+
+    html = build_dossie_html(nome, hands, t, sintese=sintese)
     if html is None:
         vistos = sorted({p.name for h in hands
                          for p in (h.players or [])
