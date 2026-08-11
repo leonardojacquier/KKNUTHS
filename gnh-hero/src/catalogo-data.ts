@@ -67,7 +67,7 @@ export const CATALOG: Category[] = [
             tags: ['pallet', 'pallets', 'terreno dificil', 'obra', 'carga', 'barro', 'autoelevador', 'todoterreno', 'horquilla'] },
           { name: 'Apilador Eléctrico', img: '../img/prod/apilador.png', note: 'Apiladores eléctricos — capacidades de 1 a 2 t y alturas de 1,6 a 4,5 m.',
             tags: ['pallet', 'pallets', 'deposito', 'almacen', 'estanteria', 'elevacion', 'altura', 'electrico', 'apilar', 'zorra electrica'] },
-          { name: 'Plataforma de Mástil de Aluminio', brand: 'ZS', img: '../img/prod/zs-mastil.png', note: 'Plataformas de elevación de personal con mástil de aluminio simple o doble (series SJY/SJYL): alturas de 4 a 16 m y capacidad de 100 a 240 kg.',
+          { name: 'Plataforma de Mástil de Aluminio', brand: 'ZS', img: '../img/prod/zs-mastil-v2.png', note: 'Plataformas de elevación de personal con mástil de aluminio simple o doble (series SJY/SJYL): alturas de 4 a 16 m y capacidad de 100 a 240 kg.',
             tags: ['plataforma', 'mastil', 'elevador', 'dos columnas', 'altura', 'personal', 'trabajo en altura', 'mantenimiento', 'elevacion', 'andamio', 'techo', 'iluminacion', 'electricista', 'aluminio'] },
           { name: 'Transpaleta Eléctrica', brand: 'ZS', img: '../img/prod/zs-transpaleta.png', note: 'Transpaletas eléctricas de 2 a 12 t (serie CBD) y manuales de 2 a 5 t (serie HPT) para movimiento de pallets a nivel de piso.',
             tags: ['transpaleta', 'pallet', 'pallets', 'zorra', 'deposito', 'almacen', 'carga', 'electrica', 'manual', 'patin'] },
