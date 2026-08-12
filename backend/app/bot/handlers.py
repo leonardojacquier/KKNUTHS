@@ -1869,47 +1869,8 @@ async def on_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             arquivo = str(Path(pasta) / "video.mp4")
             f = await ctx.bot.get_file(video.file_id)
             await f.download_to_drive(arquivo)
-            distintos, total = await asyncio.to_thread(
-                video_flow.processar_video, arquivo, pasta)
-            if not distintos:
-                await aviso.edit_text(
-                    "Não consegui extrair nenhum quadro desse vídeo — "
-                    "formato inesperado. Me avisa que eu investigo.")
-                return
-            # a NARRAÇÃO — num react a mão está no áudio, não nas telas
-            transcricao = None
-            audio = await asyncio.to_thread(
-                video_flow.audio_do_video, arquivo, pasta)
-            if audio:
-                from app.agent.speech import transcribe_audio
-
-                transcricao = await asyncio.to_thread(
-                    transcribe_audio, audio, "narracao.mp3")
             segundos = int(getattr(video, "duration", 0) or 0)
-            texto = video_flow.resumo(
-                total, len(distintos),
-                truncado=(len(distintos) >= video_flow.MAXIMO_DE_FRAMES),
-                transcricao_ok=bool(transcricao) if audio else False,
-                segundos=segundos)
-            # álbuns de até 10 (limite do Telegram)
-            for i in range(0, len(distintos), 10):
-                grupo = [InputMediaPhoto(open(c, "rb"))
-                         for c in distintos[i:i + 10]]
-                await msg.reply_media_group(grupo)
-            if transcricao:
-                if len(transcricao) <= 900:
-                    await msg.reply_text("🎙 A narração, transcrita:\n\n"
-                                         + transcricao)
-                else:
-                    await msg.reply_document(
-                        document=transcricao.encode("utf-8"),
-                        filename="narracao.txt",
-                        caption="🎙 A narração inteira, transcrita — a mão "
-                                "que ele conta está aqui dentro.")
-            await aviso.edit_text(texto)
-            await _log(update, "video_frames", quadros=total,
-                       distintos=len(distintos), segundos=segundos,
-                       transcrito=bool(transcricao))
+            await _prova_do_video(update, arquivo, pasta, segundos, aviso)
     except video_flow.FfmpegAusente:
         await aviso.edit_text(
             "O servidor ainda não tem o extrator de vídeo instalado — "
@@ -1921,6 +1882,99 @@ async def on_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             "Deu erro ao processar o vídeo. 😕 Já registrei para o Leo — "
             "se puder, tenta reenviar num formato comum (mp4).")
         await _log(update, "error", onde="on_video", erro=str(exc)[:200])
+
+
+async def _prova_do_video(update: Update, arquivo: str, pasta: str,
+                          segundos: int, aviso) -> None:
+    """O miolo da prova — compartilhado entre vídeo direto e link do
+    YouTube: telas distintas + narração transcrita + resumo com custo."""
+    from telegram import InputMediaPhoto
+
+    from app.bot import video_flow
+
+    msg = update.message
+    distintos, total = await asyncio.to_thread(
+        video_flow.processar_video, arquivo, pasta)
+    if not distintos:
+        await aviso.edit_text(
+            "Não consegui extrair nenhum quadro desse vídeo — "
+            "formato inesperado. Me avisa que eu investigo.")
+        return
+    # a NARRAÇÃO — num react a mão está no áudio, não nas telas
+    transcricao = None
+    audio = await asyncio.to_thread(
+        video_flow.audio_do_video, arquivo, pasta)
+    if audio:
+        from app.agent.speech import transcribe_audio
+
+        transcricao = await asyncio.to_thread(
+            transcribe_audio, audio, "narracao.mp3")
+    texto = video_flow.resumo(
+        total, len(distintos),
+        truncado=(len(distintos) >= video_flow.MAXIMO_DE_FRAMES),
+        transcricao_ok=bool(transcricao) if audio else False,
+        segundos=segundos)
+    # álbuns de até 10 (limite do Telegram)
+    for i in range(0, len(distintos), 10):
+        grupo = [InputMediaPhoto(open(c, "rb"))
+                 for c in distintos[i:i + 10]]
+        await msg.reply_media_group(grupo)
+    if transcricao:
+        if len(transcricao) <= 900:
+            await msg.reply_text("🎙 A narração, transcrita:\n\n"
+                                 + transcricao)
+        else:
+            await msg.reply_document(
+                document=transcricao.encode("utf-8"),
+                filename="narracao.txt",
+                caption="🎙 A narração inteira, transcrita — a mão "
+                        "que ele conta está aqui dentro.")
+    await aviso.edit_text(texto)
+    await _log(update, "video_frames", quadros=total,
+               distintos=len(distintos), segundos=segundos,
+               transcrito=bool(transcricao))
+
+
+async def on_youtube(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Link de YouTube: o servidor baixa o vídeo SOZINHO — sem o teto de
+    20MB do Telegram — e roda a mesma prova do vídeo direto.
+
+    O dono perguntou "não dá pra cortar o vídeo você?" — dá melhor: com o
+    link, nem precisa cortar. Vídeo acima de 30min é que pede timestamp."""
+    import tempfile
+
+    from app.bot import video_flow
+
+    url = video_flow.link_do_youtube(update.message.text or "")
+    if url is None:
+        # "vi no youtube um lance..." sem link é conversa, não vídeo — o
+        # filtro por regex é largo de propósito e aqui devolve ao coach
+        await on_text(update, ctx)
+        return
+    await _log(update, "video_youtube", url=url[:90])
+    aviso = await update.message.reply_text(
+        "✅ Link do YouTube. Baixando o vídeo por aqui (sem limite dos "
+        "20 MB)…")
+    try:
+        with tempfile.TemporaryDirectory(prefix="kkn-yt-") as pasta:
+            r = await asyncio.to_thread(video_flow.baixar_youtube, url, pasta)
+            if isinstance(r, str):
+                await aviso.edit_text(r)
+                await _log(update, "video_youtube_falha", motivo=r[:120])
+                return
+            arquivo, dur = r
+            await _prova_do_video(update, arquivo, pasta, dur, aviso)
+    except video_flow.FfmpegAusente:
+        await aviso.edit_text(
+            "O servidor ainda não tem o extrator de vídeo instalado — "
+            "o Leo já foi avisado, tenta de novo mais tarde.")
+        await _log(update, "error", onde="on_youtube", erro="ffmpeg ausente")
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("bot").exception("on_youtube falhou")
+        await aviso.edit_text(
+            "Deu erro ao processar esse link. 😕 Já registrei para o Leo — "
+            "alternativa: grava a tela do trecho e me manda o vídeo.")
+        await _log(update, "error", onde="on_youtube", erro=str(exc)[:200])
 
 
 async def on_unsupported(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2218,6 +2272,10 @@ def build_application() -> Application:
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
+    # link de YouTube ANTES do on_text: o texto com link é vídeo, não papo
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND
+        & filters.Regex(r"(?i)youtu\.?be"), on_youtube))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_handler(
         MessageHandler(

@@ -120,6 +120,71 @@ def test_audio_do_video_degrada_para_None(monkeypatch, tmp_path):
     assert V.audio_do_video("v.mp4", str(tmp_path)) is None
 
 
+# ---- o link do YouTube ------------------------------------------------------
+
+@pytest.mark.parametrize("texto,acha", [
+    ("olha esse https://www.youtube.com/watch?v=dQw4w9WgXcQ react", True),
+    ("https://youtu.be/dQw4w9WgXcQ?t=95", True),
+    ("https://m.youtube.com/shorts/abc123def", True),
+    ("vi no youtube um lance ontem", False),          # menção sem link
+    ("https://youtube.com.falso.ru/watch?v=x", False),  # domínio forjado
+    ("olha: https://youtu.be/ (esqueci o resto)", False),  # link truncado
+    ("", False),
+])
+def test_deteccao_de_link_do_youtube(texto, acha):
+    from app.bot.video_flow import link_do_youtube
+
+    assert (link_do_youtube(texto) is not None) == acha
+
+
+def test_youtube_longo_pede_timestamp(monkeypatch, tmp_path):
+    """35min > teto de 30: volta INSTRUÇÃO, não download — o custo de
+    transcrever meia hora é decisão do dono, não default do servidor."""
+    import sys
+    import types
+
+    class _YDL:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def extract_info(self, url, download=False):
+            return {"duration": 35 * 60}
+
+        def download(self, urls):
+            raise AssertionError("não pode baixar acima do teto")
+
+    monkeypatch.setitem(sys.modules, "yt_dlp",
+                        types.SimpleNamespace(YoutubeDL=_YDL))
+    from app.bot.video_flow import baixar_youtube
+
+    r = baixar_youtube("https://youtu.be/x1y2z3w4", str(tmp_path))
+    assert isinstance(r, str)
+    assert "35 minutos" in r and "timestamp" in r
+
+
+def test_sem_ytdlp_erro_acionavel(monkeypatch, tmp_path):
+    import builtins
+
+    real = builtins.__import__
+
+    def sem_ytdlp(name, *a, **k):
+        if name == "yt_dlp":
+            raise ImportError(name)
+        return real(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", sem_ytdlp)
+    from app.bot.video_flow import baixar_youtube
+
+    r = baixar_youtube("https://youtu.be/x1y2z3w4", str(tmp_path))
+    assert isinstance(r, str) and "não está instalado" in r
+
+
 # ---- roteamento no bot ------------------------------------------------------
 
 def test_video_nao_cai_mais_no_unsupported():
@@ -138,3 +203,5 @@ def test_video_nao_cai_mais_no_unsupported():
     assert i_video < registro.find("on_document")
     assert "~filters.VIDEO" in registro, \
         "on_unsupported precisa excluir vídeo explicitamente"
+    # e o link de YouTube entra ANTES do on_text (senão vira papo de coach)
+    assert 0 < registro.find("on_youtube") < registro.find(", on_text)")

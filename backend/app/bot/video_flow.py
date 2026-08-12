@@ -113,6 +113,62 @@ def audio_do_video(video: str, pasta: str) -> bytes | None:
         return None
 
 
+# ------------------------------------------------------------- YouTube -----
+# react no YouTube não precisa caber nos 20MB do Telegram: o LINK basta —
+# o servidor baixa o vídeo inteiro sozinho (yt-dlp) e corta o que precisar.
+# Teto de duração: prova de meia hora já são ~US$0.18 de Whisper; acima
+# disso o certo é o dono apontar o trecho, não o servidor engolir tudo.
+DURACAO_MAXIMA_S = 30 * 60
+
+_RE_YOUTUBE = None
+
+
+def link_do_youtube(texto: str) -> str | None:
+    """A URL do YouTube dentro do texto, ou None. Puro e testável."""
+    import re
+
+    global _RE_YOUTUBE
+    if _RE_YOUTUBE is None:
+        _RE_YOUTUBE = re.compile(
+            r"https?://(?:www\.|m\.)?"
+            r"(?:youtube\.com/(?:watch\?[^ ]*v=|shorts/|live/)"
+            r"|youtu\.be/)[\w-]{6,}[^\s]*", re.IGNORECASE)
+    m = _RE_YOUTUBE.search(texto or "")
+    return m.group(0) if m else None
+
+
+def baixar_youtube(url: str, pasta: str) -> tuple[str, int] | str:
+    """(caminho, duração_s) no sucesso; STRING com o que explicar ao aluno
+    no insucesso — a mesma regra do dossiê: erro explicado, não engolido."""
+    try:
+        import yt_dlp
+    except ImportError:
+        return ("O leitor de YouTube ainda não está instalado no servidor "
+                "— o Leo já foi avisado.")
+    opts = {"quiet": True, "no_warnings": True,
+            "format": "mp4[height<=480]/best[height<=480]/best",
+            "outtmpl": str(Path(pasta) / "youtube.%(ext)s"),
+            "noplaylist": True}
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            dur = int(info.get("duration") or 0)
+            if dur > DURACAO_MAXIMA_S:
+                return (f"Esse vídeo tem {dur // 60} minutos — meu teto é "
+                        f"{DURACAO_MAXIMA_S // 60}. Me manda o link com o "
+                        f"timestamp do trecho da mão (botão Compartilhar → "
+                        f"'a partir de') ou um recorte.")
+            ydl.download([url])
+        arquivos = sorted(Path(pasta).glob("youtube.*"))
+        if not arquivos:
+            return "O download veio vazio — tenta de novo em uns minutos."
+        return str(arquivos[0]), dur
+    except Exception:
+        return ("Não consegui baixar esse vídeo (o YouTube às vezes barra "
+                "servidor). Alternativa que sempre funciona: grava a tela "
+                "do trecho da mão e me manda o vídeo direto.")
+
+
 def resumo(total: int, distintos: int, truncado: bool,
            transcricao_ok: bool | None = None,
            segundos: int = 0) -> str:
