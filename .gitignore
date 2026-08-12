@@ -4,3 +4,6 @@ dist-single/
 .DS_Store
 *.local
 __pycache__/
+
+# intermediário do informe: 2,6 MB de base64, regerado pelo build-informe-*.py
+docs/informes/*.html

@@ -280,10 +280,10 @@ html = f"""<!doctype html>
   <img src="data:image/png;base64,{LOGO_BLANCA}" style="height:16mm" alt="GNH">
   <div class="rule"></div>
   <div class="eyebrow">Informe técnico comparativo</div>
-  <h1>Aditivo superplastificante:<br><em>PN797</em> frente a la<br>referencia de planta</h1>
-  <div class="sub">Ensayo en planta con dosificación idéntica (1,2 %) sobre el mismo
-    diseño de mezcla. Resistencia a compresión a 3, 7 y 28 días, consumo de agua
-    y comportamiento del asentamiento.</div>
+  <h1>Aditivo superplastificante<br><em>PN797</em><br>Evaluación en planta</h1>
+  <div class="sub">Ensayo comparativo con dosificación de 1,2 % sobre diseño de mezcla
+    único. Determinación de resistencia a compresión a 3, 7 y 28 días, demanda de
+    agua y retención de asentamiento.</div>
   <div class="meta">
     <div><b>Cielo Azul</b>Planta de hormigón · Ensayo comparativo</div>
     <div><b>10 de junio de 2026</b>GNH · Camargo Química</div>
@@ -296,10 +296,10 @@ html = f"""<!doctype html>
   <div class="hd"><span class="t">Resumen ejecutivo</span>
     <img src="data:image/png;base64,{LOGO}" alt="GNH"></div>
 
-  <h2><span class="n">01</span>El resultado en una línea</h2>
-  <div class="lead">Con la misma dosificación y menos agua, el PN797 entregó más
-    resistencia en las tres edades ensayadas. La ventaja crece con el tiempo:
-    empieza en 12 % a los 3 días y llega a 26 % a los 28.</div>
+  <h2><span class="n">01</span>Síntesis de resultados</h2>
+  <div class="lead">El tratamiento con PN797 registró valores superiores de resistencia
+    en las tres edades ensayadas, con una demanda de agua 17 L/m³ inferior a la
+    referencia. El diferencial aumenta con la edad del hormigón.</div>
 
   <div class="kpis">
     <div class="kpi"><div class="v" style="color:{C2}">+26,4 %</div>
@@ -311,9 +311,9 @@ html = f"""<!doctype html>
   </div>
 
   <h3>Condiciones del ensayo</h3>
-  <p>Los dos tratamientos se ejecutaron el mismo día, sobre el mismo diseño de mezcla
-  y con <b>dosificación idéntica de 1,2 %</b>. La única variable es el aditivo. Esto
-  es lo que permite atribuir las diferencias al producto y no al diseño.</p>
+  <p>Ambos tratamientos se ejecutaron el mismo día sobre idéntico diseño de mezcla,
+  con <b>dosificación de 1,2 %</b> en los dos casos. El aditivo constituye la única
+  variable entre T1 y T2, condición que permite atribuir el diferencial al producto.</p>
 
   <h3>Cuadro comparativo</h3>
   <table>
@@ -329,8 +329,7 @@ html = f"""<!doctype html>
     </tbody>
   </table>
   <div class="nota">Verde: favorable al PN797. Ámbar: favorable a la referencia.
-    El gráfico de origen rotula el asentamiento en centímetros; los valores
-    corresponden a milímetros y así se expresan aquí.</div>
+    Asentamiento expresado en milímetros.</div>
 
   <div class="ft"><span>GNH · Generando Nuevos Horizontes — Distribución exclusiva
     Camargo Química en Paraguay</span><span>2 / 5</span></div>
@@ -341,26 +340,24 @@ html = f"""<!doctype html>
   <div class="hd"><span class="t">Resistencia a compresión</span>
     <img src="data:image/png;base64,{LOGO}" alt="GNH"></div>
 
-  <h2><span class="n">02</span>La ventaja se abre con el tiempo</h2>
-  <div class="lead">En las tres edades el PN797 quedó por encima. Lo relevante no es
-    solo el nivel, sino la pendiente: la diferencia se duplica entre los 3 y los 28 días.</div>
+  <h2><span class="n">02</span>Evolución de la resistencia</h2>
+  <div class="lead">El diferencial a favor del PN797 se amplía con la edad del hormigón:
+    12,0 % a 3 días, 17,8 % a 7 días y 26,4 % a 28 días.</div>
 
   {grafico_resistencia()}
   {leyenda()}
 
-  <h3>Lectura técnica</h3>
-  <p>Un mayor desarrollo a edad temprana (12 % a 3 días) acorta tiempos de desmolde
-  y de puesta en servicio. La ampliación de la ventaja hasta 26 % a 28 días es
-  coherente con la reducción de agua registrada: <b>menos agua con la misma
-  cantidad de cemento significa una relación agua/cemento más baja</b>, y es
-  precisamente esa relación la que gobierna la resistencia final.</p>
+  <h3>Análisis</h3>
+  <p>El mayor desarrollo a edad temprana reduce los tiempos de desmolde y de puesta
+  en servicio. El incremento del diferencial hasta los 28 días resulta consistente
+  con la menor demanda de agua registrada: <b>a igual contenido de cemento, una
+  relación agua/cemento inferior determina mayor resistencia final</b>.</p>
 
-  <div class="callout"><b>Implicación de costo</b>
-    <p>Un excedente de 6,7 MPa sobre la referencia a 28 días abre margen para
-    reestudiar el diseño de mezcla: alcanzada la resistencia objetivo con holgura,
-    esa holgura puede convertirse en menor consumo de cemento. El monto exacto
-    depende del diseño vigente en planta y debe verificarse en un ensayo de
-    dosificación específico.</p></div>
+  <div class="callout"><b>Incidencia sobre el costo de producción</b>
+    <p>El excedente de 6,7 MPa sobre la referencia a 28 días admite reformulación del
+    diseño de mezcla. Alcanzada la resistencia característica de proyecto con margen,
+    ese margen es convertible en reducción del contenido de cemento. La cuantificación
+    requiere ensayo de dosificación específico sobre el diseño vigente en planta.</p></div>
 
   <div class="ft"><span>Ensayo Cielo Azul · 10 de junio de 2026</span><span>3 / 5</span></div>
 </section>
@@ -370,32 +367,33 @@ html = f"""<!doctype html>
   <div class="hd"><span class="t">Agua y trabajabilidad</span>
     <img src="data:image/png;base64,{LOGO}" alt="GNH"></div>
 
-  <h2><span class="n">03</span>Menos agua, y una contrapartida</h2>
-  <div class="lead">La reducción de agua es el mecanismo detrás del salto de
-    resistencia. La retención de asentamiento, en cambio, favorece a la referencia.</div>
+  <h2><span class="n">03</span>Demanda de agua y asentamiento</h2>
+  <div class="lead">La reducción de la demanda de agua determina el comportamiento
+    mecánico descrito. La retención de asentamiento a 15 minutos resulta favorable
+    a la referencia.</div>
 
   <div class="cols">
     <div>
       <h3 style="margin-top:0">Agua final por m³</h3>
       {grafico_agua()}
-      <p style="margin-top:4mm">Diecisiete litros menos por metro cúbico con el mismo
-      objetivo de asentamiento. Es la variable que explica el comportamiento mecánico
-      descrito en la sección anterior.</p>
+      <p style="margin-top:4mm">Reducción de 17 L/m³ para igual objetivo de asentamiento.
+      Constituye la variable determinante del comportamiento mecánico registrado a 3,
+      7 y 28 días.</p>
     </div>
     <div>
       <h3 style="margin-top:0">Asentamiento: inicial y 15 min</h3>
       {grafico_asentamiento()}
-      <p style="margin-top:4mm">Partiendo 5 mm por encima, el PN797 cae a 160 mm tras
-      15 minutos de agitación, frente a 170 mm de la referencia.</p>
+      <p style="margin-top:4mm">Con asentamiento inicial 5 mm superior, el PN797 registra
+      160 mm a los 15 minutos de agitación frente a 170 mm de la referencia.</p>
     </div>
   </div>
 
-  <div class="flag"><b>Dato desfavorable al PN797, expuesto por integridad</b>
-    <p>La pérdida de asentamiento en 15 minutos de agitación fue de <b>40 mm (−20,0 %)</b>
-    en el PN797 contra <b>25 mm (−12,8 %)</b> en la referencia. En trayectos largos o con
-    espera en obra, esto exige verificación. Es un parámetro de ajuste de dosificación
-    y de aditivo de mantenimiento, no un defecto del producto — pero condiciona la
-    recomendación y debe ensayarse en las condiciones reales de entrega de la planta.</p></div>
+  <div class="flag"><b>Retención de asentamiento</b>
+    <p>Pérdida registrada en 15 minutos de agitación: <b>40 mm (−20,0 %)</b> en el PN797
+    contra <b>25 mm (−12,8 %)</b> en la referencia. En trayectos extensos o con espera en
+    obra el parámetro requiere verificación. Corresponde a ajuste de dosificación y
+    eventual incorporación de aditivo de mantenimiento. Se recomienda ensayo bajo las
+    condiciones reales de entrega de la planta.</p></div>
 
   <div class="ft"><span>GNH · Generando Nuevos Horizontes</span><span>4 / 5</span></div>
 </section>
@@ -405,35 +403,35 @@ html = f"""<!doctype html>
   <div class="hd"><span class="t">Conclusión y próximos pasos</span>
     <img src="data:image/png;base64,{LOGO}" alt="GNH"></div>
 
-  <h2><span class="n">04</span>Qué muestra el ensayo</h2>
+  <h2><span class="n">04</span>Conclusiones</h2>
 
-  <p>Bajo condiciones controladas y con dosificación idéntica, el <b>Camargo Química
-  PN797</b> superó a la referencia de planta en las tres edades de resistencia
-  ensayadas, con un consumo de agua 17 litros menor por metro cúbico. El resultado
-  es consistente: la mejora no aparece en un solo punto, sino en toda la curva.</p>
+  <p>Bajo condiciones controladas y dosificación idéntica, el <b>Camargo Química
+  PN797</b> registró valores de resistencia superiores a la referencia de planta en
+  las tres edades ensayadas, con una demanda de agua 17 L/m³ inferior. El
+  comportamiento es uniforme en todo el rango de edades evaluado.</p>
 
-  <p>La contrapartida es la retención de asentamiento a 15 minutos, donde la
-  referencia se comporta mejor. Este punto no invalida el resultado mecánico, pero
-  define el trabajo pendiente antes de una recomendación de cambio en producción.</p>
+  <p>La retención de asentamiento a 15 minutos resulta favorable a la referencia.
+  Este parámetro define la verificación pendiente previa a una recomendación de
+  sustitución en producción.</p>
 
-  <h3>Próximos pasos propuestos</h3>
+  <h3>Ensayos complementarios recomendados</h3>
   <ol>
-    <li><b>Lectura de 63 días.</b> El registro del ensayo indica seguimiento a 63 días
-      con lectura prevista para el 12/08. Cierra la curva de resistencia a largo plazo.</li>
-    <li><b>Ensayo de retención en condiciones reales de entrega.</b> Reproducir el
-      trayecto y el tiempo de espera típicos de la planta, para dimensionar la pérdida
-      de asentamiento en operación y ajustar dosificación.</li>
-    <li><b>Estudio de optimización de dosificación.</b> Convertir el excedente de
-      6,7 MPa a 28 días en reducción de cemento manteniendo la resistencia
+    <li><b>Determinación a 63 días.</b> Prevista en el registro del ensayo para el
+      12/08. Completa la curva de resistencia a largo plazo.</li>
+    <li><b>Retención de asentamiento en condiciones de entrega.</b> Reproducción del
+      trayecto y del tiempo de espera habituales de la planta, para dimensionar la
+      pérdida en operación y ajustar dosificación.</li>
+    <li><b>Optimización del diseño de mezcla.</b> Conversión del excedente de 6,7 MPa
+      a 28 días en reducción del contenido de cemento, manteniendo la resistencia
       característica de proyecto.</li>
   </ol>
 
-  <div class="callout" style="margin-top:8mm"><b>Sobre este documento</b>
-    <p>Los valores reproducen íntegramente el registro del ensayo del 10/06/2026.
-    Las variaciones porcentuales de resistencia coinciden con las anotadas en el
-    registro original; la reducción de agua y las pérdidas de asentamiento fueron
-    calculadas a partir de los mismos valores. No se incorporó ningún dato externo
-    al ensayo.</p></div>
+  <div class="callout" style="margin-top:8mm"><b>Nota metodológica</b>
+    <p>Valores correspondientes al registro de ensayo del 10/06/2026. Las variaciones
+    porcentuales de resistencia constan en el registro original. La reducción de la
+    demanda de agua y las pérdidas de asentamiento fueron calculadas sobre esos mismos
+    valores. El registro rotula el asentamiento en centímetros; los valores
+    corresponden a milímetros y se expresan como tales en este informe.</p></div>
 
   <div style="position:absolute;left:18mm;right:18mm;bottom:26mm;display:flex;
               justify-content:space-between;align-items:flex-end;
