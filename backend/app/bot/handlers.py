@@ -1839,6 +1839,90 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await _route_text(update, text)
 
 
+async def on_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Vídeo recebido — o passo ZERO: extrai as telas e devolve a prova.
+
+    Nenhuma visão roda aqui de propósito: primeiro o dono confere que as
+    telas distintas contêm a mão; o gasto só entra calibrado depois disso
+    (video_flow.py conta a história). Antes deste handler o vídeo morria
+    no on_unsupported em silêncio."""
+    import tempfile
+    from pathlib import Path
+
+    from telegram import InputMediaPhoto
+
+    from app.bot import video_flow
+
+    msg = update.message
+    video = msg.video or msg.video_note or msg.animation or msg.document
+    tamanho_mb = (getattr(video, "file_size", 0) or 0) / 1_000_000
+    if tamanho_mb > video_flow.MAXIMO_MB:
+        await msg.reply_text(
+            f"Esse vídeo tem {tamanho_mb:.0f} MB e o Telegram só me deixa "
+            f"baixar até {video_flow.MAXIMO_MB} MB. 😅 Corta o trecho da "
+            f"mão (ou grava em resolução menor) e reenvia.")
+        return
+    await _log(update, "video_recebido", mb=round(tamanho_mb, 1))
+    aviso = await msg.reply_text("✅ Recebido. Extraindo as telas do vídeo…")
+    try:
+        with tempfile.TemporaryDirectory(prefix="kkn-video-") as pasta:
+            arquivo = str(Path(pasta) / "video.mp4")
+            f = await ctx.bot.get_file(video.file_id)
+            await f.download_to_drive(arquivo)
+            distintos, total = await asyncio.to_thread(
+                video_flow.processar_video, arquivo, pasta)
+            if not distintos:
+                await aviso.edit_text(
+                    "Não consegui extrair nenhum quadro desse vídeo — "
+                    "formato inesperado. Me avisa que eu investigo.")
+                return
+            # a NARRAÇÃO — num react a mão está no áudio, não nas telas
+            transcricao = None
+            audio = await asyncio.to_thread(
+                video_flow.audio_do_video, arquivo, pasta)
+            if audio:
+                from app.agent.speech import transcribe_audio
+
+                transcricao = await asyncio.to_thread(
+                    transcribe_audio, audio, "narracao.mp3")
+            segundos = int(getattr(video, "duration", 0) or 0)
+            texto = video_flow.resumo(
+                total, len(distintos),
+                truncado=(len(distintos) >= video_flow.MAXIMO_DE_FRAMES),
+                transcricao_ok=bool(transcricao) if audio else False,
+                segundos=segundos)
+            # álbuns de até 10 (limite do Telegram)
+            for i in range(0, len(distintos), 10):
+                grupo = [InputMediaPhoto(open(c, "rb"))
+                         for c in distintos[i:i + 10]]
+                await msg.reply_media_group(grupo)
+            if transcricao:
+                if len(transcricao) <= 900:
+                    await msg.reply_text("🎙 A narração, transcrita:\n\n"
+                                         + transcricao)
+                else:
+                    await msg.reply_document(
+                        document=transcricao.encode("utf-8"),
+                        filename="narracao.txt",
+                        caption="🎙 A narração inteira, transcrita — a mão "
+                                "que ele conta está aqui dentro.")
+            await aviso.edit_text(texto)
+            await _log(update, "video_frames", quadros=total,
+                       distintos=len(distintos), segundos=segundos,
+                       transcrito=bool(transcricao))
+    except video_flow.FfmpegAusente:
+        await aviso.edit_text(
+            "O servidor ainda não tem o extrator de vídeo instalado — "
+            "o Leo já foi avisado, tenta de novo mais tarde.")
+        await _log(update, "error", onde="on_video", erro="ffmpeg ausente")
+    except Exception as exc:  # noqa: BLE001 — nunca silêncio após "Recebido"
+        logging.getLogger("bot").exception("on_video falhou")
+        await aviso.edit_text(
+            "Deu erro ao processar o vídeo. 😕 Já registrei para o Leo — "
+            "se puder, tenta reenviar num formato comum (mp4).")
+        await _log(update, "error", onde="on_video", erro=str(exc)[:200])
+
+
 async def on_unsupported(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Nunca deixar o usuário no vácuo, seja qual for o tipo de mensagem."""
     await update.message.reply_text(
@@ -2125,6 +2209,12 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(on_post_action, pattern=r"^pa:"))
     app.add_handler(CallbackQueryHandler(on_sim_answer, pattern=r"^sim:"))
     app.add_handler(CallbackQueryHandler(on_film_street, pattern=r"^film:street"))
+    # vídeo ANTES do documento: mp4 mandado "como arquivo" é Document.VIDEO
+    # e cairia no leitor de hand history; e antes do on_unsupported, onde
+    # todo vídeo morria em silêncio (caso real do dono, 11/08)
+    app.add_handler(MessageHandler(
+        filters.VIDEO | filters.VIDEO_NOTE | filters.ANIMATION
+        | filters.Document.VIDEO, on_video))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
@@ -2132,7 +2222,8 @@ def build_application() -> Application:
     app.add_handler(
         MessageHandler(
             ~filters.TEXT & ~filters.PHOTO & ~filters.Document.ALL
-            & ~filters.VOICE & ~filters.AUDIO & ~filters.COMMAND,
+            & ~filters.VOICE & ~filters.AUDIO & ~filters.COMMAND
+            & ~filters.VIDEO & ~filters.VIDEO_NOTE & ~filters.ANIMATION,
             on_unsupported,
         )
     )
