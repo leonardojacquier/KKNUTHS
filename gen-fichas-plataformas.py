@@ -45,11 +45,11 @@ TPL = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><style>{css}
   <img src="data:image/png;base64,{logo}" alt="GNH">
   <div class="r"><div class="ft">FICHA T&Eacute;CNICA</div><span class="chip">PLATAFORMAS ELEVADORAS</span></div>
 </div>
-<h1>PLATAFORMA TELESC&Oacute;PICA {sz}</h1>
-<p class="sub">Plataforma de trabajo a&eacute;reo de brazo recto &middot; {energia} &middot; c&oacute;digo de f&aacute;brica {z}</p>
+<h1>{tipo} {sz}</h1>
+<p class="sub">{subt}</p>
 <div class="kpis">
   <div><b>{kAlt}</b><span>Altura de trabajo</span></div>
-  <div><b>460 kg</b><span>Capacidad</span></div>
+  <div><b>{kCap}</b><span>Capacidad</span></div>
   <div><b>{kAlc}</b><span>Alcance horizontal</span></div>
   <div><b>{kPeso}</b><span>Peso total</span></div>
 </div>
@@ -62,7 +62,7 @@ TPL = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><style>{css}
   <b>GNH — Generando Nuevos Horizontes</b> &middot; Av. Rep&uacute;blica del Per&uacute; km 7, Ciudad del Este &middot; Acceso Sur, &Ntilde;emby, Paraguay<br>
   WhatsApp <b>+595 995 360060</b> &middot; comercial@gnhorizons.com &middot; gnhorizons.com
   <div class="disc">Datos transcritos del cat&aacute;logo del fabricante (ZS). Sujetos a cambio sin previo aviso; confirm&aacute; configuraci&oacute;n,
-  plazos y disponibilidad con nuestro equipo t&eacute;cnico antes de la compra. Capacidad: 300 kg sin restricci&oacute;n de alcance / 460 kg con restricci&oacute;n.</div>
+  plazos y disponibilidad con nuestro equipo t&eacute;cnico antes de la compra. En la l&iacute;nea telesc&oacute;pica, capacidad: 300 kg sin restricci&oacute;n de alcance / 460 kg con restricci&oacute;n.</div>
 </div>
 </body></html>"""
 
@@ -79,7 +79,9 @@ def rows(d, labels, order):
     return ''.join(out)
 
 
-def fmt_m(mm):  # '20.500 mm' -> '20,5 m'
+def fmt_m(mm):  # '20.500 mm' -> '20,5 m' (valores já em metros passam direto)
+    if 'mm' not in mm:
+        return mm
     n = int(mm.replace('.', '').replace(' mm', ''))
     v = n / 1000
     return (f'{v:.1f}'.rstrip('0').rstrip('.')).replace('.', ',') + ' m'
@@ -94,16 +96,38 @@ with sync_playwright() as p:
 
     OUT.mkdir(parents=True, exist_ok=True)
     for z, d in PLAT.items():
-        energia = ('motor di&eacute;sel' if 'engine' in d['pw']
-                   else 'el&eacute;ctrica de litio ' + d['pw']['battery'].split(' /')[0])
-        std = STD.replace('plataforma de doble entrada', STD3) if d.get('three') else STD
+        art = bool(d.get('art'))
+        if art:
+            # Línea articulada: solo datos publicados por GNH; el resto "Consultar",
+            # siguiendo el patrón de las fichas existentes (p.ej. SJYL0.22-12).
+            tipo = 'PLATAFORMA ARTICULADA'
+            subt = 'Plataforma de trabajo a&eacute;reo de brazo articulado &middot; l&iacute;nea ZS'
+            energia = ''
+            kAlc = 'Consultar'
+            dim_rows = rows(d['dim'], L, ORDER_DIM) + (
+                '<tr><td>Tama&ntilde;o de plataforma</td><td>Consultar</td></tr>'
+                '<tr><td>Dimensiones de transporte</td><td>Consultar por modelo</td></tr>')
+            pw_rows = '<tr><td>Alimentaci&oacute;n</td><td>Consultar &mdash; se confirma seg&uacute;n configuraci&oacute;n</td></tr>'
+            std_txt = ('Ficha t&eacute;cnica completa del fabricante disponible a pedido &mdash; '
+                       'consultanos por WhatsApp y te la enviamos junto con la cotizaci&oacute;n.')
+            opt_txt = 'Consultar accesorios y opcionales disponibles para la l&iacute;nea articulada.'
+        else:
+            tipo = 'PLATAFORMA TELESC&Oacute;PICA'
+            energia = ('motor di&eacute;sel' if 'engine' in d['pw']
+                       else 'el&eacute;ctrica de litio ' + d['pw']['battery'].split(' /')[0])
+            subt = ('Plataforma de trabajo a&eacute;reo de brazo recto &middot; ' + energia +
+                    ' &middot; c&oacute;digo de f&aacute;brica ' + z)
+            kAlc = fmt_m(d['dim']['reach'])
+            dim_rows = rows(d['dim'], L, ORDER_DIM)
+            pw_rows = rows(d['pw'], L, ORDER_PW)
+            std_txt = html.escape(STD.replace('plataforma de doble entrada', STD3) if d.get('three') else STD)
+            opt_txt = html.escape(OPT)
         page_html = TPL.format(
-            css=CSS, logo=LOGO, sz=d['sz'], z=z, energia=energia,
-            kAlt=fmt_m(d['dim']['workHeight']), kAlc=fmt_m(d['dim']['reach']),
-            kPeso=d['perf']['weight'],
-            dim=rows(d['dim'], L, ORDER_DIM), perf=rows(d['perf'], L, ORDER_PERF),
-            pw=rows(d['pw'], L, ORDER_PW),
-            std=html.escape(std), opt=html.escape(OPT))
+            css=CSS, logo=LOGO, tipo=tipo, sz=d['sz'], subt=subt,
+            kAlt=fmt_m(d['dim']['workHeight']), kAlc=kAlc,
+            kPeso=d['perf']['weight'], kCap=d['perf']['cap'],
+            dim=dim_rows, perf=rows(d['perf'], L, ORDER_PERF),
+            pw=pw_rows, std=std_txt, opt=opt_txt)
         pg.set_content(page_html)
         out = OUT / f"plataforma-{d['sz'].lower()}.pdf"
         pg.pdf(path=str(out), format='A4', print_background=True,
