@@ -21,10 +21,13 @@ tar czf - gnh-redesign.html assets \
   | ssh -o StrictHostKeyChecking=accept-new "$HOST" \
       "mkdir -p $DEST && tar xzf - -C $DEST"
 
-# ── 4. index.html + verificação md5 (segunda e última conexão) ──────────────
+# ── 4. Site antigo na raiz + index.html + md5 (segunda e última conexão) ────
+# `cp -r assets/nuevo/. .` publica /ventas/, /fichas/, /institucional/, /promo/,
+# /img/, robots.txt e sitemap.xml na raiz, preservando as 110 URLs já indexadas
+# no gnhorizons.com. O index.html vem depois para a home continuar sendo o redesign.
 LOCAL_MD5=$(md5sum gnh-redesign.html | cut -d' ' -f1)
 REMOTE_MD5=$(ssh "$HOST" \
-  "cd $DEST && cp gnh-redesign.html index.html && md5sum index.html | cut -d' ' -f1")
+  "cd $DEST && cp -r assets/nuevo/. . && cp gnh-redesign.html index.html && md5sum index.html | cut -d' ' -f1")
 
 if [[ "$LOCAL_MD5" != "$REMOTE_MD5" ]]; then
   echo "ERRO: md5 divergente — local $LOCAL_MD5 x remoto $REMOTE_MD5"

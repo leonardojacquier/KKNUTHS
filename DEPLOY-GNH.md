@@ -80,6 +80,94 @@ Host e pasta já estão preenchidos no workflow.
 
 ---
 
+## Migrar gnhorizons.com para o VPS
+
+Objetivo: o gnhorizons.com passa a ser servido por este VPS, com o redesign na
+home. Enquanto isso não for feito, **nada deste repositório aparece no
+gnhorizons.com** — os scripts só publicam em `/opt/gnh` (gnh.vortex369.com.br).
+
+### ⚠️ Os dois riscos que precisam ser respeitados
+
+1. **110 URLs já indexadas.** O `sitemap.xml` do site atual lista 110 endereços
+   (`/ventas/…`, `/fichas/*.html`, `/institucional/`, `/promo/…`). O deploy já
+   publica `assets/nuevo/` na raiz justamente para que continuem respondendo.
+   Se essa etapa for removida, todas viram 404 e a busca orgânica da GNH cai.
+2. **E-mail.** O gnhorizons.com tem e-mail próprio (`nuevosnegocios@…`,
+   `comercial@…`). Ao mexer no DNS, altere **somente** os registros `A`/`AAAA`
+   do apex e o `CNAME`/`A` do `www`. **Nunca** apague ou edite `MX`, nem os
+   `TXT` de SPF/DKIM/DMARC — isso derruba o e-mail da empresa.
+
+### Ordem correta (não inverta)
+
+**1. Publicar o conteúdo no VPS, com o domínio ainda apontando para o servidor antigo**
+
+```bash
+bash deploy-gnh.sh          # ou, no VPS: bash deploy-local.sh
+ls /opt/gnh                 # tem que aparecer: ventas/ fichas/ institucional/ img/ sitemap.xml
+```
+
+**2. Adicionar o bloco no `/etc/caddy/Caddyfile`** (mantenha o bloco do
+`gnh.vortex369.com.br` — ele continua útil para pré-visualizar):
+
+```caddy
+www.gnhorizons.com {
+    redir https://gnhorizons.com{uri} permanent
+}
+
+gnhorizons.com {
+    root * /opt/gnh
+    encode gzip zstd
+    file_server
+    @html path *.html /
+    header @html Cache-Control "no-cache"
+}
+```
+
+```bash
+caddy validate --config /etc/caddy/Caddyfile   # OBRIGATÓRIO — o VPS é compartilhado
+systemctl reload caddy
+```
+
+**3. Conferir antes do DNS**, forçando o Host sem depender da resolução:
+
+```bash
+IP=$(hostname -I | awk '{print $1}')
+for u in / /ventas/ /ventas/plataforma-articulada-y-telescopica/ \
+         /institucional/ /sitemap.xml /img/logo-blanca.png; do
+  printf '%s -> %s\n' "$u" "$(curl -s -o /dev/null -w '%{http_code}' \
+    --resolve "gnhorizons.com:80:$IP" "http://gnhorizons.com$u")"
+done
+```
+
+Todas precisam responder `200`. Se alguma der `404`, **pare** — o passo 1 não
+publicou tudo. Só siga quando estiver limpo.
+
+**4. Baixar o TTL do DNS para 300s** e esperar o TTL antigo expirar. Isso é o
+que torna o rollback rápido se algo der errado.
+
+**5. Trocar o DNS**: `A` do apex (`gnhorizons.com`) e do `www` para o IP do VPS.
+Só esses. O Caddy emite o certificado HTTPS sozinho no primeiro acesso depois
+que o DNS propagar (antes disso a emissão falha — é esperado).
+
+**6. Verificar depois da propagação:**
+
+```bash
+curl -sI https://gnhorizons.com | head -3
+curl -s https://gnhorizons.com/ventas/plataforma-articulada-y-telescopica/ | grep -c SZ34D
+```
+
+### Rollback
+
+Devolver o registro `A` ao IP antigo. Como o TTL está em 300s, volta em ~5
+minutos. O servidor antigo não foi tocado em nenhum momento deste processo.
+
+### O que a migração corrige de brinde
+
+O `canonical`, o `og:url` e os `hreflang` da página já apontam para
+`https://gnhorizons.com/`. Hoje isso é um erro (o site mora em outro domínio, e
+o Google é instruído a indexar a outra página). Depois da migração passam a
+estar corretos, sem precisar editar nada.
+
 ## Checklist pré-deploy
 
 - [ ] `git pull` (pegar a última versão do repo)
