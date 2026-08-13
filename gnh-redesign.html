@@ -481,6 +481,8 @@ table.plat tbody tr:last-child td{border-bottom:0}
 table.plat tbody tr:hover{background:var(--orange-tint)}
 table.plat td.model{font-family:var(--font-head);font-weight:700;color:var(--navy)}
 table.plat td.model small{display:block;font-weight:500;font-size:12px;color:var(--muted);letter-spacing:0}
+.mwrap{display:flex;align-items:center;gap:10px}
+.mthumb{flex:0 0 auto;width:48px;height:38px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px}
 .plat-energy{
   display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
   padding:4px 10px;border-radius:100px;border:1px solid var(--line);color:var(--navy-2);
@@ -505,6 +507,7 @@ table.plat td.model small{display:block;font-weight:500;font-size:12px;color:var
   position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;gap:16px;
   padding:22px 26px;background:linear-gradient(140deg,var(--navy),var(--navy-2));color:#fff;
 }
+.ps-photo{flex:0 0 auto;width:92px;height:68px;object-fit:contain;background:#fff;border-radius:10px;padding:5px}
 .ps-head h3{font-family:var(--font-head);font-size:22px;font-weight:900;letter-spacing:-.02em}
 .ps-head p{font-size:13.5px;color:rgba(255,255,255,.72);margin-top:4px}
 .ps-close{
@@ -1104,17 +1107,17 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         </thead>
         <tbody>
           <tr>
-            <td class="model">SQ16D<small data-i18n="plat.art16e">16 m · articulada · Q16M-LI</small></td>
+            <td class="model"><span class="mwrap"><img class="mthumb" src="assets/nuevo/img/prod/zs-articulada.png" alt="" loading="lazy"><span>SQ16D<small data-i18n="plat.art16e">16 m · articulada · Q16M-LI</small></span></span></td>
             <td>16 m</td><td>230 kg</td><td>7.600 kg</td>
             <td><button type="button" class="plat-sheet" data-model="Q16M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
           </tr>
           <tr>
-            <td class="model">SQ16<small data-i18n="plat.art16d">16 m · articulada · diésel · Q16M-Do</small></td>
+            <td class="model"><span class="mwrap"><img class="mthumb" src="assets/nuevo/img/prod/zs-articulada.png" alt="" loading="lazy"><span>SQ16<small data-i18n="plat.art16d">16 m · articulada · diésel · Q16M-Do</small></span></span></td>
             <td>16 m</td><td>230 kg</td><td>8.110 kg</td>
             <td><button type="button" class="plat-sheet" data-model="Q16M-Do" data-i18n="plat.btnSheet">Ficha</button></td>
           </tr>
           <tr>
-            <td class="model">SQ22D<small data-i18n="plat.art22">22 m · articulada · Q22M-LI</small></td>
+            <td class="model"><span class="mwrap"><img class="mthumb" src="assets/nuevo/img/prod/zs-articulada.png" alt="" loading="lazy"><span>SQ22D<small data-i18n="plat.art22">22 m · articulada · Q22M-LI</small></span></span></td>
             <td>22 m</td><td>250 kg</td><td>9.200 kg</td>
             <td><button type="button" class="plat-sheet" data-model="Q22M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
           </tr>
@@ -1300,6 +1303,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 <!-- Ficha técnica de plataformas (se rellena por JS) -->
 <dialog id="platModal" aria-labelledby="platTitle">
   <div class="ps-head">
+    <img id="platPhoto" class="ps-photo" alt="" hidden>
     <div>
       <h3 id="platTitle"></h3>
       <p id="platSub"></p>
@@ -1391,15 +1395,15 @@ const PLAT_OPT = {
   zh:'半高网孔平台 · 平台防挤手辅助轨道 · 机械防挤压装置 · 工具托盘 · 工作灯组件 · 飞机保护装置 · 防坠落组件。'
 };
 const PLAT = {
-  'Q16M-LI':{sz:'SQ16D',m:'16 m · articulada',art:1,
+  'Q16M-LI':{photo:'assets/nuevo/img/prod/zs-articulada.png',sz:'SQ16D',m:'16 m · articulada',art:1,
     dim:{lenStore:'6.700 mm',width:'1.780 mm',height:'2.000 mm',platSize:'1.920 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'16 m',platHeight:'14 m',reach:'8.000 mm'},
     perf:{cap:'230 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'180° continua',tail:'600 mm',platRot:'±85°',turnRadius:'3.100 mm',weight:'7.600 kg',grade:'30% (17°)'},
     pw:{battery:'51,2 V / 300 Ah',powerUnit:'7 kW / 32 V CA',aux:'12 V CC',driveMotor:'3,3 kW / 48 V CA',drive:'4×4×2',hydTank:'36 L'}},
-  'Q16M-Do':{sz:'SQ16',m:'16 m · articulada · diésel',art:1,
+  'Q16M-Do':{photo:'assets/nuevo/img/prod/zs-articulada.png',sz:'SQ16',m:'16 m · articulada · diésel',art:1,
     dim:{lenStore:'6.700 mm',width:'1.780 mm',height:'2.000 mm',platSize:'1.920 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'16 m',platHeight:'14 m',reach:'8.000 mm'},
     perf:{cap:'230 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'180° continua',tail:'600 mm',platRot:'±85°',turnRadius:'3.100 mm',weight:'8.110 kg',grade:'30% (17°)'},
     pw:{engine:'Yanmar 4TNV94L-BVXGC / Kubota V2403 / Yunnei YN27PAF4',enginePower:'33,7 kW/2100 rpm · 36 kW/2600 rpm · 36,8 kW/2400 rpm',fuelTank:'70 L',aux:'12 V CC',drive:'4×4×2',hydTank:'112 L'}},
-  'Q22M-LI':{sz:'SQ22D',m:'22 m · articulada',art:1,art360:1,
+  'Q22M-LI':{photo:'assets/nuevo/img/prod/zs-articulada.png',sz:'SQ22D',m:'22 m · articulada',art:1,art360:1,
     dim:{lenStore:'7.380 mm',lenTrans:'8.720 mm',width:'2.450 mm',height:'2.520 mm',platSize:'1.920 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'22.000 mm',platHeight:'19.450 mm',reach:'11.450 mm'},
     perf:{cap:'250 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'360° continua',tail:'1.700 mm',platRot:'±90°',turnRadius:'5.450 / 2.690 mm',weight:'9.200 kg',gradeUp:'45% (24°)',gradeDown:'30% (17°)',sideGrade:'25%'},
     pw:{battery:'51,2 V / 420 Ah',powerUnit:'10 kW / 32 V CA',aux:'12 V CC',driveMotor:'3,3 kW / 32 V CA',drive:'4×4×2',hydTank:'75 L'}},
@@ -1440,6 +1444,7 @@ const PLAT = {
   const elBody  = document.getElementById('platBody');
   const elWa    = document.getElementById('platWa');
   const elPdf   = document.getElementById('platPdf');
+  const elPhoto = document.getElementById('platPhoto');
   const elFoot  = document.getElementById('platFoot');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const lang = () => {
@@ -1457,6 +1462,8 @@ const PLAT = {
     const d = PLAT[code];
     if (!d) return;
     const lg = lang(), L = PLAT_L[lg];
+    if (d.photo){ elPhoto.src = d.photo; elPhoto.alt = d.sz; elPhoto.hidden = false; }
+    else elPhoto.hidden = true;
     elTitle.textContent = d.sz;
     const sparse = d.art && !Object.keys(d.pw).length;
     elSub.textContent = sparse ? d.m : (d.art ? d.m + ' · ' + code : d.m + ' · ' + d.dim.workHeight + ' · ' + code);

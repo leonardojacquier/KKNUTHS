@@ -1,7 +1,7 @@
 # Gera as fichas técnicas em PDF das plataformas, lendo os dados do próprio
 # gnh-redesign.html (via navegador) para que PDF e site nunca divirjam.
 from playwright.sync_api import sync_playwright
-import base64, html, os, pathlib
+import base64, html, mimetypes, os, pathlib
 
 REPO = pathlib.Path(__file__).resolve().parent
 OUT = REPO / 'assets/nuevo/fichas/pdf'
@@ -87,6 +87,17 @@ ICON_ART = """<svg width="86" height="58" viewBox="0 0 120 80" fill="none" xmlns
 <rect x="93" y="24" width="16" height="13" rx="2" fill="none" stroke="#F26D21" stroke-width="3.5"/>
 </svg>"""
 
+def photo_or_icon(d, art):
+    # Foto real do modelo quando existe; senão, a silhueta do tipo.
+    ph = d.get('photo')
+    if ph and (REPO / ph).exists():
+        mime = mimetypes.guess_type(ph)[0] or 'image/png'
+        b64 = base64.b64encode((REPO / ph).read_bytes()).decode()
+        return (f'<img src="data:{mime};base64,{b64}" alt="" '
+                'style="width:118pt;max-height:80pt;object-fit:contain">')
+    return ICON_ART if art else ICON_TELE
+
+
 FOOTER = ('<div style="width:100%;font-size:7pt;color:#8a93a3;text-align:center;'
           'font-family:Arial">gnhorizons.com &middot; WhatsApp +595 995 360060 &middot; '
           'P&aacute;gina <span class="pageNumber"></span> de <span class="totalPages"></span></div>')
@@ -158,7 +169,7 @@ with sync_playwright() as p:
             opt_txt = html.escape(OPT)
         page_html = TPL.format(
             css=CSS, logo=LOGO, tipo=tipo, sz=d['sz'], subt=subt,
-            icon=(ICON_ART if art else ICON_TELE),
+            icon=photo_or_icon(d, art),
             kAlt=fmt_m(d['dim']['workHeight']), kAlc=kAlc,
             kPeso=d['perf']['weight'], kCap=d['perf']['cap'],
             dim=dim_rows, perf=rows(d['perf'], L, ORDER_PERF),
