@@ -53,7 +53,7 @@
     {"@type":"ListItem","position":7,"item":{"@type":"Product","name":"Plataforma de trabajo aéreo SZ34D (Z34M-LI)","category":"Plataforma telescópica autopropulsada","brand":{"@type":"Brand","name":"GNH"},"additionalProperty":[{"@type":"PropertyValue","name":"Altura máxima de trabajo","value":"34100 mm"},{"@type":"PropertyValue","name":"Alcance horizontal máximo","value":"22000 mm"},{"@type":"PropertyValue","name":"Capacidad de plataforma","value":"460 kg"},{"@type":"PropertyValue","name":"Peso total","value":"18600 kg"},{"@type":"PropertyValue","name":"Fuente de energía","value":"Eléctrica, batería de litio 76,8 V"}]}},
     {"@type":"ListItem","position":8,"item":{"@type":"Product","name":"Plataforma articulada SQ16D (Q16M-LI)","category":"Plataforma de brazo articulado autopropulsada","brand":{"@type":"Brand","name":"GNH"},"additionalProperty":[{"@type":"PropertyValue","name":"Altura de trabajo","value":"16 m"},{"@type":"PropertyValue","name":"Alcance horizontal máximo","value":"8000 mm"},{"@type":"PropertyValue","name":"Capacidad de plataforma","value":"230 kg"},{"@type":"PropertyValue","name":"Peso total","value":"7600 kg"},{"@type":"PropertyValue","name":"Fuente de energía","value":"Eléctrica, batería de litio 51,2 V"}]}},
     {"@type":"ListItem","position":9,"item":{"@type":"Product","name":"Plataforma articulada SQ16 (Q16M-Do)","category":"Plataforma de brazo articulado autopropulsada","brand":{"@type":"Brand","name":"GNH"},"additionalProperty":[{"@type":"PropertyValue","name":"Altura de trabajo","value":"16 m"},{"@type":"PropertyValue","name":"Alcance horizontal máximo","value":"8000 mm"},{"@type":"PropertyValue","name":"Capacidad de plataforma","value":"230 kg"},{"@type":"PropertyValue","name":"Peso total","value":"8110 kg"},{"@type":"PropertyValue","name":"Fuente de energía","value":"Motor diésel Yanmar / Kubota / Yunnei"}]}},
-    {"@type":"ListItem","position":10,"item":{"@type":"Product","name":"Plataforma articulada SQ22D","category":"Plataforma de brazo articulado autopropulsada","brand":{"@type":"Brand","name":"GNH"},"additionalProperty":[{"@type":"PropertyValue","name":"Altura de trabajo","value":"22 m"},{"@type":"PropertyValue","name":"Capacidad de plataforma","value":"250 kg"},{"@type":"PropertyValue","name":"Peso total","value":"9200 kg"}]}}
+    {"@type":"ListItem","position":10,"item":{"@type":"Product","name":"Plataforma articulada SQ22D (Q22M-LI)","category":"Plataforma de brazo articulado autopropulsada","brand":{"@type":"Brand","name":"GNH"},"additionalProperty":[{"@type":"PropertyValue","name":"Altura de trabajo","value":"22000 mm"},{"@type":"PropertyValue","name":"Alcance horizontal máximo","value":"11450 mm"},{"@type":"PropertyValue","name":"Capacidad de plataforma","value":"250 kg"},{"@type":"PropertyValue","name":"Peso total","value":"9200 kg"},{"@type":"PropertyValue","name":"Fuente de energía","value":"Eléctrica, batería de litio 51,2 V"}]}}
   ]
 }
 </script>
@@ -1114,9 +1114,9 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
             <td><button type="button" class="plat-sheet" data-model="Q16M-Do" data-i18n="plat.btnSheet">Ficha</button></td>
           </tr>
           <tr>
-            <td class="model">SQ22D<small data-i18n="plat.art22">22 m · articulada</small></td>
+            <td class="model">SQ22D<small data-i18n="plat.art22">22 m · articulada · Q22M-LI</small></td>
             <td>22 m</td><td>250 kg</td><td>9.200 kg</td>
-            <td><button type="button" class="plat-sheet" data-model="SQ22D" data-i18n="plat.btnSheet">Ficha</button></td>
+            <td><button type="button" class="plat-sheet" data-model="Q22M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
           </tr>
         </tbody>
       </table>
@@ -1399,10 +1399,10 @@ const PLAT = {
     dim:{lenStore:'6.700 mm',width:'1.780 mm',height:'2.000 mm',platSize:'1.920 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'16 m',platHeight:'14 m',reach:'8.000 mm'},
     perf:{cap:'230 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'180° continua',tail:'600 mm',platRot:'±85°',turnRadius:'3.100 mm',weight:'8.110 kg',grade:'30% (17°)'},
     pw:{engine:'Yanmar 4TNV94L-BVXGC / Kubota V2403 / Yunnei YN27PAF4',enginePower:'33,7 kW/2100 rpm · 36 kW/2600 rpm · 36,8 kW/2400 rpm',fuelTank:'70 L',aux:'12 V CC',drive:'4×4×2',hydTank:'112 L'}},
-  'SQ22D':{sz:'SQ22D',m:'22 m · articulada',art:1,
-    dim:{workHeight:'22 m'},
-    perf:{cap:'250 kg',weight:'9.200 kg'},
-    pw:{}},
+  'Q22M-LI':{sz:'SQ22D',m:'22 m · articulada',art:1,art360:1,
+    dim:{lenStore:'7.380 mm',lenTrans:'8.720 mm',width:'2.450 mm',height:'2.520 mm',platSize:'1.920 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'22.000 mm',platHeight:'19.450 mm',reach:'11.450 mm'},
+    perf:{cap:'250 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'360° continua',tail:'1.700 mm',platRot:'±90°',turnRadius:'5.450 / 2.690 mm',weight:'9.200 kg',gradeUp:'45% (24°)',gradeDown:'30% (17°)',sideGrade:'25%'},
+    pw:{battery:'51,2 V / 420 Ah',powerUnit:'10 kW / 32 V CA',aux:'12 V CC',driveMotor:'3,3 kW / 32 V CA',drive:'4×4×2',hydTank:'75 L'}},
   'Z20M-LI':{sz:'SZ20D',m:'20 m',e:1,three:1,
     dim:{lenStore:'7.380 mm',lenTrans:'9.700 mm',width:'2.450 mm',height:'2.650 mm',platSize:'2.440 × 900 × 1.150 mm',wheelbase:'2.520 mm',workHeight:'20.500 mm',platHeight:'18.500 mm',reach:'12.500 mm'},
     perf:{cap:'300 / 460 kg',speedStore:'5,2 km/h',speedUp:'0,6 km/h',boomRange:'−5° a 75°',turret:'360° continua',tail:'1.700 mm',platRot:'±90°',turnRadius:'5.450 / 2.690 mm',weight:'9.800 kg',gradeUp:'45% (24°)',gradeDown:'30% (17°)',sideGrade:'25%'},
@@ -1470,7 +1470,7 @@ const PLAT = {
       block(L.pw, d.pw, L) +
       (sparse
         ? `<p class="ps-list" style="margin-top:16px">${esc(L.artNote)}</p>`
-        : `<h4>${esc(L.std)}</h4><p class="ps-list">${esc(d.art ? PLAT_STD_ART[lg] : std)}</p>` +
+        : `<h4>${esc(L.std)}</h4><p class="ps-list">${esc(d.art ? (d.art360 ? PLAT_STD_ART[lg].replace('180°','360°') : PLAT_STD_ART[lg]) : std)}</p>` +
           `<h4>${esc(L.opt)}</h4><p class="ps-list">${esc(PLAT_OPT[lg])}</p>`);
     elWa.textContent = L.wa;
     elWa.href = 'https://wa.me/595995360060?text=' +
@@ -1655,7 +1655,7 @@ pt: {
  'svc.4t':'Expansão de Mercados','svc.4d':'Abrimos novos canais para produtos estratégicos e conectamos a oferta global à demanda regional.',
  'svc.5t':'Tecnologia e Automação','svc.5d':'Processos integrados e automatizados, com dados em tempo real para decidir mais rápido.',
  'svc.ctaT':'Vamos levar sua marca mais longe?','svc.ctaP':'Conte-nos seu desafio e desenharemos a solução.','svc.ctaB':'Vamos conversar',
- 'plat.tag':'Equipamentos e Maquinário','plat.h2':'Plataformas de trabalho aéreo','plat.capArt':'Linha articulada · comparativo de modelos','plat.art16e':'16 m · articulada · Q16M-LI','plat.art16d':'16 m · articulada · diesel · Q16M-Do','plat.art22':'22 m · articulada',
+ 'plat.tag':'Equipamentos e Maquinário','plat.h2':'Plataformas de trabalho aéreo','plat.capArt':'Linha articulada · comparativo de modelos','plat.art16e':'16 m · articulada · Q16M-LI','plat.art16d':'16 m · articulada · diesel · Q16M-Do','plat.art22':'22 m · articulada · Q22M-LI',
  'plat.lead':'Sete modelos telescópicos de lança reta (20,5 a 34,1 m de altura de trabalho, 460 kg de capacidade) e três articulados de 16 a 22 m. Elevação em linha reta, maior alcance horizontal e rotação contínua da torre para chegar onde outras plataformas não chegam.',
  'plat.kpi1':'altura máxima de trabalho','plat.kpi2':'capacidade da plataforma','plat.kpi3':'alcance horizontal máximo','plat.kpi4':'rotação contínua da torre',
  'plat.cap':'Linha telescópica (lança reta) · comparativo de modelos',
@@ -1691,7 +1691,7 @@ en: {
  'svc.4t':'Market Expansion','svc.4d':'We open new channels for strategic products and connect global supply with regional demand.',
  'svc.5t':'Technology & Automation','svc.5d':'Integrated, automated processes with real-time data for faster decisions.',
  'svc.ctaT':'Shall we take your brand further?','svc.ctaP':"Tell us your challenge and we'll design the solution.",'svc.ctaB':"Let's talk",
- 'plat.tag':'Equipment & Machinery','plat.h2':'Aerial work platforms','plat.capArt':'Articulated line · model comparison','plat.art16e':'16 m · articulated · Q16M-LI','plat.art16d':'16 m · articulated · diesel · Q16M-Do','plat.art22':'22 m · articulated',
+ 'plat.tag':'Equipment & Machinery','plat.h2':'Aerial work platforms','plat.capArt':'Articulated line · model comparison','plat.art16e':'16 m · articulated · Q16M-LI','plat.art16d':'16 m · articulated · diesel · Q16M-Do','plat.art22':'22 m · articulated · Q22M-LI',
  'plat.lead':'Seven straight-boom telescopic models (20.5 to 34.1 m working height, 460 kg capacity) and three articulated models from 16 to 22 m. Straight-line lifting, greater horizontal reach and continuous turntable rotation to reach where other platforms cannot.',
  'plat.kpi1':'maximum working height','plat.kpi2':'platform capacity','plat.kpi3':'maximum horizontal reach','plat.kpi4':'continuous turntable rotation',
  'plat.cap':'Telescopic line (straight boom) · model comparison',
@@ -1727,7 +1727,7 @@ zh: {
  'svc.4t':'市场拓展','svc.4d':'我们为战略产品开辟新渠道，连接全球供给与区域需求。',
  'svc.5t':'技术与自动化','svc.5d':'集成自动化流程，实时数据助力快速决策。',
  'svc.ctaT':'让您的品牌走得更远？','svc.ctaP':'告诉我们您的挑战，我们来设计解决方案。','svc.ctaB':'联系我们',
- 'plat.tag':'设备与机械','plat.h2':'高空作业平台','plat.capArt':'曲臂系列 · 机型对比','plat.art16e':'16米 · 曲臂式 · Q16M-LI','plat.art16d':'16米 · 曲臂式 · 柴油 · Q16M-Do','plat.art22':'22米 · 曲臂式',
+ 'plat.tag':'设备与机械','plat.h2':'高空作业平台','plat.capArt':'曲臂系列 · 机型对比','plat.art16e':'16米 · 曲臂式 · Q16M-LI','plat.art16d':'16米 · 曲臂式 · 柴油 · Q16M-Do','plat.art22':'22米 · 曲臂式 · Q22M-LI',
  'plat.lead':'七款直臂式机型（最大作业高度 20.5 至 34.1 米，平台载荷 460 公斤）及三款曲臂式机型（16 至 22 米）。可直线直接举升，作业幅度更大，转台 360° 连续回转，到达其他高空作业平台无法到达的工作区域。',
  'plat.kpi1':'最大作业高度','plat.kpi2':'平台载荷','plat.kpi3':'最大作业幅度','plat.kpi4':'转台连续回转',
  'plat.cap':'直臂系列 · 机型对比',

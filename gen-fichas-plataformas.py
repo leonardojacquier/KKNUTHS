@@ -25,6 +25,8 @@ body{font-family:'DejaVu Sans',Arial,sans-serif;color:#1e2733;font-size:10.5pt;l
 .chip{display:inline-block;margin-top:5pt;font-size:7.5pt;font-weight:700;letter-spacing:.18em;color:#14213D;border:.75pt solid #dbe2ec;border-radius:3pt;padding:2.5pt 7pt}
 .chip::before{content:'● ';color:#F26D21}
 h1{font-size:19pt;color:#14213D;letter-spacing:-.01em;margin-bottom:4pt}
+.trow{display:flex;justify-content:space-between;align-items:flex-start;gap:14pt}
+.trow svg{flex:0 0 auto;margin-top:2pt}
 .sub{color:#5b6472;font-size:10pt;margin-bottom:14pt}
 .kpis{display:flex;gap:26pt;border-top:.75pt solid #dbe2ec;border-bottom:.75pt solid #dbe2ec;padding:10pt 0;margin-bottom:14pt}
 .kpis b{display:block;font-size:15.5pt;color:#F26D21}
@@ -45,8 +47,8 @@ TPL = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><style>{css}
   <img src="data:image/png;base64,{logo}" alt="GNH">
   <div class="r"><div class="ft">FICHA T&Eacute;CNICA</div><span class="chip">PLATAFORMAS ELEVADORAS</span></div>
 </div>
-<h1>{tipo} {sz}</h1>
-<p class="sub">{subt}</p>
+<div class="trow"><div><h1>{tipo} {sz}</h1>
+<p class="sub">{subt}</p></div>{icon}</div>
 <div class="kpis">
   <div><b>{kAlt}</b><span>Altura de trabajo</span></div>
   <div><b>{kCap}</b><span>Capacidad</span></div>
@@ -66,6 +68,25 @@ TPL = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><style>{css}
 </div>
 </body></html>"""
 
+ICON_TELE = """<svg width="86" height="58" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="18" y="50" width="56" height="12" rx="2.5" fill="#14213D"/>
+<circle cx="30" cy="66" r="8" fill="none" stroke="#14213D" stroke-width="4"/>
+<circle cx="62" cy="66" r="8" fill="none" stroke="#14213D" stroke-width="4"/>
+<rect x="38" y="42" width="16" height="9" rx="2" fill="#14213D"/>
+<path d="M46 46 L100 16" stroke="#14213D" stroke-width="6" stroke-linecap="round"/>
+<path d="M60 43 L74 35" stroke="#F26D21" stroke-width="6" stroke-linecap="round"/>
+<rect x="97" y="6" width="16" height="13" rx="2" fill="none" stroke="#F26D21" stroke-width="3.5"/>
+</svg>"""
+ICON_ART = """<svg width="86" height="58" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="12" y="50" width="52" height="12" rx="2.5" fill="#14213D"/>
+<circle cx="23" cy="66" r="8" fill="none" stroke="#14213D" stroke-width="4"/>
+<circle cx="53" cy="66" r="8" fill="none" stroke="#14213D" stroke-width="4"/>
+<path d="M40 50 L52 24" stroke="#14213D" stroke-width="6" stroke-linecap="round"/>
+<path d="M52 24 L80 10" stroke="#14213D" stroke-width="6" stroke-linecap="round"/>
+<path d="M80 10 L97 26" stroke="#F26D21" stroke-width="6" stroke-linecap="round"/>
+<rect x="93" y="24" width="16" height="13" rx="2" fill="none" stroke="#F26D21" stroke-width="3.5"/>
+</svg>"""
+
 FOOTER = ('<div style="width:100%;font-size:7pt;color:#8a93a3;text-align:center;'
           'font-family:Arial">gnhorizons.com &middot; WhatsApp +595 995 360060 &middot; '
           'P&aacute;gina <span class="pageNumber"></span> de <span class="totalPages"></span></div>')
@@ -84,7 +105,7 @@ def fmt_m(mm):  # '20.500 mm' -> '20,5 m' (valores já em metros passam direto)
         return mm
     n = int(mm.replace('.', '').replace(' mm', ''))
     v = n / 1000
-    return (f'{v:.1f}'.rstrip('0').rstrip('.')).replace('.', ',') + ' m'
+    return (f'{v:.2f}'.rstrip('0').rstrip('.')).replace('.', ',') + ' m'
 
 
 with sync_playwright() as p:
@@ -108,7 +129,7 @@ with sync_playwright() as p:
             kAlc = fmt_m(d['dim']['reach'])
             dim_rows = rows(d['dim'], L, ORDER_DIM)
             pw_rows = rows(d['pw'], L, ORDER_PW)
-            std_txt = html.escape(STD_ART)
+            std_txt = html.escape(STD_ART.replace('180°', '360°') if d.get('art360') else STD_ART)
             opt_txt = html.escape(OPT)
         elif art:
             # Línea articulada: solo datos publicados por GNH; el resto "Consultar",
@@ -137,6 +158,7 @@ with sync_playwright() as p:
             opt_txt = html.escape(OPT)
         page_html = TPL.format(
             css=CSS, logo=LOGO, tipo=tipo, sz=d['sz'], subt=subt,
+            icon=(ICON_ART if art else ICON_TELE),
             kAlt=fmt_m(d['dim']['workHeight']), kAlc=kAlc,
             kPeso=d['perf']['weight'], kCap=d['perf']['cap'],
             dim=dim_rows, perf=rows(d['perf'], L, ORDER_PERF),
