@@ -10,7 +10,7 @@ LOGO = base64.b64encode((REPO / 'assets/nuevo/img/logo-ficha.png').read_bytes())
 ORDER_DIM = ['workHeight', 'platHeight', 'reach', 'platSize', 'lenStore', 'lenTrans',
              'width', 'height', 'wheelbase']
 ORDER_PERF = ['cap', 'weight', 'speedStore', 'speedUp', 'boomRange', 'turret',
-              'platRot', 'tail', 'turnRadius', 'gradeUp', 'gradeDown', 'sideGrade']
+              'platRot', 'tail', 'turnRadius', 'grade', 'gradeUp', 'gradeDown', 'sideGrade']
 ORDER_PW = ['battery', 'engine', 'enginePower', 'fuelTank', 'powerUnit', 'driveMotor',
             'aux', 'drive', 'hydTank', 'charger']
 
@@ -91,13 +91,26 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get('CHROMIUM', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'))
     pg = b.new_page()
     pg.goto('file://' + str(REPO / 'gnh-redesign.html'))
-    data = pg.evaluate('({PLAT, L: PLAT_L.es, STD: PLAT_STD.es, STD3: PLAT_STD3.es, OPT: PLAT_OPT.es})')
-    PLAT, L, STD, STD3, OPT = data['PLAT'], data['L'], data['STD'], data['STD3'], data['OPT']
+    data = pg.evaluate('({PLAT, L: PLAT_L.es, STD: PLAT_STD.es, STD3: PLAT_STD3.es, STD_ART: PLAT_STD_ART.es, OPT: PLAT_OPT.es})')
+    PLAT, L, STD, STD3, STD_ART, OPT = data['PLAT'], data['L'], data['STD'], data['STD3'], data['STD_ART'], data['OPT']
 
     OUT.mkdir(parents=True, exist_ok=True)
     for z, d in PLAT.items():
         art = bool(d.get('art'))
-        if art:
+        sparse = art and not d['pw']
+        if art and not sparse:
+            # Articulada com catálogo completo do fabricante (Q16M-LI / Q16M-Do)
+            tipo = 'PLATAFORMA ARTICULADA'
+            energia = ('motor di&eacute;sel' if 'engine' in d['pw']
+                       else 'el&eacute;ctrica de litio ' + d['pw']['battery'].split(' /')[0])
+            subt = ('Plataforma de trabajo a&eacute;reo de brazo articulado &middot; ' + energia +
+                    ' &middot; c&oacute;digo de f&aacute;brica ' + z)
+            kAlc = fmt_m(d['dim']['reach'])
+            dim_rows = rows(d['dim'], L, ORDER_DIM)
+            pw_rows = rows(d['pw'], L, ORDER_PW)
+            std_txt = html.escape(STD_ART)
+            opt_txt = html.escape(OPT)
+        elif art:
             # Línea articulada: solo datos publicados por GNH; el resto "Consultar",
             # siguiendo el patrón de las fichas existentes (p.ej. SJYL0.22-12).
             tipo = 'PLATAFORMA ARTICULADA'
