@@ -1785,10 +1785,21 @@ document.getElementById('year').textContent = new Date().getFullYear();
     const el = e.target.closest && e.target.closest('a, button');
     if (!el) return;
     const href = el.href || '';
-    if (href.includes('wa.me')) track('whatsapp', 'institucional');
+    const platModel = () => (document.getElementById('platTitle') || {}).textContent || '';
+    if (href.includes('wa.me')) {
+      const cat = el.closest('.cat');
+      const det = el.closest('#platModal') ? 'plataforma ' + platModel()
+        : cat ? ((cat.querySelector('.t-vert') || {}).textContent || 'catalogo')
+        : el.closest('#plataformas') ? 'plataformas' : 'institucional';
+      track('whatsapp', det);
+    }
+    else if (el.classList.contains('plat-sheet')) {
+      if (el.id === 'platPdf') track('pdf-plataforma', platModel());
+      else if (el.dataset.model) track('ficha-plataforma', el.dataset.model);
+    }
     else if (el.id === 'openCeo') track('ceo-carta', '');
     else if (el.closest('#langSwitch')) track('idioma', el.dataset.lang || '');
-    else if (el.closest('#lineas .cat')) track('negocio', (el.closest('.cat').querySelector('.t-vert') || {}).textContent || '');
+    else if (el.closest('#catalogo .cat')) track('negocio', (el.closest('.cat').querySelector('.t-vert') || {}).textContent || '');
   }, { capture: true, passive: true });
   /* first touch: zona horaria + idioma como señal de origen (sin IP), una vez por sesión */
   try {
