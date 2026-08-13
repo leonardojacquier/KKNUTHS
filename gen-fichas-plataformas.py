@@ -31,6 +31,8 @@ h1{font-size:19pt;color:#14213D;letter-spacing:-.01em;margin-bottom:4pt}
 .kpis{display:flex;gap:26pt;border-top:.75pt solid #dbe2ec;border-bottom:.75pt solid #dbe2ec;padding:10pt 0;margin-bottom:14pt}
 .kpis b{display:block;font-size:15.5pt;color:#F26D21}
 .kpis span{font-size:7pt;letter-spacing:.14em;color:#5b6472;text-transform:uppercase}
+.photo{margin:2pt 0 6pt;border:1pt solid #e6ebf3;border-radius:8pt;overflow:hidden;background:#fff;page-break-inside:avoid}
+.photo img{width:100%;max-height:210pt;object-fit:contain;display:block}
 h2{font-size:9.5pt;letter-spacing:.2em;color:#14213D;text-transform:uppercase;border-left:3pt solid #F26D21;padding-left:7pt;margin:14pt 0 7pt;page-break-after:avoid}
 table{width:100%;border-collapse:collapse;page-break-inside:auto}
 tr{page-break-inside:avoid}
@@ -55,6 +57,7 @@ TPL = """<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><style>{css}
   <div><b>{kAlc}</b><span>Alcance horizontal</span></div>
   <div><b>{kPeso}</b><span>Peso total</span></div>
 </div>
+{photo}
 <h2>Dimensiones</h2><table>{dim}</table>
 <h2>Rendimiento</h2><table>{perf}</table>
 <h2>Fuente de energ&iacute;a</h2><table>{pw}</table>
@@ -88,14 +91,14 @@ ICON_ART = """<svg width="86" height="58" viewBox="0 0 120 80" fill="none" xmlns
 </svg>"""
 
 def photo_or_icon(d, art):
-    # Foto real do modelo quando existe; senão, a silhueta do tipo.
+    # Com foto: figura em destaque abaixo dos KPIs, nada no título.
+    # Sem foto: silhueta do tipo no título (respaldo).
     ph = d.get('photo')
     if ph and (REPO / ph).exists():
         mime = mimetypes.guess_type(ph)[0] or 'image/png'
         b64 = base64.b64encode((REPO / ph).read_bytes()).decode()
-        return (f'<img src="data:{mime};base64,{b64}" alt="" '
-                'style="width:118pt;max-height:80pt;object-fit:contain">')
-    return ICON_ART if art else ICON_TELE
+        return '', f'<div class="photo"><img src="data:{mime};base64,{b64}" alt=""></div>'
+    return (ICON_ART if art else ICON_TELE), ''
 
 
 FOOTER = ('<div style="width:100%;font-size:7pt;color:#8a93a3;text-align:center;'
@@ -167,9 +170,10 @@ with sync_playwright() as p:
             pw_rows = rows(d['pw'], L, ORDER_PW)
             std_txt = html.escape(STD.replace('plataforma de doble entrada', STD3) if d.get('three') else STD)
             opt_txt = html.escape(OPT)
+        icon_html, photo_html = photo_or_icon(d, art)
         page_html = TPL.format(
             css=CSS, logo=LOGO, tipo=tipo, sz=d['sz'], subt=subt,
-            icon=photo_or_icon(d, art),
+            icon=icon_html, photo=photo_html,
             kAlt=fmt_m(d['dim']['workHeight']), kAlc=kAlc,
             kPeso=d['perf']['weight'], kCap=d['perf']['cap'],
             dim=dim_rows, perf=rows(d['perf'], L, ORDER_PERF),
