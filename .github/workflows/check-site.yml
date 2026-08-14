@@ -9,41 +9,34 @@ jobs:
     steps:
       - name: DNS
         run: |
-          echo "== resolução =="
-          getent hosts gnh.vortex369.com.br || echo "NAO RESOLVE"
-          getent hosts titancalc.vortex369.com.br || true
+          getent hosts gnh.vortex369.com.br || echo "gnh NAO RESOLVE"
+          getent hosts titancalc.vortex369.com.br || echo "titancalc NAO RESOLVE"
 
-      - name: HTTPS gnh
+      - name: Home do site (conteúdo novo no ar?)
         run: |
-          echo "== resposta HTTPS gnh =="
-          curl -sk -o /tmp/body.html -w "status=%{http_code} tempo=%{time_total}s tamanho=%{size_download}\n" \
-            --max-time 20 https://gnh.vortex369.com.br/ || echo "FALHA DE CONEXÃO"
-          echo "== headers =="
-          curl -skI --max-time 20 https://gnh.vortex369.com.br/ || true
-          echo "== primeiros 500 chars do body =="
-          head -c 500 /tmp/body.html || true
+          curl -sk -o /tmp/home.html -w "home status=%{http_code} tamanho=%{size_download}\n" \
+            --max-time 20 https://gnh.vortex369.com.br/ || echo "HOME: FALHA DE CONEXAO"
+          for m in "SZ34D" "plat-sheet" "sq22d-thumb" "Pulso"; do
+            grep -qF "$m" /tmp/home.html && echo "OK   home contém: $m" || echo "FALTA na home: $m"
+          done
 
-      - name: HTTPS titancalc (referência)
+      - name: Página equipos-de-concreto (caminho atual)
+        run: |
+          curl -sk -o /tmp/eq.html -w "assets/nuevo/ventas/equipos-de-concreto status=%{http_code} tamanho=%{size_download}\n" \
+            --max-time 20 https://gnh.vortex369.com.br/assets/nuevo/ventas/equipos-de-concreto/ || echo "FALHA"
+          grep -qF "jbts20" /tmp/eq.html && echo "OK   JBTS20 PRESENTE" || echo "JBTS20 AUSENTE"
+
+      - name: Caminhos raiz (script novo instalado?)
+        run: |
+          for p in /ventas/ /ventas/equipos-de-concreto/ /fichas/pdf/central-concreto-jbts20.pdf /sitemap.xml; do
+            curl -sk -o /dev/null -w "raiz $p status=%{http_code}\n" --max-time 20 "https://gnh.vortex369.com.br$p" || echo "raiz $p FALHA"
+          done
+
+      - name: Outros serviços do VPS (referência de saúde da caixa)
         run: |
           curl -sk -o /dev/null -w "titancalc status=%{http_code}\n" --max-time 20 https://titancalc.vortex369.com.br/ || echo "titancalc FALHA"
+          curl -sk -o /dev/null -w "umami heartbeat status=%{http_code}\n" --max-time 20 https://stats.vortex369.com.br/api/heartbeat || echo "umami FALHA"
 
-      - name: Certificado
+      - name: Produção gnhorizons.com (referência)
         run: |
-          echo | timeout 15 openssl s_client -connect gnh.vortex369.com.br:443 -servername gnh.vortex369.com.br 2>/dev/null | openssl x509 -noout -subject -dates 2>/dev/null || echo "SEM CERTIFICADO / porta 443 não respondeu"
-
-      - name: Produção gnhorizons.com — campanha no ar?
-        run: |
-          echo "== /ventas/ =="
-          curl -sk -o /tmp/v.html -w "status=%{http_code} tamanho=%{size_download}\n" --max-time 25 https://gnhorizons.com/ventas/ || echo "FALHA"
-          echo "-- marcadores do lançamento no HTML servido --"
-          for m in "Generador 38 kVA" "is-launch" "generador.webm" "Lanzamiento"; do
-            if grep -qF "$m" /tmp/v.html; then echo "OK   encontrado: $m"; else echo "FALTA: $m"; fi
-          done
-          echo "-- bundle JS referenciado --"
-          grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/v.html | head -3
-          echo "== landing =="
-          curl -sk -o /dev/null -w "promo/generador-38kva/ status=%{http_code}\n" --max-time 25 https://gnhorizons.com/promo/generador-38kva/ || echo FALHA
-          echo "== vídeo =="
-          curl -skI --max-time 25 https://gnhorizons.com/video/generador.webm | head -1 || echo FALHA
-          echo "== bundle novo publicado? =="
-          curl -sk -o /dev/null -w "ventas-Dp1pgA83.js status=%{http_code}\n" --max-time 25 https://gnhorizons.com/assets/ventas-Dp1pgA83.js || true
+          curl -sk -o /dev/null -w "gnhorizons.com status=%{http_code}\n" --max-time 25 https://gnhorizons.com/ || echo "gnhorizons FALHA"
