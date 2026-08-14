@@ -22,7 +22,9 @@ gnhorizons.com, www.gnhorizons.com {
 	}
 
 	# HTML sempre fresco; estáticos com cache
-	@html path / /index.html /ventas/ /institucional/ *.html
+	# (*/ cobre TODAS as páginas de diretório — /ventas/equipos-de-concreto/ etc.;
+	#  sem isso, subpáginas ficavam sem no-cache e o navegador segurava versão velha)
+	@html path / /index.html */ *.html
 	header @html Cache-Control "no-cache"
 
 	file_server
