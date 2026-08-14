@@ -18,7 +18,7 @@ jobs:
         run: |
           curl -sk -o /tmp/home.html -w "home status=%{http_code} tamanho=%{size_download}\n" \
             --max-time 20 https://gnh.vortex369.com.br/ || echo "HOME: FALHA DE CONEXAO"
-          for m in "SZ34D" "plat-sheet" "sq22d-thumb" "Pulso"; do
+          for m in "SZ34D" "plat-sheet" "sq22d-thumb" "jbts20"; do
             grep -qF "$m" /tmp/home.html && echo "OK   home contém: $m" || echo "FALTA na home: $m"
           done
 
