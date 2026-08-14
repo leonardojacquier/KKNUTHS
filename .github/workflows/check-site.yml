@@ -2,6 +2,8 @@ name: Diagnóstico gnh.vortex369.com.br
 
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
 
 jobs:
   check:
