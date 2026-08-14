@@ -45,6 +45,8 @@ jobs:
             --max-time 25 https://gnhorizons.com/ventas/equipos-de-concreto/ || echo FALHA
           grep -qF "jbts20" /tmp/g.html && echo "OK   JBTS20 NO GNHORIZONS" || echo "JBTS20 AUSENTE NO GNHORIZONS"
           curl -sk -o /dev/null -w "gnhorizons ficha PDF status=%{http_code}\n" --max-time 25 https://gnhorizons.com/fichas/pdf/central-concreto-jbts20.pdf || echo FALHA
+          curl -sk -o /tmp/pp.html -w "gnhorizons página do produto status=%{http_code}\n" --max-time 25 https://gnhorizons.com/ventas/central-de-concreto-jbts20/ || echo FALHA
+          grep -qF "Especificaciones técnicas" /tmp/pp.html && echo "OK   página do produto no ar" || echo "página do produto AUSENTE"
           echo "-- headers de cache do HTML --"
           curl -skI --max-time 25 https://gnhorizons.com/ventas/equipos-de-concreto/ | grep -iE 'cache-control|etag|last-modified|server' || true
           echo "-- catálogo /ventas/ tem o card? --"
