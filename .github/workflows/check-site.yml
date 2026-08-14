@@ -5,6 +5,12 @@ on:
   push:
     branches: [claude/professional-website-design-qqgnfg]
 
+# Uma execução por vez: o VPS tem fail2ban e dois runs simultâneos viram
+# rajada de requisições — o segundo IP é banido e o run falha com timeout.
+concurrency:
+  group: check-site
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -52,4 +58,4 @@ jobs:
           echo "-- catálogo /ventas/ tem o card? --"
           curl -sk --max-time 25 https://gnhorizons.com/ventas/ -o /tmp/vi.html
           grep -qF "JBTS20" /tmp/vi.html && echo "OK   card no catálogo (HTML)" || echo "card não está no HTML estático (vem do bundle JS)"
-          grep -oE 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/vi.html | head -2
+          grep -oE 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/vi.html | head -2 || true
