@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Two independent deliverables coexist here — do not mix them up:
 
 1. **TitanCalc / PavCalc** — a React + TypeScript + Vite app (`src/`) for rigid concrete pavement design (Titan Ingeniería / GNH brand). `TitanCalc.html` and `PavCalc.html` at the root are pre-built single-file exports of earlier versions; the editable source is `src/`.
-2. **GNH website** — `gnh-redesign.html`, a **self-contained single-file site** (all CSS/JS inline, no build step) that redesigns gnhorizons.com. Its only external files are the hero videos in `assets/video/`. This is the file deployed to production at https://gnh.vortex369.com.br. `site-parallax.html` is an earlier standalone parallax demo (Titan-branded), kept as reference.
+2. **GNH website** — `gnh-redesign.html`, a **self-contained single-file site** (all CSS/JS inline, no build step) that redesigns gnhorizons.com. Its only external files are the hero videos in `assets/video/`. **Production serves BOTH domains from the same VPS deploy**: `gnh.vortex369.com.br` = `/opt/gnh` (redesign at `/`), and **`gnhorizons.com` = `/opt/gnh/assets/nuevo`** (the old-site tree in `assets/nuevo/` — its DNS already points to the VPS; see `deploy/caddy-gnhorizons.txt` and `docs/vault-gnh/GNH - Sitio Web/02 - Infraestrutura e DNS.md`). Every push therefore updates BOTH sites via the VPS cron (~2 min). `site-parallax.html` is an earlier standalone parallax demo (Titan-branded), kept as reference.
 
 User-facing language: the GNH site is written in **Spanish (es)**; conversation with the repo owner is in Portuguese.
 
@@ -29,6 +29,7 @@ Production is a shared multi-tenant VPS (`root@srv1555380.hstgr.cloud`, Hostinge
 - **From anywhere with SSH key**: `bash deploy-gnh.sh` (uses only 2 SSH connections — the VPS runs fail2ban; avoid bursts of ssh/scp).
 - **GitHub Actions**: `.github/workflows/deploy-vortex.yml` auto-deploys on push to `claude/professional-website-design-qqgnfg` **only if** the `VORTEX_SSH_KEY` secret is set (otherwise it no-ops green). `check-site.yml` is a manual diagnostic that curls the site from a runner.
 - **Never edit `index.html` on the server** — it is overwritten by every deploy (`gnh-redesign.html` is canonical).
+- **`gnhorizons.com` is LIVE from this repo** (root = `assets/nuevo/`). Anything added under `assets/nuevo/` publishes to gnhorizons.com on the next cron cycle. Do NOT describe the domain migration as pending.
 - ⚠️ When touching Caddy config on the VPS: always `caddy validate` before `systemctl reload caddy` — a bad reload takes down every domain on the shared box.
 - Cache: the HTML is served `no-cache`, and its CSS/JS are inline, so no cache-busting is needed. Videos in `assets/video/` DO cache — rename the file when replacing one.
 
