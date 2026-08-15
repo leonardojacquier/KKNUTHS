@@ -172,12 +172,51 @@ def notify_admin(token: str, text: str) -> bool:
         return False
 
 
+def resumo_de_voz(textos: list[str]) -> dict:
+    """Contadores de VOZ — separados da nota, de propósito.
+
+    A nota 0-10 e seus critérios ficam intocados: mudar o texto e a régua
+    no mesmo dia faz a média móvel de 7 dias mudar de significado no meio
+    da série. Função pura para dar teste sem rede.
+    """
+    from app.bot.guarda_voz import bloco_pos_placar, problemas_de_voz
+
+    com = {"titulo_fixo": 0, "bastidor": 0, "bloco_longo": 0,
+           "autocorrecao": 0, "numero_repetido": 0}
+    blocos: list[int] = []
+    for t in textos:
+        blocos.append(len(bloco_pos_placar(t)))
+        for p in problemas_de_voz(t):
+            if "título fixo" in p:
+                com["titulo_fixo"] += 1
+            elif "bastidor" in p:
+                com["bastidor"] += 1
+            elif "bloco pós-placar" in p:
+                com["bloco_longo"] += 1
+            elif "autocorreção" in p:
+                com["autocorrecao"] += 1
+            elif "repetido" in p:
+                com["numero_repetido"] += 1
+    medios = round(sum(blocos) / len(blocos)) if blocos else 0
+    return {"analisadas": len(textos),
+            "com_titulo_fixo": com["titulo_fixo"],
+            "com_bastidor": com["bastidor"],
+            "com_bloco_longo": com["bloco_longo"],
+            "com_autocorrecao": com["autocorrecao"],
+            "com_numero_repetido": com["numero_repetido"],
+            "chars_pos_placar_medio": medios}
+
+
 def main() -> int:
     settings = get_settings()
     repo = get_repository()
     if not repo.enabled:
         print("sem Supabase")
         return 0
+
+    # VOZ: importa problemas_de_voz que resumo_de_voz() usará para contar
+    # defeitos separados da nota (a régua 0-10 não muda).
+    from app.bot.guarda_voz import problemas_de_voz  # noqa: F401
 
     # JANELA de 24h nos dois artefatos: o texto gravado é imutável, então
     # auditar "os últimos N" faz o mesmo estoque antigo reprovar todo dia —
@@ -233,6 +272,17 @@ def main() -> int:
                                  calques_extra=extra):
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
+
+    # VOZ: contadores novos, fora da nota. Linha de base de 15/08 (403
+    # análises): título fixo 25%, bastidor 23%, bloco pós-placar médio 740.
+    voz = resumo_de_voz([str(p.get("a") or "") for p in pares
+                         if not p.get("conversa")])
+    repo.log_event(0, "output_judge", "voz_do_dia", voz)
+    linha_voz = (
+        f"\n🗣 VOZ (contadores, fora da nota) — {voz['analisadas']} análises: "
+        f"título fixo {voz['com_titulo_fixo']} · bastidor {voz['com_bastidor']} "
+        f"· bloco longo {voz['com_bloco_longo']} · pós-placar médio "
+        f"{voz['chars_pos_placar_medio']} chars (base 15/08: 740)")
 
     # nota POR RESPOSTA (teto de 15 por rodada, custo Haiku): cada nota vira
     # evento `nota_resposta` — o histórico que dá a média móvel de 7 dias e
@@ -299,6 +349,7 @@ def main() -> int:
         if achados:
             l.append(f"\n{len(achados)} problema(s) de forma:")
             l += [f"• {a}" for a in achados[:8]]
+        l.append(linha_voz)
         notify_admin(settings.telegram_bot_token, "\n".join(l))
     print(f"juiz: {len(pares)} respostas, {len(achados)} problemas, "
           f"nota {agr['media']} (7d: {media7})")
