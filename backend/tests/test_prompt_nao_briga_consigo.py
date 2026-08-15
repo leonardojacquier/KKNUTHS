@@ -119,7 +119,15 @@ def test_todo_nome_tecnico_do_prompt_existe_de_verdade():
 # teto medido em 08/08 (2.901 palavras) com folga para uma regra nova. Não é
 # meta de emagrecimento: é freio. O prompt cresce um parágrafo por vez, e
 # cada acréscimo parece pequeno na hora em que é escrito.
-_TETO_PALAVRAS = 3100
+#
+# 15/08 (voz-do-coach): o freio pegou, como devia. R3 reescrito, R7 com duas
+# proibições novas e V4 inteiro pela voz nova custaram +211 palavras (2.945 →
+# 3.155, +7% de uma vez). Conferido o que o freio manda conferir: nenhuma das
+# palavras novas é eco de descrição de ferramenta — são regra de VOZ, que não
+# existe em ferramenta nenhuma. Teto subido de propósito, não por acidente. Se
+# alguém quiser pagar essa conta, o lugar óbvio é o R4, que ainda gasta 20
+# palavras num exemplo do título fixo que o R3 agora proíbe por inteiro.
+_TETO_PALAVRAS = 3200
 
 
 def test_o_prompt_nao_cresce_calado():

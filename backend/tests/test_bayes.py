@@ -838,7 +838,12 @@ def test_analise_fala_de_jogador_para_jogador():
 
     pt = _SYSTEM["pt"]
     assert "LINGUAGEM ACESSÍVEL" not in pt          # regra antiga extinta
-    assert "JOGADOR PARA JOGADOR" in pt
+    # 15/08 (voz-do-coach): o dono pediu técnico E didático na mesma frase, e
+    # o V4 deixou de ser "DE JOGADOR PARA JOGADOR, sem parênteses". A defesa
+    # contra o glossário não some — vira TETO: parêntese curto só na PRIMEIRA
+    # APARIÇÃO do termo e no máximo 2 por resposta.
+    assert "PRIMEIRA APARIÇÃO" in pt
+    assert "Máximo 2 parênteses" in pt
     assert "sem parênteses didáticos" in pt.lower() or \
            "sem \nparênteses" in pt or "parênteses didáticos" in pt
     assert "NÃO explique termos" in TERMOS_REGRA
