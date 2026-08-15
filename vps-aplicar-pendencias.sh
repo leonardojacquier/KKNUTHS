@@ -52,15 +52,35 @@ else
   cp -a "$CADDYFILE" "$BACKUP"
   echo "backup: $BACKUP"
 
-  # `sed -i` grava um temporário ao lado e renomeia por cima — o rename é
-  # negado quando o Caddyfile é bind-mount ("Operation not permitted").
-  # Escrevemos o conteúdo no arquivo existente, sem renomear nada.
+  # O Caddyfile do VPS está com o atributo IMUTÁVEL (chattr +i): nem root
+  # escreve nele, nem renomeia por cima — é o que fazia `sed -i` falhar com
+  # "Operation not permitted". Levantamos o atributo só durante a edição e o
+  # trap garante que ele volte, mesmo se o script morrer no meio.
+  IMMUT=0
+  if command -v lsattr >/dev/null 2>&1 && \
+     lsattr -d "$CADDYFILE" 2>/dev/null | awk '{print $1}' | grep -q i; then
+    IMMUT=1
+  fi
+
   TMP=$(mktemp /tmp/caddyfile.XXXXXX)
-  trap 'rm -f "$TMP"' EXIT
+  restaura() {
+    [ "${IMMUT:-0}" = "1" ] && chattr +i "$CADDYFILE" 2>/dev/null || true
+    rm -f "${TMP:-}" 2>/dev/null || true
+  }
+  trap restaura EXIT
+
+  if [ "$IMMUT" = "1" ]; then
+    echo "atributo imutável detectado — removendo temporariamente (será restaurado no fim)"
+    chattr -i "$CADDYFILE" || die "chattr -i falhou em $CADDYFILE"
+  fi
+
+  # `sed -i` renomeia por cima do original; aqui escrevemos no arquivo existente.
   sed -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" \
       "$CADDYFILE" > "$TMP"
   [ -s "$TMP" ] || die "sed gerou arquivo vazio — nada foi alterado"
-  cat "$TMP" > "$CADDYFILE" || die "sem permissão de escrita em $CADDYFILE"
+  cat "$TMP" > "$CADDYFILE" || die "não consegui escrever em $CADDYFILE.
+Se não for o atributo imutável, pode ser AppArmor/SELinux. Diagnóstico:
+    lsattr -d $CADDYFILE ; mount | grep -i caddy ; dmesg | tail -20"
 
   echo "diff aplicado:"
   diff -u "$BACKUP" "$CADDYFILE" | sed 's/^/    /' || true
@@ -75,6 +95,11 @@ else
 
   systemctl reload caddy
   echo "Caddy recarregado"
+
+  if [ "$IMMUT" = "1" ]; then
+    chattr +i "$CADDYFILE" && IMMUT=0
+    echo "atributo imutável restaurado"
+  fi
 fi
 
 # ── 2. Script de auto-deploy + cron ────────────────────────────────────────
