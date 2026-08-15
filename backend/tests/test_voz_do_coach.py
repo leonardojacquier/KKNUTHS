@@ -217,3 +217,92 @@ def test_limpar_de_none_devolve_string_vazia_nao_none():
     limpar(None) devolvia (None, []). A Task 3 chama
     'answer, feitos = limpar(answer)' sem guarda de None antes disso."""
     assert limpar(None) == ("", [])
+
+
+# --- Rodada de correção 1, achado Important: conferir_e_limpar -----------
+#
+# processing.py inlinhava ~10 linhas por caminho chamando problemas_de_voz +
+# limpar + repo.log_event direto, empurrando o arquivo para o teto de 3600
+# linhas de test_processing_nao_incha.py — satisfeito por compressão de
+# formatação em vez da extração que o próprio teste pede. conferir_e_limpar
+# espelha guarda_saida.conferir_e_remediar: mede, corrige e registra o
+# evento por conta própria, e processing.py vira uma chamada por caminho.
+# Sem cobertura própria aqui, é a função que agora carrega a lógica e fica
+# sem teste.
+
+from app.bot.guarda_voz import conferir_e_limpar
+
+
+def test_conferir_e_limpar_texto_limpo_passa_intacto_sem_evento(monkeypatch):
+    """Sem defeito e sem correção, a função nem chega a pedir o repositório
+    — se log_event fosse chamado aqui, seria um evento fantasma."""
+    def _log_event_nao_deveria_ser_chamado(*a, **k):
+        raise AssertionError("log_event chamado para texto sem defeito nem correção")
+
+    monkeypatch.setattr(
+        "app.db.get_repository",
+        lambda: type("R", (), {
+            "log_event": staticmethod(_log_event_nao_deveria_ser_chamado)})())
+
+    limpa = ("✅ Você jogou bem — set flopado\n\n"
+             "✅ *Flop* 5♥8♠6♦ — set de 6 e jam de 16.9bb.\n\n"
+             "Com set em board de draw, empacotar é obrigatório.")
+    saida = conferir_e_limpar(123, limpa, username="tester")
+    assert saida == limpa
+
+
+def test_conferir_e_limpar_titulo_fixo_volta_corrigido_e_registrado(monkeypatch):
+    eventos: list[tuple] = []
+
+    class _Repo:
+        def log_event(self, telegram_id, username, evento, detalhe=None):
+            eventos.append((telegram_id, username, evento, detalhe))
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "*A conta que mais pesa:* com 12bb, AK em HJ é jam pré-flop.")
+    saida = conferir_e_limpar(456, t, username="tester", onde="conversa")
+
+    assert "conta que mais pesa" not in saida
+    assert "Com 12bb, AK em HJ é jam pré-flop." in saida
+    assert len(eventos) == 1
+    telegram_id, username, evento, detalhe = eventos[0]
+    assert (telegram_id, username, evento) == (456, "tester", "voz_corrigida")
+    assert any("título fixo" in f for f in detalhe["feitos"])
+    assert detalhe["onde"] == "conversa"
+
+
+def test_conferir_e_limpar_excecao_do_repositorio_nao_propaga(monkeypatch):
+    """CONTRATO HONESTO: só o log_event está protegido aqui dentro — a
+    exceção de problemas_de_voz/limpar continua responsabilidade de quem
+    chama, em processing.py. Isto cobre a metade que É desta função."""
+    class _RepoQuebrado:
+        def log_event(self, *a, **k):
+            raise RuntimeError("repositório fora do ar")
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _RepoQuebrado())
+
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "*A conta que mais pesa:* com 12bb, AK em HJ é jam pré-flop.")
+    saida = conferir_e_limpar(789, t)  # não pode levantar
+
+    assert "conta que mais pesa" not in saida
+    assert "Com 12bb, AK em HJ é jam pré-flop." in saida
+
+
+def test_conferir_e_limpar_de_texto_vazio_nao_toca_no_repositorio(monkeypatch):
+    """Espelha o contrato de limpar(None) == ("", []), mas sem a coerção:
+    devolve o texto como veio (None continua None), porque quem chama
+    (a análise) usava 'if coaching:' para não converter None em "" antes
+    da extração — mover a guarda para dentro preserva esse comportamento."""
+    def _log_event_nao_deveria_ser_chamado(*a, **k):
+        raise AssertionError("log_event chamado para texto vazio")
+
+    monkeypatch.setattr(
+        "app.db.get_repository",
+        lambda: type("R", (), {
+            "log_event": staticmethod(_log_event_nao_deveria_ser_chamado)})())
+
+    assert conferir_e_limpar(1, None) is None
+    assert conferir_e_limpar(1, "") == ""

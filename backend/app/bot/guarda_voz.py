@@ -209,3 +209,45 @@ def limpar(texto: str) -> tuple[str, list[str]]:
     if not novo.strip():
         return texto, []
     return novo, feitos
+
+
+def conferir_e_limpar(telegram_id: int, texto: str, *,
+                      username: str | None = None,
+                      onde: str | None = None) -> str:
+    """Portão da voz: mede, corrige o que é seguro e registra o evento.
+
+    Espelha guarda_saida.conferir_e_remediar (Rodada de correção 1, achado
+    Important): antes, a análise e a conversa inlinhavam ~10 linhas cada uma
+    chamando problemas_de_voz + limpar + repo.log_event direto em
+    processing.py, empurrando o arquivo para o teto de 3600 linhas vigiado
+    por test_processing_nao_incha.py — o teste existe para forçar extração,
+    não para ser satisfeito raspando formatação. Aqui a lógica mora uma vez
+    só: quem chama (análise ou conversa) vira uma linha.
+
+    'texto' vazio/None não é medido — devolvido como veio, sem virar "" pelo
+    contrato de limpar(None). 'onde' rotula o evento fora da análise (ex.:
+    "conversa"); sem ele o payload fica igual ao que a análise já gravava.
+
+    Não protege contra exceção de problemas_de_voz/limpar: essa proteção
+    continua em processing.py, no try/except que envolve a chamada — uma
+    exceção do guarda não pode derrubar a resposta ao aluno.
+    """
+    if not texto:
+        return texto
+    problemas = problemas_de_voz(texto)
+    novo, feitos = limpar(texto)
+    if not (feitos or problemas):
+        return novo
+
+    from app.db import get_repository
+
+    repo = get_repository()
+    detalhe = {"feitos": feitos, "problemas": problemas[:6]}
+    if onde:
+        detalhe["onde"] = onde
+    try:
+        repo.log_event(telegram_id, username,
+                       "voz_corrigida" if feitos else "voz_medida", detalhe)
+    except Exception:
+        pass
+    return novo
