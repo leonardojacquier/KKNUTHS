@@ -48,19 +48,28 @@ else
   echo "$N linha(s) a corrigir:"
   grep -nE "$ANTIGO" "$CADDYFILE" | sed 's/^/    /'
 
+  rm -f /etc/caddy/sed?????? 2>/dev/null || true   # sobras de execuções falhas
   cp -a "$CADDYFILE" "$BACKUP"
   echo "backup: $BACKUP"
 
-  sed -i -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" "$CADDYFILE"
+  # `sed -i` grava um temporário ao lado e renomeia por cima — o rename é
+  # negado quando o Caddyfile é bind-mount ("Operation not permitted").
+  # Escrevemos o conteúdo no arquivo existente, sem renomear nada.
+  TMP=$(mktemp /tmp/caddyfile.XXXXXX)
+  trap 'rm -f "$TMP"' EXIT
+  sed -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" \
+      "$CADDYFILE" > "$TMP"
+  [ -s "$TMP" ] || die "sed gerou arquivo vazio — nada foi alterado"
+  cat "$TMP" > "$CADDYFILE" || die "sem permissão de escrita em $CADDYFILE"
 
   echo "diff aplicado:"
   diff -u "$BACKUP" "$CADDYFILE" | sed 's/^/    /' || true
 
   M=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
-  [ "$M" = "0" ] || { cp -a "$BACKUP" "$CADDYFILE"; die "sobraram $M linhas antigas; backup restaurado"; }
+  [ "$M" = "0" ] || { cat "$BACKUP" > "$CADDYFILE"; die "sobraram $M linhas antigas; backup restaurado"; }
 
   if ! caddy validate --config "$CADDYFILE"; then
-    cp -a "$BACKUP" "$CADDYFILE"
+    cat "$BACKUP" > "$CADDYFILE"
     die "caddy validate FALHOU — Caddyfile restaurado, nenhum reload foi dado"
   fi
 
@@ -107,5 +116,5 @@ echo "Últimas linhas do log de deploy:"
 tail -3 /var/log/gnh-autodeploy.log 2>/dev/null || echo "  (log ainda vazio)"
 
 say "Pronto"
-[ -f "$BACKUP" ] && echo "Se algo saiu errado no Caddy: cp $BACKUP $CADDYFILE && caddy validate --config $CADDYFILE && systemctl reload caddy"
+[ -f "$BACKUP" ] && echo "Se algo saiu errado no Caddy: cat $BACKUP > $CADDYFILE && caddy validate --config $CADDYFILE && systemctl reload caddy"
 exit 0
