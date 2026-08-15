@@ -13,9 +13,9 @@ atualizado: 2026-08-14
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 30 |
-| Fichas técnicas (HTML) | 82 |
-| PDFs de ficha | 93 |
+| Páginas estáticas de produto | 31 |
+| Fichas técnicas (HTML) | 84 |
+| PDFs de ficha | 96 |
 | Produtos **sem** tabela de specs | 18 |
 
 ## As três famílias de ficha
@@ -224,3 +224,41 @@ página de produto com esse slug precisa existir**. JBTS20 e Proyectora foram os
 > 3. VS836H: linha "Diámetro del Flotador" vem **sem valor** → omitida.
 > 4. VS836H: "420 kg / 916 ibs" → 420 kg são 926 lb; publicado o valor métrico.
 > Confirmar os quatro pontos com a fábrica antes de imprimir material comercial.
+
+### Equipamentos de armazém — CQD (retrátil) e CDD (apiladores)
+
+Três catálogos do fabricante entraram de uma vez, alimentando **dois produtos que já
+existiam** no buscador (nenhum item novo foi criado no catálogo):
+
+**Carretilla Retráctil Cuatridireccional — CQD20S / CQD25S** (`CQD25S.pdf`)
+- 2.000/2.500 kg · elevação 7.500 mm · avanço 650/735 mm · bateria 48 V 400/420 Ah ·
+  tração 6,5 kW + elevação 8,6 kW (AC) · 7,8/8 km/h · raio 1.920/2.075 mm · 3.900/4.100 kg.
+- Diferencial comercial: **quadridirecional** — gira as rodas 90° e anda de lado, movendo
+  carga longa em corredor de 2,77–2,86 m. Controle **Curtis (EUA)**, hidráulica **Shimadzu**,
+  bateria Donghai. Opcionais: câmera sem fio, bateria de lítio, 4 garfos, ajuste hidráulico.
+- Página `/ventas/carretilla-retractil-reach-truck/` **reescrita** (antes só tinha uma tabela
+  genérica) + ficha `/fichas/carretilla-retractil-cqd.html` + PDF. Foto: `img/prod/reach-cqd.jpg`.
+
+**Apilador Eléctrico CDD — duas famílias** (`CDDD.pdf` + `CDD05C_07C_10C_07B_10B_15DH_15DK.pdf`)
+- **Walkie CDD-D**: CDD15D-25 (1.500 kg/2,5 m), CDD20D-25 (2.000 kg/2,5 m), CDD20D-45
+  (2.000 kg/4,5 m) · 24 V · tração 1,5 kW AC + elevação 2,2 kW · 870/880/1.370 kg.
+- **Autoelevantes** (elevam a si mesmos até 1,6 m, para carga/descarga sem rampa):
+  CDD05C 500 kg · CDD07C 700 kg · CDD10C 1.000 kg (série C = semielétrica) ·
+  CDD07B 700 kg · CDD10B 1.000 kg (série B = full elétrica, +tração 0,8 kW, rampa 5–10 %) ·
+  CDD15D 1.500 kg (tesoura, elevação 2,2 kW, **radiocontrole até 30 m**). Todos 48 V, oito
+  alturas de 800 a 1.600 mm — o peso varia com a altura escolhida.
+- Página **nova** `/ventas/apilador-electrico/` (o produto existia no buscador sem página) +
+  ficha `/fichas/apilador-electrico.html` + **dois PDFs** (`apilador-cdd-d.pdf`,
+  `apilador-autoelevante-cdd.pdf`). Fotos: `apilador-cdd-d.jpg`, `apilador-autoelevante.jpg`.
+
+> [!warning] Inconsistências do material original (publicadas com correção ou omissão)
+> - CDD15D: peso "450/**354**/460/463..." — o 354 quebra a sequência crescente; provável 454.
+>   Publicada a faixa 450–480 kg sem citar o valor suspeito.
+> - Séries B e D: velocidade máxima impressa com unidade **"kw/h"** (deveria ser km/h).
+>   Omitida da ficha até confirmação.
+> - CDD07B/CDD10B: largura total com valor único (852 mm) enquanto W1/W3 têm dois valores —
+>   possível célula incompleta no original.
+> - CDD05C: descida 80 mm/s, único fora do padrão 100 mm/s da família (mantido como impresso).
+> - O arquivo cobre 15DH/15DK no nome, mas as páginas trazem só **CDD15D** — confirmar se
+>   DH/DK são variantes de bateria (lítio/chumbo) do mesmo modelo.
+> Confirmar tudo com a fábrica antes de material impresso.
