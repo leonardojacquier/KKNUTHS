@@ -1,7 +1,7 @@
 ---
 titulo: Catálogo e fichas técnicas
 tags: [gnh, catalogo, fichas, produtos]
-atualizado: 2026-07-29
+atualizado: 2026-08-14
 ---
 
 # Catálogo e fichas técnicas
@@ -13,10 +13,10 @@ atualizado: 2026-07-29
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 26 |
-| Fichas técnicas (HTML) | 79 |
-| PDFs de ficha | 79 |
-| Produtos **sem** tabela de specs | 20 |
+| Páginas estáticas de produto | 29 |
+| Fichas técnicas (HTML) | 81 |
+| PDFs de ficha | 91 |
+| Produtos **sem** tabela de specs | 18 |
 
 ## As três famílias de ficha
 
@@ -140,3 +140,63 @@ Proyectora de Revoque, entre outros.
 ---
 
 **Ver também:** [[01 - Arquitetura do site]] · [[09 - Operacao diaria]]
+
+
+## Agosto 2026 — catálogos adicionados nesta rodada
+
+### Plataformas de trabalho aéreo (linha ZS, 10 modelos)
+
+- **Onde**: seção `#plataformas` da home nova (`gnh-redesign.html`) — tabelas telescópica
+  (SZ20D…SZ34D) e articulada (SQ16D, SQ16, SQ22D), modal de specs por modelo, miniaturas 4:3.
+- **Fichas PDF**: `fichas/pdf/plataforma-<código-comercial>.pdf` (10 arquivos), gerador
+  **`gen-fichas-plataformas.py` na raiz do repo** — lê os dados do objeto `PLAT` dentro do
+  próprio `gnh-redesign.html`, então site e PDF nunca divergem. Fotos por modelo em
+  `img/prod/plataforma/` (recortes das páginas do catálogo do fabricante + thumbs 4:3).
+- **Nomenclatura**: código comercial GNH (SZ/SQ) na frente; código de fábrica (Z\*M-LI /
+  Q\*M-LI/Do) como referência. Mapeamento verificado por peso, 1:1 nos 10 modelos.
+  **O sufixo "D" da linha comercial = modelo elétrico** (não diesel!) — confirmado nos dois
+  pares elétrico/diesel. Confirmar com a fábrica antes de imprimir material.
+- A página antiga `/ventas/plataforma-articulada-y-telescopica/` ganhou a matriz completa
+  de 27 parâmetros × 7 telescópicas + colunas novas na tabela de modelos.
+
+### Central de Concreto JBTS20 (bomba misturadora diesel)
+
+- **Fonte**: `JBST20.docx` do fabricante (o nome do arquivo tem as letras trocadas — o
+  código correto é **JBTS20**, como o site já usava).
+- **Specs-chave**: 10–20 m³/h · 8 MPa · alcance 260/80 m · slump 100–230 mm · cilindro
+  140/700 mm · tolva 300 L · misturador 400/200 L · Cummins diesel 75 kW @ 2.100 rpm ·
+  hidráulica 280 L (Bolseen/Manuli) · 4.300×1.700×2.450 mm · 3.950 kg.
+- **Onde**: card no buscador com specs embutidas + página `/ventas/central-de-concreto-jbts20/`
+  + ficha `/fichas/central-concreto-jbts20.html` + PDF · seção completa em
+  `/ventas/equipos-de-concreto/#jbts20` · link no card "Equipos y Maquinaria" da home nova.
+- **Foto**: decisão do dono — **a amarela** (`img/prod/central-concreto.png`) em tudo.
+  A foto azul de fábrica fica guardada em `img/prod/jbts20.jpg` (não usar sem pedir).
+
+### Proyectora de Revoque M6 (lançamento GNH)
+
+- **Fonte**: `Para_metros_de_la_ma_quina_de_proyeccio_n_de_cemento.docx`.
+- **Specs-chave**: 30 L/min · projeção 40 m horiz. / 20 m vert. · 4/5,5 kW · 220/380 V ·
+  tolva 115 L · árido ≤4 mm · 123×72×155 cm · 220 kg. Componentes: compressor K2 e motor
+  Nord (Alemanha), bomba Sea Land e mangueira IVG (Itália), elétrica Siemens.
+  Acessórios: bomba de rosca D7-2.5 (27 L/min) e compressor HANDY K2 (250 L/min, 5,5 bar).
+- **Onde**: card no buscador com specs + página `/ventas/proyectora-de-revoque/` + ficha
+  `/fichas/proyectora-de-revoque.html` + PDF. WhatsApp da linha: **993 366650**.
+- **Foto**: `img/prod/gnh-proyectora.png` (a que já estava no site — ordem do dono de não
+  trocar fotos existentes).
+
+### O mecanismo "Ver detalles" no buscador (convenção nova)
+
+O template `B()` do bundle de ventas sempre soube renderizar tabela de specs embutida e
+link "Ver detalles" — bastava o item ter o campo `specs:{h:[...],r:[[...]]}`. O link gerado
+é `/ventas/<slug(nome)>/` (slug = `ua(name)`: minúsculas, sem acento, hífens), então **a
+página de produto com esse slug precisa existir**. JBTS20 e Proyectora foram os primeiros.
+
+> [!warning] Editar o bundle exige re-hash
+> `assets/ventas-<hash>.js` é imutável no cache. Ao editar: salvar com nome novo
+> (`md5` 8 chars do conteúdo), apagar o antigo e atualizar a referência em
+> `ventas/index.html`. Sem isso, navegadores seguram o bundle velho para sempre.
+
+> [!note] Fichas feitas à mão nesta rodada
+> As fichas da JBTS20 e da Proyectora foram escritas direto (HTML + geradores one-off),
+> fora do pipeline `gnh-hero/tools/build-*.cjs`. Se o pipeline for regenerar tudo um dia,
+> incorporar esses dois produtos lá — ou eles ficarão órfãos do build.
