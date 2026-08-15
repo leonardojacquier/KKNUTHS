@@ -13,9 +13,9 @@ atualizado: 2026-08-14
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 29 |
-| Fichas técnicas (HTML) | 81 |
-| PDFs de ficha | 91 |
+| Páginas estáticas de produto | 30 |
+| Fichas técnicas (HTML) | 82 |
+| PDFs de ficha | 93 |
 | Produtos **sem** tabela de specs | 18 |
 
 ## As três famílias de ficha
@@ -200,3 +200,27 @@ página de produto com esse slug precisa existir**. JBTS20 e Proyectora foram os
 > As fichas da JBTS20 e da Proyectora foram escritas direto (HTML + geradores one-off),
 > fora do pipeline `gnh-hero/tools/build-*.cjs`. Se o pipeline for regenerar tudo um dia,
 > incorporar esses dois produtos lá — ou eles ficarão órfãos do build.
+
+### Alisadora de Hormigón Doble — VS836 / VS836H
+
+- **Fonte**: `ALISADORA_DE_HORMIGON.pdf` (folheto GNH com as duas máquinas já marcadas).
+- **Specs-chave** (ambas Honda GX690, gasolina, 96 cm × 2, 80–150 rpm, aspa 350×150 mm,
+  2.000×1.000×1.300 mm): **VS836** mecânica, 16,5 kW/22,1 HP, tanques 19+19 L, 370 kg,
+  embalagem 2.160×1.160×1.230 mm · **VS836H** hidráulica, 18,4 kW/25 HP, tanques 20+20 L,
+  420 kg, embalagem 2.160×1.160×1.430 mm.
+- **Onde**: card do buscador (item existente "Allanadora de Concreto 1 m" ganhou `specs`
+  comparativas de 3 colunas) → página `/ventas/allanadora-de-concreto-1-m/` (slug do nome
+  antigo, mantido de propósito para não quebrar o link do buscador) + ficha
+  `/fichas/alisadora-de-hormigon.html` + **dois PDFs** (`alisadora-vs836.pdf`,
+  `alisadora-vs836h.pdf`) + item ilustrado na lista de equipos-de-concreto.
+- **Fotos**: recortadas do folheto → `img/prod/alisadora-vs836.jpg` e `-vs836h.jpg`
+  (+ thumbs 4:3). A foto antiga `allanadora.png` **foi mantida no card do buscador**
+  (ordem do dono: não trocar fotos que já estão no site).
+
+> [!warning] Erros no folheto do fabricante — corrigidos ao publicar
+> 1. VS836H: "Potencia 1845 kW / 25 HP" → publicado **18,4 kW / 25 HP** (1845 kW é impossível).
+> 2. Ambas: a linha "Velocidad de trabajo 350(L)×150(w) mm" traz na verdade o **tamanho da
+>    aspa** (bate com "14 × 6 pulgadas" da linha seguinte) → publicado como aspa/cuchilla.
+> 3. VS836H: linha "Diámetro del Flotador" vem **sem valor** → omitida.
+> 4. VS836H: "420 kg / 916 ibs" → 420 kg são 926 lb; publicado o valor métrico.
+> Confirmar os quatro pontos com a fábrica antes de imprimir material comercial.
