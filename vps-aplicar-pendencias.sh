@@ -123,18 +123,26 @@ fi
 say "Conferência"
 
 IP=$(hostname -I | awk '{print $1}')
+
+# Conferir em HTTPS: na porta 80 o Caddy responde 308 (redirect automático para
+# HTTPS) e o teste não diz nada sobre o conteúdo nem sobre os headers.
+echo "blocos de site no Caddyfile:"
+grep -nE '^[^[:space:]#].*\{' "$CADDYFILE" | sed 's/^/    /'
+echo
+
 for u in / /ventas/ /ventas/camion-volquete-de-orugas/ /ventas/apilador-electrico/ \
          /fichas/pdf/camion-volquete-orugas.pdf /sitemap.xml; do
-  code=$(curl -s -o /dev/null -w '%{http_code}' --resolve "gnhorizons.com:80:$IP" \
-         "http://gnhorizons.com$u" || echo 000)
+  code=$(curl -s -o /dev/null -w '%{http_code}' --resolve "gnhorizons.com:443:$IP" \
+         "https://gnhorizons.com$u" || echo 000)
   printf '  %-46s %s\n' "$u" "$code"
 done
 
 echo
 echo "Cache-Control das subpáginas:"
-curl -sI --resolve "gnhorizons.com:80:$IP" \
-  "http://gnhorizons.com/ventas/camion-volquete-de-orugas/" | grep -i 'cache-control' || \
-  echo "  (sem header Cache-Control — revise o bloco do Caddy)"
+curl -sI --resolve "gnhorizons.com:443:$IP" \
+  "https://gnhorizons.com/ventas/camion-volquete-de-orugas/" \
+  | grep -iE '^(HTTP/|cache-control)' | sed 's/^/  /' || \
+  echo "  (sem header Cache-Control — o bloco do gnhorizons.com pode não ter o matcher @html)"
 
 echo
 echo "Últimas linhas do log de deploy:"
