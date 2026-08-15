@@ -78,6 +78,91 @@ def test_o_placar_nao_e_proibido_pela_regra_do_lado():
         "a proibição precisa dizer que vale para a prosa, e abrir o placar"
 
 
+# frases que PROÍBEM explicar termo. Viveram no TERMOS_REGRA até 15/08, na
+# linha imediatamente acima do V4, que manda o contrário.
+_PROIBE_EXPLICAR = (
+    "não explique termos",
+    "sem parênteses didáticos",
+    "sem parêntese didático",
+    "proibido explicar termo",
+    "nunca explique termo",
+    "exclusiva da simplificação",
+)
+# e as que MANDAM — o teto do V4 é escrito assim
+_MANDA_EXPLICAR = ("primeira aparição", "primeira vez")
+
+
+def _textos_que_chegam_ao_modelo() -> dict[str, str]:
+    """As constantes de prompt MAIS os blocos de sistema montados dentro das
+    funções — a contradição de 15/08 morava entre duas constantes, mas a
+    próxima pode morar num literal solto dentro de simplify()."""
+    import inspect
+
+    out = {f"_SYSTEM[{k}]": v for k, v in llm._SYSTEM.items()}
+    for nome in ("TERMOS_REGRA", "_FORMA_SIMPLES"):
+        valor = getattr(llm, nome, None)
+        if isinstance(valor, str):
+            out[nome] = valor
+    for nome in ("coach", "followup", "prepare_briefing", "sintese_do_dossie",
+                 "simplify"):
+        fn = getattr(llm, nome, None)
+        if fn is not None:
+            # comentário de código não é instrução: o histórico pode citar a
+            # frase antiga sem que o modelo leia. (Corta a linha no '#', então
+            # erra para o lado de deixar passar, nunca de gritar errado.)
+            out[f"{nome}()"] = re.sub(r"#.*", "", inspect.getsource(fn))
+    return out
+
+
+def test_o_prompt_nao_proibe_e_manda_explicar():
+    """A 3ª contradição, achada em 15/08 — e a única que nenhum teste pegava.
+
+    O V4 novo MANDA explicar o termo (parêntese curto na primeira aparição,
+    no máximo 2) e o V3, na linha IMEDIATAMENTE acima, dizia 'NÃO explique
+    termos ... sem parênteses didáticos ... função EXCLUSIVA da
+    simplificação'. Rótulo, ordem, calque e tamanho — tudo que os outros
+    testes deste arquivo leem — passava nos dois lados ao mesmo tempo.
+
+    O modelo obedece à regra que estiver mais perto do exemplo, então com as
+    duas no ar ninguém sabe qual valeu. Enquanto o prompt MANDAR explicar,
+    nenhuma camada de texto pode proibir.
+    """
+    textos = _textos_que_chegam_ao_modelo()
+    manda = [onde for onde, s in textos.items()
+             if any(p in s.lower() for p in _MANDA_EXPLICAR)]
+    assert manda, (
+        "nenhum texto manda explicar o termo. Se a política voltou a ser "
+        "'jargão cru e ponto', este teste sai junto com o V4 que ele guarda "
+        "— mas não fica passando à toa.")
+    proibe = [f"{onde}: {frase!r}" for onde, s in textos.items()
+              for frase in _PROIBE_EXPLICAR if frase in s.lower()]
+    assert not proibe, (
+        "o prompt manda explicar o termo em " + ", ".join(manda)
+        + " e proíbe em:\n" + "\n".join(f"  • {p}" for p in proibe))
+
+
+def test_o_fechamento_nao_cala_a_historia_do_desfecho():
+    """4ª contradição (15/08), mesma família da do R7 × R2: o R3 novo proíbe
+    repetir número que o placar já deu, e o R5b MANDA o parágrafo do desfecho
+    trazer 'as % de cada rua' — que são as equities do placar. Sem a exceção
+    ESCRITA, uma regra apaga a outra, e a que ganha é a que tiver exemplo do
+    lado.
+
+    O que dá para conferir aqui é o PEDIDO: as duas regras têm que se citar.
+    Quem confere a SAÍDA é o guarda determinístico (app/bot/guarda_voz.py) —
+    a diferença entre RECITAR a conta e CONTAR a história é semântica e não
+    sobrevive a uma regex, então um teste de texto aqui seria decorativo.
+    """
+    r3 = re.search(r"R3 .*?(?=R4 )", PT, re.S).group(0)
+    assert "RECITAR" in r3, \
+        "o R3 tem que proibir a recitação, não o número em si"
+    assert "R5b" in r3, \
+        "o R3 proíbe repetir número sem abrir a exceção do R5b"
+    r5b = re.search(r"R5b .*?(?=R6 )", PT, re.S).group(0)
+    assert "% de cada rua" in r5b, \
+        "se o R5b parou de pedir as %, a exceção do R3 ficou órfã"
+
+
 def test_o_exemplo_de_ouro_continua_com_a_conta_inteira():
     """Se um dia alguém 'consertar' a contradição pelo outro lado — tirando
     os números do exemplo — o placar perde o que ele existe para mostrar."""

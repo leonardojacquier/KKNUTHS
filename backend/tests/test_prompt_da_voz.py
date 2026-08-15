@@ -2,16 +2,31 @@
 from __future__ import annotations
 
 import inspect
+import re
 
 from app.agent import llm
 
 PROMPT = llm._SYSTEM["pt"]
 
 
+def _instrucoes_de(fn) -> str:
+    """O fonte com os literais COSTURADOS.
+
+    A primeira versão deste teste lia `inspect.getsource` cru e passava mesmo
+    com o defeito no lugar: a frase estava quebrada entre dois literais
+    Python (`"Feche com A conta que "` / `"mais pesa. "`), então a substring
+    que ele procurava não existia no fonte. Teste decorativo — verde pela
+    formatação do arquivo, não pelo conteúdo do prompt.
+    """
+    fonte = inspect.getsource(fn)
+    costurado = re.sub(r'"\s*\n\s*"', "", fonte)   # junta literal quebrado
+    return re.sub(r"\s+", " ", costurado)          # e normaliza o espaço
+
+
 def test_a_instrucao_nao_planta_mais_o_titulo_fixo():
     """llm.py:1854 mandava 'Feche com A conta que mais pesa.' — o formulário
     que apareceu em 25% das análises era pedido nosso, por escrito."""
-    fonte = inspect.getsource(llm.coach)
+    fonte = _instrucoes_de(llm.coach)
     assert "conta que mais pesa" not in fonte.lower(), \
         "a instrução do coach ainda planta o título fixo"
 

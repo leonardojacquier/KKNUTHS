@@ -832,22 +832,28 @@ event = 'Torneio Teste'
 
 
 def test_analise_fala_de_jogador_para_jogador():
-    # feedback do admin: análise vinha "traduzindo" termo com parênteses
-    # didáticos — didática é função EXCLUSIVA do 🎈; análise é poker nativo
+    # feedback do admin (07/08): análise vinha "traduzindo" termo com
+    # parênteses didáticos, e a regra virou proibição seca — didática só no 🎈.
+    #
+    # 15/08 (voz-do-coach): o dono pediu técnico E didático na MESMA frase, e
+    # a proibição seca caiu. O que ela defendia não cai junto: o termo real
+    # continua obrigatório e a explicação ganhou TETO (parêntese curto, só na
+    # primeira aparição, no máximo 2 por resposta). Este teste cobra o teto —
+    # quem cobra que as duas regras não voltem a se contradizer é
+    # test_prompt_nao_briga_consigo.py::test_o_prompt_nao_proibe_e_manda_explicar.
     from app.agent.llm import TERMOS_REGRA, _SYSTEM
 
     pt = _SYSTEM["pt"]
     assert "LINGUAGEM ACESSÍVEL" not in pt          # regra antiga extinta
-    # 15/08 (voz-do-coach): o dono pediu técnico E didático na mesma frase, e
-    # o V4 deixou de ser "DE JOGADOR PARA JOGADOR, sem parênteses". A defesa
-    # contra o glossário não some — vira TETO: parêntese curto só na PRIMEIRA
-    # APARIÇÃO do termo e no máximo 2 por resposta.
     assert "PRIMEIRA APARIÇÃO" in pt
     assert "Máximo 2 parênteses" in pt
-    assert "sem parênteses didáticos" in pt.lower() or \
-           "sem \nparênteses" in pt or "parênteses didáticos" in pt
-    assert "NÃO explique termos" in TERMOS_REGRA
-    assert "EXCLUSIVA da simplificação" in TERMOS_REGRA
+    # a própria TERMOS_REGRA carrega o teto (ela vai para mais 5 prompts que
+    # não têm o V4 do lado), e o termo REAL nunca vira tradução inventada
+    assert "PRIMEIRA APARIÇÃO" in TERMOS_REGRA and "máximo 2" in TERMOS_REGRA
+    assert "substitua o termo por tradução inventada" in TERMOS_REGRA
+    # e a simplificação continua sendo o lugar sem teto
+    assert "não\n    tem esse teto" in TERMOS_REGRA or \
+           "não tem esse teto" in TERMOS_REGRA
 
 
 def test_deep_nunca_stack_fundo():
