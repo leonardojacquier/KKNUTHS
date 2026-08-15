@@ -26,22 +26,38 @@ die() { printf '\033[31mERRO: %s\033[0m\n' "$1" >&2; exit 1; }
 say "1/2 — Cache-Control nas subpáginas (Caddy)"
 
 CANONICO='@html path / /index.html */ *.html'
+ANTIGO='^[[:space:]]*@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*$'
 
-if grep -qF "$CANONICO" "$CADDYFILE"; then
-  echo "matcher já está correto — nada a fazer no Caddy"
-else
-  # aceita as duas formas antigas conhecidas
-  N=$(grep -cE '^[[:space:]]*@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*$' "$CADDYFILE" || true)
-  [ "$N" = "1" ] || die "esperava exatamente 1 linha '@html path ...' antiga, achei $N.
-Edite $CADDYFILE à mão: a linha do bloco gnhorizons.com deve ficar
+N=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
+
+if [ "$N" = "0" ]; then
+  if grep -qF "$CANONICO" "$CADDYFILE"; then
+    echo "matcher já está correto — nada a fazer no Caddy"
+  else
+    die "nenhuma linha '@html path ...' reconhecida em $CADDYFILE.
+Edite à mão: no bloco gnhorizons.com a linha deve ficar
     $CANONICO
 depois rode: caddy validate --config $CADDYFILE && systemctl reload caddy"
+  fi
+else
+  # Corrige TODAS as ocorrências. O matcher antigo (*.html /) pega a home e os
+  # arquivos .html, mas não as URLs de diretório (/ventas/apilador-electrico/).
+  # O bloco do gnh.vortex369.com.br tem o mesmo defeito do gnhorizons.com, então
+  # os dois são corrigidos. A troca só AMPLIA o conjunto de páginas servidas com
+  # no-cache — não deixa de servir nada.
+  echo "$N linha(s) a corrigir:"
+  grep -nE "$ANTIGO" "$CADDYFILE" | sed 's/^/    /'
 
   cp -a "$CADDYFILE" "$BACKUP"
   echo "backup: $BACKUP"
 
   sed -i -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" "$CADDYFILE"
-  grep -nF "$CANONICO" "$CADDYFILE" || { cp -a "$BACKUP" "$CADDYFILE"; die "sed não aplicou; backup restaurado"; }
+
+  echo "diff aplicado:"
+  diff -u "$BACKUP" "$CADDYFILE" | sed 's/^/    /' || true
+
+  M=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
+  [ "$M" = "0" ] || { cp -a "$BACKUP" "$CADDYFILE"; die "sobraram $M linhas antigas; backup restaurado"; }
 
   if ! caddy validate --config "$CADDYFILE"; then
     cp -a "$BACKUP" "$CADDYFILE"
