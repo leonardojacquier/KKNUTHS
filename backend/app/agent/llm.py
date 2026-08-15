@@ -676,7 +676,10 @@ _SYSTEM = {
         "primeira linha, exatamente um destes — '✅ Você jogou bem' / '🟡 Dava "
         "pra jogar melhor' / '❌ Jogada cara' — seguido de 3 a 6 palavras "
         "dizendo o quê ('❌ Jogada cara — pagou o river sem preço'). PROIBIDO "
-        "qualquer texto antes do selo.\n"
+        "qualquer texto antes do selo. Se o geral é ✅ mas alguma street leva "
+        "🟡/❌, as palavras do selo JÁ nomeiam a ressalva ('✅ Jogou bem "
+        "no geral — só o sizing do pré escapou'): elogiar na 1ª linha e "
+        "criticar duas linhas depois sem avisar lê como contradição.\n"
         "R2 PLACAR STREET A STREET (padrão, não espere o aluno pedir): se o "
         "aluno agiu em MAIS DE UMA street, logo após o selo vem uma linha por "
         "street, cada uma com seu próprio selo ✅/🟡/❌ + street + ação + o "
@@ -1731,6 +1734,48 @@ def _resgatar_conclusao(client, modelo, system_blocks, messages,
     return None
 
 
+def _conferir_numeros(client, modelo, system_blocks, messages, final,
+                      fontes: list) -> str:
+    """Todo número da análise precisa de lastro (contexto ou ferramenta).
+
+    Sem lastro: UMA reescrita corretiva nomeando os números órfãos; se a
+    reescrita não melhorar, entrega a original e registra o evento
+    `numeros_nao_conferidos` — visibilidade em vez de silêncio, e nunca
+    degrada abaixo do que já ia sair. Combinado com o dono em 15/08."""
+    from app.analysis.conferencia import conferir_analise, numeros_do_lastro
+
+    lastro = numeros_do_lastro(*fontes)
+    fora = conferir_analise(final, lastro)
+    if not fora:
+        return final
+
+    def _log(evento: str, detalhe: dict) -> None:
+        try:
+            from app.db import get_repository
+
+            repo = get_repository()
+            if repo.enabled:
+                repo.log_event(0, None, evento, detalhe)
+        except Exception:
+            pass
+
+    pedido = (f"Os números {', '.join(fora[:6])} não vêm das ferramentas "
+              "nem do contexto da mão. Reescreva a análise inteira no mesmo "
+              "formato (selo na 1ª linha, placar por street), usando "
+              "SOMENTE números calculados; o que não tiver conta, diga "
+              "qualitativo.")
+    msgs = list(messages) + [{"role": "assistant", "content": final},
+                             {"role": "user", "content": pedido}]
+    novo = _force_text(client, modelo, system_blocks, msgs)
+    if novo and _tem_selo(novo):
+        novo = _montar_resposta([novo])
+        if len(conferir_analise(novo, lastro)) < len(fora):
+            _log("numeros_corrigidos", {"antes": fora[:8]})
+            return novo
+    _log("numeros_nao_conferidos", {"numeros": fora[:8]})
+    return final
+
+
 def mao_simples(structured: dict) -> bool:
     """Mão de decisão ÚNICA e pré-flop — o caso que um modelo mais barato
     resolve com os números do solver já prontos no contexto.
@@ -1831,6 +1876,9 @@ def coach(
         system_blocks = _bloco_cacheado(system)
         modelo_da_analise = model or settings.analysis_model
         parts: list[str] = []  # texto escrito ANTES das tools não pode sumir
+        # LASTRO da conferência de números: tudo que o modelo recebeu de
+        # concreto (contexto da mão + cada resultado de ferramenta)
+        fontes_de_numeros: list = [json.dumps(context, ensure_ascii=False)]
         for _ in range(MAX_TOOL_ROUNDS):
             resp = _create(client,
                 model=modelo_da_analise,
@@ -1856,6 +1904,10 @@ def coach(
                     selo = _selo_de_emergencia(client, final)
                     if selo:
                         final = selo + "\n\n" + final
+                if final:
+                    final = _conferir_numeros(
+                        client, modelo_da_analise, system_blocks, messages,
+                        final, fontes_de_numeros)
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -1873,6 +1925,7 @@ def coach(
                         out = json.dumps({"result": value}, ensure_ascii=False)
                     except Exception as exc:  # erro de tool não derruba a análise
                         out = json.dumps({"error": str(exc)})
+                    fontes_de_numeros.append(out)
                     tool_results.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": out}
                     )
@@ -1891,6 +1944,10 @@ def coach(
             selo = _selo_de_emergencia(client, final)
             if selo:
                 final = selo + "\n\n" + final
+        if final:
+            final = _conferir_numeros(client, modelo_da_analise,
+                                      system_blocks, messages, final,
+                                      fontes_de_numeros)
         return final or fallback
     except Exception:
         # qualquer falha de rede/SDK -> resumo determinístico

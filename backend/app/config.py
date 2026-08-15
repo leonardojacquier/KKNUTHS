@@ -20,7 +20,12 @@ class Settings:
         self.telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
         self.anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
-        self.analysis_model: str = os.getenv("ANALYSIS_MODEL", "claude-opus-4-8")
+        # Sonnet como default desde 15/08: no A/B do juiz, sonnet 7.7 (n=12)
+        # vs opus 6.0 (n=13) e ~5x mais barato; a nota do dia (6.3) ficou
+        # abaixo da meta de 7 e o combinado com o dono era trocar. Reverter =
+        # ANALYSIS_MODEL=claude-opus-4-8 no .env, sem deploy.
+        self.analysis_model: str = os.getenv("ANALYSIS_MODEL",
+                                             "claude-sonnet-5")
         self.cheap_model: str = os.getenv("CHEAP_MODEL", "claude-haiku-4-5-20251001")
         # roteamento por complexidade: mão de decisão única pré-flop pode ir
         # num modelo mais barato (ex.: claude-sonnet-5). VAZIO = desligado —
