@@ -115,42 +115,74 @@ def _sem_titulo_fixo(texto: str) -> tuple[str, bool]:
     Só quando ela sobrevive sozinha: 'A conta que mais pesa: que você paga
     sempre' vira fragmento se o rótulo sair, e frase partida é o defeito que
     test_corretor_nao_estraga_portugues existe para impedir.
+
+    Corta no início REAL do rótulo, não em m.start(): sem negrito, o trecho
+    de espaço em branco opcional no começo de _TITULO_FIXO também casa a
+    quebra de linha ANTES dele ('...fácil' + duas quebras + 'A conta...'
+    vira o match inteiro, quebras incluídas). Cortar em m.start() comia
+    essas quebras sem reemitir e colava o parágrafo anterior no texto
+    promovido ('...fácilCom 12bb...') — Critical 1 da revisão de qualidade,
+    que também zerava bloco_pos_placar ao juntar a linha de placar com a
+    prosa seguinte. 'inicio' avança m.start() pelo tamanho do espaço em
+    branco líder do match, preservando-o.
+
+    O trecho de espaço em branco no FIM de _TITULO_FIXO é guloso e não tem
+    nada depois dele no padrão: o que sobra em texto[m.end():] nunca começa
+    com espaço (medido com espaço múltiplo, quebra dupla e quebra simples
+    após o rótulo — sempre 0 nos três). Por isso não existe salto a
+    preservar DEPOIS do rótulo, só ANTES.
     """
     saida: list[str] = []
     pos = 0
     mexeu = False
     for m in _TITULO_FIXO.finditer(texto):
-        resto = texto[m.end():]
-        cabeca = resto.lstrip()
+        grupo = m.group(0)
+        inicio = m.start() + (len(grupo) - len(grupo.lstrip()))
+        cabeca = texto[m.end():].lstrip()
         if not cabeca or _FRAGMENTO.match(cabeca):
             continue
-        salto = len(resto) - len(cabeca)
-        saida.append(texto[pos:m.start()])
-        saida.append(texto[m.end():m.end() + salto])
+        saida.append(texto[pos:inicio])
         saida.append(cabeca[0].upper())
-        pos = m.end() + salto + 1
+        pos = m.end() + 1
         mexeu = True
     saida.append(texto[pos:])
     return "".join(saida), mexeu
+
+
+# fronteira real de frase: um "." só separa quando NÃO é ponto decimal.
+# Medido: bb/% sempre aparecem com decimal de ponto (12.9bb, +1.49bb) — o
+# separador ingênuo ([^.!?]+[.!?]*) tratava TODO ponto como fim de frase e
+# cortava exatamente no meio do número, vazando o pedaço mutilado ('49bb')
+# para o aluno. Critical 2 da revisão: é a classe de defeito que
+# _conferir_numeros em llm.py existe para impedir, só que aqui do lado da
+# limpeza de voz em vez do lado da IA.
+_FRASE = re.compile(r"(?:[^.!?]|\.(?=\d))+[.!?]*")
 
 
 def _sem_narracao(texto: str) -> tuple[str, bool]:
     """Remove a FRASE inteira de bastidor, não só a expressão.
 
     Cortar só 'deixa eu conferir' deixaria 'o EV desse shove.' solto, que é
-    pior do que a frase original.
+    pior do que a frase original. O separador de frases é _FRASE, não um
+    split ingênuo por ponto: ponto decimal (12.9bb) não é fim de frase.
     """
     mexeu = False
     saidas: list[str] = []
     for paragrafo in texto.split("\n"):
-        # divide preservando o pontuador final de cada frase
-        frases = re.findall(r"[^.!?]+[.!?]*", paragrafo)
+        frases = _FRASE.findall(paragrafo)
         mantidas = [f for f in frases if not _NARRACAO.search(f)]
         if len(mantidas) != len(frases):
             mexeu = True
             paragrafo = "".join(mantidas).strip()
         saidas.append(paragrafo)
-    return "\n".join(saidas), mexeu
+    novo = "\n".join(saidas)
+    if mexeu:
+        # um parágrafo que era só bastidor vira "" e soma às quebras que já
+        # separavam parágrafos ('...fácil\n\n\n\nCom 12bb...') — buraco
+        # visível que a guarda de 'limpar' não pega, porque só olha o texto
+        # INTEIRO vazio, não o parágrafo. Important 3 da revisão.
+        novo = re.sub(r"\n{3,}", "\n\n", novo)
+    return novo, mexeu
 
 
 def limpar(texto: str) -> tuple[str, list[str]]:
@@ -161,7 +193,10 @@ def limpar(texto: str) -> tuple[str, list[str]]:
     """
     t = texto or ""
     if not t.strip():
-        return texto, []
+        # devolve 't' (sempre str), não 'texto': se texto for None, devolver
+        # None quebra a assinatura -> tuple[str, list[str]], e a Task 3 chama
+        # 'answer, feitos = limpar(answer)' sem guarda de None antes.
+        return t, []
     feitos: list[str] = []
 
     novo, mexeu = _sem_titulo_fixo(t)

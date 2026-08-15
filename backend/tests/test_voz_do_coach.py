@@ -134,3 +134,86 @@ def test_limpar_nunca_devolve_vazio():
     t = "Deixa eu conferir o EV desse shove."
     novo, _ = limpar(t)
     assert novo.strip(), "o guarda comeu a resposta inteira"
+
+
+# --- Rodada de correção 1: os quatro achados da revisão de qualidade -----
+#
+# As asserções abaixo usam igualdade EXATA (==), não `in`/`not in`. É a
+# lição do próprio Important 4 da revisão: os dois testes de remoção acima
+# (test_titulo_fixo_sai_..., test_narracao_de_bastidor_sai_...) usam `in` e
+# passaram verdes com o Critical 1 em produção — 'in' é cego para o que vem
+# ANTES do trecho procurado, e foi exatamente ali que o defeito morava.
+
+
+def test_titulo_sem_negrito_preserva_a_quebra_de_paragrafo_anterior():
+    """Critical 1 da revisão: sem negrito, o espaço em branco opcional no
+    início de _TITULO_FIXO também casa a quebra de linha ANTES do rótulo.
+    Cortar em m.start() (código antigo) comia esse '\\n\\n' sem reemitir e
+    colava os dois parágrafos: '...fácilCom 12bb...', sem nem um espaço. E
+    colava a linha de placar na prosa, zerando bloco_pos_placar."""
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "A conta que mais pesa: com 12bb, AK em HJ é jam pré-flop.")
+    novo, feitos = limpar(t)
+    assert novo == ("✅ Você jogou bem — call fácil\n\n"
+                     "Com 12bb, AK em HJ é jam pré-flop.")
+    assert any("título fixo" in f for f in feitos)
+
+
+def test_titulo_com_negrito_continua_preservando_a_quebra():
+    """O caso com negrito nunca teve o defeito (o '*' ancora o match no
+    início do rótulo, não antes dele) — teste de não-regressão exato."""
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "*A conta que mais pesa:* com 12bb, AK em HJ é jam pré-flop.")
+    novo, feitos = limpar(t)
+    assert novo == ("✅ Você jogou bem — call fácil\n\n"
+                     "Com 12bb, AK em HJ é jam pré-flop.")
+    assert any("título fixo" in f for f in feitos)
+
+
+def test_bastidor_com_numero_decimal_nao_mutila_o_numero():
+    """Critical 2 da revisão: o separador de frase antigo tratava TODO
+    ponto como fim de frase, inclusive o ponto decimal — cortava '1.49bb'
+    no meio e entregava '49bb' ao aluno, um número que não existe na mão.
+    É a mesma classe de defeito que _conferir_numeros em llm.py existe
+    para impedir, só que do lado da limpeza de voz."""
+    t = ("✅ Você jogou bem\n\n"
+         "Deixa eu conferir o EV: 1.49bb no spot. Com 12bb é jam.")
+    novo, feitos = limpar(t)
+    assert novo == "✅ Você jogou bem\n\nCom 12bb é jam."
+    assert "1.49bb" not in novo
+    assert "49bb no spot" not in novo, "número decimal vazou mutilado"
+    assert any("bastidor" in f for f in feitos)
+
+
+def test_bastidor_no_meio_da_frase_preserva_decimal_da_frase_seguinte():
+    """Segundo cenário do Critical 2: o decimal pode estar na frase que
+    SOBREVIVE, não só na que é removida — '9bb efetivo' colado em 'claro.'
+    era o sintoma."""
+    t = ("✅ Você jogou bem\n\n"
+         "Com 12bb o jam é claro. Vou conferir o range: 16.9bb efetivo.")
+    novo, feitos = limpar(t)
+    assert novo == "✅ Você jogou bem\n\nCom 12bb o jam é claro."
+    assert any("bastidor" in f for f in feitos)
+
+
+def test_paragrafo_so_de_bastidor_nao_deixa_buraco_de_linhas_vazias():
+    """Important 3 da revisão: um parágrafo que era só a frase de bastidor
+    virava '' e a guarda de limpar (que só olha o texto INTEIRO vazio) não
+    pegava — sobravam quatro quebras de linha seguidas, buraco visível na
+    mensagem entregue ao aluno."""
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "Deixa eu conferir o EV desse shove.\n\n"
+         "Com 12bb o jam é claro.")
+    novo, feitos = limpar(t)
+    assert novo == ("✅ Você jogou bem — call fácil\n\n"
+                     "Com 12bb o jam é claro.")
+    assert "\n\n\n" not in novo, "sobrou buraco de linhas vazias"
+    assert any("bastidor" in f for f in feitos)
+
+
+def test_limpar_de_none_devolve_string_vazia_nao_none():
+    """Achado extra que o dispatcher decidiu incluir apesar de o revisor
+    classificar como Minor: a assinatura promete tuple[str, list[str]], mas
+    limpar(None) devolvia (None, []). A Task 3 chama
+    'answer, feitos = limpar(answer)' sem guarda de None antes disso."""
+    assert limpar(None) == ("", [])
