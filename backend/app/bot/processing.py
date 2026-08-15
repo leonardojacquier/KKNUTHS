@@ -570,6 +570,19 @@ def _process_upload_inner(
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 
+    # GUARDA DA VOZ: mede o bloco pós-placar (58% do texto, medido) e tira o que é seguro tirar.
+    if coaching:
+        try:
+            from app.bot.guarda_voz import limpar, problemas_de_voz
+            problemas = problemas_de_voz(coaching)
+            coaching, feitos = limpar(coaching)
+            if repo.enabled and (feitos or problemas):
+                repo.log_event(telegram_id, username,
+                               "voz_corrigida" if feitos else "voz_medida",
+                               {"feitos": feitos, "problemas": problemas[:6]})
+        except Exception as exc:
+            log.warning("guarda da voz falhou: %s", exc)
+
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
     # mão única (replay da PPPoker, .txt, print legível): o FILME da mão
@@ -1212,6 +1225,20 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             _stash_charts(telegram_id, extra_specs, ctx.get("user_id"))
     except Exception as exc:
         log.warning("guarda da saída falhou: %s", exc)
+
+    # GUARDA DA VOZ também na conversa: metade do que o aluno percebe como
+    # "o coach falando".
+    try:
+        from app.bot.guarda_voz import limpar, problemas_de_voz
+        problemas = problemas_de_voz(answer)
+        answer, feitos = limpar(answer)
+        if repo.enabled and (feitos or problemas):
+            repo.log_event(telegram_id, username,
+                           "voz_corrigida" if feitos else "voz_medida",
+                           {"onde": "conversa", "feitos": feitos,
+                            "problemas": problemas[:6]})
+    except Exception as exc:
+        log.warning("guarda da voz na conversa falhou: %s", exc)
 
     # GUARDA DOS FATOS TAMBÉM AQUI. Ele rodava só na análise do upload, e a
     # conversa livre é onde "só perde para QQ" é MAIS provável — é nela que o
