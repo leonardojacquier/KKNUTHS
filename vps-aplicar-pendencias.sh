@@ -26,27 +26,35 @@ die() { printf '\033[31mERRO: %s\033[0m\n' "$1" >&2; exit 1; }
 say "1/2 — Cache-Control nas subpáginas (Caddy)"
 
 CANONICO='@html path / /index.html */ *.html'
+HEADER='header @html Cache-Control "no-cache"'
 ANTIGO='^[[:space:]]*@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*$'
 
+# (a) linhas no formato antigo, em qualquer bloco — o matcher (*.html /) pega a
+#     home e os .html, mas não as URLs de diretório (/ventas/apilador-electrico/)
 N=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
 
-if [ "$N" = "0" ]; then
-  if grep -qF "$CANONICO" "$CADDYFILE"; then
-    echo "matcher já está correto — nada a fazer no Caddy"
-  else
-    die "nenhuma linha '@html path ...' reconhecida em $CADDYFILE.
-Edite à mão: no bloco gnhorizons.com a linha deve ficar
-    $CANONICO
-depois rode: caddy validate --config $CADDYFILE && systemctl reload caddy"
+# (b) o bloco do gnhorizons.com pode não ter @html nenhum — nesse caso as
+#     subpáginas saem sem Cache-Control e o navegador segura a versão velha
+FALTA_GNH=0
+if grep -qE '^gnhorizons\.com' "$CADDYFILE"; then
+  if ! awk '/^gnhorizons\.com/{d=1} d && /@html path/{f=1} d && /^\}/{exit} END{exit !f}' "$CADDYFILE"; then
+    FALTA_GNH=1
   fi
 else
-  # Corrige TODAS as ocorrências. O matcher antigo (*.html /) pega a home e os
-  # arquivos .html, mas não as URLs de diretório (/ventas/apilador-electrico/).
-  # O bloco do gnh.vortex369.com.br tem o mesmo defeito do gnhorizons.com, então
-  # os dois são corrigidos. A troca só AMPLIA o conjunto de páginas servidas com
-  # no-cache — não deixa de servir nada.
-  echo "$N linha(s) a corrigir:"
-  grep -nE "$ANTIGO" "$CADDYFILE" | sed 's/^/    /'
+  echo "AVISO: não achei bloco começando em 'gnhorizons.com' — pulando o passo (b)"
+fi
+
+if [ "$N" = "0" ] && [ "$FALTA_GNH" = "0" ]; then
+  grep -qF "$CANONICO" "$CADDYFILE" \
+    && echo "Caddy já está correto — nada a fazer" \
+    || die "nenhuma linha '@html path ...' reconhecida em $CADDYFILE.
+Edite à mão: dentro do bloco gnhorizons.com acrescente
+    $CANONICO
+    $HEADER
+depois rode: caddy validate --config $CADDYFILE && systemctl reload caddy"
+else
+  [ "$N" = "0" ] || { echo "(a) $N linha(s) no formato antigo:"; grep -nE "$ANTIGO" "$CADDYFILE" | sed 's/^/    /'; }
+  [ "$FALTA_GNH" = "0" ] || echo "(b) bloco gnhorizons.com sem matcher @html — vou inserir"
 
   rm -f /etc/caddy/sed?????? 2>/dev/null || true   # sobras de execuções falhas
   cp -a "$CADDYFILE" "$BACKUP"
@@ -77,7 +85,16 @@ else
   # `sed -i` renomeia por cima do original; aqui escrevemos no arquivo existente.
   sed -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" \
       "$CADDYFILE" > "$TMP"
-  [ -s "$TMP" ] || die "sed gerou arquivo vazio — nada foi alterado"
+
+  if [ "$FALTA_GNH" = "1" ]; then
+    awk -v canon="$CANONICO" -v hdr="$HEADER" '
+      /^gnhorizons\.com/ { d=1 }
+      d && /^\}/ { print "\t" canon; print "\t" hdr; d=0 }
+      { print }
+    ' "$TMP" > "$TMP.2" && mv "$TMP.2" "$TMP"
+  fi
+
+  [ -s "$TMP" ] || die "edição gerou arquivo vazio — nada foi alterado"
   cat "$TMP" > "$CADDYFILE" || die "não consegui escrever em $CADDYFILE.
 Se não for o atributo imutável, pode ser AppArmor/SELinux. Diagnóstico:
     lsattr -d $CADDYFILE ; mount | grep -i caddy ; dmesg | tail -20"
@@ -110,11 +127,31 @@ cp "$REPO/vps-autodeploy.sh" /opt/gnh-autodeploy.sh
 chmod +x /opt/gnh-autodeploy.sh
 echo "/opt/gnh-autodeploy.sh atualizado"
 
-if crontab -l 2>/dev/null | grep -q gnh-autodeploy; then
-  echo "cron já configurado"
+# A crontab do root é COMPARTILHADA com os outros sites do VPS. Se `crontab -l`
+# falhasse, o `( crontab -l ; echo ... ) | crontab -` antigo gravaria uma crontab
+# contendo SÓ a linha do gnh, apagando os jobs dos outros domínios. Agora a lista
+# atual é salva em arquivo e só seguimos adiante se a leitura tiver dado certo.
+CRONBAK="/root/crontab.bak-$STAMP"
+if crontab -l > "$CRONBAK" 2>/dev/null; then
+  CRON_OK=1
 else
-  ( crontab -l 2>/dev/null; echo "*/2 * * * * /opt/gnh-autodeploy.sh >/dev/null 2>&1" ) | crontab -
-  echo "cron criado (a cada 2 min)"
+  CRON_OK=0
+  : > "$CRONBAK"
+fi
+
+if [ "$CRON_OK" = "0" ] && [ -s /var/spool/cron/crontabs/root ]; then
+  die "'crontab -l' falhou mas /var/spool/cron/crontabs/root não está vazio.
+Não vou reescrever a crontab às cegas — isso apagaria os jobs dos outros sites.
+Confira à mão: crontab -l ; cat /var/spool/cron/crontabs/root"
+fi
+
+echo "crontab atual salva em $CRONBAK ($(wc -l < "$CRONBAK") linha(s))"
+
+if grep -q gnh-autodeploy "$CRONBAK"; then
+  echo "cron já configurado ($(grep -c gnh-autodeploy "$CRONBAK") entrada(s))"
+else
+  { cat "$CRONBAK"; echo "*/2 * * * * /opt/gnh-autodeploy.sh >/dev/null 2>&1"; } | crontab -
+  echo "cron criado (a cada 2 min) — as $(wc -l < "$CRONBAK") linha(s) anteriores foram preservadas"
 fi
 
 /opt/gnh-autodeploy.sh || true   # publica já, sem esperar o cron
