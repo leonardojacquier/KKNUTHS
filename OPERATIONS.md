@@ -1,5 +1,5 @@
 # KKNuths — Handoff / Operação (KB)
-Atualizado: 2026-08-09 · escopo: tudo implementado até aqui
+Atualizado: 2026-08-15 · escopo: tudo implementado até aqui
 
 > **Mapa do código**: `backend/docs/ARQUITETURA.md`
 > **O que a ferramenta afirma e o que se recusa a afirmar**: `backend/docs/METODO.md`
@@ -27,6 +27,8 @@ Atualizado: 2026-08-09 · escopo: tudo implementado até aqui
 - **Treino**: /treino (drill persistido em pending_drills), /simular (replay jogável + veredito "e se"), quiz diário 19h (cron), /range (grade 13×13: opens e Nash com frequências)
 - **Gráficos automáticos**: quando o coach usa um range, o PNG 13×13 vai junto (máx 2)
 - **Perfil**: /stats cumulativo (hero de cada mão); /ask (RAG com embeddings OpenAI 1536)
+- **Dossiê do vilão (ago/2026)**: `/torneio` (por código ou lista), `/vilao`, `/dossie <nome> [N]` → HTML de estudo com: figura da mão CENTRADA NO VILÃO (cartas dele quando houve showdown, "cartas não vistas" quando não), mãos mostradas classificadas pela LINHA, linhas escuras narradas pelos números delas (check-raise, stack comprometido, textura), padrões entre mãos ("3º overbet no river", sizing vs mediana DELE), cartas prováveis por CONTAGEM DE COMBOS (top-PFR% medido, suposição escrita na frase), dois retratos (showdown × linha) com a divergência, defesa do aluno por MDF. Determinístico + 1 síntese por IA conferida.
+- **Vídeo (passo zero, 12/08)**: vídeo direto (≤20MB, limite da API de bots) ou LINK do YouTube (sem limite; servidor baixa com yt-dlp, teto 30min) → ffmpeg extrai 1 quadro/s, comparador determinístico mantém só as telas que MUDARAM, e a narração é transcrita pelo Whisper (custo impresso na resposta). É PROVA para o dono conferir — a visão sobre os frames ainda NÃO foi ligada.
 - **Automação**: relatório semanal dom 18h (cron), aviso de deploy no TG do admin
 - **Cota**: 100 análises/mês no free (env FREE_MONTHLY_ANALYSES); upload máx 2MB; 5 mãos coacheadas/torneio; pro/premium (users.plan manual) = ilimitado
 - **Billing Stripe**: código pronto e DESLIGADO (decisão de produto); scripts/setup_stripe.py quando ligar
@@ -93,12 +95,25 @@ quebrado e manda a investigação para o lado errado.
 - **Cron tem `telegram_id <= 0`** — filtro por ID em vez de por nome, para que o cron escrito amanhã já nasça fora do feed
 - **Consertar a conta não basta**: a linha errada continua no banco. Todo conserto de cálculo precisa de (a) limpeza da linha envenenada e (b) portão na LEITURA
 
-## Situação da base (09/08/2026, medida)
+## Situação da base (15/08/2026, medida)
+- 14 usuários · 1.418 mãos · 227 uploads · 406 análises · 140 notas de aluno · 35 lições · 36 itens de conhecimento · 2.904 eventos
+- **9 ativos na semana** (Leo + 8): Alvino 17 eventos, Paulo 14 (8 uploads), alvgomes19 12, Ricardo 6, ttbahr 5, Luiz 4, Raphael 3, Sivio 2
+- Pico às sextas/sábados (dia de torneio); a semana esfria de segunda a quinta
+- **`/dossie` tem 9 usos e TODOS são do dono** — nenhum aluno descobriu a funcionalidade mais forte do mês
+- Nota do juiz da saída: 5.8 (14/08) → **6.3 (15/08)**, média 7d 6.2. A/B por modelo nos dias com dado: sonnet 7.7 (n=12) × opus 6.0 (n=13)
+
+## Situação anterior (09/08/2026, para comparar)
 - 11 usuários · 660 mãos · 517 de fonte completa · 6 usuários já mandaram mão · 389 análises · 29 lições · 18 itens de conhecimento · 2.476 eventos
 - **Churn real** (excluindo eventos de saída): 6 ativos · 1 esfriando · **4 sumidos**
 - O mais caro deles: tg `6104620007`, **159 mãos**, sem agir há **21 dias** — é o aluno com maior investimento feito e nenhum retorno
 - **5 dos 11 nunca mandaram uma mão** — o funil trava no primeiro upload, não no engajamento
 - `problemas` está em 0: o ciclo (`/foco`) acabou de subir e ninguém abriu ainda
+
+## Onde paramos (15/08/2026) — esperando o DONO
+1. **Testar o vídeo**: colar o link do react do YouTube no bot (ou mandar vídeo ≤20MB). Volta: telas distintas + narração transcrita + custo impresso. **A pergunta a responder: a mão que o youtuber narra está inteira na transcrição?** Com o "sim", a fase 2 é um modelo de TEXTO extrair cada mão narrada (~US$0,10/react) — visão só confere os frames.
+2. **Publicar o post do dossiê** (`scratchpad/post/`, 1080×1350 + legenda pronta) — a feature mais forte do mês está invisível para os alunos.
+3. **Ler o juiz das 8h de 16/08** — é o 1º dia com Sonnet default + conferência de números. Métricas a olhar: nota do dia, eventos `numeros_corrigidos`/`numeros_nao_conferidos` no banco, e a queda de custo (~5x no caminho principal).
+4. Servidor local da Bot API (`telegram-bot-api`) se aparecer vídeo grande fora do YouTube — sobe o teto de 20MB para 2GB. Precisa de `api_id`/`api_hash` de my.telegram.org (NUNCA por chat — arquivo/ssh).
 
 ## Pendências
 1. **Deploy key no GitHub** (colar `/root/.ssh/kknuths_deploy.pub` em Settings→Deploy keys) e então **tornar o repo privado** — remote atual voltou p/ HTTPS até isso
@@ -109,6 +124,11 @@ quebrado e manda a investigação para o lado errado.
 6. **Relatório de inversão** (tight no early + loose perto do dinheiro) — depende de mãos SEM ante, e todas as 517 completas hoje têm ante
 7. `dead_opener` em `allin_engine.py:203/261` — cheiro de código não resolvido; erros provavelmente se cancelam dentro de um blind, direção não provada
 8. Backlog: auto-sync (watcher de pasta), landing page PT (SEO vs Jenova), streaks, bankroll tracker, benchmarks do field, espanhol
+
+## Decisões de modelo (15/08/2026)
+- `ANALYSIS_MODEL` default = **claude-sonnet-5** (era opus-4-8). Motivo: A/B do juiz (7.7 × 6.0) + custo ~5x menor + nota do dia 6.3 abaixo da meta 7 combinada com o dono. **Reverter = 1 linha no .env** (`ANALYSIS_MODEL=claude-opus-4-8`) + pm2 restart, sem deploy.
+- **Conferência de números na análise** (`app/analysis/conferencia.py`): todo número citado precisa de lastro no contexto da mão ou no resultado de ferramenta. Órfão → 1 reescrita corretiva; persiste → entrega + evento `numeros_nao_conferidos`. Nunca degrada abaixo do que já ia sair; análise limpa não gasta chamada extra.
+- Três defeitos de MONTAGEM (não de modelo) corrigidos em 15/08, cada um com teste: selo ancorado por LINHA (não por bloco); resgate da conclusão quando o modelo só narra bastidor; fallback determinístico com selo/naipe em vez de stub (`VOCÊ (Tc Kh) em ?` chegou a aluno).
 
 ## Regras de comunicação com o Leo (registradas a pedido dele)
 - **PROIBIDA a palavra "honesto/honesta/honestidade" (e variações) nas respostas ao Leo** — 15/08/2026, pedido dele, sem exceção. Diga o fato direto, sem se autoqualificar. (Vale para o chat com ele; o código e docs internos não mudam.)
