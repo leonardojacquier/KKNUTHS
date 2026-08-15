@@ -110,6 +110,9 @@ quebrado e manda a investigação para o lado errado.
 7. `dead_opener` em `allin_engine.py:203/261` — cheiro de código não resolvido; erros provavelmente se cancelam dentro de um blind, direção não provada
 8. Backlog: auto-sync (watcher de pasta), landing page PT (SEO vs Jenova), streaks, bankroll tracker, benchmarks do field, espanhol
 
+## Regras de comunicação com o Leo (registradas a pedido dele)
+- **PROIBIDA a palavra "honesto/honesta/honestidade" (e variações) nas respostas ao Leo** — 15/08/2026, pedido dele, sem exceção. Diga o fato direto, sem se autoqualificar. (Vale para o chat com ele; o código e docs internos não mudam.)
+
 ## Documentos irmãos
 - `backend/docs/ARQUITETURA.md` (mapa do código) · `backend/docs/METODO.md` (o que a ferramenta afirma e o que se recusa a afirmar)
 - `PLANO.md` (produto) · `BUSINESS_PLAN.md` (negócio) · `MANUAL.md` (usuário, comercial) · `backend/README.md` (dev) · `backend/deploy/README.md` (deploy)
