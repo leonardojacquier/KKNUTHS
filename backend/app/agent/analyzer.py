@@ -387,9 +387,23 @@ def _hero_position(hand: CanonicalHand) -> str | None:
 
 
 def _deterministic_summary(hand: CanonicalHand, spots: list[dict], net: float, bb: float) -> str:
-    cards = " ".join(hand.hero_cards) if hand.hero_cards else "?"
-    pos = _hero_position(hand) or "?"
-    parts = [f"{hand.hero or 'Herói'} ({cards}) em {pos}."]
+    """O plano C — quando a análise do coach falha, ISTO chega no aluno.
+
+    A versão anterior era um stub de depuração ("VOCÊ (Tc Kh) em ?...") e
+    foi entregue assim em produção (13/08 22:26, juiz apontou: sem selo,
+    carta sem naipe). Rede de segurança também é produto: selo, naipes,
+    e a honestidade de dizer que a análise completa não saiu."""
+    from app.analysis.equity import pretty_cards
+
+    cards = pretty_cards(list(hand.hero_cards)) if hand.hero_cards else "?"
+    pos = _hero_position(hand)
+    quem = f"{cards}" + (f" no {pos}" if pos else "")
+    parts = [
+        "🟡 *Análise curta — modo seguro.* A análise completa não saiu "
+        "agora; ficam os números da mão. Reenvia (ou pergunta aqui) que "
+        "eu detalho.",
+        f"Sua mão: {quem}.",
+    ]
     for s in spots:
         if s["decision"] == "call":
             parts.append(
@@ -402,8 +416,8 @@ def _deterministic_summary(hand: CanonicalHand, spots: list[dict], net: float, b
                 f"No {s['street']}: {tag} de {s['amount']:.0f} "
                 f"(pote {s['pot_before']:.0f})."
             )
-    parts.append(f"Resultado: {net/bb:+.1f} BB.")
-    return " ".join(parts)
+    parts.append(f"Saldo da mão: {net/bb:+.1f} BB.")
+    return "\n".join(parts)
 
 
 def llm_summary(structured: dict, stats: dict | None = None, lang: str = "pt") -> str:

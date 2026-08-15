@@ -1679,17 +1679,56 @@ def _montar_resposta(parts: list[str]) -> str:
     3ª linha e, com duas rodadas de tools, duplicava o preâmbulo. O juiz
     da saída mediu: era o defeito de forma nº 1 das análises entregues.
 
-    Regra: se algum bloco começa pelo selo, a resposta começa NELE. Sem
-    selo em bloco nenhum (rodadas esgotadas, resposta de conversa), nada é
-    descartado — o texto pré-tools continua sendo a rede de segurança.
+    Regra: a resposta começa na primeira LINHA que abre com o selo — em
+    qualquer bloco, em qualquer posição. A versão anterior só olhava o
+    COMEÇO de cada bloco, e o modelo às vezes cola narração e veredito no
+    mesmo bloco ("KT tinha 50% — call trivial. Fecho a análise.\\n\\n✅ ...")
+    — o preâmbulo inteiro sobrevivia (caso real 13/08, juiz em 5.8). Sem
+    selo em linha nenhuma (conversa, rodadas esgotadas), nada é descartado.
     """
     from app.agent.termos import corrigir
 
     limpos = [x.strip() for x in parts if x.strip()]
-    for i, p in enumerate(limpos):
-        if p.startswith(_SELOS_DE_VEREDITO):
-            return corrigir("\n\n".join(limpos[i:]))
-    return corrigir("\n\n".join(limpos))
+    texto = "\n\n".join(limpos)
+    linhas = texto.split("\n")
+    for i, ln in enumerate(linhas):
+        if ln.lstrip().startswith(_SELOS_DE_VEREDITO):
+            return corrigir("\n".join(linhas[i:]).strip())
+    return corrigir(texto)
+
+
+def _tem_selo(texto: str | None) -> bool:
+    return any(ln.lstrip().startswith(_SELOS_DE_VEREDITO)
+               for ln in (texto or "").split("\n"))
+
+
+def _resgatar_conclusao(client, modelo, system_blocks, messages,
+                        ultimo_assistant=None) -> str | None:
+    """A análise nunca veio (só narração de bastidor): pede a CONCLUSÃO.
+
+    Caso real de 13/08 21:24, nota 2.5: rodadas esgotadas em erros de tool
+    e o aluno recebeu 'Vou usar a leitura do range pelo caminho certo...'
+    como resposta final. Uma chamada extra SEM tools, com a instrução
+    explícita, recupera a análise — e só roda no caminho de falha."""
+    msgs = list(messages)
+    if ultimo_assistant is not None:
+        msgs.append({"role": "assistant", "content": ultimo_assistant})
+    instrucao = {"type": "text", "text": (
+        "Escreva AGORA a análise final completa, começando pelo selo de "
+        "veredito (✅/🟡/❌) na primeira linha, com os números que você já "
+        "calculou. Não chame mais ferramentas; se alguma conta não fechou, "
+        "diga qualitativo em vez de esperar a conta.")}
+    if msgs and msgs[-1]["role"] == "user":
+        cont = msgs[-1]["content"]
+        cont = cont + [instrucao] if isinstance(cont, list) else [
+            {"type": "text", "text": cont}, instrucao]
+        msgs[-1] = {"role": "user", "content": cont}
+    else:
+        msgs.append({"role": "user", "content": [instrucao]})
+    texto = _force_text(client, modelo, system_blocks, msgs)
+    if _tem_selo(texto):
+        return _montar_resposta([texto])
+    return None
 
 
 def mao_simples(structured: dict) -> bool:
@@ -1804,6 +1843,14 @@ def coach(
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
                 final = _montar_resposta(parts)
+                if not _tem_selo(final):
+                    # narração sem análise: recupera a conclusão antes de
+                    # aceitar — o selo de emergência é o plano C, não o B
+                    resgate = _resgatar_conclusao(
+                        client, modelo_da_analise, system_blocks, messages,
+                        ultimo_assistant=resp.content)
+                    if resgate:
+                        return resgate
                 if final and key_hands is None and \
                         not final.startswith(_SELOS_DE_VEREDITO):
                     selo = _selo_de_emergencia(client, final)
@@ -1831,8 +1878,14 @@ def coach(
                     )
             messages.append({"role": "user", "content": tool_results})
 
-        # rodadas esgotadas: entrega o que já foi escrito em vez de jogar fora
+        # rodadas esgotadas: recuperar a conclusão vem antes de entregar a
+        # narração acumulada (era ela que virava a "resposta" — 13/08, 2.5)
         final = _montar_resposta(parts)
+        if not _tem_selo(final):
+            resgate = _resgatar_conclusao(client, modelo_da_analise,
+                                          system_blocks, messages)
+            if resgate:
+                return resgate
         if final and key_hands is None and \
                 not final.startswith(_SELOS_DE_VEREDITO):
             selo = _selo_de_emergencia(client, final)
