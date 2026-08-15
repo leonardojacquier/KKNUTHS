@@ -80,6 +80,41 @@ Host e pasta já estão preenchidos no workflow.
 
 ---
 
+## Pendências do VPS — script único
+
+Duas coisas só podem ser feitas **no VPS** e não saem de um push:
+
+1. **Subpáginas de produto sem `Cache-Control: no-cache`.** O matcher `@html` do
+   bloco `gnhorizons.com` precisa cobrir também as URLs de diretório
+   (`/ventas/apilador-electrico/`). Sem o `*/`, o navegador segura a versão
+   velha e o cliente jura que "não atualizou".
+2. **`/opt/gnh-autodeploy.sh` desatualizado.** É uma *cópia* de
+   `vps-autodeploy.sh`; enquanto não for recopiada, o cron publica sem
+   `assets/nuevo/` na raiz e as URLs limpas quebram no vortex.
+
+```bash
+ssh root@srv1555380.hstgr.cloud
+cd /root/KKNUTHS && git pull
+bash vps-aplicar-pendencias.sh
+```
+
+O script faz backup do `Caddyfile`, roda `caddy validate` e — se a validação
+falhar — **restaura o backup e aborta sem dar reload** (o VPS é compartilhado:
+um reload ruim derruba todos os domínios). Depois reinstala o auto-deploy,
+garante o cron de 2 min, publica na hora e imprime a conferência (códigos HTTP,
+o header `Cache-Control` e as últimas linhas de `/var/log/gnh-autodeploy.log`).
+
+É **idempotente** — rodar de novo não faz nada se já estiver tudo certo. Se ele
+encontrar o Caddyfile num formato que não reconhece, aborta e mostra a linha que
+você precisa deixar assim, à mão:
+
+```caddy
+@html path / /index.html */ *.html
+header @html Cache-Control "no-cache"
+```
+
+---
+
 ## Migrar gnhorizons.com para o VPS
 
 Objetivo: o gnhorizons.com passa a ser servido por este VPS, com o redesign na
