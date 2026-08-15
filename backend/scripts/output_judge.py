@@ -214,10 +214,6 @@ def main() -> int:
         print("sem Supabase")
         return 0
 
-    # VOZ: importa problemas_de_voz que resumo_de_voz() usará para contar
-    # defeitos separados da nota (a régua 0-10 não muda).
-    from app.bot.guarda_voz import problemas_de_voz  # noqa: F401
-
     # JANELA de 24h nos dois artefatos: o texto gravado é imutável, então
     # auditar "os últimos N" faz o mesmo estoque antigo reprovar todo dia —
     # depois do conserto do preâmbulo, o juiz seguiu apontando 5 análises
