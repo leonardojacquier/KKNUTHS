@@ -13,10 +13,10 @@ atualizado: 2026-08-14
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 31 |
-| Fichas técnicas (HTML) | 84 |
-| PDFs de ficha | 96 |
-| Produtos **sem** tabela de specs | 18 |
+| Páginas estáticas de produto | 34 (28 de produto + 6 de categoria) |
+| Fichas técnicas (HTML) | 88 |
+| PDFs de ficha | 100 |
+| Produtos **sem** tabela de specs | 13 |
 
 ## As três famílias de ficha
 
@@ -114,15 +114,29 @@ Mástil de alumínio, acionamento electro-hidráulico, sem emissões (uso intern
 marcam "Consultar". Se o fornecedor mandar as folhas de spec, as 12 fichas enriquecem
 de uma vez só (basta editar o array `MODELOS` do gerador).
 
-## Os 20 produtos sem specs
+## Produtos sem specs
 
-Não têm página estática porque falta a tabela de dados:
-Regla Láser Vibratoria WS940, Bomba Transportadora de Concreto, Allanadora de Concreto
-1 m, Cortadora de Piso, Máquina de Marcado Vial, Central de Concreto JBTS20,
-Proyectora de Revoque, entre outros.
+Não têm página estática porque falta a tabela de dados do fabricante. Restam
+**13** — entre eles Regla Láser Vibratoria WS940, Cortadora de Piso, Camión Grúa
+(Grúa Móvil), Montacargas Todoterreno 3,5 t, Rodillo Compactador e Bulldozer.
 
 **Para resolver:** mandar o catálogo do fabricante → vira tabela em `catalogo-data.ts`
 → página + ficha + PDF saem dos geradores.
+
+> [!important] Onde os specs moram no bundle (armadilha)
+> O bundle `assets/ventas-<hash>.js` tem **dois** lugares que definem specs:
+> o campo `specs` inline de cada produto **e** um mapa `H = {"<nome>": {h,r}}`
+> aplicado depois por `for(const e of o) H[e.name] && (e.specs = H[e.name])`.
+> **O mapa `H` sobrescreve o inline.** Editar só o inline de um produto que já
+> está em `H` não muda nada no site — foi o que aconteceu com a Carretilla
+> Retráctil, que continuou mostrando a tabela CQD-A/B/J antiga depois de
+> publicarmos os CQD20S/CQD25S. Ao mexer em specs, checar `H` primeiro.
+>
+> O link **"Ver detalles"** do card só é montado quando o produto tem `specs`
+> (`const e = a.specs ? \`/ventas/${ua(a.name)}/\` : ""`). Uma página em
+> `/ventas/<slug>/` sem specs no bundle fica inalcançável pelo buscador — era o
+> caso da **Retroexcavadora**, corrigido em ago/2026. Hoje: 28 páginas de
+> produto, 28 linkadas, zero órfãs.
 
 ## A busca do catálogo
 
@@ -262,3 +276,91 @@ existiam** no buscador (nenhum item novo foi criado no catálogo):
 > - O arquivo cobre 15DH/15DK no nome, mas as páginas trazem só **CDD15D** — confirmar se
 >   DH/DK são variantes de bateria (lítio/chumbo) do mesmo modelo.
 > Confirmar tudo com a fábrica antes de material impresso.
+
+
+## Setembro 2026 — lote "Parámetros del producto"
+
+Origem: DOCX `Parámetros del producto` da fábrica, com dados soltos de vários
+equipamentos que **já existiam como card no buscador, mas sem tabela**. Cada um
+virou o pacote completo (specs no card + página + ficha HTML + ficha PDF + link
+na categoria + sitemap).
+
+### Mini Excavadora HT15 — três versões
+O produto já tinha página com a gama SE/ST (800 kg a 6 t). O DOCX detalha as
+**três versões do modelo de 1,5 t**, que compartilham chassi e geometria:
+
+| | HT15-2 | HT15-3 | HT15-4 |
+|---|---|---|---|
+| Motor | Briggs & Stratton | Kepu 292 (China II) | Kubota D722 |
+| Potência | 13 HP | 14 kW | 10,2 kW |
+| Posto | aberto | aberto | **cabine fechada** |
+
+Comuns às três: trem de rodagem **retrátil** 980 mm · sapata 180 mm ·
+profundidade de escavação 1.850 mm · altura 2.450 mm · comandos piloto mecânicos
+dos dois lados. PDF `mini-excavadora-ht15.pdf`.
+
+### Camión Volquete de Orugas — QY-500 (0,5 t) e modelo de 1,2 t
+- **QY-500:** 500 kg · gasolina 6,5 CV com partida elétrica · tração totalmente
+  hidráulica · 3 km/h · rampa 35° · basculamento hidráulico 90° · 1.600 × 850 ×
+  1.250 mm · chassi 1.230 × 730 mm · esteira de borracha com cabo de aço
+  180 × 72 × 37 · peso 430 kg · Euro V.
+- **1,2 t:** diesel monocilíndrico (China II) 7 kW · 1.200 kg · sapata 180 mm ·
+  caçamba de 594 dm³ que **gira 180°** além de bascular 90° · autodescarga hidráulica.
+
+Fotos novas recortadas do DOCX: `minidumper-qy500.jpg`, `minidumper-12t.jpg`
+(+ `-thumb`). Página `/ventas/camion-volquete-de-orugas/`, PDF
+`camion-volquete-orugas.pdf`.
+
+### Máquina de Marcado Vial
+Motor a gasolina Honda · 5,5 CV · avanço 15 km/h / ré 10 km/h ·
+1.500 × 800 × 1.000 mm · 145 kg. Página `/ventas/maquina-de-marcado-vial/`,
+PDF `maquina-marcado-vial.pdf`. Foto mantida (`marcado.png`, já publicada).
+
+### Bomba Transportadora de Concreto
+Distância horizontal 90 m · altura 25 m · pressão 10 MPa · tubulação Ø 80 mm ·
+agregado ≤ 15 mm · traço recomendado 1:2:2 (cimento:areia:brita) · motor 15 kW ·
+380 V · 700 kg. Página `/ventas/bomba-transportadora-de-concreto/`, PDF
+`bomba-transportadora-concreto.pdf`. Foto mantida (`bomba-cemento.png`).
+
+### Apilador CDD20-35 (novo modelo da série walkie)
+2.000 kg · elevação 3.500 mm · h1 2.350 mm · h4 4.050 mm · comprimento 2.050 mm ·
+largura 860 mm · garfos 1.200 × 170 × 50 mm · pernas 680 mm externo / 340 mm
+interno · centro de carga 600 mm · garfo baixado a 90 mm · subida 80/130 mm/s ·
+descida 110/90 mm/s · raio de giro 1.680 mm · freio eletromagnético · rodas PU
+80 × 70 (dianteira) e 156 × 50 (traseira) · motor de tração 0,75 kW e de elevação
+2,2 kW · bateria 24 V / 73 Ah. Entrou como 4ª coluna da tabela walkie na página,
+na ficha e no PDF `apilador-cdd-d.pdf`. Foto `apilador-cdd20-35.jpg`.
+
+### Alisadora VS836 — segunda ficha do fabricante
+O DOCX traz **outra revisão** da folha da VS836 (marca VANSE, 座驾抹光机 = ride-on).
+Dela aproveitamos só o que não conflita e foi somado à tabela publicada:
+**8 pás** (4 por rotor), **largura de trabalho 1.900 mm**, distância entre furos
+fixos **4,75″**, óleo de motor **SAE 30**, óleo da caixa redutora sintético do
+fabricante e combustível **gasolina ≥ 90 octanas**.
+
+> [!warning] A revisão nova diverge da publicada — não sobrescrita
+> | | Publicado (folha anterior) | DOCX novo |
+> |---|---|---|
+> | Potência | 16,5 kW / 22,1 HP | 25 HP / 3.600 rpm |
+> | Tanques | 19 L / 19 L | 20 L / 20 L |
+> | Peso | 370 kg | 360 kg |
+> | Altura | 1.300 mm | 1.350 mm |
+> | Embalagem | 2.160 × 1.160 × 1.230 | 2.100 × 1.150 × 1.150 |
+>
+> Os valores do DOCX batem melhor com a coluna **VS836H** já publicada (25 HP,
+> 20 L). Suspeita: a folha nova descreve a VS836H, ou houve revisão de projeto.
+> **Nada foi alterado** — confirmar com a fábrica qual revisão vale.
+
+> [!warning] Outras inconsistências deste lote
+> - **QY-500:** a tabela do DOCX está com as colunas desalinhadas — aparece
+>   "Peso = Euro V", "Emissões = Boliton" e "Motor = 3 km/h". Lendo com o
+>   deslocamento de uma linha, fecha: peso 430 kg, emissões Euro V, motor Boliton.
+>   Publicamos peso e emissões; **omitimos "altura máxima de elevação"** (ficou
+>   sem valor) e a **marca do motor** (o DOCX diz *Runtong* num campo e *Boliton*
+>   noutro).
+> - **HT15-3:** "Kepu 292, 14 kW" — 292 cc a gasolina dificilmente entrega 14 kW.
+>   Publicado como impresso; confirmar potência e se o motor é diesel.
+> - **Máquina de marcado:** ré a 10 km/h e avanço a 15 km/h para um equipamento de
+>   145 kg é alto; confirmar se são velocidades de deslocamento ou de pintura.
+> - **CPC35** e **Montacargas Todoterreno 3,5 t**: o DOCX diz "já enviado ao grupo
+>   de WhatsApp" / "enviar depois" — **sem dados**, seguem sem ficha.
