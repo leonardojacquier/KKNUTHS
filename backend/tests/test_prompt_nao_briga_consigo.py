@@ -159,7 +159,9 @@ def test_o_fechamento_nao_cala_a_historia_do_desfecho():
     assert "R5b" in r3, \
         "o R3 proíbe repetir número sem abrir a exceção do R5b"
     r5b = re.search(r"R5b .*?(?=R6 )", PT, re.S).group(0)
-    assert "% de cada rua" in r5b, \
+    # sem pinar a palavra que o R5b usa para street: ele ainda diz o calque
+    # "rua", e um teste não pode ser o motivo de o calque continuar lá
+    assert "% de cada" in r5b, \
         "se o R5b parou de pedir as %, a exceção do R3 ficou órfã"
 
 

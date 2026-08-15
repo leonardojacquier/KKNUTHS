@@ -31,6 +31,32 @@ def test_a_instrucao_nao_planta_mais_o_titulo_fixo():
         "a instrução do coach ainda planta o título fixo"
 
 
+def test_a_instrucao_do_coach_proibe_recitar_e_nao_qualquer_numero():
+    """A ordem contrária estava no lugar MAIS forte, e verde.
+
+    O R3 aprendeu a distinguir RECITAR a conta (proibido) de contar a
+    história do desfecho com as % de cada street (obrigatório, R5b). A
+    `instruction` continuava com a redação em bloco que o R3 aposentou —
+    'sem repetir número que já está no placar' — e ela não vai no system:
+    vai no TURNO DE USUÁRIO, que pesa mais. Na prática a contradição
+    R3 × R5b seguia de pé com a suíte inteira verde, porque nenhum teste
+    lia o texto da instrução.
+    """
+    fonte = _instrucoes_de(llm.coach)
+    assert "repetir número" not in fonte.lower(), \
+        "a instrução ainda manda calar qualquer número repetido"
+    assert "recitar" in fonte.lower(), \
+        "a instrução tem que proibir a RECITAÇÃO da conta, não o número"
+
+
+def test_a_instrucao_do_followup_proibe_recitar_e_nao_qualquer_numero():
+    """Gêmeo do de cima: o bloco de voz da conversa tinha a mesma ordem."""
+    fonte = _instrucoes_de(llm.followup)
+    assert "repetir número" not in fonte.lower(), \
+        "o bloco de voz do followup ainda manda calar número repetido"
+    assert "recitar" in fonte.lower()
+
+
 def test_o_prompt_proibe_o_titulo_fixo():
     assert "conta que mais pesa" in PROMPT.lower(), \
         "o prompt precisa NOMEAR o título para proibi-lo"
