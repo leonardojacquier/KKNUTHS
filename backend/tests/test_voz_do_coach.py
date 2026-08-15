@@ -71,3 +71,66 @@ def test_analise_limpa_nao_tem_problema_nenhum():
              "✅ *Flop* 5♥8♠6♦ — set de 6 e jam de 16.9bb: board conectado.\n\n"
              "Com set em board de draw, empacotar é obrigatório.")
     assert problemas_de_voz(limpa) == []
+
+
+from app.bot.guarda_voz import limpar
+
+
+def test_titulo_fixo_sai_e_a_frase_vira_maiuscula():
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "*A conta que mais pesa:* com 12bb, AK em HJ é jam pré-flop.")
+    novo, feitos = limpar(t)
+    assert "conta que mais pesa" not in novo
+    assert "Com 12bb, AK em HJ é jam pré-flop." in novo
+    assert any("título fixo" in f for f in feitos)
+
+
+def test_titulo_nao_sai_quando_a_frase_nao_sobrevive_sozinha():
+    """'A conta que mais pesa: que você paga sempre' — tirar o rótulo deixa
+    um fragmento. Este repositório já tem test_corretor_nao_estraga_portugues
+    para esta classe exata de bug; o guarda novo não pode reintroduzi-la."""
+    t = ("✅ Você jogou bem\n\n"
+         "A conta que mais pesa: que você paga sempre sem pensar.")
+    novo, feitos = limpar(t)
+    assert novo == t, "o guarda partiu a frase ao meio"
+    assert feitos == []
+
+
+def test_narracao_de_bastidor_sai_a_frase_inteira():
+    t = ("✅ Você jogou bem — call fácil\n\n"
+         "Deixa eu conferir o EV desse shove. Com 12bb o jam é claro.")
+    novo, feitos = limpar(t)
+    assert "Deixa eu conferir" not in novo
+    assert "Com 12bb o jam é claro." in novo
+    assert any("bastidor" in f for f in feitos)
+
+
+def test_anotacao_no_caderno_sobrevive_a_limpeza():
+    t = "✅ Você jogou bem\n\nAnotei no caderno pra puxarmos na próxima."
+    novo, feitos = limpar(t)
+    assert novo == t
+    assert feitos == []
+
+
+def test_autocorrecao_NAO_e_corrigida_so_medida():
+    """n=4 em 403. Frequência baixa demais e falso positivo plausível na
+    fala natural ('não é fold... digo, não sempre')."""
+    t = "✅ Você jogou bem\n\nAbriu 6♦... digo, abriu 2bb com 66."
+    novo, _ = limpar(t)
+    assert novo == t
+
+
+def test_analise_limpa_passa_intacta():
+    limpa = ("✅ Você jogou bem — set flopado\n\n"
+             "✅ *Flop* 5♥8♠6♦ — set de 6 e jam de 16.9bb.\n\n"
+             "Com set em board de draw, empacotar é obrigatório.")
+    novo, feitos = limpar(limpa)
+    assert novo == limpa
+    assert feitos == []
+
+
+def test_limpar_nunca_devolve_vazio():
+    """Degradar para nada é pior do que entregar com defeito."""
+    t = "Deixa eu conferir o EV desse shove."
+    novo, _ = limpar(t)
+    assert novo.strip(), "o guarda comeu a resposta inteira"

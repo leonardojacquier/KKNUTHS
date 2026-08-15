@@ -101,3 +101,76 @@ def problemas_de_voz(texto: str) -> list[str]:
         probs.append(f"número do placar repetido na prosa: "
                      f"{', '.join(repetidos[:4])}")
     return probs
+
+
+# palavras que, logo depois do rótulo, denunciam que a frase DEPENDIA dele:
+# tirar o rótulo deixaria um fragmento sem sujeito.
+_FRAGMENTO = re.compile(r"^(que|porque|por\s+que|e|mas|ou|então|pois|se)\b",
+                        re.I)
+
+
+def _sem_titulo_fixo(texto: str) -> tuple[str, bool]:
+    """Tira o rótulo e promove a frase a início de parágrafo.
+
+    Só quando ela sobrevive sozinha: 'A conta que mais pesa: que você paga
+    sempre' vira fragmento se o rótulo sair, e frase partida é o defeito que
+    test_corretor_nao_estraga_portugues existe para impedir.
+    """
+    saida: list[str] = []
+    pos = 0
+    mexeu = False
+    for m in _TITULO_FIXO.finditer(texto):
+        resto = texto[m.end():]
+        cabeca = resto.lstrip()
+        if not cabeca or _FRAGMENTO.match(cabeca):
+            continue
+        salto = len(resto) - len(cabeca)
+        saida.append(texto[pos:m.start()])
+        saida.append(texto[m.end():m.end() + salto])
+        saida.append(cabeca[0].upper())
+        pos = m.end() + salto + 1
+        mexeu = True
+    saida.append(texto[pos:])
+    return "".join(saida), mexeu
+
+
+def _sem_narracao(texto: str) -> tuple[str, bool]:
+    """Remove a FRASE inteira de bastidor, não só a expressão.
+
+    Cortar só 'deixa eu conferir' deixaria 'o EV desse shove.' solto, que é
+    pior do que a frase original.
+    """
+    mexeu = False
+    saidas: list[str] = []
+    for paragrafo in texto.split("\n"):
+        # divide preservando o pontuador final de cada frase
+        frases = re.findall(r"[^.!?]+[.!?]*", paragrafo)
+        mantidas = [f for f in frases if not _NARRACAO.search(f)]
+        if len(mantidas) != len(frases):
+            mexeu = True
+            paragrafo = "".join(mantidas).strip()
+        saidas.append(paragrafo)
+    return "\n".join(saidas), mexeu
+
+
+def limpar(texto: str) -> tuple[str, list[str]]:
+    """Corrige o que é seguro corrigir. Devolve (texto, o que foi feito).
+
+    Nunca degrada abaixo do que já ia sair: se a limpeza esvaziar o texto,
+    a original volta. Mesma disciplina do _conferir_numeros em llm.py.
+    """
+    t = texto or ""
+    if not t.strip():
+        return texto, []
+    feitos: list[str] = []
+
+    novo, mexeu = _sem_titulo_fixo(t)
+    if mexeu:
+        feitos.append("título fixo removido")
+    novo, mexeu = _sem_narracao(novo)
+    if mexeu:
+        feitos.append("bastidor de busca removido")
+
+    if not novo.strip():
+        return texto, []
+    return novo, feitos
