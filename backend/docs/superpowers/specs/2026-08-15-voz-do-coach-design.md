@@ -119,7 +119,16 @@ risco não vale para tudo.
   remoção for cega. Correção nº 4: quando a frase não sobrevive, o guarda
   registra e não toca. Este repositório já tem
   `test_corretor_nao_estraga_portugues.py` para esta classe exata de bug.
-- frase de bastidor ("anotei no caderno") — remove a frase inteira.
+- frase de **narração de busca** ("deixa eu conferir o EV", "vou puxar o
+  histórico") — remove a frase inteira. Medido: 91/403 = **23%**.
+
+  **Correção feita ao escrever o plano.** Esta linha dizia "anotei no
+  caderno". Medindo separado: "anotei no caderno" são 32/403 (8%) e **não é
+  defeito** — é voz de coach e é a regra A2 (`record_student_note`)
+  aparecendo para o aluno. O guarda como estava especificado apagaria a
+  frase mais humana da resposta e deixaria passar o bastidor de verdade,
+  que é 3x mais comum. É o mesmo erro do convite de ICM (§1): tratar o que
+  eu vi como o que existe.
 
 **Só registra evento**:
 
