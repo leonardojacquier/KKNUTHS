@@ -23,6 +23,24 @@ from app.models.canonical import CanonicalHand
 
 MAX_TOOL_ROUNDS = 5
 
+# Teto de saída da chamada PRINCIPAL da análise. Medição de 30 dias em
+# bot_events/custo_llm (tarefa=analise, 380 chamadas), em tokens de saída:
+# mediana 355, p90 1.193, p99 1.500, máximo 1.500 — p99 e máximo colados no
+# teto porque era ELE que os censurava, com 12 das 380 (3,2%) batendo nele.
+# A distribuição acima de 1.500 é desconhecida, então a folga se mede contra o
+# p90: 4.000 é ~3,3x ele. Em 16/08 19:19 uma dessas 12 cortou a análise no
+# meio da 2ª linha do placar e o aluno recebeu meia frase; o placar novo (com
+# o conceito explicado dentro de cada linha) é legitimamente mais longo.
+# Custo: token de saída só é cobrado quando gerado — subir o teto não encarece
+# as ~90% de chamadas que ficam abaixo de 1.200.
+MAX_TOKENS_ANALISE = 4000
+
+# Teto da chamada SEM tools que escreve a conclusão de resgate e a reescrita
+# da conferência de números. Sobe na mesma proporção (1.200 -> 2.500, ~2,1x o
+# p90 medido): cortar AQUI produz exatamente o mesmo defeito de 16/08, só que
+# no plano B — e uma conclusão pela metade não é conclusão.
+MAX_TOKENS_CONCLUSAO = 2500
+
 # Ferramentas determinísticas expostas ao Claude (function calling).
 TOOLS = [
     {
@@ -1101,10 +1119,20 @@ def _create(client, **kw):
 def _force_text(client, model, system_blocks, messages):
     """Última tentativa SEM tools: se o modelo gastou todos os rounds só
     chamando ferramentas e nunca escreveu, obriga-o a redigir a conclusão —
-    senão o aluno leva um 'me embananei' no lugar da análise."""
+    senão o aluno leva um 'me embananei' no lugar da análise.
+
+    Conclusão cortada não é conclusão: se a API disser `stop_reason` =
+    'max_tokens', o texto parcial é DESCARTADO (devolve None) e o corte vira
+    evento. Sem isto, o defeito de 16/08 19:19 — meia frase entregue como
+    análise — só mudava de porta: aqui é a conclusão de resgate e a reescrita
+    da conferência de números que sairiam pela metade."""
     try:
-        resp = _create(client, model=model, max_tokens=1200, temperature=0.2,
+        resp = _create(client, model=model, max_tokens=MAX_TOKENS_CONCLUSAO,
+                       temperature=0.2,
                        system=system_blocks, messages=messages)
+        if getattr(resp, "stop_reason", None) == "max_tokens":
+            _registrar_corte("forca_conclusao")
+            return None
         return "".join(b.text for b in resp.content if b.type == "text").strip() or None
     except Exception as exc:
         logging.getLogger("llm").warning("força-conclusão falhou: %s", exc)
@@ -1884,6 +1912,33 @@ def _registrar_plano_c(motivo: str) -> None:
         pass
 
 
+def _registrar_corte(onde: str, resgatado: bool = False) -> None:
+    """A API marcou o texto como incompleto (`stop_reason='max_tokens'`).
+
+    Evento com nome próprio porque `plano_c` mistura tudo (falha de rede,
+    resposta muda, rodadas esgotadas) e a pergunta aqui é outra: com que
+    frequência a análise encosta no teto? Em 30 dias foram 12 de 380 chamadas
+    (3,2%) no teto antigo de 1.500 e UMA cortada entregue ao aluno — 16/08
+    19:19. `onde` separa a chamada principal da conclusão de resgate;
+    `resgatado` diz se o aluno ainda recebeu análise ou caiu no resumo.
+
+    Blindado como o registro de custo: diagnóstico nunca derruba a resposta.
+    """
+    logging.getLogger("llm").warning(
+        "análise cortada no teto (%s), resgatada=%s", onde, resgatado)
+    try:
+        from app.db import get_repository
+
+        repo = get_repository()
+        if repo.enabled:
+            repo.log_event(0, None, "analise_cortada", {
+                "onde": onde,
+                "stop_reason": "max_tokens",
+                "resgatado": resgatado})
+    except Exception:
+        pass
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1951,7 +2006,7 @@ def coach(
         for _ in range(MAX_TOOL_ROUNDS):
             resp = _create(client,
                 model=modelo_da_analise,
-                max_tokens=1500,
+                max_tokens=MAX_TOKENS_ANALISE,
                 temperature=0.2,  # coach não pode mudar de veredito por sorteio
                 system=system_blocks,
                 tools=TOOLS,
@@ -1960,14 +2015,32 @@ def coach(
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
                 final = _montar_resposta(parts)
-                if not _tem_selo(final):
+                # A API avisa que o texto está incompleto pelo stop_reason, e
+                # esse sinal não era lido em lugar nenhum do fluxo. Em 16/08
+                # 19:19 o parcial COMEÇAVA com selo, então `_tem_selo(final)`
+                # dava verdadeiro, o resgate nem era tentado e meia frase foi
+                # para o aluno. Texto que a API marcou como cortado NUNCA é
+                # entregue — nem com selo. (Bater no teto durante uma rodada
+                # de ferramenta não passa por aqui: o laço continua.)
+                cortado = resp.stop_reason == "max_tokens"
+                if cortado or not _tem_selo(final):
                     # narração sem análise: recupera a conclusão antes de
                     # aceitar — o selo de emergência é o plano C, não o B
                     resgate = _resgatar_conclusao(
                         client, modelo_da_analise, system_blocks, messages,
                         ultimo_assistant=resp.content)
+                    if cortado:
+                        _registrar_corte("analise_principal", bool(resgate))
                     if resgate:
                         return resgate
+                    if cortado:
+                        # o resgate não veio completo: o resumo determinístico
+                        # é honesto — o aluno lê que a análise não saiu, em vez
+                        # de uma frase pela metade que parece uma análise.
+                        _registrar_plano_c(
+                            "analise_cortada_no_teto "
+                            f"(stop_reason={resp.stop_reason})")
+                        return fallback
                 if final and key_hands is None and \
                         not final.startswith(_SELOS_DE_VEREDITO):
                     selo = _selo_de_emergencia(client, final)
