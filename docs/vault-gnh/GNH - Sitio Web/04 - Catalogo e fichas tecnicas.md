@@ -13,10 +13,10 @@ atualizado: 2026-08-14
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 34 (28 de produto + 6 de categoria) |
-| Fichas técnicas (HTML) | 88 |
-| PDFs de ficha | 100 |
-| Produtos **sem** tabela de specs | 13 |
+| Páginas estáticas de produto | 35 (29 de produto + 6 de categoria) |
+| Fichas técnicas (HTML) | 89 |
+| PDFs de ficha | 101 |
+| Produtos **sem** tabela de specs | 12 |
 
 ## As três famílias de ficha
 
@@ -117,7 +117,7 @@ de uma vez só (basta editar o array `MODELOS` do gerador).
 ## Produtos sem specs
 
 Não têm página estática porque falta a tabela de dados do fabricante. Restam
-**13** — entre eles Regla Láser Vibratoria WS940, Cortadora de Piso, Camión Grúa
+**12** — entre eles Cortadora de Piso, Camión Grúa
 (Grúa Móvil), Montacargas Todoterreno 3,5 t, Rodillo Compactador e Bulldozer.
 
 **Para resolver:** mandar o catálogo do fabricante → vira tabela em `catalogo-data.ts`
@@ -364,3 +364,44 @@ fabricante e combustível **gasolina ≥ 90 octanas**.
 >   145 kg é alto; confirmar se são velocidades de deslocamento ou de pintura.
 > - **CPC35** e **Montacargas Todoterreno 3,5 t**: o DOCX diz "já enviado ao grupo
 >   de WhatsApp" / "enviar depois" — **sem dados**, seguem sem ficha.
+
+
+## Regla Láser Vibratoria WS940 — qual é a nossa
+
+Origem: folheto **VANSE**, páginas 15 e 16 (*ride-on laser leveling machine*).
+O folheto traz **duas** máquinas. O card do catálogo se chama exatamente
+"Regla Láser Vibratoria WS940" e usa `img/prod/ws940.png` — foto onde se lê
+**WS-940** na carenagem e aparecem rodas maciças. **A nossa é a WS940.** A
+WS940C entrou na página como versão superior, claramente rotulada.
+
+| Parâmetro | **WS940 (nossa)** | WS940C |
+|---|---|---|
+| Largura de nivelamento | 2,5 m | **3,0 m** |
+| Sistema de vibração | Motor elétrico | Hidráulica |
+| Força excitadora | 2.000 N | 200–900 N (máx.) |
+| Tanque de combustível | 20 L | 19 L |
+| Pneus | Maciços antiderrapantes | Infláveis estreitos |
+| Peso líquido | 990 kg | **835 kg** |
+| Dimensões | 3.600 × 3.000 × 1.650 mm | 3.470 × 3.430 × 1.525 mm |
+| Transporte | 3.350 × 2.000 × 1.890 mm | **3.600 × 960 × 910 mm** |
+
+Iguais nas duas: motor **Honda GX690** 18,4 kW / 25 HP a gasolina, pavimentação
+por rosca transportadora hidráulica, sistema antiderrapante de série, ajuste
+fino rápido da altura do receptor e dois tipos de pneu.
+
+**Só a WS940:** avanço a velocidade constante (mais precisão e menos esforço do
+operador). **Só a WS940C:** corpo todo em alumínio (nivela 50 cm a mais pesando
+155 kg menos), freio hidráulico e sistema de reboque, cabeçote com pouso suave,
+detecção de switches e calibração de válvulas, antibloqueio dos pilares e
+**compatibilidade com sistema 3D profiler** — nivela contra modelo digital, não
+só contra plano laser. Dobra para 96 cm de largura no transporte.
+
+Publicado: página `/ventas/regla-laser-vibratoria-ws940/`, ficha
+`/fichas/regla-laser-ws940.html` e PDF `regla-laser-ws940.pdf`. Foto da WS940C
+(`ws940c.jpg`) recortada do folheto; a `ws940.png` já publicada foi mantida.
+
+> [!warning] Força excitadora não fecha
+> A WS940C, que é o modelo superior, aparece com **200–900 N** contra **2.000 N**
+> da WS940 — menos da metade. Ou a vibração hidráulica é regulável e medida de
+> outra forma, ou é erro de digitação no folheto. Publicado como impresso;
+> confirmar com a fábrica.
