@@ -145,3 +145,37 @@ def test_check_atras_e_check_behind():
     assert any("check atrás" in p for p in probs)
     assert not any("calque" in p for p in judge_answer(
         "✅ Deu check behind no turn — linha padrão."))
+
+
+def test_as_streets_e_o_air_ficam_em_ingles():
+    """Caso real (16/08, análise entregue a um aluno): "e foi *o rio* que
+    virou tudo" e "bate contra a fatia de *ar* do range dele". O dono, na
+    íntegra: "se é termo do poker não tem que traduzir" — e já tinha
+    reclamado antes.
+
+    Por que vazou: 'flop'/'turn'/'river' apareciam só DE PASSAGEM, dentro
+    da proibição de 'rua/etapa/rodada' ("ou nomeie: no flop, no turn, no
+    river"), e 'air' não aparecia em lugar nenhum da regra. Termo que a
+    lista de FICAM EM INGLÊS não nomeia é termo que o modelo traduz.
+    """
+    import re
+
+    ingles = TERMOS_REGRA[TERMOS_REGRA.index("FICAM EM INGLÊS"):
+                          TERMOS_REGRA.index("PORTUGUÊS CONSAGRADO")]
+    for termo in ("flop", "turn", "river", "air"):
+        assert re.search(rf"(?<![\w-]){termo}(?![\w-])", ingles), (
+            f"'{termo}' não está na lista de FICAM EM INGLÊS — foi assim "
+            "que 'rio' e 'ar' chegaram ao aluno")
+
+
+def test_rio_e_ar_sao_calques_proibidos():
+    """A outra metade da mesma regra: nomear a tradução errada. Sem isto o
+    modelo lê 'river fica em inglês' e escreve 'o rio' assim mesmo — foi o
+    que aconteceu com 'aumentar' antes de ele entrar nesta lista."""
+    for termo, certo in (("'rio'", "RIVER"), ("'ar'", "AIR")):
+        assert termo in TERMOS_REGRA, termo
+        assert _depois_de_proibidos(termo), termo
+        i = TERMOS_REGRA.index(termo)
+        assert certo in TERMOS_REGRA[i:i + 30], (
+            f"{termo} está proibido mas a regra não diz que o certo é "
+            f"{certo} — proibir sem ensinar não conserta")

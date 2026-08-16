@@ -648,10 +648,25 @@ TOOLS = [
 
 # Glossário de terminologia — REGRA DURA, usado em todas as camadas de texto
 # (análise, por-mão, simplificação). O modelo inventa calques se deixar.
+#
+# 16/08: 'flop', 'turn', 'river' e 'air' entraram em FICAM EM INGLÊS, e
+# 'rio'/'ar' em CALQUES PROIBIDOS, depois de uma análise entregue com "e foi
+# o rio que virou tudo" e "a fatia de ar do range dele". As três streets
+# apareciam só de passagem (dentro da proibição de 'rua/etapa/rodada') e
+# 'air' não aparecia em lugar nenhum — o que a lista não nomeia, o modelo
+# traduz.
+#
+# O TETO DE PALAVRAS do prompt (test_prompt_nao_briga_consigo, 3200) pagou a
+# conta com redundância da própria regra: a etimologia do 'X cheio de Y'
+# ("tradução de 'sevens full of twos', que não existe em português") explica
+# ao leitor humano o que a regra já manda fazer em 3 palavras, e nenhuma
+# outra entrada da lista traz etimologia. Ela vive aqui, no comentário, onde
+# não custa token.
 TERMOS_REGRA = (
     "TERMINOLOGIA (regra dura): escreva como grinder BR fala na mesa. "
-    "FICAM EM INGLÊS: top pair, overpair, kicker, flush, flush draw, draw, "
-    "gutshot, OESD, straight, high card, set, fold equity, equity, cooler, "
+    "FICAM EM INGLÊS: flop, turn, river, top pair, overpair, kicker, flush, "
+    "flush draw, draw, gutshot, OESD, straight, high card, air, set, "
+    "fold equity, equity, cooler, "
     "bad beat, blockers, range, board, check, open, raise ('deu raise', "
     "'raise pra 3bb'), c-bet, 3-bet, 4-bet, shove/jam, all-in, heads-up, "
     "multiway, squeeze, limp. "
@@ -664,9 +679,9 @@ TERMOS_REGRA = (
     "(é HIGH CARD: 'A high', 'K high'), 'passou'/'passar a vez' (é CHECK: "
     "'deu check'), 'igualar' (é pagar), 'rua'/'etapa'/'rodada' "
     "para street (diga STREET, ou nomeie: no flop, no turn, no river), "
+    "'rio' (é RIVER), 'ar' (é AIR: 'range de air', 'puro air'), "
     "'stack fundo'/'pilha' (diga DEEP: 'jogando deep', '100bb deep'), "
-    "'X cheio de Y' para full house — tradução de 'sevens full of twos' que "
-    "não existe em português: diga 'full de 7 com 2' (ou só 'full de 7'), "
+    "'X cheio de Y' para full house (diga 'full de 7 com 2'), "
     "'check atrás' (é CHECK BEHIND: 'deu check behind no turn'). "
     "REGISTRO: sempre 'você' — nunca 'tu/teu/te contigo' misturado. "
     "EXPLICAR SEM VIRAR GLOSSÁRIO: o termo REAL fica sempre; o quanto se "
