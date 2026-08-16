@@ -836,4 +836,9 @@ def test_os_dois_galhos_do_plano_c_tem_motivos_distintos(monkeypatch):
     assert llm.coach({"summary": "PLANO C"}, None) == "PLANO C"
 
     assert [e for e, _ in rodadas] == ["plano_c"]
-    assert sem_tool_use[0][1]["motivo"] != rodadas[0][1]["motivo"]
+    # o PREFIXO tem de diferir, não só a string inteira: o sufixo
+    # '(stop_reason=...)' já garantia desigualdade, então trocar o prefixo de
+    # um galho pelo do outro passava — a consulta que separa os dois defeitos
+    # filtra por prefixo, e era exatamente isso que o teste não cobrava.
+    assert sem_tool_use[0][1]["motivo"].startswith("resposta_vazia_sem_tool_use")
+    assert rodadas[0][1]["motivo"].startswith("resposta_vazia_apos_rodadas")
