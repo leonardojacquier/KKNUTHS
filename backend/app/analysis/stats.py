@@ -295,3 +295,32 @@ def perfil_que_pode_ser_dito(linha: dict | None) -> dict | None:
             "instrucao_margem": (
                 f"toda frequência daqui tem ±{margem_de_erro_pp(n):g} pontos "
                 f"de margem ({n} mãos) — cite a margem ou fale qualitativo")}
+
+
+def perfil_para_o_coach(stats: PlayerStats) -> dict:
+    """O `player_stats` como `coach()` o recebe. Função PURA.
+
+    Mora aqui, e não inline em processing.py, porque o comparador da voz
+    (`scripts/comparar_voz.py`) precisa montar o MESMO perfil para gerar o
+    "depois": ele rodava com `stats=None` enquanto a produção passa o perfil
+    real, então o experimento desenhado para isolar o PROMPT tinha o perfil
+    como segunda variável — um "antes" que diz "você paga demais no river,
+    34% em 61 mãos" não tem contrapartida possível num "depois" sem perfil, e
+    o dono leria isso como o prompt novo tendo ficado menos pessoal. Regra
+    duplicada é regra que diverge; função compartilhada é conferência.
+
+    Amostra escolhida a dedo dava VPIP 94% para quem joga 26%, e o coach
+    repetia isso como fato na análise. Quando o perfil não é dizível, o
+    MOTIVO vai no lugar dele: sem isso o coach acha que o aluno é novo,
+    quando ele mandou 92 mãos pelo canal errado.
+    """
+    if stats.publicavel:
+        return stats.__dict__
+    return {
+        "indisponivel": True,
+        "por_que": ("O aluno só mandou mãos avulsas (replay/print), que ele "
+                    "escolheu — não dá pra tirar VPIP/PFR/3-bet daí. NÃO cite "
+                    "nenhuma frequência do jogo dele nem rótulo de estilo. "
+                    "Se o estilo importar pra resposta, peça um export da "
+                    "sessão inteira."),
+        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}

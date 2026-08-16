@@ -484,16 +484,12 @@ def _process_upload_inner(
     chart_specs: list = []
     marcar(telegram_id, "Montando o relatório do torneio"
            if is_tournament else "Escrevendo a análise")
-    # perfil só vai pro coach se for dizível. Amostra escolhida a dedo dava
-    # VPIP 94% pra quem joga 26%, e o coach repetia isso como fato na análise.
-    perfil = stats.__dict__ if stats.publicavel else {
-        "indisponivel": True,
-        "por_que": ("O aluno só mandou mãos avulsas (replay/print), que ele "
-                    "escolheu — não dá pra tirar VPIP/PFR/3-bet daí. NÃO cite "
-                    "nenhuma frequência do jogo dele nem rótulo de estilo. "
-                    "Se o estilo importar pra resposta, peça um export da "
-                    "sessão inteira."),
-        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+    # perfil só vai pro coach se for dizível. A regra mora em stats.py para o
+    # comparador da voz montar EXATAMENTE o mesmo perfil no "depois" — regra
+    # duplicada é regra que diverge (scripts/comparar_voz.py).
+    from app.analysis.stats import perfil_para_o_coach
+
+    perfil = perfil_para_o_coach(stats)
     # roteamento por complexidade (atras de flag; vazio = tudo no modelo
     # cheio). Mao de decisao unica pre-flop pode ir num modelo mais barato —
     # o juiz compara a clareza POR MODELO antes de a flag ligar de verdade.
@@ -569,6 +565,21 @@ def _process_upload_inner(
                                    {"citadas": impossiveis[:4]})
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
+
+    # GUARDA DA VOZ: mede o bloco pós-placar e tira o que é seguro tirar.
+    # `onde` rotula a POPULAÇÃO do evento na origem: esta linha roda antes do
+    # `if not is_tournament` abaixo, então o relatório de torneio passava por
+    # aqui sem carimbo e entrava no numerador da taxa 🗣 do juiz, cujo
+    # denominador só conta análise de mão — "6 de 12 = 50%" com a verdade em
+    # 0%, e 225% num dia plausível. Quem sabe se é torneio é este caminho.
+    try:
+        from app.bot.guarda_voz import conferir_e_limpar
+
+        coaching = conferir_e_limpar(
+            telegram_id, coaching, username=username,
+            onde="torneio" if is_tournament else "analise")
+    except Exception as exc:
+        log.warning("guarda da voz falhou: %s", exc)
 
     _stash_charts(telegram_id, chart_specs, user["id"] if user else None)
 
@@ -1212,6 +1223,16 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
             _stash_charts(telegram_id, extra_specs, ctx.get("user_id"))
     except Exception as exc:
         log.warning("guarda da saída falhou: %s", exc)
+
+    # GUARDA DA VOZ também na conversa: metade do que o aluno percebe como
+    # "o coach falando".
+    try:
+        from app.bot.guarda_voz import conferir_e_limpar
+
+        answer = conferir_e_limpar(telegram_id, answer, username=username,
+                                   onde="conversa")
+    except Exception as exc:
+        log.warning("guarda da voz na conversa falhou: %s", exc)
 
     # GUARDA DOS FATOS TAMBÉM AQUI. Ele rodava só na análise do upload, e a
     # conversa livre é onde "só perde para QQ" é MAIS provável — é nela que o
