@@ -27,11 +27,19 @@ say "1/2 — Cache-Control nas subpáginas (Caddy)"
 
 CANONICO='@html path / /index.html */ *.html'
 HEADER='header @html Cache-Control "no-cache"'
-ANTIGO='^[[:space:]]*@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*$'
 
-# (a) linhas no formato antigo, em qualquer bloco — o matcher (*.html /) pega a
-#     home e os .html, mas não as URLs de diretório (/ventas/apilador-electrico/)
-N=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
+# (a) Regra geral: uma linha `@html path` só cobre as URLs de diretório
+#     (/ventas/camion-volquete-de-orugas/) se tiver o curinga `*/`. Sem ele, a
+#     subpágina sai sem Cache-Control e o navegador segura a versão velha.
+#     Já apareceram três variantes furadas no Caddyfile deste VPS:
+#         @html path *.html /
+#         @html path / *.html
+#         @html path / /index.html /ventas/ /institucional/ *.html
+#     em vez de caçar cada forma, tratamos como defeituosa toda linha sem `*/`.
+#     O canônico é um superconjunto de todas elas: `*/` cobre /ventas/,
+#     /institucional/ e qualquer subpasta, e `/` continua explícito.
+ANTIGO='^[[:space:]]*@html path '
+N=$(grep -E "$ANTIGO" "$CADDYFILE" | grep -vcF '*/' || true)
 
 # (b) o bloco do gnhorizons.com pode não ter @html nenhum — nesse caso as
 #     subpáginas saem sem Cache-Control e o navegador segura a versão velha
@@ -53,7 +61,7 @@ Edite à mão: dentro do bloco gnhorizons.com acrescente
     $HEADER
 depois rode: caddy validate --config $CADDYFILE && systemctl reload caddy"
 else
-  [ "$N" = "0" ] || { echo "(a) $N linha(s) no formato antigo:"; grep -nE "$ANTIGO" "$CADDYFILE" | sed 's/^/    /'; }
+  [ "$N" = "0" ] || { echo "(a) $N linha(s) @html sem o curinga */:"; grep -nE "$ANTIGO" "$CADDYFILE" | grep -vF '*/' | sed 's/^/    /'; }
   [ "$FALTA_GNH" = "0" ] || echo "(b) bloco gnhorizons.com sem matcher @html — vou inserir"
 
   rm -f /etc/caddy/sed?????? 2>/dev/null || true   # sobras de execuções falhas
@@ -83,8 +91,16 @@ else
   fi
 
   # `sed -i` renomeia por cima do original; aqui escrevemos no arquivo existente.
-  sed -E "s#^([[:space:]]*)@html path (\*\.html /|/ \*\.html|\*\.html)[[:space:]]*\$#\1$CANONICO#" \
-      "$CADDYFILE" > "$TMP"
+  # awk em vez de sed: a condição é negativa (linha @html que NÃO tem `*/`).
+  # A indentação original da linha é preservada.
+  awk -v canon="$CANONICO" '
+    /^[[:space:]]*@html path / && $0 !~ /\*\// {
+      match($0, /^[[:space:]]*/)
+      print substr($0, 1, RLENGTH) canon
+      next
+    }
+    { print }
+  ' "$CADDYFILE" > "$TMP"
 
   if [ "$FALTA_GNH" = "1" ]; then
     awk -v canon="$CANONICO" -v hdr="$HEADER" '
@@ -102,8 +118,8 @@ Se não for o atributo imutável, pode ser AppArmor/SELinux. Diagnóstico:
   echo "diff aplicado:"
   diff -u "$BACKUP" "$CADDYFILE" | sed 's/^/    /' || true
 
-  M=$(grep -cE "$ANTIGO" "$CADDYFILE" || true)
-  [ "$M" = "0" ] || { cat "$BACKUP" > "$CADDYFILE"; die "sobraram $M linhas antigas; backup restaurado"; }
+  M=$(grep -E "$ANTIGO" "$CADDYFILE" | grep -vcF '*/' || true)
+  [ "$M" = "0" ] || { cat "$BACKUP" > "$CADDYFILE"; die "sobraram $M linhas @html sem */; backup restaurado"; }
 
   if ! caddy validate --config "$CADDYFILE"; then
     cat "$BACKUP" > "$CADDYFILE"
