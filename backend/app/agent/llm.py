@@ -23,6 +23,24 @@ from app.models.canonical import CanonicalHand
 
 MAX_TOOL_ROUNDS = 5
 
+# Teto de saída da chamada PRINCIPAL da análise. Medição de 30 dias em
+# bot_events/custo_llm (tarefa=analise, 380 chamadas), em tokens de saída:
+# mediana 355, p90 1.193, p99 1.500, máximo 1.500 — p99 e máximo colados no
+# teto porque era ELE que os censurava, com 12 das 380 (3,2%) batendo nele.
+# A distribuição acima de 1.500 é desconhecida, então a folga se mede contra o
+# p90: 4.000 é ~3,3x ele. Em 16/08 19:19 uma dessas 12 cortou a análise no
+# meio da 2ª linha do placar e o aluno recebeu meia frase; o placar novo (com
+# o conceito explicado dentro de cada linha) é legitimamente mais longo.
+# Custo: token de saída só é cobrado quando gerado — subir o teto não encarece
+# as ~90% de chamadas que ficam abaixo de 1.200.
+MAX_TOKENS_ANALISE = 4000
+
+# Teto da chamada SEM tools que escreve a conclusão de resgate e a reescrita
+# da conferência de números. Sobe na mesma proporção (1.200 -> 2.500, ~2,1x o
+# p90 medido): cortar AQUI produz exatamente o mesmo defeito de 16/08, só que
+# no plano B — e uma conclusão pela metade não é conclusão.
+MAX_TOKENS_CONCLUSAO = 2500
+
 # Ferramentas determinísticas expostas ao Claude (function calling).
 TOOLS = [
     {
@@ -1103,7 +1121,8 @@ def _force_text(client, model, system_blocks, messages):
     chamando ferramentas e nunca escreveu, obriga-o a redigir a conclusão —
     senão o aluno leva um 'me embananei' no lugar da análise."""
     try:
-        resp = _create(client, model=model, max_tokens=1200, temperature=0.2,
+        resp = _create(client, model=model, max_tokens=MAX_TOKENS_CONCLUSAO,
+                       temperature=0.2,
                        system=system_blocks, messages=messages)
         return "".join(b.text for b in resp.content if b.type == "text").strip() or None
     except Exception as exc:
@@ -1951,7 +1970,7 @@ def coach(
         for _ in range(MAX_TOOL_ROUNDS):
             resp = _create(client,
                 model=modelo_da_analise,
-                max_tokens=1500,
+                max_tokens=MAX_TOKENS_ANALISE,
                 temperature=0.2,  # coach não pode mudar de veredito por sorteio
                 system=system_blocks,
                 tools=TOOLS,
