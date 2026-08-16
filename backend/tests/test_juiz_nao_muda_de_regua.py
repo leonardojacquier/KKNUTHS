@@ -7,6 +7,9 @@ import pathlib
 
 import scripts.output_judge as juiz
 
+_FONTE = (pathlib.Path(__file__).resolve().parents[1]
+          / "scripts/output_judge.py").read_text(encoding="utf-8")
+
 
 def test_a_nota_nao_passou_a_considerar_voz():
     """Se problemas_de_voz entrar em _nota_uma ou judge_answer, a série de
@@ -90,12 +93,103 @@ def test_o_juiz_consulta_os_eventos_de_voz_em_main():
         "texto já limpo"
 
 
+# --- R2: a linha impressa. Agora RENDERIZADA, não lida do código-fonte ----
+#
+# Era f-string dentro de main(), que só roda com Supabase — por isso os
+# testes liam `inspect.getsource(juiz.main)`, e por isso a re-revisão final
+# achou dois defeitos de REPORTE que nenhum teste podia pegar. A montagem
+# saiu para `linha_da_voz(cru, voz)`, função pura: daqui em diante o que se
+# afirma é o texto que o dono lê.
+
+_CRU = {"eventos": 10, "corrigidas": 3, "em_conversa": 4,
+        "com_titulo_fixo": 5, "com_bastidor": 6, "com_bloco_longo": 1,
+        "com_autocorrecao": 0}
+_VOZ = {"analisadas": 12, "sem_placar_ignoradas": 2, "com_titulo_fixo": 0,
+        "com_bastidor": 4, "com_bloco_longo": 1, "com_numero_repetido": 3,
+        "chars_pos_placar_medio": 590}
+
+
+def _lado_do_modelo() -> str:
+    return juiz.linha_da_voz(_CRU, _VOZ).strip().splitlines()[0]
+
+
+def _lado_do_aluno() -> str:
+    return juiz.linha_da_voz(_CRU, _VOZ).strip().splitlines()[1]
+
+
 def test_a_linha_impressa_distingue_o_modelo_do_aluno():
     """As duas leituras medem coisas diferentes e a linha tem que dizer
     qual é qual — senão o dono soma numerador de uma com denominador da
     outra, que é o erro que a spec §9 documenta."""
-    fonte = inspect.getsource(juiz.main)
-    assert "antes da limpeza" in fonte and "depois da limpeza" in fonte
+    modelo, aluno = _lado_do_modelo(), _lado_do_aluno()
+    assert "MODELO" in modelo and "antes da limpeza" in modelo
+    assert "ALUNO" in aluno and "depois da limpeza" in aluno
+    # e diz o que cada lado MEDE, que é a pergunta que o dono está fazendo
+    assert "PROMPT" in modelo, "a leitura do modelo não diz que mede o prompt"
+    assert "GUARDA" in aluno, "a leitura do aluno não diz que mede o guarda"
+
+
+def test_a_leitura_do_modelo_tem_denominador_e_separa_a_conversa():
+    """R2(a) — a linha imprimia numerador puro ("10 respostas tiveram algo a
+    apontar") ao lado de uma base que é TAXA (48% / 34%, spec §9), e o
+    numerador somava análise com conversa: `em_conversa` era calculado e
+    jogado fora na hora de imprimir. 10 eventos − 4 de conversa = 6 do lado
+    de análise, sobre as 12 análises da MESMA janela = 50%."""
+    modelo = _lado_do_modelo()
+    assert "6 de 12 análises" in modelo, modelo
+    assert "= 50%" in modelo, "a leitura continua sem taxa comparável à base"
+    assert "+4 em conversa" in modelo, \
+        "em_conversa continua calculado e jogado fora"
+
+
+def test_a_leitura_do_modelo_nao_inventa_taxa_sem_denominador():
+    """Dia sem análise de mão na janela: dividir por zero derruba o juiz
+    inteiro, e imprimir '0%' mentiria. Degrada dizendo que não tem base."""
+    vazio = {**_VOZ, "analisadas": 0}
+    modelo = juiz.linha_da_voz(_CRU, vazio).strip().splitlines()[0]
+    assert "= sem base hoje;" in modelo, modelo
+    assert "6 de 0 análises" in modelo, "o numerador some junto com a base"
+
+
+def test_a_leitura_do_aluno_mostra_os_tres_contadores_do_lado_dela():
+    """R2(b) — estrago novo da onda anterior: o conserto do C1 moveu
+    `título fixo · bastidor · bloco longo` para a leitura do MODELO (certo,
+    é ela que mede o prompt) e o lado do ALUNO ficou só com a média do
+    bloco. E o lado do aluno virou informativo exatamente agora: o I1/R1 fez
+    o guarda RECUSAR apagar a frase de bastidor que carrega a única conta,
+    então `com_bastidor` entregue deixou de tender a zero. A única métrica
+    que a onda piorou de propósito era a que tinha saído da tela do dono."""
+    aluno = _lado_do_aluno()
+    assert "título fixo 0" in aluno
+    assert "bastidor entregue 4" in aluno, \
+        "o bastidor ENTREGUE (I1/R1) continua invisível para o dono"
+    assert "bloco longo 1" in aluno
+    assert "pós-placar médio 590 chars" in aluno
+
+
+def test_os_contadores_dos_dois_lados_nao_se_confundem():
+    """Os mesmos quatro nomes existem nos dois dicionários com valores
+    diferentes. Ler o dict errado é o modo de falha silencioso desta linha —
+    aqui `com_bastidor` é 6 no modelo e 4 no aluno."""
+    modelo, aluno = _lado_do_modelo(), _lado_do_aluno()
+    assert "bastidor 6" in modelo and "bastidor entregue 4" in aluno
+    assert "título fixo 5" in modelo and "título fixo 0" in aluno
+    assert "bastidor entregue 6" not in aluno, "o lado do aluno leu o `cru`"
+    assert "título fixo 0 ·" not in modelo, "o lado do modelo leu o `voz`"
+
+
+def test_main_ainda_imprime_a_linha_da_voz():
+    """A extração não pode virar código morto: se main() parar de chamar
+    `linha_da_voz`, os testes acima ficam verdes sobre uma função que
+    ninguém usa — que é a definição de teste decorativo."""
+    main_func = [n for n in ast.walk(ast.parse(_FONTE))
+                 if isinstance(n, ast.FunctionDef) and n.name == "main"][0]
+    chamadas = [n for n in ast.walk(main_func)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == "linha_da_voz"]
+    assert len(chamadas) == 1, "main() não monta mais a linha de voz"
+    assert "linha_voz" in inspect.getsource(juiz.main), \
+        "a linha foi montada e não entra na mensagem"
 
 
 # --- I4: a linha diária compara populações comparáveis --------------------
@@ -131,7 +225,14 @@ def test_a_populacao_dos_contadores_exclui_torneio_e_follow_up():
 def test_a_linha_diaria_cita_a_base_remedida_e_nao_a_errada():
     """A §9 desta mesma branch declarou os 740 medidos sobre população
     contaminada; o valor certo é 678. Imprimir 740 faz o dono ler progresso
-    (740 -> 700) onde a população real diz regressão (678 -> 700)."""
-    fonte = inspect.getsource(juiz.main)
-    assert "base 15/08: 678" in fonte
-    assert "740" not in fonte, "o número que a spec §9 provou errado voltou"
+    (740 -> 700) onde a população real diz regressão (678 -> 700).
+
+    Agora sobre a linha RENDERIZADA, não sobre o código-fonte de main()."""
+    impressa = juiz.linha_da_voz(_CRU, _VOZ)
+    assert "base 15/08: 678" in impressa
+    assert "740" not in impressa, "o número que a spec §9 provou errado voltou"
+    # as duas bases de taxa da linha 🗣 são as da §9, não as contaminadas
+    assert "título fixo 48%" in impressa and "bastidor 34%" in impressa
+    for errado in ("25%", "23%", "58%"):
+        assert errado not in impressa, \
+            f"a base contaminada {errado} voltou para a tela do dono"

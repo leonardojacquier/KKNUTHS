@@ -275,9 +275,24 @@ def resumo_de_voz(textos: list[str]) -> dict:
     """Contadores de VOZ sobre o texto ENTREGUE ao aluno — depois da limpeza.
 
     Mede o PRODUTO, não a saída do modelo (essa é `resumo_dos_eventos_de_voz`,
-    e as duas importam). Aqui título fixo e bastidor tendem a zero de
-    propósito: é o guarda funcionando. O sinal que sobrevive à limpeza e
-    responde ao pedido do dono é o COMPRIMENTO do bloco pós-placar.
+    e as duas importam).
+
+    **`com_bastidor` NÃO tende mais a zero, e é informação de propósito.**
+    Esta docstring dizia o contrário ("título fixo e bastidor tendem a zero:
+    é o guarda funcionando") e o I1 da mesma onda de commits a tornou falsa:
+    o guarda passou a RECUSAR apagar a frase de bastidor quando ela carrega
+    a única conta, e o R1 dos resíduos alargou essa recusa para pot odds em
+    razão, outs e fichas. Critério do dono: "que não apague números
+    importantes". Logo:
+
+      com_titulo_fixo   ainda tende a zero — o rótulo sai sempre que a frase
+                        sobrevive sozinha, sem custo de conteúdo
+      com_bastidor      NÃO tende a zero — é a taxa de frase de bastidor que
+                        o guarda entregou de propósito, por carregar conta.
+                        Subir aqui pode ser o guarda acertando; quem diz se
+                        o PROMPT melhorou é a leitura 🗣, não esta
+      com_bloco_longo   nunca foi corrigido, só medido
+      chars_pos_placar  o sinal principal do pedido do dono (base 678)
 
     A nota 0-10 e seus critérios ficam intocados: mudar o texto e a régua no
     mesmo dia faz a média móvel de 7 dias mudar de significado no meio da
@@ -311,6 +326,62 @@ def resumo_de_voz(textos: list[str]) -> dict:
             "com_autocorrecao": com["autocorrecao"],
             "com_numero_repetido": com["numero_repetido"],
             "chars_pos_placar_medio": medios}
+
+
+def linha_da_voz(cru: dict, voz: dict) -> str:
+    """As DUAS leituras de voz, do jeito que o dono lê na mensagem diária.
+
+    Extraída de `main()` para ganhar teste sem rede: era f-string dentro de
+    uma função que só roda com Supabase, e a re-revisão final achou os dois
+    defeitos DE REPORTE que nenhum teste podia pegar dali.
+
+    (a) DENOMINADOR e POPULAÇÃO na linha 🗣. Ela imprimia numerador puro —
+    "1 respostas tiveram algo a apontar" — ao lado de uma base que é TAXA
+    (48% / 34%, spec §9): absoluto não se compara com percentual, e é o
+    mesmo erro de denominador que a §9 desta branch documenta ter cometido.
+    Pior, o numerador somava duas populações: `em_conversa` era calculado e
+    jogado fora na hora de imprimir, e historicamente 185 de 423 `summary`
+    eram follow-up — conversa não é ruído pequeno. O que dá para dizer com
+    honestidade: `eventos - em_conversa` é o lado de ANÁLISE, e
+    `voz['analisadas']` é o denominador dessa MESMA população na MESMA
+    janela; essa razão é comparável à base. Os contadores por defeito
+    continuam somando os dois lados, então vão rotulados como numerador e
+    não viram taxa.
+
+    (b) A linha 🧹 tinha PARADO de mostrar o lado do ALUNO. O conserto do C1
+    moveu `título fixo · bastidor · bloco longo` para a leitura do MODELO —
+    certo, é ela que mede o prompt — e deixou a do aluno só com a média do
+    bloco. São dois lados e os dois importam: o que o modelo produziu mede o
+    PROMPT, o que o aluno recebeu mede o GUARDA. E o lado do aluno virou
+    informativo exatamente agora: o I1/R1 fez o guarda RECUSAR apagar a
+    frase de bastidor que carrega a única conta, então `com_bastidor`
+    entregue deixou de tender a zero. A métrica que a onda piorou de
+    propósito era a que tinha saído da tela.
+
+    Sem análise de mão na janela (`analisadas == 0`) a taxa não é inventada:
+    sai "sem base hoje" em vez de dividir por zero.
+    """
+    de_analise = cru["eventos"] - cru["em_conversa"]
+    base_analise = voz["analisadas"]
+    taxa = (f"{round(100 * de_analise / base_analise)}%"
+            if base_analise else "sem base hoje")
+    return (
+        f"\n🗣 VOZ — o que o MODELO escreveu (antes da limpeza; mede o "
+        f"PROMPT): {de_analise} de {base_analise} análises com algo a "
+        f"apontar em 24h = {taxa}; +{cru['em_conversa']} em conversa "
+        f"(população à parte); {cru['corrigidas']} corrigidas. Numeradores "
+        f"das duas populações somadas: título fixo "
+        f"{cru['com_titulo_fixo']} · bastidor {cru['com_bastidor']} · bloco "
+        f"longo {cru['com_bloco_longo']} (base 15/08, só análise: título "
+        f"fixo 48% · bastidor 34%)"
+        f"\n🧹 o que o ALUNO recebeu (depois da limpeza; mede o GUARDA; "
+        f"{voz['analisadas']} análises de mão com placar, "
+        f"{voz['sem_placar_ignoradas']} sem placar fora da conta): "
+        f"título fixo {voz['com_titulo_fixo']} · bastidor entregue "
+        f"{voz['com_bastidor']} · bloco longo {voz['com_bloco_longo']} · "
+        f"pós-placar médio {voz['chars_pos_placar_medio']} chars "
+        f"(base 15/08: 678). 'bastidor entregue' NÃO tende a zero: o guarda "
+        f"recusa apagar a frase que carrega a única conta (I1/R1)")
 
 
 def main() -> int:
@@ -401,17 +472,10 @@ def main() -> int:
     voz = resumo_de_voz(analises_de_mao(analises))
     repo.log_event(0, "output_judge", "voz_do_dia",
                    {**voz, "antes_da_limpeza": cru})
-    linha_voz = (
-        f"\n🗣 VOZ — o que o MODELO escreveu (antes da limpeza; "
-        f"{cru['eventos']} respostas tiveram algo a apontar em 24h, "
-        f"{cru['corrigidas']} corrigidas): título fixo "
-        f"{cru['com_titulo_fixo']} · bastidor {cru['com_bastidor']} · bloco "
-        f"longo {cru['com_bloco_longo']}"
-        f"\n🧹 o que o ALUNO recebeu (depois da limpeza; "
-        f"{voz['analisadas']} análises de mão com placar, "
-        f"{voz['sem_placar_ignoradas']} sem placar fora da conta): "
-        f"pós-placar médio {voz['chars_pos_placar_medio']} chars "
-        f"(base 15/08: 678)")
+    # as duas leituras nomeadas moram em `linha_da_voz` — f-string dentro de
+    # main() é intestável sem Supabase, e foi ali que os dois defeitos de
+    # reporte da re-revisão final se esconderam
+    linha_voz = linha_da_voz(cru, voz)
 
     # nota POR RESPOSTA (teto de 15 por rodada, custo Haiku): cada nota vira
     # evento `nota_resposta` — o histórico que dá a média móvel de 7 dias e

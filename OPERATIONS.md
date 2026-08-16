@@ -120,7 +120,11 @@ quebrado e manda a investigação para o lado errado.
    ```
    A leitura de `/tmp/voz.md` é a decisão do dono; a linha de base medida (antes) está na spec, §9. O arquivo agora abre com um cabeçalho dizendo o que o "depois" refaz (perfil do aluno + guarda da voz) e a variável que sobra (o perfil é o de HOJE) — leia isso antes de creditar diferença ao prompt.
 
-   **Depois da onda de correção da revisão final (spec §10), a linha 🗣 do juiz mudou**: passou a ter DUAS leituras, e elas não são intercambiáveis. "O que o MODELO escreveu" vem dos eventos `voz_corrigida`/`voz_medida` (medidos ANTES da limpeza — é o único número que diz se o prompt novo funcionou, e é NUMERADOR, não taxa: só há evento quando há algo a apontar). "O que o ALUNO recebeu" vem do texto gravado, DEPOIS da limpeza, e só de análise de mão com placar — torneio e decisão única saem da conta. A referência impressa é **678** chars, não 740: o 740 saiu de denominador contaminado (spec §9).
+   **Depois da onda de correção da revisão final (spec §10), a linha 🗣 do juiz mudou**: passou a ter DUAS leituras, e elas não são intercambiáveis. "O que o MODELO escreveu" vem dos eventos `voz_corrigida`/`voz_medida` (medidos ANTES da limpeza — é o único número que diz se o prompt novo funcionou). "O que o ALUNO recebeu" vem do texto gravado, DEPOIS da limpeza, e só de análise de mão com placar — torneio e decisão única saem da conta. A referência impressa é **678** chars, não 740: o 740 saiu de denominador contaminado (spec §9).
+
+   **Como ler as duas linhas depois dos resíduos (spec §11):**
+   - 🗣 **mede o PROMPT.** Agora vem com denominador e com as populações separadas: `X de Y análises com algo a apontar = Z%` é comparável à base da §9 (título fixo 48%, bastidor 34%); o `+N em conversa` é população à parte e NÃO entra nessa taxa. Os contadores por defeito na mesma linha continuam sendo NUMERADOR das duas populações somadas — não os leia como taxa.
+   - 🧹 **mede o GUARDA**, e voltou a mostrar `título fixo · bastidor entregue · bloco longo` do lado do aluno. **`bastidor entregue` não tende a zero de propósito**: o guarda recusa apagar a frase de bastidor quando ela carrega a única conta (spec §10 I1 + §11 R1). Subir aí pode ser o guarda acertando — quem diz se o prompt melhorou é a linha 🗣. Só `título fixo` ainda tende a zero.
 
 ## Pendências
 1. **Deploy key no GitHub** (colar `/root/.ssh/kknuths_deploy.pub` em Settings→Deploy keys) e então **tornar o repo privado** — remote atual voltou p/ HTTPS até isso
