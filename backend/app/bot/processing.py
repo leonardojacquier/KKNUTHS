@@ -484,16 +484,12 @@ def _process_upload_inner(
     chart_specs: list = []
     marcar(telegram_id, "Montando o relatório do torneio"
            if is_tournament else "Escrevendo a análise")
-    # perfil só vai pro coach se for dizível. Amostra escolhida a dedo dava
-    # VPIP 94% pra quem joga 26%, e o coach repetia isso como fato na análise.
-    perfil = stats.__dict__ if stats.publicavel else {
-        "indisponivel": True,
-        "por_que": ("O aluno só mandou mãos avulsas (replay/print), que ele "
-                    "escolheu — não dá pra tirar VPIP/PFR/3-bet daí. NÃO cite "
-                    "nenhuma frequência do jogo dele nem rótulo de estilo. "
-                    "Se o estilo importar pra resposta, peça um export da "
-                    "sessão inteira."),
-        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+    # perfil só vai pro coach se for dizível. A regra mora em stats.py para o
+    # comparador da voz montar EXATAMENTE o mesmo perfil no "depois" — regra
+    # duplicada é regra que diverge (scripts/comparar_voz.py).
+    from app.analysis.stats import perfil_para_o_coach
+
+    perfil = perfil_para_o_coach(stats)
     # roteamento por complexidade (atras de flag; vazio = tudo no modelo
     # cheio). Mao de decisao unica pre-flop pode ir num modelo mais barato —
     # o juiz compara a clareza POR MODELO antes de a flag ligar de verdade.
