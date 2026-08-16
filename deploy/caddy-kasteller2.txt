@@ -18,8 +18,10 @@ kasteller.com.py, www.kasteller.com.py {
 	root * /opt/gnh/assets/kasteller2
 	encode gzip
 
-	# HTML sempre fresco; fontes, imagens e vídeo podem cachear
-	@html path / /index.html *.html
+	# HTML sempre fresco; fontes, imagens e vídeo podem cachear.
+	# O curinga */ cobre as URLs de diretório (/buscador/); sem ele elas saem
+	# sem Cache-Control e o navegador segura a versão velha.
+	@html path / /index.html */ *.html
 	header @html Cache-Control "no-cache"
 	@estaticos path /fonts/* /img/* /video/* /buscador/img/* /og.jpg /favicon.*
 	header @estaticos Cache-Control "public, max-age=604800"

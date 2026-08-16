@@ -59,9 +59,12 @@ ssh root@srv1555380.hstgr.cloud
 #   gnh.vortex369.com.br {
 #       root * /opt/gnh
 #       file_server
-#       @html path *.html /
+#       @html path / /index.html */ *.html
 #       header @html Cache-Control "no-cache"
 #   }
+#
+# O curinga */ é obrigatório: sem ele as URLs de diretório
+# (/ventas/apilador-electrico/) saem sem Cache-Control.
 
 caddy validate --config /etc/caddy/Caddyfile   # OBRIGATÓRIO
 systemctl reload caddy
@@ -138,9 +141,14 @@ Cache-Control das subpáginas:
 
 ## Migrar gnhorizons.com para o VPS
 
+> [!done] Já foi feito — esta seção fica como referência
+> O `gnhorizons.com` **já é servido por este VPS** desde jul/2026: o bloco do
+> Caddy existe, o DNS aponta para cá e todo push publica nos dois domínios pelo
+> cron. O registro abaixo serve para repetir a migração em outro domínio ou
+> entender por que as coisas estão como estão — **não** é uma pendência.
+
 Objetivo: o gnhorizons.com passa a ser servido por este VPS, com o redesign na
-home. Enquanto isso não for feito, **nada deste repositório aparece no
-gnhorizons.com** — os scripts só publicam em `/opt/gnh` (gnh.vortex369.com.br).
+home, preservando as URLs já indexadas.
 
 ### ⚠️ Os dois riscos que precisam ser respeitados
 
@@ -174,7 +182,7 @@ gnhorizons.com {
     root * /opt/gnh
     encode gzip zstd
     file_server
-    @html path *.html /
+    @html path / /index.html */ *.html
     header @html Cache-Control "no-cache"
 }
 ```
@@ -191,11 +199,12 @@ IP=$(hostname -I | awk '{print $1}')
 for u in / /ventas/ /ventas/plataforma-articulada-y-telescopica/ \
          /institucional/ /sitemap.xml /img/logo-blanca.png; do
   printf '%s -> %s\n' "$u" "$(curl -s -o /dev/null -w '%{http_code}' \
-    --resolve "gnhorizons.com:80:$IP" "http://gnhorizons.com$u")"
+    --resolve "gnhorizons.com:443:$IP" "https://gnhorizons.com$u")"
 done
 ```
 
-Todas precisam responder `200`. Se alguma der `404`, **pare** — o passo 1 não
+Todas precisam responder `200`. Confira em **HTTPS**: na porta 80 o Caddy
+responde `308` redirecionando, o que mede só o redirect e esconde os headers. Se alguma der `404`, **pare** — o passo 1 não
 publicou tudo. Só siga quando estiver limpo.
 
 **4. Baixar o TTL do DNS para 300s** e esperar o TTL antigo expirar. Isso é o
