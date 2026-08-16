@@ -1,7 +1,9 @@
 """O comparador isola o PROMPT como variável — nada mais."""
 from __future__ import annotations
 
-from scripts.comparar_voz import montar_markdown
+import pytest
+
+from scripts.comparar_voz import montar_markdown, montar_par
 
 
 def test_o_markdown_traz_os_dois_lados_e_o_modelo():
@@ -21,3 +23,50 @@ def test_par_sem_depois_e_marcado_e_nao_some():
     md = montar_markdown([{"hand_id": "x", "modelo": "m",
                            "antes": "texto", "depois": None}])
     assert "falhou" in md.lower()
+
+
+def _linha(hand_id="y", modelo="m", summary="texto do antes"):
+    return {"hand_id": hand_id, "modelo": modelo, "summary": summary}
+
+
+def test_falha_ao_buscar_a_mao_vira_par_marcado_e_nao_some():
+    """Igual à falha de geração: uma falha de REDE ao buscar a mão em
+    `hands` não pode fazer o par desaparecer do sorteio sem deixar rastro —
+    tem que virar uma linha visível de falha no markdown, não um `continue`
+    mudo."""
+    def buscar_com_erro():
+        raise RuntimeError("rede caiu")
+
+    par = montar_par(_linha(), buscar_com_erro, lambda mao: "não deveria chamar")
+
+    assert par is not None
+    assert par["depois"] is None
+    assert par["antes"] == "texto do antes"
+    assert "falhou" in montar_markdown([par]).lower()
+
+
+def test_mao_nao_encontrada_tambem_vira_par_marcado():
+    """A mão pode ter sido apagada de `hands` sem erro de rede — mesmo
+    tratamento: par visível, "depois" marcado como falha."""
+    par = montar_par(_linha(), lambda: [], lambda mao: "não deveria chamar")
+
+    assert par is not None
+    assert par["depois"] is None
+    assert "falhou" in montar_markdown([par]).lower()
+
+
+def test_sucesso_chama_gerar_com_o_resultado_da_busca():
+    """Caminho feliz: `gerar_depois` recebe o que `buscar_mao` devolveu e o
+    texto dele vira o "depois" do par."""
+    par = montar_par(_linha(), lambda: [{"canonical": "mão-x"}],
+                     lambda mao: f"depois de {mao[0]['canonical']}")
+
+    assert par["depois"] == "depois de mão-x"
+    assert par["hand_id"] == "y"
+    assert par["modelo"] == "m"
+
+
+@pytest.mark.parametrize("modelo_bruto,esperado", [(None, "?"), ("", "?"), ("m", "m")])
+def test_modelo_ausente_vira_interrogacao_no_par(modelo_bruto, esperado):
+    par = montar_par(_linha(modelo=modelo_bruto), lambda: [], lambda mao: "x")
+    assert par["modelo"] == esperado

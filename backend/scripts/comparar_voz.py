@@ -12,8 +12,7 @@ dicionário `structured` que `coach()` espera (spots, stacks em bb, cartas em
 texto etc.); montar esse dicionário à mão de outro jeito entrega ao LLM um
 contexto vazio e o "depois" vira lixo com aparência de resultado.
 
-Só entram no lado a lado pares que comparam a MESMA COISA: análise de UMA
-mão. Ficam de fora do sorteio:
+Só entram no sorteio linhas que comparam a MESMA COISA, no MESMO modelo:
   - registros sem hand_id (nada pra re-rodar);
   - insights de follow-up (summary começa com '[Follow-up]' — pergunta
     avulsa, não veredito de mão);
@@ -22,7 +21,17 @@ mão. Ficam de fora do sorteio:
     de mão avulsa sempre grava a lista (mesmo vazia). Um relatório de
     torneio usa `key_hands` e um prompt de "história do torneio" diferente
     do de mão avulsa — comparar os dois lado a lado como se fossem a mesma
-    coisa engana quem está julgando.
+    coisa engana quem está julgando;
+  - registros com `modelo` NULL (linhas antigas, de antes da coluna
+    existir): sem saber qual modelo gerou o "antes", `coach()` cairia
+    silenciosamente no modelo padrão de HOJE para o "depois" — reintroduz o
+    MODELO como segunda variável no experimento desenhado para isolar só o
+    prompt. Filtrado direto na query.
+
+Um candidato que passa nesses filtros mas falha DEPOIS (a mão sumiu de
+`hands`, a busca deu erro de rede, a geração do "depois" falhou) não
+desaparece do sorteio: vira um par visível no markdown, marcado como falha
+— sumir com o par faria a comparação parecer melhor do que é.
 
 Uso:  cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python \\
         scripts/comparar_voz.py --n 8 --saida /tmp/voz.md
@@ -31,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from typing import Callable
 
 
 def montar_markdown(pares: list[dict]) -> str:
@@ -43,10 +53,46 @@ def montar_markdown(pares: list[dict]) -> str:
             linhas += ["### DEPOIS", "", p["depois"], ""]
         else:
             # sumir com o par faria a mudança parecer melhor do que é: a
-            # falha de geração PRECISA aparecer no arquivo que o dono lê.
+            # falha (de busca OU de geração) PRECISA aparecer no arquivo.
             linhas += ["### DEPOIS", "", "_(a geração falhou)_", ""]
         linhas.append("---")
     return "\n".join(linhas)
+
+
+def montar_par(r: dict, buscar_mao: Callable[[], list],
+               gerar_depois: Callable[[list], str]) -> dict:
+    """Resolve UMA linha de hand_analysis (já filtrada) num par pro markdown.
+
+    Isola a DECISÃO ("o que vira uma linha visível") da rede: `buscar_mao` e
+    `gerar_depois` são callables injetados — permite testar que uma falha de
+    busca vira par marcado, e não um `continue` mudo, sem chamar Supabase
+    nem Claude de verdade. `gerar_depois` recebe o resultado de `buscar_mao`
+    e devolve o texto do "depois" ou lança (mesmo contrato de `coach()`).
+
+    NUNCA devolve None: todo candidato que chega aqui já passou pelos
+    filtros de elegibilidade (hand_id, follow-up, torneio, modelo) — a
+    partir daqui, sucesso ou falha, o par aparece no arquivo.
+    """
+    try:
+        mao = buscar_mao()
+    except Exception as exc:
+        # rede/banco caiu ao buscar ESTA mão: não deixa de aparecer — só
+        # o "depois" fica marcado como falha, igual a uma falha de geração
+        print(f"falhou ao buscar a mão {r['hand_id']}: {exc}")
+        mao = []
+
+    novo = None
+    if mao:
+        try:
+            novo = gerar_depois(mao)
+        except Exception as exc:
+            # falha ao re-gerar o "depois" não derruba o par: o "antes" já
+            # está de graça no banco e a falha vira uma linha visível
+            print(f"falhou em {r['hand_id']}: {exc}")
+            novo = None
+
+    return {"hand_id": r["hand_id"], "modelo": r.get("modelo") or "?",
+            "antes": r["summary"], "depois": novo}
 
 
 def main() -> int:
@@ -68,6 +114,7 @@ def main() -> int:
     rows = (repo.client.table("hand_analysis")
             .select("hand_id,summary,modelo,mistakes")
             .not_.is_("summary", "null")
+            .not_.is_("modelo", "null")
             .order("created_at", desc=True).limit(args.n * 3)
             .execute().data) or []
 
@@ -80,32 +127,19 @@ def main() -> int:
         if r.get("mistakes") is None:
             # relatório de torneio (analyze_tournament não tem "spots") ou
             # registro legado sem a coluna — nenhum dos dois é análise de
-            # mão avulsa; comparar como se fosse mistura formatos distintos
+            # mão avulsa; comparar como se fosse misturaria formatos distintos
             continue
 
-        try:
-            mao = (repo.client.table("hands").select("canonical")
-                   .eq("id", r["hand_id"]).limit(1).execute().data) or []
-        except Exception as exc:
-            # falha de rede/banco ao buscar ESTA mão não pode derrubar as
-            # outras — só esta fica de fora do sorteio
-            print(f"falhou ao buscar a mão {r['hand_id']}: {exc}")
-            continue
-        if not mao:
-            continue
+        def _buscar(hand_id: str = r["hand_id"]) -> list:
+            return (repo.client.table("hands").select("canonical")
+                    .eq("id", hand_id).limit(1).execute().data) or []
 
-        try:
+        def _gerar(mao: list, modelo: str | None = r.get("modelo")) -> str:
             hand = CanonicalHand.model_validate(mao[0]["canonical"])
             structured = analyze_hand(hand)
-            novo = coach(structured, None, lang="pt", model=r.get("modelo"))
-        except Exception as exc:
-            # falha ao re-gerar o "depois" NÃO derruba o par: o "antes" já
-            # está de graça no banco e a falha vira uma linha visível
-            print(f"falhou em {r['hand_id']}: {exc}")
-            novo = None
+            return coach(structured, None, lang="pt", model=modelo)
 
-        pares.append({"hand_id": r["hand_id"], "modelo": r.get("modelo") or "?",
-                      "antes": r["summary"], "depois": novo})
+        pares.append(montar_par(r, _buscar, _gerar))
 
     with open(args.saida, "w", encoding="utf-8") as fh:
         fh.write(montar_markdown(pares))
