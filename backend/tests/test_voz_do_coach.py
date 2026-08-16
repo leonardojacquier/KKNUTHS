@@ -663,3 +663,91 @@ def test_plano_c_com_repositorio_quebrado_nao_derruba_o_aluno(monkeypatch):
     monkeypatch.setattr(llm, "_create",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
     assert llm.coach({"summary": "PLANO C"}, None) == "PLANO C"
+
+
+# ---------------------------------------------------------------------------
+# A causa raiz de 16/08: análise cortada por max_tokens no meio de uma
+# ferramenta deixa um tool_use PENDURADO; o resgate recolava esse content na
+# conversa sem tool_result e a API devolvia 400 ('tool_use ids without
+# tool_result') — final vazio, aluno no plano C. O resgate agora só recola
+# blocos de TEXTO.
+
+
+def _bloco(tipo, **kw):
+    from types import SimpleNamespace
+    return SimpleNamespace(type=tipo, **kw)
+
+
+def test_resgate_nao_recola_tool_use_pendurado(monkeypatch):
+    from app.agent import llm
+
+    capturado = {}
+
+    def _força_fake(client, modelo, blocks, msgs):
+        capturado["msgs"] = msgs
+        return "✅ Call correto — resgatado."
+
+    monkeypatch.setattr(llm, "_force_text", _força_fake)
+    out = llm._resgatar_conclusao(
+        None, "m", [], [{"role": "user", "content": "contexto"}],
+        ultimo_assistant=[_bloco("text", text="Deixa eu calcular o EV..."),
+                          _bloco("tool_use", id="toolu_pendurado", name="ev",
+                                 input={})])
+
+    assert out == "✅ Call correto — resgatado."
+    tipos = [getattr(b, "type", None)
+             for m in capturado["msgs"] if isinstance(m.get("content"), list)
+             for b in m["content"] if not isinstance(b, dict)]
+    assert "tool_use" not in tipos  # o 400 de 16/08 era exatamente isto
+    assert "text" in tipos  # a narração útil continua indo junto
+
+
+def test_resgate_com_assistant_so_de_tool_use_nao_apenda_mensagem_vazia(monkeypatch):
+    from app.agent import llm
+
+    capturado = {}
+
+    def _força_fake(client, modelo, blocks, msgs):
+        capturado["msgs"] = msgs
+        return "✅ ok"
+
+    monkeypatch.setattr(llm, "_force_text", _força_fake)
+    llm._resgatar_conclusao(
+        None, "m", [], [{"role": "user", "content": "contexto"}],
+        ultimo_assistant=[_bloco("tool_use", id="t1", name="ev", input={})])
+    papeis = [m["role"] for m in capturado["msgs"]]
+    assert "assistant" not in papeis  # assistant vazio também é 400
+
+
+def test_analise_cortada_por_max_tokens_recupera_em_vez_de_plano_c(monkeypatch):
+    """O cenário de produção inteiro: rodada devolve stop_reason='max_tokens'
+    com tool_use pendurado -> o coach resgata a conclusão em vez de entregar
+    o resumo determinístico."""
+    from types import SimpleNamespace
+    from app.agent import llm
+
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"anthropic_api_key": "sk-teste",
+                               "analysis_model": "m"})())
+    resp = SimpleNamespace(
+        stop_reason="max_tokens",
+        content=[_bloco("text", text="Vou conferir o EV do shove..."),
+                 _bloco("tool_use", id="toolu_01QVG", name="ev_allin",
+                        input={})])
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: resp)
+
+    visto = {}
+
+    def _força_fake(client, modelo, blocks, msgs):
+        visto["tool_use_recolado"] = any(
+            getattr(b, "type", None) == "tool_use"
+            for m in msgs if isinstance(m.get("content"), list)
+            for b in m["content"] if not isinstance(b, dict))
+        return "✅ Jogada certa — 32% contra 30.8% que pedia."
+
+    monkeypatch.setattr(llm, "_force_text", _força_fake)
+    out = llm.coach({"summary": "PLANO C"}, None)
+
+    assert out == "✅ Jogada certa — 32% contra 30.8% que pedia."
+    assert visto["tool_use_recolado"] is False

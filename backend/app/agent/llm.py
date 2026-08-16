@@ -1730,6 +1730,25 @@ def _tem_selo(texto: str | None) -> bool:
                for ln in (texto or "").split("\n"))
 
 
+def _so_blocos_de_texto(content):
+    """Remove blocos tool_use de um content de assistant.
+
+    A resposta cortada por max_tokens vem com stop_reason='max_tokens' e um
+    tool_use PENDURADO no fim. Recolar esse content na conversa sem responder
+    o tool_use é 400 garantido ('tool_use ids without tool_result') — foi a
+    causa raiz de 16/08: análise longa estourou o teto no meio da ferramenta,
+    o resgate montou a mensagem inválida e o aluno levou o plano C. Só os
+    blocos de TEXTO interessam ao resgate; devolve None se não sobrar nada."""
+    if not isinstance(content, list):
+        return content
+
+    def _tipo(b):
+        return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+
+    so_texto = [b for b in content if _tipo(b) == "text"]
+    return so_texto or None
+
+
 def _resgatar_conclusao(client, modelo, system_blocks, messages,
                         ultimo_assistant=None) -> str | None:
     """A análise nunca veio (só narração de bastidor): pede a CONCLUSÃO.
@@ -1739,6 +1758,7 @@ def _resgatar_conclusao(client, modelo, system_blocks, messages,
     como resposta final. Uma chamada extra SEM tools, com a instrução
     explícita, recupera a análise — e só roda no caminho de falha."""
     msgs = list(messages)
+    ultimo_assistant = _so_blocos_de_texto(ultimo_assistant)
     if ultimo_assistant is not None:
         msgs.append({"role": "assistant", "content": ultimo_assistant})
     instrucao = {"type": "text", "text": (
