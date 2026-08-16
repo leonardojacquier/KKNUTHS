@@ -508,9 +508,9 @@ def _process_upload_inner(
     # saiu assim mesmo — então a conta confere antes de entregar.
     if coaching and hands and getattr(hands[0], "hero_cards", None):
         try:
-            from app.bot.guarda_fatos import conferir_dominancia
-
-            from app.bot.guarda_fatos import conta_sem_numero
+            from app.bot.guarda_fatos import (conferir_board_e_registrar,
+                                              conferir_dominancia,
+                                              conta_sem_numero)
 
             # o BOARD vai junto: com mesa, "só perdia pra 77" é pergunta
             # sobre a mão FEITA. Conferir isso com equity pré-flop dava a
@@ -563,6 +563,11 @@ def _process_upload_inner(
                 if impossiveis and repo.enabled:
                     repo.log_event(telegram_id, username, "mao_impossivel",
                                    {"citadas": impossiveis[:4]})
+                # a carta do BOARD citada na linha do placar: 16/08, mão
+                # f2cd6504 (board 9h Jd 2h) saiu "*Flop* 9♥J♦2♦" e o flush
+                # draw inventado sustentou a análise inteira.
+                coaching = conferir_board_e_registrar(
+                    coaching, hands[0], repo, telegram_id, username)
         except Exception as exc:
             log.warning("guarda de fatos falhou: %s", exc)
 
