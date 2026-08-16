@@ -311,3 +311,169 @@ def _pares_que_ganham(hero: list[str],
     Só pares: é o caso que aparece nessas frases."""
     ordem = "AKQJT98765432"
     return quem_ganha_do_heroi(hero, [r * 2 for r in ordem], board)
+
+
+# ---------------------------------------------------------------------------
+# GUARDA DO BOARD — a carta citada no placar é a carta que veio na mesa?
+#
+# Caso real de 16/08, mão f2cd6504-9faa-48d5-87f7-1adfa6770ad2, board 9h Jd
+# 2h: a linha do placar saiu "*Flop* 9♥J♦2♦". O 2♦ inventa um flush draw que
+# não existia, e a análise inteira se apoiou nele ("c-bet com K high + flush
+# draw", "o turn 5♦ que completa seu flush draw"). Numa segunda passagem saiu
+# "2♠" — poker idêntico, board diferente do replay que o aluno vai abrir.
+#
+# Nenhum guarda pegava isso: `conferir_dominancia` cuida de "só perde para
+# X", `corrigir_showdown` cuida das cartas do showdown, `conferir_analise`
+# confere NÚMEROS contra lastro — e naipe não é número.
+#
+# ONDE ELE CORRIGE, E POR QUE SÓ ALI. Corrigir carta em prosa livre é
+# perigoso: o coach legitimamente escreve hipótese ("se viesse o 2♦ você
+# fechava") e trocar a carta ali estragaria a frase — o pecado que METODO.md
+# nomeia (guarda que reescreve texto certo é pior que guarda ausente). Então
+# a correção mora dentro da CITAÇÃO da linha do placar do R2 (o trecho entre
+# o rótulo da street e o travessão), que é onde mora o fato de board e onde o
+# erro real aconteceu. Fora dali: evento, nunca correção.
+#
+# E só corrige quando é INEQUÍVOCO: a carta citada não é carta de verdade
+# desta mão, tem rank que existe no board daquela street e esse rank aparece
+# UMA única vez. Rank repetido ou ausente é chute — vira evento.
+
+_ICONE_DO_NAIPE = {"♠": "s", "♥": "h", "♦": "d", "♣": "c"}
+_NAIPE_DO_ICONE = {v: k for k, v in _ICONE_DO_NAIPE.items()}
+
+# "9♥", "10♦", "K♠" — o formato que `pretty_card` produz e que o coach copia
+_CARTA_CITADA = re.compile(r"(10|[AKQJT98765432])([♠♥♦♣])")
+
+# a linha do placar do R2: selo + *Street* + citação + travessão + porquê
+_ROTULO_DA_STREET = re.compile(r"\*\s*(Pr[éeÉE]|Flop|Turn|River)\s*\*", re.I)
+_STREET_DO_ROTULO = {"pre": "preflop", "pré": "preflop", "flop": "flop",
+                     "turn": "turn", "river": "river"}
+# fim da CITAÇÃO e começo do porquê. O travessão é o separador do R2; os
+# outros entram porque o modelo às vezes troca de sinal, nunca de estrutura.
+_FIM_DA_CITACAO = re.compile(r"[—–:]|\s-\s")
+
+
+def _carta_do_texto(m: re.Match) -> str:
+    """'10♦' -> 'Td' — a notação canônica da carta citada."""
+    rank = "T" if m.group(1) == "10" else m.group(1).upper()
+    return rank + _ICONE_DO_NAIPE[m.group(2)]
+
+
+def _bonita(carta: str) -> str:
+    rank = "10" if carta[0].upper() == "T" else carta[0].upper()
+    return rank + _NAIPE_DO_ICONE.get(carta[1].lower(), carta[1])
+
+
+def conferir_board(texto: str, hand) -> tuple[str, list[dict]]:
+    """Confere as cartas do board citadas no texto contra o board real.
+
+    Devolve (texto, achados). Cada achado traz `citada`, `onde`
+    ('placar'/'prosa'), `street`, `motivo` e `corrigido_para` — None quando o
+    guarda só mediu. Quem chama grava os eventos `board_corrigido` e
+    `board_nao_conferido` (a taxa dos dois é o que diz se o contexto novo
+    resolveu o erro de 16/08).
+    """
+    if not texto or hand is None:
+        return texto, []
+    from app.agent.analyzer import board_por_street
+
+    por_street = board_por_street(hand)
+    if not por_street:
+        return texto, []
+
+    # cartas de VERDADE desta mão: board inteiro, mão do herói e o que foi
+    # mostrado. Citar qualquer uma delas nunca é erro provável — e esta é a
+    # trava que impede o pior falso positivo possível: a linha do placar que
+    # cita a mão do aluno ("*Flop* K♥J♦2♥ com K♦ na mão") teria o K♦ dele
+    # trocado pelo K♥ do board.
+    reais = {c for c in (getattr(hand, "final_board", None) or [])}
+    reais |= {c for c in (getattr(hand, "hero_cards", None) or [])}
+    for cs in (getattr(hand, "shown_cards", None) or {}).values():
+        reais |= set(cs or [])
+    ranks_reais = {c[0].upper() for c in reais}
+
+    achados: list[dict] = []
+
+    def _medir(trecho: str, street: str | None) -> None:
+        """Fora da citação do placar o guarda NÃO toca — só conta."""
+        for m in _CARTA_CITADA.finditer(trecho):
+            carta = _carta_do_texto(m)
+            if carta in reais or carta[0].upper() not in ranks_reais:
+                continue      # carta da mão, ou rank que o board nem tem
+            achados.append({"citada": m.group(0), "onde": "prosa",
+                            "street": street, "corrigido_para": None,
+                            "motivo": "fora_da_linha_do_placar",
+                            "trecho": trecho.strip()[:120]})
+
+    def _conferir_citacao(trecho: str, board: list[str], street: str) -> str:
+        saida, pos = [], 0
+        for m in _CARTA_CITADA.finditer(trecho):
+            carta = _carta_do_texto(m)
+            if carta in board or carta in reais:
+                continue
+            iguais = [c for c in board if c[0].upper() == carta[0].upper()]
+            if len(iguais) != 1:
+                if carta[0].upper() in ranks_reais:
+                    achados.append({
+                        "citada": m.group(0), "onde": "placar",
+                        "street": street, "corrigido_para": None,
+                        "motivo": ("rank_repetido_no_board" if iguais
+                                   else "rank_ausente_do_board"),
+                        "trecho": trecho.strip()[:120]})
+                continue
+            certa = _bonita(iguais[0])
+            achados.append({"citada": m.group(0), "onde": "placar",
+                            "street": street, "corrigido_para": certa,
+                            "motivo": "naipe_errado",
+                            "trecho": trecho.strip()[:120]})
+            saida.append(trecho[pos:m.start()])
+            saida.append(certa)
+            pos = m.end()
+        saida.append(trecho[pos:])
+        return "".join(saida)
+
+    linhas = (texto or "").split("\n")
+    for i, linha in enumerate(linhas):
+        rotulo = _ROTULO_DA_STREET.search(linha)
+        if not rotulo:
+            _medir(linha, None)
+            continue
+        street = _STREET_DO_ROTULO[rotulo.group(1).lower()]
+        board = por_street.get(street, [])   # *Pré* não tem board: fica vazio
+        resto = linha[rotulo.end():]
+        corte = _FIM_DA_CITACAO.search(resto)
+        citacao = resto[:corte.start()] if corte else resto
+        porque = resto[len(citacao):]
+        _medir(porque, street)
+        linhas[i] = (linha[:rotulo.end()]
+                     + _conferir_citacao(citacao, board, street) + porque)
+
+    return "\n".join(linhas), achados
+
+
+def conferir_board_e_registrar(texto: str, hand, repo, telegram_id: int,
+                               username: str | None = None) -> str:
+    """`conferir_board` + os dois eventos, para o pipeline chamar em uma linha.
+
+    O encanamento do evento mora AQUI, não em `processing.py`: aquele arquivo
+    tem teto de tamanho medido (test_processing_nao_incha) justamente porque
+    cresce um parágrafo por vez, e separar corrigidos de medidos é assunto
+    deste guarda, não do pipeline.
+
+    `board_corrigido` conta o que foi consertado; `board_nao_conferido` conta
+    o que o guarda VIU e decidiu não tocar (hipótese em prosa, rank repetido,
+    carta que não está no board da street). A razão entre os dois é a medida
+    de se o contexto novo (`board_por_street`) resolveu o erro de 16/08.
+    """
+    texto, achados = conferir_board(texto, hand)
+    if not achados or not getattr(repo, "enabled", False):
+        return texto
+    board = list(getattr(hand, "final_board", None) or [])
+    for evento, lote in (
+            ("board_corrigido", [a for a in achados if a["corrigido_para"]]),
+            ("board_nao_conferido",
+             [a for a in achados if not a["corrigido_para"]])):
+        if lote:
+            repo.log_event(telegram_id, username, evento,
+                           {"achados": lote[:4], "board": board})
+    return texto

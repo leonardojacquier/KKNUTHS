@@ -651,12 +651,14 @@ TERMOS_REGRA = (
     "não existe em português: diga 'full de 7 com 2' (ou só 'full de 7'), "
     "'check atrás' (é CHECK BEHIND: 'deu check behind no turn'). "
     "REGISTRO: sempre 'você' — nunca 'tu/teu/te contigo' misturado. "
-    "Na ANÁLISE normal, NÃO explique termos: fale de jogador para jogador, "
-    "jargão nativo, sem parênteses didáticos — quem quiser simples tem o "
-    "botão 🎈. Explicação didática é função EXCLUSIVA da simplificação (e do "
-    "'não entendi'): lá o termo REAL fica e a explicação vem entre "
-    "parênteses ('top pair (o maior par possível com essa mesa)'). NUNCA, em "
-    "nenhum contexto, substitua o termo por tradução inventada."
+    "EXPLICAR SEM VIRAR GLOSSÁRIO: o termo REAL fica sempre; o quanto se "
+    "explica tem teto — parêntese curto na PRIMEIRA APARIÇÃO do termo, no "
+    "máximo 2 por resposta —, e termo trivial (fold, all-in, flop) não "
+    "ganha nenhum. "
+    "Na simplificação (🎈) e no 'não entendi' a explicação É o "
+    "produto e não tem esse teto: top pair (o maior par possível com essa "
+    "mesa). NUNCA, em nenhum contexto, substitua o termo por tradução "
+    "inventada."
 )
 
 _SYSTEM = {
@@ -693,16 +695,26 @@ _SYSTEM = {
         "  ❌ *River* K♠ — pagou 18bb: pedia 30%, tinha 12% → −11bb.\n"
         "Sem showdown, chame equity_vs_range pro número da street — NUNCA "
         "deixe a linha sem conta por preguiça.\n"
-        "R3 FECHAMENTO: depois do placar, 1 frase de veredito geral (a decisão "
-        "que mais pesou) e, opcional, 1 frase do que treinar. PARE. Em análise "
-        "de SESSÃO/torneio (vários spots), o fechamento vira plano de 2-3 ações.\n"
+        "R3 FECHAMENTO: depois do placar, no MÁXIMO 2 parágrafos curtos, e "
+        "cada um tem que dizer algo que o placar NÃO disse. PROIBIDO título "
+        "fixo ('A conta que mais pesa:', 'Resumo:', 'O que treinar:') — o "
+        "parágrafo entra sem rótulo, e o que treinar, quando houver algo "
+        "novo a dizer, entra como frase dentro dele. PROIBIDO RECITAR a "
+        "conta que o placar já fez: repetir preço, pote, equity mínima ou "
+        "EV de decisão que já tem linha lá ('pagar 4.8bb num pote de 16.8 "
+        "pedia 22.3%') — lá está a conta, aqui está o PORQUÊ. A HISTÓRIA do "
+        "desfecho é outra coisa e continua valendo (R5b): ali as % de cada "
+        "street mostram QUANDO a liderança virou, não o preço. PRIORIDADE "
+        "nas 2 vagas: R5b, depois C3b, depois A1. Em análise de "
+        "SESSÃO/torneio (vários spots), o fechamento vira plano de 2-3 "
+        "ações.\n"
         "R4 DECISÃO ÚNICA (quiz, simulador, spot avulso — o aluno agiu uma vez): "
         "só selo + porquê (1-2 frases) + a conta (1 frase). Sem placar. A "
         "frase da CONTA tem que ter NÚMERO de ferramenta — se ela não tem "
-        "número, ela não é a conta e não pode ser anunciada como tal ('a "
-        "conta que mais pesa: você paga sempre, sem pensar duas vezes' é "
-        "prosa com nome de conta, e o aluno percebe). E NÃO repita o veredito "
-        "com outras palavras: se o selo já disse que foi call fácil, a conta "
+        "número, ela não é a conta e não pode ser anunciada como tal ('no fim "
+        "das contas você paga sempre' é prosa com cara de conta, e o aluno "
+        "percebe). E NÃO repita o veredito com outras palavras: se o selo "
+        "já disse que foi call fácil, a conta "
         "mostra POR QUE em número, não diz 'é um dos calls mais claros que "
         "existem' de novo.\n"
         "R4b QUEM GANHA DE QUEM é conta, não memória: 'só perde para X', 'só "
@@ -747,7 +759,11 @@ _SYSTEM = {
         "empilhar ICM+range+solver+plano na mesma mão "
         "(escolha só o que decide o spot); despejar estatística; adjetivar o "
         "próprio veredito ('resumo brutal', 'papo reto', 'na lata', 'sem "
-        "enrolação') — o selo já fala por si.\n"
+        "enrolação') — o selo já fala por si"
+        "; autocorreção dentro do texto ('abriu 6♦... digo, abriu 2bb') — "
+        "escreva a versão certa e só ela; narrar bastidor de busca ('deixa "
+        "eu conferir o EV', 'vou puxar o histórico') — a conta aparece "
+        "pronta, o aluno não acompanha o processo.\n"
 
         "\n== F) FATOS: o que você pode afirmar ==\n"
         "Princípio: todo fato que você narrar existe no contexto ou saiu de uma "
@@ -899,11 +915,20 @@ _SYSTEM = {
         "V2 NOTAÇÃO: suited/offsuit correto — naipes diferentes é 'o' (Ad 3c = "
         "A3o), iguais é 's'. Confira antes de escrever.\n"
         "V3 " + TERMOS_REGRA + "\n"
-        "V4 DE JOGADOR PARA JOGADOR: jargão nativo, sem parênteses didáticos — a "
-        "análise é pra quem joga. EXCEÇÃO: se o aluno disser 'não entendi', "
-        "'como assim' ou 'muito complicado', reexplique a MESMA ideia pra um "
-        "iniciante total — uma analogia do dia a dia, zero jargão, no máximo 1 "
-        "número explicado, sem introduzir conceito novo.\n"
+        "V4 TÉCNICO E DIDÁTICO AO MESMO TEMPO: o jargão fica cru, e a frase "
+        "diz POR QUE aquilo decide o spot — não basta nomear. 'Deu check "
+        "behind no turn' é rótulo; 'deu check behind no turn e abriu mão de "
+        "uma rodada de valor contra um range que paga' é coaching. Essa "
+        "explicação mora DENTRO do porquê curto da linha do placar, nunca "
+        "como parágrafo novo: explicar em prosa extra infla justamente o "
+        "bloco que o R3 corta. O TERMO ganha parêntese curto (até ~6 "
+        "palavras) na PRIMEIRA APARIÇÃO e só nela — 'fold equity (a chance "
+        "de ele largar)'. Máximo 2 parênteses desses por resposta; acima "
+        "disso vira glossário e o texto volta a ser formulário. EXCEÇÃO "
+        "SEPARADA: se o aluno disser 'não entendi', 'como assim' ou 'muito "
+        "complicado', reexplique a MESMA ideia pra um iniciante total — uma "
+        "analogia do dia a dia, zero jargão, no máximo 1 número explicado, "
+        "sem introduzir conceito novo.\n"
         "V5 FORMATO: é mensagem de Telegram — sem cabeçalho '#'; use *negrito*, "
         "emoji com moderação, parágrafos curtos, máximo ~3000 caracteres.\n"
 
@@ -1705,6 +1730,25 @@ def _tem_selo(texto: str | None) -> bool:
                for ln in (texto or "").split("\n"))
 
 
+def _so_blocos_de_texto(content):
+    """Remove blocos tool_use de um content de assistant.
+
+    A resposta cortada por max_tokens vem com stop_reason='max_tokens' e um
+    tool_use PENDURADO no fim. Recolar esse content na conversa sem responder
+    o tool_use é 400 garantido ('tool_use ids without tool_result') — foi a
+    causa raiz de 16/08: análise longa estourou o teto no meio da ferramenta,
+    o resgate montou a mensagem inválida e o aluno levou o plano C. Só os
+    blocos de TEXTO interessam ao resgate; devolve None se não sobrar nada."""
+    if not isinstance(content, list):
+        return content
+
+    def _tipo(b):
+        return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+
+    so_texto = [b for b in content if _tipo(b) == "text"]
+    return so_texto or None
+
+
 def _resgatar_conclusao(client, modelo, system_blocks, messages,
                         ultimo_assistant=None) -> str | None:
     """A análise nunca veio (só narração de bastidor): pede a CONCLUSÃO.
@@ -1714,6 +1758,7 @@ def _resgatar_conclusao(client, modelo, system_blocks, messages,
     como resposta final. Uma chamada extra SEM tools, com a instrução
     explícita, recupera a análise — e só roda no caminho de falha."""
     msgs = list(messages)
+    ultimo_assistant = _so_blocos_de_texto(ultimo_assistant)
     if ultimo_assistant is not None:
         msgs.append({"role": "assistant", "content": ultimo_assistant})
     instrucao = {"type": "text", "text": (
@@ -1818,6 +1863,27 @@ def _selo_de_emergencia(client, texto: str) -> str | None:
         return None
 
 
+def _registrar_plano_c(motivo: str) -> None:
+    """O aluno recebeu o resumo determinístico em vez da análise: POR QUÊ?
+
+    Blindado como o registro de custo — diagnóstico nunca pode derrubar a
+    resposta. O evento carrega o traceback curto; sem ele, a única pista de
+    uma falha aqui é o aluno reclamar."""
+    import traceback
+
+    logging.getLogger("llm").warning("análise caiu no plano C: %s", motivo)
+    try:
+        from app.db import get_repository
+
+        repo = get_repository()
+        if repo.enabled:
+            repo.log_event(0, None, "plano_c", {
+                "motivo": motivo[:300],
+                "trace": traceback.format_exc(limit=4)[-800:]})
+    except Exception:
+        pass
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1851,10 +1917,13 @@ def coach(
             "(✅ Você jogou bem / 🟡 Dava pra jogar melhor / ❌ Jogada cara). "
             "Se o herói agiu em mais de uma street, traga o PLACAR street a "
             "street logo abaixo (uma linha por street, cada uma com selo, "
-            "ancorada em linha_da_mao/hand_by_street). Feche com A conta que "
-            "mais pesa. Siga a regra de CLAREZA à risca. Dados estruturados "
-            "(números já calculados, use-os; tools só para cálculos "
-            "adicionais):\n\n"
+            "ancorada em linha_da_mao/hand_by_street). Feche em no máximo 2 "
+            "parágrafos curtos, sem título fixo e sem RECITAR a conta que o "
+            "placar já fez — vale o R3, inclusive a parte dele que MANDA "
+            "contar a história do desfecho. Siga a regra de CLAREZA à risca. "
+            "Dados "
+            "estruturados (números já calculados, use-os; tools só para "
+            "cálculos adicionais):\n\n"
         )
         if key_hands:
             context["key_hands"] = key_hands
@@ -1908,6 +1977,18 @@ def coach(
                     final = _conferir_numeros(
                         client, modelo_da_analise, system_blocks, messages,
                         final, fontes_de_numeros)
+                if not final:
+                    # o modelo parou SEM pedir ferramenta e o resgate não
+                    # trouxe nada: retorno mudo que a instrumentação de 16/08
+                    # não cobriu (ela fechou o `except` e o fim-de-rodadas).
+                    # Caso real: a mão 43450b49-8e78-406e-aa00-ced59e1d4364
+                    # caiu por aqui e bot_events não tinha UM registro. O
+                    # motivo é DISTINTO do de rodadas esgotadas — os dois
+                    # galhos são defeitos diferentes — e leva o stop_reason,
+                    # que é o dado que faltava para saber por que ele parou.
+                    _registrar_plano_c(
+                        f"resposta_vazia_sem_tool_use "
+                        f"(stop_reason={resp.stop_reason})")
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -1948,9 +2029,15 @@ def coach(
             final = _conferir_numeros(client, modelo_da_analise,
                                       system_blocks, messages, final,
                                       fontes_de_numeros)
+        if not final:
+            _registrar_plano_c("resposta_vazia_apos_rodadas")
         return final or fallback
-    except Exception:
-        # qualquer falha de rede/SDK -> resumo determinístico
+    except Exception as exc:
+        # qualquer falha de rede/SDK -> resumo determinístico. Mas NUNCA em
+        # silêncio: 16/08, primeira análise pós-deploy da voz caiu aqui e o
+        # except mudo escondeu a causa — rollback às cegas por falta desta
+        # linha. O motivo vira evento consultável (plano_c em bot_events).
+        _registrar_plano_c(f"{type(exc).__name__}: {exc}")
         return fallback
 
 
@@ -2312,6 +2399,15 @@ def followup(
             "conta própria. Se um dado novo mudar a leitura, diga explicitamente: "
             "'isso muda o que eu disse, porque X'. Nunca apresente uma frequência "
             "de solver como se contradissesse o conselho anterior."
+            "\nVOZ: vale o V4 — o jargão fica cru e a frase diz por que "
+            "aquilo decide o spot; termo novo ganha parêntese curto na "
+            "primeira aparição. Sem título fixo, sem RECITAR conta que a "
+            "análise já fez (o R3 vale aqui também, e a história do desfecho "
+            "continua valendo), e sem narrar bastidor de busca. MAS o R3 "
+            "aqui proíbe FORMULÁRIO, não proíbe responder: se o aluno "
+            "PERGUNTAR pelo número ('quanto custou aquele call?', 'qual era "
+            "o EV do shove?'), DÊ O NÚMERO — refeito pela ferramenta se "
+            "houver dado novo. Resposta sem número é o defeito (C11). "
             + (
                 "\nA IMAGEM ORIGINAL do print está anexada: se o aluno disser que algo "
                 "foi lido errado ou está faltando, RELEIA a imagem com atenção — nomes, "

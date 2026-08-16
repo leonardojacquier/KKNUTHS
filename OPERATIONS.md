@@ -42,7 +42,7 @@ Atualizado: 2026-08-15 · escopo: tudo implementado até aqui
 
 ## Deploy (auto)
 - Cron a cada 2 min: `deploy/auto_update.sh` → fetch do branch; commit novo → **pytest no CLONE** (portão) → só então rsync p/ /opt/poker-bot → `vps_deploy.sh` + pm2 restart → aviso "🔄" no TG do admin; falha → "⛔/⚠️" e bot antigo segue no ar
-- **971 testes como portão** (todos determinísticos)
+- **1.377 testes como portão** (todos determinísticos)
 - O script re-executa de uma CÓPIA em /tmp: ele se sobrescreve no meio da própria execução, e bash lê por offset de byte (ver `test_deploy_testa_antes_de_copiar.py`)
 - Snapshot em `/tmp/poker-bot-anterior` antes de copiar; se passar nos testes e não subir, restaura sozinho — e reinicia **bot e web** (antes só o bot: o disco voltava e o `poker-web` seguia de memória com o código reprovado)
 - O portão de subida confere `pm2 describe poker-bot` **e** `curl 127.0.0.1:8014/health` (antes só o bot: deploy que derrubava o site anunciava sucesso)
@@ -114,6 +114,17 @@ quebrado e manda a investigação para o lado errado.
 2. **Publicar o post do dossiê** (`scratchpad/post/`, 1080×1350 + legenda pronta) — a feature mais forte do mês está invisível para os alunos.
 3. **Ler o juiz das 8h de 16/08** — é o 1º dia com Sonnet default + conferência de números. Métricas a olhar: nota do dia, eventos `numeros_corrigidos`/`numeros_nao_conferidos` no banco, e a queda de custo (~5x no caminho principal).
 4. Servidor local da Bot API (`telegram-bot-api`) se aparecer vídeo grande fora do YouTube — sobe o teto de 20MB para 2GB. Precisa de `api_id`/`api_hash` de my.telegram.org (NUNCA por chat — arquivo/ssh).
+5. **Voz do coach**: implementada e testada na branch `claude/voz-do-coach`, **NÃO deployada**. O merge espera a leitura do juiz de 16/08 (item 3 acima) para não misturar troca de modelo com troca de prompt na mesma nota — ver `backend/docs/superpowers/specs/2026-08-15-voz-do-coach-design.md` §6. Falta rodar o comparador lado a lado no VPS (exige `ANTHROPIC_API_KEY`, que este ambiente de verificação não tem):
+   ```
+   cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/comparar_voz.py --n 8 --saida /tmp/voz.md
+   ```
+   A leitura de `/tmp/voz.md` é a decisão do dono; a linha de base medida (antes) está na spec, §9. O arquivo agora abre com um cabeçalho dizendo o que o "depois" refaz (perfil do aluno + guarda da voz) e a variável que sobra (o perfil é o de HOJE) — leia isso antes de creditar diferença ao prompt.
+
+   **Depois da onda de correção da revisão final (spec §10), a linha 🗣 do juiz mudou**: passou a ter DUAS leituras, e elas não são intercambiáveis. "O que o MODELO escreveu" vem dos eventos `voz_corrigida`/`voz_medida` (medidos ANTES da limpeza — é o único número que diz se o prompt novo funcionou). "O que o ALUNO recebeu" vem do texto gravado, DEPOIS da limpeza, e só de análise de mão com placar — torneio e decisão única saem da conta. A referência impressa é **678** chars, não 740: o 740 saiu de denominador contaminado (spec §9).
+
+   **Como ler as duas linhas depois dos resíduos (spec §11):**
+   - 🗣 **mede o PROMPT.** Vem com denominador e com as QUATRO populações separadas: `X de Y análises de mão com placar com algo a apontar = Z%` é comparável à base da §9 (título fixo 48%, bastidor 34%). O que aparece com `+` depois dela — `em conversa`, `em torneio`, `análise sem placar` — é população à parte e NÃO entra na taxa; as quatro somadas dão o total de eventos do dia. Os contadores por defeito na mesma linha continuam sendo NUMERADOR de todas somadas — não os leia como taxa. **A taxa não pode passar de 100%**: se passar, a linha imprime `⚠️ acima da base` e a leitura está torta (análise com evento gravado e sem linha em `hand_analysis`) — foi exatamente o defeito da 1ª versão dela, que somava torneio e análise sem placar num numerador cujo denominador não os continha e chegou a imprimir 50% num dia em que a verdade era 0%.
+   - 🧹 **mede o GUARDA**, e voltou a mostrar `título fixo · bastidor entregue · bloco longo` do lado do aluno. **`bastidor entregue` não tende a zero de propósito**: o guarda recusa apagar a frase de bastidor quando ela carrega a única conta (spec §10 I1 + §11 R1). Subir aí pode ser o guarda acertando — quem diz se o prompt melhorou é a linha 🗣. Só `título fixo` ainda tende a zero.
 
 ## Pendências
 1. **Deploy key no GitHub** (colar `/root/.ssh/kknuths_deploy.pub` em Settings→Deploy keys) e então **tornar o repo privado** — remote atual voltou p/ HTTPS até isso
