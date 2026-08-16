@@ -606,3 +606,60 @@ def test_conferir_e_limpar_de_texto_vazio_nao_toca_no_repositorio(monkeypatch):
 
     assert conferir_e_limpar(1, None) is None
     assert conferir_e_limpar(1, "") == ""
+
+
+# ---------------------------------------------------------------------------
+# Plano C com motivo: a falha de 16/08 foi invisível porque o except do
+# coach() era mudo. O contrato agora: TODA queda no resumo determinístico
+# registra o evento `plano_c` com o motivo — falha nunca mais é silenciosa.
+
+
+def test_coach_que_explode_registra_plano_c_com_motivo(monkeypatch):
+    from app.agent import llm
+
+    eventos = []
+
+    class _Repo:
+        enabled = True
+
+        def log_event(self, tid, user, event, detail):
+            eventos.append((event, detail))
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"anthropic_api_key": "sk-teste",
+                               "analysis_model": "m"})())
+
+    def _explode(*a, **k):
+        raise RuntimeError("boom de teste")
+
+    monkeypatch.setattr(llm, "_create", _explode)
+    out = llm.coach({"summary": "FALLBACK DETERMINÍSTICO"}, None)
+
+    assert out == "FALLBACK DETERMINÍSTICO"  # plano C continua entregue
+    assert [e for e, _ in eventos] == ["plano_c"]
+    detail = eventos[0][1]
+    assert "RuntimeError" in detail["motivo"]
+    assert "boom de teste" in detail["motivo"]
+    assert "trace" in detail  # o traceback vai junto — é ele que faltou em 16/08
+
+
+def test_plano_c_com_repositorio_quebrado_nao_derruba_o_aluno(monkeypatch):
+    """O diagnóstico é blindado como o custo: logar não pode falhar a resposta."""
+    from app.agent import llm
+
+    class _RepoQuebrado:
+        enabled = True
+
+        def log_event(self, *a, **k):
+            raise OSError("banco fora")
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _RepoQuebrado())
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"anthropic_api_key": "sk-teste",
+                               "analysis_model": "m"})())
+    monkeypatch.setattr(llm, "_create",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+    assert llm.coach({"summary": "PLANO C"}, None) == "PLANO C"

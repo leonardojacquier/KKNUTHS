@@ -1843,6 +1843,27 @@ def _selo_de_emergencia(client, texto: str) -> str | None:
         return None
 
 
+def _registrar_plano_c(motivo: str) -> None:
+    """O aluno recebeu o resumo determinístico em vez da análise: POR QUÊ?
+
+    Blindado como o registro de custo — diagnóstico nunca pode derrubar a
+    resposta. O evento carrega o traceback curto; sem ele, a única pista de
+    uma falha aqui é o aluno reclamar."""
+    import traceback
+
+    logging.getLogger("llm").warning("análise caiu no plano C: %s", motivo)
+    try:
+        from app.db import get_repository
+
+        repo = get_repository()
+        if repo.enabled:
+            repo.log_event(0, None, "plano_c", {
+                "motivo": motivo[:300],
+                "trace": traceback.format_exc(limit=4)[-800:]})
+    except Exception:
+        pass
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1976,9 +1997,15 @@ def coach(
             final = _conferir_numeros(client, modelo_da_analise,
                                       system_blocks, messages, final,
                                       fontes_de_numeros)
+        if not final:
+            _registrar_plano_c("resposta_vazia_apos_rodadas")
         return final or fallback
-    except Exception:
-        # qualquer falha de rede/SDK -> resumo determinístico
+    except Exception as exc:
+        # qualquer falha de rede/SDK -> resumo determinístico. Mas NUNCA em
+        # silêncio: 16/08, primeira análise pós-deploy da voz caiu aqui e o
+        # except mudo escondeu a causa — rollback às cegas por falta desta
+        # linha. O motivo vira evento consultável (plano_c em bot_events).
+        _registrar_plano_c(f"{type(exc).__name__}: {exc}")
         return fallback
 
 
