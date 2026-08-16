@@ -88,17 +88,25 @@ def test_amostra_completa_separa_por_fonte():
 
 
 def _perfil_como_o_coach_recebe(stats):
-    """A expressão EXATA de processing.py:489, executada.
+    """A função de PRODUÇÃO, executada — não uma cópia dela.
 
-    Extrair e rodar em vez de citar: a versão anterior deste teste comparava
+    Até 16/08 esta era uma cópia da expressão inline de processing.py:489, e
+    um segundo teste (abaixo) existia só para conferir que a cópia não tinha
+    divergido. A onda final da revisão extraiu a expressão para
+    `stats.perfil_para_o_coach`, porque o comparador da voz
+    (`scripts/comparar_voz.py`) precisa montar o MESMO perfil — e com a
+    função compartilhada não há mais cópia para divergir: este teste passa a
+    exercitar o código que roda em produção.
+
+    Continua sendo EXECUÇÃO, nunca substring: a versão de 09/08 comparava
     `"stats.publicavel" in inspect.getsource(...)`, e uma substring continua
-    presente quando a condição está INVERTIDA. Provado em 09/08: trocando por
+    presente quando a condição está INVERTIDA. Provado: trocando por
     `if not stats.publicavel` — que manda o perfil cru ao modelo exatamente
-    quando ele é impublicável — os 971 testes passavam.
+    quando ele é impublicável — a suíte inteira passava.
     """
-    return stats.__dict__ if stats.publicavel else {
-        "indisponivel": True, "por_que": "…",
-        "maos_avulsas": stats.detail.get("maos_fora_da_amostra", 0)}
+    from app.analysis.stats import perfil_para_o_coach
+
+    return perfil_para_o_coach(stats)
 
 
 def test_o_coach_nao_recebe_perfil_nao_publicavel():
@@ -121,22 +129,28 @@ def test_o_coach_nao_recebe_perfil_nao_publicavel():
         "portão apertado demais: perfil legítimo também sumiu"
 
 
-def test_a_expressao_testada_e_a_que_esta_em_producao():
-    """O teste acima roda uma CÓPIA da linha 489. Se a de produção mudar e
-    esta não, ele passa a proteger código que não existe mais — que é a
-    outra metade da armadilha do teste por substring."""
+def test_a_funcao_testada_e_a_que_esta_em_producao():
+    """O teste acima roda `perfil_para_o_coach`. Este cobra que PRODUÇÃO
+    chame essa mesma função — sem isto, a de cima passa a proteger código
+    que ninguém executa, que é a outra metade da armadilha do teste por
+    substring.
+
+    Por AST: `perfil = perfil_para_o_coach(stats)` dentro do caminho do
+    upload. Se alguém reinlinhar a expressão em processing.py, a cópia volta
+    a poder divergir do que o comparador da voz usa e este teste quebra.
+    """
     import ast
     import inspect
 
     from app.bot import processing
 
-    fonte = inspect.getsource(processing._process_upload_inner)
-    achou = [n for n in ast.walk(ast.parse(inspect.cleandoc(fonte)))
+    fonte = inspect.cleandoc(
+        inspect.getsource(processing._process_upload_inner))
+    achou = [n for n in ast.walk(ast.parse(fonte))
              if isinstance(n, ast.Assign)
              and any(getattr(t, "id", "") == "perfil" for t in n.targets)
-             and isinstance(n.value, ast.IfExp)]
-    assert achou, "não achei mais o `perfil = … if … else …` em produção"
-    teste = ast.unparse(achou[0].value.test)
-    assert teste == "stats.publicavel", (
-        f"produção decide por `{teste}`, e o teste desta suíte exercita "
-        "`stats.publicavel` — os dois têm que ser a mesma condição")
+             and isinstance(n.value, ast.Call)
+             and getattr(n.value.func, "id", "") == "perfil_para_o_coach"]
+    assert achou, ("produção não chama mais `perfil_para_o_coach(stats)` — o "
+                   "teste acima virou cópia sem dono")
+    assert ast.unparse(achou[0].value.args[0]) == "stats"
