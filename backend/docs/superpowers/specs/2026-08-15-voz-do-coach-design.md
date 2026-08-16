@@ -120,7 +120,8 @@ risco não vale para tudo.
   registra e não toca. Este repositório já tem
   `test_corretor_nao_estraga_portugues.py` para esta classe exata de bug.
 - frase de **narração de busca** ("deixa eu conferir o EV", "vou puxar o
-  histórico") — remove a frase inteira. Medido: 91/403 = **23%**.
+  histórico") — remove a frase inteira, **exceto quando a frase carrega um
+  número** (ver §10, I1). Medido: 91/403 = **23%**.
 
   **Correção feita ao escrever o plano.** Esta linha dizia "anotei no
   caderno". Medindo separado: "anotei no caderno" são 32/403 (8%) e **não é
@@ -139,7 +140,9 @@ risco não vale para tudo.
 - autocorreção `"... digo,"` — n=4 em 403. Correção nº 5: frequência baixa
   demais e falso positivo plausível na fala natural de coach ("não é
   fold... digo, não sempre"). Evento, nunca correção.
-- número do placar repetido na prosa — contador secundário, ver §5
+- número do placar repetido na prosa — contador secundário, ver §5. **Nem
+  isso**, desde a onda final: ele saiu de `problemas_de_voz` e virou métrica
+  avulsa, porque o R5b passou a EXIGIR a repetição (§10, I3)
 
 ---
 
@@ -155,6 +158,11 @@ vezes, é **o parágrafo inteiro não acrescentar nada**, e isso regex não vê.
 O que dá para medir e correlaciona com o defeito: **chars depois da última
 linha do placar**. Hoje: média 740, e 63 de 183 análises (34%) passam de
 800. A repetição de número fica como contador secundário, não como gatilho.
+
+> **Correção nº 7 (onda final).** "Contador secundário" ainda era gatilho
+> demais: enquanto ele vivia dentro de `problemas_de_voz`, uma análise
+> CONFORME gravava evento de voz. Ver §10, I3 — a repetição virou obrigação
+> quando o R5b entrou, e a régua tinha que sair junto.
 
 ### Nada disso mede "natural"
 
@@ -297,6 +305,97 @@ A leitura de `/tmp/voz.md` continua sendo a decisão do dono (§5) — nenhum
 número desta seção substitui isso.
 
 ---
+
+## 10. Onda de correção da revisão final (16/08/2026)
+
+A revisão da branch inteira executou cenários contra o código e achou o que
+as revisões tarefa a tarefa não podiam ver: **as duas metades da branch se
+atropelam**. O prompt e o guarda agem sobre o mesmo texto em sequência, e o
+juiz media o fim dessa sequência. Sete consertos, todos com teste que falha
+com o código antigo.
+
+**C1 — o juiz estava cego para o que existe para medir.** `conferir_e_limpar`
+limpa o texto ANTES de ele ser gravado, e o juiz media o texto GRAVADO. Como
+o guarda corrige exatamente título fixo e bastidor, esses dois contadores
+iriam a ~0 por construção: **o bloco R3/R7/V4 do prompt poderia ser um no-op
+completo e a linha do juiz seria idêntica** — e o merge está parado
+esperando justamente essa leitura. O dado cru já estava gravado e ninguém o
+lia: os eventos `voz_corrigida`/`voz_medida` guardam `problemas` medidos
+antes da limpeza. O juiz agrega esses eventos na janela de 24h
+(`resumo_dos_eventos_de_voz`) e imprime DUAS leituras nomeadas, porque são
+coisas diferentes e as duas importam: **o que o MODELO escreveu** (antes da
+limpeza — é o que diz se o prompt funcionou) e **o que o ALUNO recebeu**
+(depois — é o produto). Atenção ao denominador: só existe evento quando há
+algo a apontar, então a primeira leitura é numerador, nunca taxa.
+
+**I1 — a limpeza podia apagar o número.** `_sem_narracao` removia a FRASE
+inteira, e a frase pode ser a única com a conta:
+`"Vou calcular: pedia 30%, tinha 12% → −11bb. Portanto foi call caro."`
+virava `"Portanto foi call caro."`. Pior: `conta_sem_numero` e
+`guarda_saida.faltou` rodam ANTES do guarda da voz nos dois caminhos, então
+o defeito nascia depois do detector. Agora frase de bastidor **com número é
+medida e entregue** — prosa feia é menos pior que conta apagada, e isso é o
+§4 ("só corrige quando é seguro corrigir") aplicado ao caso que faltava. De
+brinde mata o defeito da frase fundida por falta de espaço depois do ponto,
+onde o aluno recebia só o selo.
+
+**I2 — o guarda conhecia 1 rótulo e o R3 proíbe 3.** Trocar para "Resumo:"
+deixava todos os contadores em sucesso com o formulário intacto sob
+cabeçalho novo. Os dois rótulos genéricos só contam quando ABREM a linha
+("em resumo, ..." não é título). Junto: o R3 proibia `'O que treinar:'` e
+quatro linhas depois parecia licenciá-lo — a menção voltou para dentro da
+própria proibição.
+
+**I3 — o contador marcava como defeito o que o prompt MANDA.** `numeros_
+repetidos` sai de `problemas_de_voz`. Motivo, para o registro: quando o §5
+o classificou como "secundário", o R5b ainda não existia. Com o R5b, a
+história do desfecho ("você estava atrás desde o pré: 30% no flop, 12% no
+river") é OBRIGATÓRIA e repete as equities do placar por definição —
+executado numa análise conforme, o contador devolvia `12%, 30%`. Mantê-lo
+como defeito gravaria um evento em quase toda análise CERTA e faria
+`com_numero_repetido` **subir como efeito direto da melhoria**. Escopar por
+regex não era opção: a diferença entre RECITAR o preço e CONTAR a história é
+semântica. Continua calculável (`numeros_repetidos`) e continua contado no
+`voz_do_dia`, agora sem virar defeito nem gerar evento.
+
+**I4 — a linha diária comparava duas populações.** `resumo_de_voz` somava
+relatório de torneio e análise de decisão única, que não têm placar: nesses
+textos `bloco_pos_placar` devolve tudo depois da 1ª linha, e um relatório de
+1200 chars vira "bloco" de 1199, marcado longo, todo dia. Dois filtros:
+`mistakes is not null` (o mesmo do comparador) e ≥2 linhas de selo. A
+população da NOTA fica intocada — a régua não muda no meio da série. E a
+linha imprime **678**, não os 740 que o §9 declarou medidos sobre população
+contaminada.
+
+**I5 — o experimento de uma variável tinha três.** O comparador gerava o
+"depois" sem o perfil do aluno e sem o guarda da voz. Os dois foram
+espelhados (o perfil pela MESMA função que `processing.py` usa, extraída
+para `stats.perfil_para_o_coach`), e o que não dá para espelhar está
+declarado no cabeçalho do `/tmp/voz.md`: o perfil do "depois" é o de HOJE,
+não o do dia do "antes". O markdown também passou a distinguir "mão não
+encontrada" de "a geração falhou" — os dois pedem reações opostas do leitor.
+
+**I6 — o R3 ia sem escopo para a conversa**, onde a pergunta do aluno costuma
+ser justamente pela conta. Proibir formulário não pode virar proibir
+responder: se o aluno PERGUNTAR pelo número, o número vai.
+
+**I7 — três fechadores obrigatórios para duas vagas.** R5b, C3b (o ICM que
+falta) e A1 disputavam o teto do R3 sem prioridade escrita, e o candidato a
+cair era o C3b — o único com número computado que o placar não deu, e o
+único cuja ausência o aluno não percebe. A prioridade está escrita. Pago com
+`"Medido: hoje esse bloco é 58% do texto."`, número que o §9 desta mesma
+spec já tinha corrigido para 67%/678: o prompt segue em 3198/3200 palavras.
+
+### O que a onda NÃO consertou, de propósito
+
+- `TETO_POS_PLACAR = 800` continua calibrado sobre a média inflada de 740
+  (§9). Recalibrar sem a leitura lado a lado seria a mesma pressa que gerou
+  o erro do denominador.
+- O prompt `en` não foi tocado e o guarda é só PT: aluno com `lang="en"`
+  recebe a voz antiga e entra nos contadores zerado, inflando o "sucesso".
+- O caminho de TORNEIO não recebeu a voz nova (`instruction` separada) — o
+  que a branch fez foi parar de contá-lo como se fosse análise de mão.
+- O botão 🎈 não tem guarda da voz nem contador.
 
 ## Documentos irmãos
 

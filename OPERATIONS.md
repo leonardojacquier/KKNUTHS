@@ -118,7 +118,9 @@ quebrado e manda a investigação para o lado errado.
    ```
    cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/comparar_voz.py --n 8 --saida /tmp/voz.md
    ```
-   A leitura de `/tmp/voz.md` é a decisão do dono; a linha de base medida (antes) está na spec, §9.
+   A leitura de `/tmp/voz.md` é a decisão do dono; a linha de base medida (antes) está na spec, §9. O arquivo agora abre com um cabeçalho dizendo o que o "depois" refaz (perfil do aluno + guarda da voz) e a variável que sobra (o perfil é o de HOJE) — leia isso antes de creditar diferença ao prompt.
+
+   **Depois da onda de correção da revisão final (spec §10), a linha 🗣 do juiz mudou**: passou a ter DUAS leituras, e elas não são intercambiáveis. "O que o MODELO escreveu" vem dos eventos `voz_corrigida`/`voz_medida` (medidos ANTES da limpeza — é o único número que diz se o prompt novo funcionou, e é NUMERADOR, não taxa: só há evento quando há algo a apontar). "O que o ALUNO recebeu" vem do texto gravado, DEPOIS da limpeza, e só de análise de mão com placar — torneio e decisão única saem da conta. A referência impressa é **678** chars, não 740: o 740 saiu de denominador contaminado (spec §9).
 
 ## Pendências
 1. **Deploy key no GitHub** (colar `/root/.ssh/kknuths_deploy.pub` em Settings→Deploy keys) e então **tornar o repo privado** — remote atual voltou p/ HTTPS até isso

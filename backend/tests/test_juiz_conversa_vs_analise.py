@@ -61,10 +61,24 @@ def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
 
     from scripts import output_judge
 
+    import re
+
     fonte = inspect.getsource(output_judge.main)
     assert "day_ago" in fonte
-    assert fonte.count('gte("updated_at", day_ago)') == 1, "janela na conversa"
-    assert fonte.count('gte("created_at", day_ago)') == 1, "janela nas análises"
+    assert 'gte("updated_at", day_ago)' in fonte, "janela na conversa"
+    # TODA leitura de estoque é janelada — não "existe uma janela em algum
+    # lugar". Contar ocorrências era frágil: a onda final acrescentou a
+    # query dos eventos de voz (spec §10, C1) e o teste quebrou sem que
+    # nada de errado tivesse acontecido. A única janela mais larga que 24h
+    # é a média móvel de 7 dias, que é assim de propósito.
+    consultas = [t for t in fonte.split("repo.client.table(")[1:]]
+    assert len(consultas) >= 3, \
+        f"o juiz faz {len(consultas)} consultas — alguma sumiu?"
+    for i, trecho in enumerate(consultas):
+        cadeia = trecho.split(".execute()")[0]
+        assert re.search(r"gte\(\"\w+\", (day_ago|week_ago)\)", cadeia), (
+            f"a consulta nº {i + 1} do juiz lê o museu inteiro: "
+            f"{cadeia.splitlines()[0]}")
 
 
 def test_nota_sobre_amostra_pequena_vem_com_aviso():
