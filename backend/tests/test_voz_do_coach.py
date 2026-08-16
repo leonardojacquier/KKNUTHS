@@ -801,10 +801,16 @@ def test_plano_c_sem_tool_use_registra_motivo_com_stop_reason(monkeypatch):
 
 def test_plano_c_sem_tool_use_carrega_o_stop_reason_real(monkeypatch):
     """O stop_reason não é constante decorativa: 'max_tokens' aparece no
-    evento quando foi ele que parou o modelo."""
+    evento quando foi ele que parou o modelo.
+
+    Busca o `plano_c` pelo nome em vez de indexar [0]: com 'max_tokens' o
+    corte agora registra ANTES o evento próprio `analise_cortada`, e o que
+    este teste cobra é o motivo do plano_c.
+    """
     eventos: list = []
     _coach_sem_tool_use(monkeypatch, eventos, stop_reason="max_tokens")
-    assert "max_tokens" in eventos[0][1]["motivo"]
+    motivo = next(d["motivo"] for e, d in eventos if e == "plano_c")
+    assert "max_tokens" in motivo
 
 
 def test_os_dois_galhos_do_plano_c_tem_motivos_distintos(monkeypatch):
