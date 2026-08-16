@@ -480,6 +480,99 @@ def test_conferir_e_limpar_titulo_fixo_volta_corrigido_e_registrado(monkeypatch)
     assert detalhe["onde"] == "conversa"
 
 
+# --- A POPULAÇÃO É CARIMBADA NA ORIGEM ------------------------------------
+#
+# A taxa da linha 🗣 do juiz dividia populações diferentes: o numerador vinha
+# dos eventos de voz do caminho de ANÁLISE — que inclui relatório de TORNEIO
+# e análise SEM placar, porque `conferir_e_limpar` roda em processing.py:571,
+# ANTES do `if not is_tournament` de :582 — e o denominador só continha
+# análise de mão COM placar. Executado pela re-revisão: "6 de 12 análises =
+# 50%" num dia cuja verdade era 0%, e "9 de 4 = 225%". Quem sabe de que
+# população o texto veio é quem chama; daí o carimbo aqui, e não uma
+# adivinhação no juiz.
+
+
+@pytest.mark.parametrize("texto,onde,esperado_onde,esperado_placar", [
+    # análise de mão de verdade: duas linhas de selo = placar street a street
+    ("✅ Você jogou bem — call fácil\n"
+     "✅ *Flop* 5♥8♠6♦ — set de 6.\n\n"
+     "*A conta que mais pesa:* com 12bb, AK em HJ é jam pré-flop.",
+     "analise", "analise", True),
+    # relatório de torneio: um selo só, nunca placar
+    ("✅ Torneio ok — bom ITM\n\n*Resumo:* você foi bem no ICM.",
+     "torneio", "torneio", False),
+    # decisão única (R4): também análise, também sem placar
+    ("✅ Call certo\n\n*Resumo:* pagar 12bb ali é padrão.",
+     "analise", "analise", False),
+    # conversa continua sendo o que sempre foi
+    ("*Resumo:* com 12bb, AK em HJ é jam pré-flop.",
+     "conversa", "conversa", False),
+])
+def test_o_evento_de_voz_sai_com_a_populacao_carimbada(
+        monkeypatch, texto, onde, esperado_onde, esperado_placar):
+    """Sem `onde` E `com_placar` no evento, o juiz não tem como separar o
+    numerador dele — foi assim que torneio e análise sem placar entraram
+    numa taxa cujo denominador não os continha."""
+    eventos: list[dict] = []
+
+    class _Repo:
+        def log_event(self, telegram_id, username, evento, detalhe=None):
+            eventos.append(detalhe)
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+    conferir_e_limpar(1, texto, username="tester", onde=onde)
+
+    assert len(eventos) == 1, "o texto de teste parou de gerar evento"
+    assert eventos[0]["onde"] == esperado_onde
+    assert eventos[0]["com_placar"] is esperado_placar
+
+
+def test_o_evento_sem_onde_declarado_ainda_diz_de_onde_veio(monkeypatch):
+    """O caminho histórico da análise chamava sem `onde` nenhum. O carimbo
+    não pode depender de o chamador lembrar: sem declaração o evento sai
+    como "analise", que é o que aquele caminho sempre foi."""
+    eventos: list[dict] = []
+
+    class _Repo:
+        def log_event(self, telegram_id, username, evento, detalhe=None):
+            eventos.append(detalhe)
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+    conferir_e_limpar(1, "✅ Call certo\n\n*Resumo:* pagar 12bb é padrão.")
+
+    assert eventos[0]["onde"] == "analise"
+    assert eventos[0]["com_placar"] is False
+
+
+def test_tem_placar_e_a_mesma_regua_dos_dois_lados_da_razao():
+    """Acordo, não forma: o numerador (carimbo do evento) e o denominador
+    (o texto gravado, filtrado pelo juiz) têm que responder IGUAL para o
+    mesmo texto. Duas cópias da régua de população é exatamente o defeito
+    que a taxa mentirosa expôs — o juiz tinha a dele, o guarda não tinha
+    nenhuma."""
+    from app.bot.guarda_voz import tem_placar
+
+    casos = [
+        ("✅ a\n✅ b", True),
+        ("✅ a\n🟡 b\n❌ c", True),
+        ("✅ Torneio ok\n\nprosa sem selo", False),
+        ("prosa sem selo nenhum", False),
+        ("", False),
+        ("  ✅ indentado\n  ✅ indentado", True),
+    ]
+    for texto, esperado in casos:
+        assert tem_placar(texto) is esperado, texto
+        assert juiz_resumo_placar(texto) is esperado, texto
+
+
+def juiz_resumo_placar(texto: str) -> bool:
+    """O juiz visto de fora: a análise só entra no denominador se `resumo_de_voz`
+    a contar. É o mesmo `tem_placar`, exercido pelo caminho do juiz."""
+    from scripts.output_judge import resumo_de_voz
+
+    return resumo_de_voz([texto])["analisadas"] == 1
+
+
 def test_conferir_e_limpar_excecao_do_repositorio_nao_propaga(monkeypatch):
     """CONTRATO HONESTO: só o log_event está protegido aqui dentro — a
     exceção de problemas_de_voz/limpar continua responsabilidade de quem

@@ -567,10 +567,17 @@ def _process_upload_inner(
             log.warning("guarda de fatos falhou: %s", exc)
 
     # GUARDA DA VOZ: mede o bloco pós-placar e tira o que é seguro tirar.
+    # `onde` rotula a POPULAÇÃO do evento na origem: esta linha roda antes do
+    # `if not is_tournament` abaixo, então o relatório de torneio passava por
+    # aqui sem carimbo e entrava no numerador da taxa 🗣 do juiz, cujo
+    # denominador só conta análise de mão — "6 de 12 = 50%" com a verdade em
+    # 0%, e 225% num dia plausível. Quem sabe se é torneio é este caminho.
     try:
         from app.bot.guarda_voz import conferir_e_limpar
 
-        coaching = conferir_e_limpar(telegram_id, coaching, username=username)
+        coaching = conferir_e_limpar(
+            telegram_id, coaching, username=username,
+            onde="torneio" if is_tournament else "analise")
     except Exception as exc:
         log.warning("guarda da voz falhou: %s", exc)
 

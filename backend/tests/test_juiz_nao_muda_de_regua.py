@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import inspect
 import pathlib
+import re
 
 import scripts.output_judge as juiz
 
@@ -69,14 +70,42 @@ def test_o_juiz_le_os_eventos_de_voz_e_nao_so_o_texto_gravado():
     cru = juiz.resumo_dos_eventos_de_voz([
         {"feitos": ["título fixo removido"],
          "problemas": ["título fixo 'Resumo:'",
-                       "bastidor de busca narrado ao aluno"]},
+                       "bastidor de busca narrado ao aluno"],
+         "onde": "analise", "com_placar": True},
         {"feitos": [], "problemas": ["bloco pós-placar longo (1200 chars; "
                                      "teto 800)"], "onde": "conversa"},
         "detalhe que veio como string quebrada",
     ])
     assert cru == {"eventos": 2, "corrigidas": 1, "em_conversa": 1,
+                   "em_torneio": 0, "de_analise": 1,
+                   "em_analise_sem_placar": 0, "sem_rotulo": 0,
                    "com_titulo_fixo": 1, "com_bastidor": 1,
                    "com_bloco_longo": 1, "com_autocorrecao": 0}
+
+
+def test_cada_evento_de_voz_cai_em_exatamente_uma_populacao():
+    """As quatro populações mais o bucket dos eventos anteriores ao carimbo
+    têm que FECHAR com o total: se somarem menos, algum evento sumiu da
+    tela; se somarem mais, alguém está contado duas vezes e a taxa passa de
+    100%. Torneio e análise sem placar entravam no numerador de graça
+    porque `conferir_e_limpar` roda antes do `if not is_tournament`."""
+    cru = juiz.resumo_dos_eventos_de_voz([
+        {"problemas": ["x"], "onde": "analise", "com_placar": True},
+        {"problemas": ["x"], "onde": "analise", "com_placar": True},
+        {"problemas": ["x"], "onde": "analise", "com_placar": False},
+        {"problemas": ["x"], "onde": "torneio", "com_placar": False},
+        {"problemas": ["x"], "onde": "conversa"},
+        {"problemas": ["x"]},  # gravado antes do carimbo existir
+    ])
+    assert cru["de_analise"] == 2, "o numerador da taxa mudou de população"
+    assert cru["em_analise_sem_placar"] == 1
+    assert cru["em_torneio"] == 1
+    assert cru["em_conversa"] == 1
+    assert cru["sem_rotulo"] == 1, \
+        "evento sem carimbo entrou numa população em vez de ficar visível"
+    assert (cru["de_analise"] + cru["em_analise_sem_placar"]
+            + cru["em_torneio"] + cru["em_conversa"]
+            + cru["sem_rotulo"]) == cru["eventos"]
 
 
 def test_o_juiz_consulta_os_eventos_de_voz_em_main():
@@ -101,7 +130,8 @@ def test_o_juiz_consulta_os_eventos_de_voz_em_main():
 # saiu para `linha_da_voz(cru, voz)`, função pura: daqui em diante o que se
 # afirma é o texto que o dono lê.
 
-_CRU = {"eventos": 10, "corrigidas": 3, "em_conversa": 4,
+_CRU = {"eventos": 10, "corrigidas": 3, "em_conversa": 4, "em_torneio": 0,
+        "de_analise": 6, "em_analise_sem_placar": 0, "sem_rotulo": 0,
         "com_titulo_fixo": 5, "com_bastidor": 6, "com_bloco_longo": 1,
         "com_autocorrecao": 0}
 _VOZ = {"analisadas": 12, "sem_placar_ignoradas": 2, "com_titulo_fixo": 0,
@@ -247,6 +277,110 @@ def test_main_ainda_imprime_a_linha_da_voz():
     assert len(chamadas) == 1, "main() não monta mais a linha de voz"
     assert "linha_voz" in inspect.getsource(juiz.main), \
         "a linha foi montada e não entra na mensagem"
+
+
+# --- A TAXA 🗣 divide a MESMA população, do guarda até a tela -------------
+#
+# Os dois cenários abaixo foram EXECUTADOS pela re-revisão contra o código
+# anterior e são a razão de este bloco existir. Eles não montam o `detail` na
+# mão: mandam os textos do dia pelo `conferir_e_limpar` de produção, com o
+# mesmo `onde` que processing.py passa, e leem o que o juiz imprime. É a
+# corrente inteira — se o carimbo sair da origem ou o juiz parar de filtrar
+# por ele, aqui fica vermelho.
+
+_LIMPA = ("✅ Você jogou bem — set flopado\n"
+          "✅ *Flop* 5♥8♠6♦ — set de 6 e jam de 16.9bb.\n\n"
+          "Com set em board de draw, empacotar é obrigatório.")
+_COM_DEFEITO = ("✅ Você jogou bem — call fácil\n"
+                "✅ *Flop* 5♥8♠6♦ — set de 6.\n\n"
+                "*A conta que mais pesa:* com 12bb, AK em HJ é jam.")
+_TORNEIO = "✅ Torneio ok — bom ITM\n\n" + ("palavra " * 170)
+_SEM_PLACAR = "✅ Call certo\n\n" + ("palavra " * 170)
+
+
+def _dia(monkeypatch, limpas=0, com_defeito=0, torneios=0, sem_placar=0,
+         conversas=0) -> str:
+    """Um dia de produção inteiro: os textos passam pelo guarda (que grava os
+    eventos) e as análises viram linhas de `hand_analysis`. Devolve a linha
+    que o dono lê."""
+    from app.bot.guarda_voz import conferir_e_limpar
+
+    eventos: list[dict] = []
+
+    class _Repo:
+        def log_event(self, telegram_id, username, evento, detalhe=None):
+            eventos.append(detalhe)
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+
+    linhas: list[dict] = []
+    for texto, n, onde, mistakes in (
+            (_LIMPA, limpas, "analise", []),
+            (_COM_DEFEITO, com_defeito, "analise", []),
+            # torneio: `mistakes` NULL, do mesmo jeito que analyze_tournament grava
+            (_TORNEIO, torneios, "torneio", None),
+            (_SEM_PLACAR, sem_placar, "analise", []),
+            (_SEM_PLACAR, conversas, "conversa", None)):
+        for _ in range(n):
+            conferir_e_limpar(1, texto, onde=onde)
+            if onde != "conversa":
+                linhas.append({"summary": texto, "mistakes": mistakes})
+
+    cru = juiz.resumo_dos_eventos_de_voz(eventos)
+    voz = juiz.resumo_de_voz(juiz.analises_de_mao(linhas))
+    return juiz.linha_da_voz(cru, voz)
+
+
+def test_dia_de_analises_limpas_com_torneio_e_sem_placar_da_zero(monkeypatch):
+    """O cenário EXECUTADO pela re-revisão: 12 análises de mão TODAS limpas,
+    4 relatórios de torneio e 2 análises sem placar. A linha imprimia "6 de
+    12 análises com algo a apontar = 50%" — os 6 eventos eram os torneios e
+    as sem placar, nenhum deles na população do denominador. A verdade é 0%,
+    e um dia perfeito era reportado como metade defeituoso."""
+    linha = _dia(monkeypatch, limpas=12, torneios=4, sem_placar=2)
+    modelo = linha.strip().splitlines()[0]
+    assert "0 de 12 análises de mão com placar" in modelo, modelo
+    assert "= 0%" in modelo, modelo
+    assert "+4 em torneio" in modelo and "+2 análise sem placar" in modelo, \
+        "as populações à parte sumiram da tela em vez de sair do numerador"
+
+
+def test_a_taxa_da_voz_nunca_passa_de_cem_por_cento(monkeypatch):
+    """O outro cenário executado: "9 de 4 análises = 225%". Uma razão acima
+    de 100% é a forma VISÍVEL de numerador e denominador virem de populações
+    diferentes — o mesmo erro que a spec §9 documenta e que esta linha
+    existe para medir. Nenhuma combinação de dia pode produzi-la."""
+    combinacoes = [
+        # o dia do 225%: 4 análises com defeito + 5 torneios = 9 eventos / 4
+        dict(com_defeito=4, torneios=5),
+        dict(limpas=12, torneios=4, sem_placar=2),
+        dict(com_defeito=12, conversas=9),
+        dict(com_defeito=3, limpas=1, torneios=7, sem_placar=6, conversas=4),
+        dict(com_defeito=1),
+        dict(torneios=5, conversas=3),  # nenhuma análise de mão no dia
+    ]
+    for kw in combinacoes:
+        modelo = _dia(monkeypatch, **kw).strip().splitlines()[0]
+        achou = re.search(r"em 24h = (\d+)%", modelo)
+        if achou:
+            assert int(achou.group(1)) <= 100, f"{kw}: {modelo}"
+        else:
+            assert "= sem base hoje" in modelo, f"{kw}: {modelo}"
+        assert "⚠️" not in modelo, \
+            f"{kw}: o numerador saiu maior que a base — {modelo}"
+
+
+def test_a_linha_avisa_quando_o_numerador_passa_da_base():
+    """Se a invariante quebrar por outro motivo (evento gravado e análise
+    não — o guarda roda antes do `save_hand_analysis`), a linha DIZ. O dono
+    não pode ler 225% de cara limpa e ter que descobrir sozinho que aquilo
+    não é uma taxa."""
+    torto = {**_CRU, "de_analise": 9}
+    modelo = juiz.linha_da_voz(torto, {**_VOZ, "analisadas": 4})
+    modelo = modelo.strip().splitlines()[0]
+    assert "225%" in modelo, modelo
+    assert "⚠️ acima da base" in modelo, \
+        "a taxa impossível sai sem avisar que é impossível"
 
 
 # --- I4: a linha diária compara populações comparáveis --------------------

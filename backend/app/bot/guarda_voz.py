@@ -109,6 +109,28 @@ def bloco_pos_placar(texto: str) -> str:
     return "\n".join(linhas[ultimo + 1:]).strip()
 
 
+def tem_placar(texto: str) -> bool:
+    """Análise de MÃO com placar street a street — a população da razão 🗣.
+
+    Duas linhas de selo é o piso: uma sozinha é o selo do R1. Sem este
+    filtro entram relatório de TORNEIO e análise de decisão única (R4), que
+    não têm placar — e aí `bloco_pos_placar` devolve tudo o que vem depois
+    da 1ª linha. Executado: um relatório de torneio de ~1200 chars com selo
+    na 1ª linha produz bloco de 1199 chars e é marcado "longo", todo dia.
+
+    Vive AQUI, e não no juiz, por uma razão que já custou um defeito: o juiz
+    aplicava esta régua só no DENOMINADOR (o texto gravado) enquanto o
+    NUMERADOR vinha dos eventos, que não sabiam de placar nenhum. Numerador
+    de uma população contra denominador de outra é o erro que a spec §9
+    documenta ter cometido — e a linha do juiz o repetiu, imprimindo "6 de
+    12 análises = 50%" num dia em que a verdade era 0% e chegando a 225%.
+    Uma definição de população, um lugar só: `conferir_e_limpar` carimba o
+    evento com ela na ORIGEM, e o juiz filtra por esse carimbo.
+    """
+    return sum(1 for ln in (texto or "").split("\n")
+               if ln.lstrip().startswith(_SELOS)) >= 2
+
+
 def numeros_repetidos(texto: str) -> list[str]:
     """Números que aparecem no placar E de novo na prosa do fechamento.
 
@@ -330,8 +352,25 @@ def conferir_e_limpar(telegram_id: int, texto: str, *,
     só: quem chama (análise ou conversa) vira uma linha.
 
     'texto' vazio/None não é medido — devolvido como veio, sem virar "" pelo
-    contrato de limpar(None). 'onde' rotula o evento fora da análise (ex.:
-    "conversa"); sem ele o payload fica igual ao que a análise já gravava.
+    contrato de limpar(None).
+
+    O EVENTO SAI ROTULADO COM A SUA POPULAÇÃO, sempre — 'onde'
+    ("conversa" / "torneio" / "analise") e 'com_placar'. É o carimbo que
+    torna o numerador do juiz filtrável, e ele existe porque a falta dele
+    produziu uma taxa mentirosa: a linha 🗣 contava TODO evento de voz do
+    caminho de análise (torneio e análise sem placar inclusos, porque
+    `conferir_e_limpar` roda em processing.py:571, ANTES do
+    `if not is_tournament` de :582) e dividia por um denominador que
+    continha só análise de mão com placar. Executado pela re-revisão: "6 de
+    12 análises = 50%" num dia cuja verdade era 0%, e "9 de 4 = 225%".
+    Rotular na ORIGEM é o conserto, pelo mesmo mecanismo que 'conversa' já
+    usava — quem sabe qual é a população é quem chama, não quem conta
+    depois. Sem 'onde' o evento fica "analise", que é o caminho histórico.
+
+    'com_placar' é medido sobre o texto ORIGINAL, o mesmo em que os
+    'problemas' foram medidos. A limpeza não mexe em linha de selo (tira
+    rótulo de seção e frase de bastidor), então ele concorda com a régua
+    que o juiz aplica depois ao texto GRAVADO.
 
     Não protege contra exceção de problemas_de_voz/limpar: essa proteção
     continua em processing.py, no try/except que envolve a chamada — uma
@@ -347,9 +386,8 @@ def conferir_e_limpar(telegram_id: int, texto: str, *,
     from app.db import get_repository
 
     repo = get_repository()
-    detalhe = {"feitos": feitos, "problemas": problemas[:6]}
-    if onde:
-        detalhe["onde"] = onde
+    detalhe = {"feitos": feitos, "problemas": problemas[:6],
+               "onde": onde or "analise", "com_placar": tem_placar(texto)}
     try:
         repo.log_event(telegram_id, username,
                        "voz_corrigida" if feitos else "voz_medida", detalhe)
