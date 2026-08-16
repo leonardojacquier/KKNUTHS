@@ -1977,6 +1977,18 @@ def coach(
                     final = _conferir_numeros(
                         client, modelo_da_analise, system_blocks, messages,
                         final, fontes_de_numeros)
+                if not final:
+                    # o modelo parou SEM pedir ferramenta e o resgate não
+                    # trouxe nada: retorno mudo que a instrumentação de 16/08
+                    # não cobriu (ela fechou o `except` e o fim-de-rodadas).
+                    # Caso real: a mão 43450b49-8e78-406e-aa00-ced59e1d4364
+                    # caiu por aqui e bot_events não tinha UM registro. O
+                    # motivo é DISTINTO do de rodadas esgotadas — os dois
+                    # galhos são defeitos diferentes — e leva o stop_reason,
+                    # que é o dado que faltava para saber por que ele parou.
+                    _registrar_plano_c(
+                        f"resposta_vazia_sem_tool_use "
+                        f"(stop_reason={resp.stop_reason})")
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})

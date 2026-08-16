@@ -751,3 +751,89 @@ def test_analise_cortada_por_max_tokens_recupera_em_vez_de_plano_c(monkeypatch):
 
     assert out == "✅ Jogada certa — 32% contra 30.8% que pedia."
     assert visto["tool_use_recolado"] is False
+
+
+# ---------------------------------------------------------------------------
+# O galho MUDO que sobrou: `if resp.stop_reason != "tool_use"`. A
+# instrumentação de 16/08 fechou o `except` e o fim-de-rodadas e passou
+# batido neste — o modelo para sem pedir ferramenta, o resgate não recupera
+# nada, `final` fica vazio e o aluno leva o plano C sem UMA linha de
+# registro. Caso real de 16/08: o comparador rodou 8 mãos e a mão
+# 43450b49-8e78-406e-aa00-ced59e1d4364 caiu aqui; a consulta a bot_events
+# devolveu zero eventos, porque o código não escrevia nenhum.
+
+
+def _coach_sem_tool_use(monkeypatch, eventos, stop_reason="end_turn"):
+    """Cenário da mão 43450b49: resposta sem tool_use, sem texto, resgate
+    vazio -> plano C. Devolve a saída do coach."""
+    from types import SimpleNamespace
+    from app.agent import llm
+
+    class _Repo:
+        enabled = True
+
+        def log_event(self, tid, user, event, detail):
+            eventos.append((event, detail))
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"anthropic_api_key": "sk-teste",
+                               "analysis_model": "m"})())
+    monkeypatch.setattr(
+        llm, "_create",
+        lambda *a, **k: SimpleNamespace(stop_reason=stop_reason, content=[]))
+    monkeypatch.setattr(llm, "_force_text", lambda *a, **k: "")
+    return llm.coach({"summary": "PLANO C"}, None)
+
+
+def test_plano_c_sem_tool_use_registra_motivo_com_stop_reason(monkeypatch):
+    """O caminho da mão 43450b49 deixa rastro: evento com o stop_reason."""
+    eventos: list = []
+    out = _coach_sem_tool_use(monkeypatch, eventos)
+
+    assert out == "PLANO C"                      # o aluno continua atendido
+    assert [e for e, _ in eventos] == ["plano_c"], \
+        "queda no plano C sem evento é exatamente o defeito de 16/08"
+    assert "end_turn" in eventos[0][1]["motivo"], \
+        "sem o stop_reason não dá para saber POR QUE o modelo parou"
+
+
+def test_plano_c_sem_tool_use_carrega_o_stop_reason_real(monkeypatch):
+    """O stop_reason não é constante decorativa: 'max_tokens' aparece no
+    evento quando foi ele que parou o modelo."""
+    eventos: list = []
+    _coach_sem_tool_use(monkeypatch, eventos, stop_reason="max_tokens")
+    assert "max_tokens" in eventos[0][1]["motivo"]
+
+
+def test_os_dois_galhos_do_plano_c_tem_motivos_distintos(monkeypatch):
+    """Dá para separar na consulta 'parou sem pedir ferramenta' de 'rodadas
+    esgotadas' — dois defeitos diferentes, dois motivos diferentes."""
+    from types import SimpleNamespace
+    from app.agent import llm
+
+    sem_tool_use: list = []
+    _coach_sem_tool_use(monkeypatch, sem_tool_use)
+
+    # rodadas esgotadas: toda rodada pede ferramenta até estourar o limite
+    rodadas: list = []
+
+    class _Repo:
+        enabled = True
+
+        def log_event(self, tid, user, event, detail):
+            rodadas.append((event, detail))
+
+    monkeypatch.setattr("app.db.get_repository", lambda: _Repo())
+    monkeypatch.setattr(
+        llm, "_create",
+        lambda *a, **k: SimpleNamespace(
+            stop_reason="tool_use",
+            content=[_bloco("tool_use", id="t1", name="inexistente",
+                            input={})]))
+    monkeypatch.setattr(llm, "_force_text", lambda *a, **k: "")
+    assert llm.coach({"summary": "PLANO C"}, None) == "PLANO C"
+
+    assert [e for e, _ in rodadas] == ["plano_c"]
+    assert sem_tool_use[0][1]["motivo"] != rodadas[0][1]["motivo"]
