@@ -14,6 +14,13 @@ os refez e publicou o erro: spec §9.)
 Regra é pedido; conferência é garantia. O R3/R7 do prompt pedem; isto mede
 e, onde é seguro, conserta.
 
+O CRITÉRIO, palavras do dono (16/08/2026): **"Eu quero q simplifique mas que
+não apague números importantes."** Toda decisão de corrigir × só medir se
+resolve por essa frase; "número importante" é a definição de conta da casa,
+`guarda_fatos._TEM_NUMERO` — a mesma que o guarda dos fatos usa, nunca uma
+cópia mais estreita (foi a cópia estreita que deixou passar pot odds em
+razão, outs e fichas: ver `_sem_narracao`).
+
 O que CORRIGE e o que só MEDE, e o porquê de cada escolha:
   corrige  título fixo         rótulo sai sem tocar na frase (Task 2)
   corrige  narração de busca   frase inteira — MENOS quando ela leva número
@@ -36,6 +43,12 @@ O que NÃO é defeito, apesar de parecer:
 from __future__ import annotations
 
 import re
+
+# A definição de CONTA é uma só nesta casa, e ela mora no guarda dos fatos.
+# Importada no topo de propósito: `guarda_fatos` só depende de `re`/`logging`
+# (o import de equity dele é tardio), então não há ciclo — conferido nas duas
+# direções antes de escrever esta linha.
+from app.bot import guarda_fatos
 
 # medido: média de 678 chars depois do placar (n=116); com este teto, 14% das
 # análises são marcadas — a cauda, sem acusar o caso comum. A calibragem
@@ -70,7 +83,11 @@ _NARRACAO = re.compile(
 
 _AUTOCORRECAO = re.compile(r"\.{2,3}\s*digo\b", re.I)
 
-# números que contam: 12bb, 34%, +1.49bb, -0,6bb
+# números do PLACAR: 12bb, 34%, +1.49bb, -0,6bb. Serve só a
+# `numeros_repetidos`, que compara linha de selo × prosa — ali o universo é o
+# placar, e o placar escreve bb e %. NÃO serve para decidir se uma frase
+# carrega a conta: para isso vale `guarda_fatos._TEM_NUMERO` (ver
+# `_sem_narracao`), que é a definição de conta da casa.
 _NUMERO = re.compile(r"[-+]?\d+[.,]?\d*\s*(?:bb|%)")
 
 
@@ -207,8 +224,28 @@ def _sem_narracao(texto: str) -> tuple[str, bool]:
 
     A EXCEÇÃO DO NÚMERO é a correção mais importante da revisão final, e é o
     pecado capital deste repositório (METODO.md): um guarda que existe para
-    MELHORAR a saída não pode apagar a conta que decide o spot. Executado
-    contra o código antigo:
+    MELHORAR a saída não pode apagar a conta que decide o spot. O critério é
+    do dono, com estas palavras (16/08/2026): **"Eu quero q simplifique mas
+    que não apague números importantes."** Simplificar é o pedido; apagar
+    número é o limite — e é este `if` que separa os dois.
+
+    QUAL número conta: `guarda_fatos._TEM_NUMERO`, a definição da casa, e
+    NÃO o `_NUMERO` daqui. Foi assim que a re-revisão final achou o resto do
+    defeito: a primeira trava usava `_NUMERO` (só `bb` e `%`) e quatro
+    textos continuavam perdendo a única conta —
+
+        'Vou calcular: o pote paga 2.5 para 1 e você tem 1 em 3. …'
+        'Vou conferir: você tinha 9 outs. …'
+        'Vou calcular: o pote tinha 5000 fichas e o call custa 1200 fichas.'
+        'Vou rodar o EV: deu +8.2 no shove. …'
+
+    — todos viravam o veredito pelado ('Portanto foi call caro.'). O
+    comentário de `_TEM_NUMERO` já dizia por quê, e é a mesma frase:
+    "exigir sufixo bb/%/fichas reprovava as duas formas mais básicas da
+    matemática de poker" (pot odds em razão e outs). Uma definição de conta,
+    um lugar só.
+
+    Executado contra o código antigo:
 
         '✅ Você jogou bem\\n\\nVou calcular: pedia 30%, tinha 12% → −11bb.
          Portanto foi call caro.'
@@ -237,7 +274,8 @@ def _sem_narracao(texto: str) -> tuple[str, bool]:
     for paragrafo in texto.split("\n"):
         frases = _FRASE.findall(paragrafo)
         mantidas = [f for f in frases
-                    if not _NARRACAO.search(f) or _NUMERO.search(f)]
+                    if not _NARRACAO.search(f)
+                    or guarda_fatos._TEM_NUMERO.search(f)]
         if len(mantidas) != len(frases):
             mexeu = True
             paragrafo = "".join(mantidas).strip()

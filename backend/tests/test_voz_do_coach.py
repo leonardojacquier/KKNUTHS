@@ -8,6 +8,8 @@ cabeçalho (58% / 740 / 25% / 23%) vinham de denominador contaminado.
 """
 from __future__ import annotations
 
+import pytest
+
 from app.bot.guarda_voz import (TETO_POS_PLACAR, bloco_pos_placar,
                                 numeros_repetidos, problemas_de_voz)
 
@@ -179,8 +181,9 @@ def test_bastidor_com_numero_decimal_nao_mutila_o_numero():
     frase, inclusive o ponto decimal — cortava '1.49bb' no meio e entregava
     '49bb' ao aluno, um número que não existe na mão. Com o _FRASE ingênuo,
     a frase de bastidor viraria 'Deixa eu conferir o EV: 1.' (sem número
-    para proteger, porque _NUMERO exige bb/%) e o que sobraria seria
-    '49bb no spot.' — a mutilação de volta.
+    para proteger: nem o _NUMERO do placar nem o _TEM_NUMERO da casa acham
+    conta num '1.' solto) e o que sobraria seria '49bb no spot.' — a
+    mutilação de volta.
 
     I1: a frase de bastidor CARREGA 1.49bb, então ela fica inteira. O
     guarda mede e entrega; não apaga a conta.
@@ -196,10 +199,15 @@ def test_bastidor_com_numero_decimal_nao_mutila_o_numero():
 
 def test_bastidor_sem_numero_de_conta_sai_sem_mutilar_decimal():
     """Segundo cenário do Critical 2, agora com uma frase que a exceção do
-    I1 NÃO protege: '16.9 combos' não é conta (só bb/% contam como número
-    da mão), então a frase de bastidor sai — e tem que sair INTEIRA. Com o
+    I1 NÃO protege: '16.9 combos' não é conta nem para a definição LARGA da
+    casa — o comentário de `guarda_fatos._TEM_NUMERO` diz isso com todas as
+    letras ("não é afrouxar até \\d: número solto continua NÃO sendo
+    conta"). Então a frase de bastidor sai — e tem que sair INTEIRA. Com o
     separador ingênuo ela viraria 'Vou conferir o range: 16.' + '9 combos.',
-    e o pedaço '9 combos.' vazaria colado no texto entregue."""
+    e o pedaço '9 combos.' vazaria colado no texto entregue.
+
+    Este teste é a contraprova do R1: alargar a definição de conta não pode
+    virar 'nunca mais limpo nada'."""
     t = ("✅ Você jogou bem\n\n"
          "Com 12bb o jam é claro. Vou conferir o range: 16.9 combos.")
     novo, feitos = limpar(t)
@@ -277,6 +285,98 @@ def test_frase_fundida_sem_espaco_depois_do_ponto_nao_come_a_resposta():
     novo, feitos = limpar(t)
     assert novo == t
     assert feitos == []
+
+
+# --- R1 dos resíduos: a CLASSE do I1, não só o cenário -------------------
+#
+# O I1 travou a limpeza quando a frase carrega a conta, mas a trava usava o
+# `_NUMERO` do próprio guarda da voz, que só conhece `bb` e `%`. A definição
+# de conta desta casa é `guarda_fatos._TEM_NUMERO`, e o comentário dela diz
+# por quê: "exigir sufixo bb/%/fichas reprovava as duas formas mais básicas
+# da matemática de poker". Os quatro textos abaixo são os que a re-revisão
+# final EXECUTOU contra a branch — os quatro perdiam a única conta e viravam
+# veredito pelado. Critério, nas palavras do dono: "Eu quero q simplifique
+# mas que não apague números importantes."
+
+_CONTA_QUE_NAO_E_BB_NEM_PORCENTO = [
+    # pot odds em razão + frequência escrita por extenso
+    "Vou calcular: o pote paga 2.5 para 1 e você tem 1 em 3. "
+    "Portanto foi call caro.",
+    # outs
+    "Vou conferir: você tinha 9 outs. Portanto foi call caro.",
+    # fichas (torneio)
+    "Vou calcular: o pote tinha 5000 fichas e o call custa 1200 fichas. "
+    "Portanto foi call caro.",
+    # EV com sinal, sem unidade
+    "Vou rodar o EV: deu +8.2 no shove. Portanto foi jam claro.",
+]
+
+
+@pytest.mark.parametrize("t", _CONTA_QUE_NAO_E_BB_NEM_PORCENTO)
+def test_bastidor_com_conta_que_nao_e_bb_nem_porcento_nao_e_apagado(t):
+    """R1 — igualdade EXATA, e não `in`: foi asserção `in` solta que deixou
+    passar o pior defeito desta branch. Com `_NUMERO` (bb/% apenas) os
+    quatro saíam como o veredito sozinho, sem número nenhum."""
+    novo, feitos = limpar(t)
+    assert novo == t, "a limpeza apagou a única frase com a conta"
+    assert feitos == []
+
+
+@pytest.mark.parametrize("t", _CONTA_QUE_NAO_E_BB_NEM_PORCENTO)
+def test_bastidor_com_conta_larga_continua_sendo_medido(t):
+    """A exceção não é anistia — o defeito continua apontado e vira evento,
+    exatamente como no cenário bb/% do I1. O guarda mede em vez de apagar."""
+    assert problemas_de_voz(t) == ["bastidor de busca narrado ao aluno"]
+
+
+def _nomes_carregados(code) -> set[str]:
+    """Todo nome que o bytecode de `code` carrega, comprehensions inclusas.
+
+    Ler `inspect.getsource` aqui seria decorativo: a docstring de
+    `_sem_narracao` CITA `_TEM_NUMERO` ao explicar o R1, então a substring
+    sobreviveria à reversão do código. `co_names` só enxerga o que roda — e
+    a comparação da lista fica dentro de uma list comprehension, que em 3.11
+    é um code object próprio, por isso a recursão em `co_consts`.
+    """
+    nomes = set(code.co_names)
+    for const in code.co_consts:
+        if hasattr(const, "co_names"):
+            nomes |= _nomes_carregados(const)
+    return nomes
+
+
+def test_o_guarda_da_voz_usa_a_definicao_de_conta_da_casa():
+    """Duas definições de conta em dois módulos foi o defeito; uma cópia
+    nova reinstala o R1 sem que nenhum cenário acuse. `_NUMERO` continua
+    existindo — mas só para `numeros_repetidos`, que compara placar × prosa
+    e cujo universo é mesmo bb/%."""
+    from app.bot import guarda_fatos, guarda_voz
+
+    nomes = _nomes_carregados(guarda_voz._sem_narracao.__code__)
+    assert "_TEM_NUMERO" in nomes, \
+        "_sem_narracao não consulta a definição de conta da casa"
+    assert "_NUMERO" not in nomes, \
+        "_sem_narracao voltou a decidir por uma régua de conta só sua"
+    # e a definição da casa continua sendo mais larga que a do placar: se um
+    # dia alguém estreitar `_TEM_NUMERO` para bb/%, este teste cai junto.
+    for texto in ("o pote paga 2.5 para 1", "você tinha 9 outs",
+                  "5000 fichas", "+8.2"):
+        assert guarda_fatos._TEM_NUMERO.search(texto), texto
+        assert not guarda_voz._NUMERO.search(texto), \
+            f"{texto!r} passou a casar em _NUMERO — os dois convergiram"
+
+
+def test_o_criterio_do_dono_esta_escrito_no_guarda():
+    """Este repositório documenta o porquê junto do quê, e o porquê aqui é
+    uma frase do dono (16/08/2026). Sem ela, a próxima pessoa que ler
+    `_sem_narracao` vê uma exceção sem critério e a 'simplifica' de volta."""
+    import inspect
+
+    from app.bot import guarda_voz
+
+    fonte = inspect.getsource(guarda_voz)
+    assert "não apague números importantes" in fonte, \
+        "o critério do dono saiu da docstring do guarda"
 
 
 def test_analise_conforme_ao_R5b_nao_tem_defeito_nenhum():
