@@ -78,6 +78,69 @@ def test_o_prompt_permite_parentese_didatico_na_primeira_aparicao():
     assert "primeira aparição" in baixo or "primeira vez" in baixo
 
 
+def _regra(nome: str, seguinte: str) -> str:
+    return re.search(rf"{nome} .*?(?={seguinte} )", PROMPT, re.S).group(0)
+
+
+def test_o_guarda_conhece_todos_os_rotulos_que_o_R3_proibe():
+    """I2 — o guarda conhecia UM rótulo e o R3 proíbe TRÊS.
+
+    O modelo obedece à proibição mais específica (a que tem nome próprio),
+    troca 'A conta que mais pesa:' por 'Resumo:' e nada vê: _TITULO_FIXO não
+    casa, limpar não mexe, problemas_de_voz não aponta, com_titulo_fixo = 0.
+    Todos os contadores dizem sucesso com o formulário intacto sob cabeçalho
+    novo.
+
+    Este teste lê os rótulos DO PROMPT e cobra cada um do guarda — quem
+    acrescentar um quarto rótulo lá é obrigado a ensiná-lo aqui.
+    """
+    from app.bot.guarda_voz import problemas_de_voz
+
+    proibicao = _regra("R3", "R4").split("PROIBIDO RECITAR", 1)[0]
+    rotulos = re.findall(r"'([^']+:)'", proibicao)
+    assert len(rotulos) >= 3, "o R3 parou de nomear os rótulos proibidos"
+    for rot in rotulos:
+        t = f"✅ Você jogou bem\n\n{rot} com 12bb, AK em HJ é jam pré-flop."
+        assert any("título fixo" in p for p in problemas_de_voz(t)), (
+            f"o R3 proíbe {rot!r} e o guarda não enxerga — o modelo troca de "
+            "rótulo e todos os contadores dizem sucesso")
+
+
+def test_o_R3_escreve_a_prioridade_dos_tres_fechadores():
+    """I7 — três fechadores obrigatórios para duas vagas.
+
+    R5b (a história do desfecho), C3b (o ICM que falta) e A1 (o aviso do
+    gráfico) são todos obrigatórios quando a mão dispara os três, e o R3 dá
+    no MÁXIMO 2 parágrafos. Sem prioridade escrita, o candidato a cair é o
+    C3b: o único dos três que carrega um número computado que o placar não
+    deu, e o único cuja ausência o aluno não tem como perceber.
+    """
+    r3 = _regra("R3", "R4")
+    assert "PRIORIDADE" in r3, "o R3 põe três fechadores em duas vagas e não "\
+        "diz qual cai"
+    ordem = r3.split("PRIORIDADE", 1)[1]
+    posicao = {r: ordem.index(r) for r in ("R5b", "C3b", "A1")}
+    assert posicao["R5b"] < posicao["C3b"] < posicao["A1"], (
+        "a prioridade tem que pôr o C3b acima do A1: o ICM é conta que o "
+        f"placar não deu, o gráfico é aviso. Ordem escrita: {posicao}")
+
+
+def test_o_bloco_de_voz_do_followup_nao_cala_a_resposta_ao_aluno():
+    """I6 — o R3 ia sem escopo para a conversa.
+
+    Na análise ele é escopado ('depois do placar'). Numa conversa não existe
+    placar, e a pergunta mais comum do aluno é justamente pela conta ('por
+    que −11bb?'). O resultado era resposta sem número — ou o guarda_saida
+    grampeando um bloco calculado no fim, uma ida a mais na API no lugar da
+    conversa natural que o dono pediu.
+    """
+    fonte = _instrucoes_de(llm.followup).lower()
+    assert "recitar" in fonte
+    escopo = fonte[fonte.index("recitar"):][:600]
+    assert "pergunt" in escopo and "número" in escopo, (
+        "proibir formulário virou proibir responder a pergunta feita")
+
+
 def test_o_selo_e_o_placar_continuam_obrigatorios():
     """Regra de ouro. Nenhuma mudança de voz pode afrouxá-la."""
     assert "R1 SELO NA 1ª LINHA" in PROMPT

@@ -165,6 +165,28 @@ def test_o_fechamento_nao_cala_a_historia_do_desfecho():
         "se o R5b parou de pedir as %, a exceção do R3 ficou órfã"
 
 
+def test_o_R3_nao_volta_a_licenciar_o_rotulo_que_ele_proibiu():
+    """5ª contradição (revisão final, I2), e a mais silenciosa: o R3 proíbe
+    'O que treinar:' como título e, quatro linhas depois, escrevia
+    "'O que treinar' só aparece se houver algo novo a dizer — não é seção
+    obrigatória". Lido em sequência, isso LICENCIA o rótulo justamente
+    quando há algo novo a dizer, que é quando o modelo ia querer usá-lo.
+
+    A invariante que dá para conferir: rótulo nomeado na proibição não
+    reaparece depois dela. O conteúdo pode voltar — como frase dentro do
+    parágrafo —, o RÓTULO não.
+    """
+    r3 = re.search(r"R3 .*?(?=R4 )", PT, re.S).group(0)
+    proibicao, resto = r3.split("PROIBIDO RECITAR", 1)
+    rotulos = [r.rstrip(":").lower()
+               for r in re.findall(r"'([^']+:)'", proibicao)]
+    assert rotulos, "o R3 parou de nomear os rótulos que proíbe"
+    voltam = [r for r in rotulos if r in resto.lower()]
+    assert not voltam, (
+        f"o R3 proíbe {voltam} como título e volta a falar deles depois da "
+        "proibição — o modelo lê a segunda menção como permissão")
+
+
 def test_o_exemplo_de_ouro_continua_com_a_conta_inteira():
     """Se um dia alguém 'consertar' a contradição pelo outro lado — tirando
     os números do exemplo — o placar perde o que ele existe para mostrar."""
