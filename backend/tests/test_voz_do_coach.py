@@ -1,8 +1,10 @@
 """A análise soa como conversa ou como formulário?
 
-Medido em 403 análises reais (45 dias): o bloco depois do placar é 58% do
-texto (740 de 1662 chars, n=183); o título fixo "A conta que mais pesa"
-aparece em 102 delas (25%); a narração de bastidor sobrevive em 91 (23%).
+Medido sobre a população certa (spec §9 — só análise de mão com selo, sem
+follow-up e sem torneio): o bloco depois do placar é 67% do texto (678 chars
+em média, n=116); o título fixo "A conta que mais pesa" aparece em 102 de 212
+(48%); a narração de bastidor sobrevive em 73 (34%). Os números antigos deste
+cabeçalho (58% / 740 / 25% / 23%) vinham de denominador contaminado.
 """
 from __future__ import annotations
 
@@ -171,26 +173,35 @@ def test_titulo_com_negrito_continua_preservando_a_quebra():
 
 
 def test_bastidor_com_numero_decimal_nao_mutila_o_numero():
-    """Critical 2 da revisão: o separador de frase antigo tratava TODO
-    ponto como fim de frase, inclusive o ponto decimal — cortava '1.49bb'
-    no meio e entregava '49bb' ao aluno, um número que não existe na mão.
-    É a mesma classe de defeito que _conferir_numeros em llm.py existe
-    para impedir, só que do lado da limpeza de voz."""
+    """Critical 2 da revisão da Task 2 + I1 da revisão final, no mesmo texto.
+
+    Critical 2: o separador de frase antigo tratava TODO ponto como fim de
+    frase, inclusive o ponto decimal — cortava '1.49bb' no meio e entregava
+    '49bb' ao aluno, um número que não existe na mão. Com o _FRASE ingênuo,
+    a frase de bastidor viraria 'Deixa eu conferir o EV: 1.' (sem número
+    para proteger, porque _NUMERO exige bb/%) e o que sobraria seria
+    '49bb no spot.' — a mutilação de volta.
+
+    I1: a frase de bastidor CARREGA 1.49bb, então ela fica inteira. O
+    guarda mede e entrega; não apaga a conta.
+    """
     t = ("✅ Você jogou bem\n\n"
          "Deixa eu conferir o EV: 1.49bb no spot. Com 12bb é jam.")
     novo, feitos = limpar(t)
-    assert novo == "✅ Você jogou bem\n\nCom 12bb é jam."
-    assert "1.49bb" not in novo
-    assert "49bb no spot" not in novo, "número decimal vazou mutilado"
-    assert any("bastidor" in f for f in feitos)
+    assert novo == t, "a limpeza mexeu numa frase que carrega a conta"
+    assert "49bb no spot" not in novo.replace("1.49bb no spot", ""), \
+        "número decimal vazou mutilado"
+    assert feitos == []
 
 
-def test_bastidor_no_meio_da_frase_preserva_decimal_da_frase_seguinte():
-    """Segundo cenário do Critical 2: o decimal pode estar na frase que
-    SOBREVIVE, não só na que é removida — '9bb efetivo' colado em 'claro.'
-    era o sintoma."""
+def test_bastidor_sem_numero_de_conta_sai_sem_mutilar_decimal():
+    """Segundo cenário do Critical 2, agora com uma frase que a exceção do
+    I1 NÃO protege: '16.9 combos' não é conta (só bb/% contam como número
+    da mão), então a frase de bastidor sai — e tem que sair INTEIRA. Com o
+    separador ingênuo ela viraria 'Vou conferir o range: 16.' + '9 combos.',
+    e o pedaço '9 combos.' vazaria colado no texto entregue."""
     t = ("✅ Você jogou bem\n\n"
-         "Com 12bb o jam é claro. Vou conferir o range: 16.9bb efetivo.")
+         "Com 12bb o jam é claro. Vou conferir o range: 16.9 combos.")
     novo, feitos = limpar(t)
     assert novo == "✅ Você jogou bem\n\nCom 12bb o jam é claro."
     assert any("bastidor" in f for f in feitos)
@@ -209,6 +220,102 @@ def test_paragrafo_so_de_bastidor_nao_deixa_buraco_de_linhas_vazias():
                      "Com 12bb o jam é claro.")
     assert "\n\n\n" not in novo, "sobrou buraco de linhas vazias"
     assert any("bastidor" in f for f in feitos)
+
+
+# --- Onda final: I1, I2, I3 ---------------------------------------------
+#
+# Asserções por igualdade EXATA. A revisão final achou três testes
+# decorativos (dois deles escritos pela própria execução) e o pior defeito
+# da Task 2 passou por baixo de um `in` solto.
+
+
+def test_bastidor_que_carrega_a_conta_nao_e_apagado():
+    """I1 — o achado com dano direto ao aluno.
+
+    Executado contra o código antigo, este texto virava
+    '✅ Você jogou bem\\n\\nPortanto foi call caro.': um veredito com ZERO
+    número, que é literalmente a forma que guarda_fatos.conta_sem_numero
+    existe para detectar. E ele roda 45 linhas ANTES do guarda da voz
+    (processing.py:532 × :577), sobre o texto que ainda tinha a conta — o
+    defeito nascia depois do detector.
+    """
+    t = ("✅ Você jogou bem\n\n"
+         "Vou calcular: pedia 30%, tinha 12% → −11bb. Portanto foi call caro.")
+    novo, feitos = limpar(t)
+    assert novo == t, "a limpeza apagou a única frase com a conta"
+    assert feitos == []
+
+
+def test_bastidor_que_carrega_a_conta_continua_sendo_medido():
+    """A exceção do I1 não é anistia: o defeito continua apontado, o evento
+    continua sendo gravado e o dono continua vendo a taxa. O que muda é que
+    o guarda MEDE em vez de apagar."""
+    t = ("✅ Você jogou bem\n\n"
+         "Vou calcular: pedia 30%, tinha 12% → −11bb. Portanto foi call caro.")
+    assert problemas_de_voz(t) == ["bastidor de busca narrado ao aluno"]
+
+
+def test_resposta_de_conversa_pedida_pelo_aluno_mantem_o_numero():
+    """O mesmo mecanismo, no caminho da conversa e com custo maior: o aluno
+    PERGUNTOU o EV, o guarda_saida.faltou (processing.py:1217) achou o
+    número e deu entrega_ok, e a limpeza (:1229) apagava a frase logo
+    depois — resposta sem número com o portão que existe para impedir isso
+    já tendo dito OK."""
+    t = ("Vou conferir o EV: +1.49bb no jam. "
+         "Contra o range dele, empurrar bate foldar.")
+    novo, feitos = limpar(t)
+    assert novo == t
+    assert feitos == []
+
+
+def test_frase_fundida_sem_espaco_depois_do_ponto_nao_come_a_resposta():
+    """Diferido (b) da revisão final, morto pelo conserto do I1 e não por
+    conserto próprio: sem o espaço depois do ponto, _FRASE lê '.' seguido de
+    dígito como DECIMAL, então a corrida inteira é uma frase só. Antes, ela
+    era removida por conter bastidor e o aluno recebia apenas o selo."""
+    t = "✅ Você jogou bem\n\nVou conferir o EV.12bb é jam, e o range aperta."
+    novo, feitos = limpar(t)
+    assert novo == t
+    assert feitos == []
+
+
+def test_analise_conforme_ao_R5b_nao_tem_defeito_nenhum():
+    """I3 — o contador marcava como defeito o que o prompt agora MANDA.
+
+    Esta análise obedece ao R3 (fechamento sem rótulo, sem recitar preço) e
+    ao R5b (a história do desfecho com as % de cada street). O código antigo
+    devolvia ['número do placar repetido na prosa: 12%, 30%'], gravava um
+    evento `voz_medida` e fazia `com_numero_repetido` subir por causa da
+    melhoria que a branch existe para provar.
+    """
+    conforme = ("❌ Jogada cara — pagou o river sem preço\n\n"
+                "🟡 *Pré* — 3-bet A♠K♠: contra o range dele, +EV.\n"
+                "❌ *River* K♠ — pagou 18bb: pedia 30%, tinha 12% → −11bb.\n\n"
+                "Você estava atrás desde o pré: 30% no flop, 12% no river. "
+                "Não foi bad beat.")
+    assert problemas_de_voz(conforme) == []
+
+
+def test_o_guarda_conhece_os_tres_rotulos_do_R3():
+    """I2 — o guarda conhecia 1 rótulo e o R3 proíbe 3. O modelo obedece à
+    proibição mais específica (a que tem nome próprio), troca para 'Resumo:'
+    e todos os contadores dizem sucesso com o formulário intacto."""
+    for rotulo in ("A conta que mais pesa:", "Resumo:", "O que treinar:"):
+        t = f"✅ Você jogou bem\n\n{rotulo} com 12bb, AK em HJ é jam pré-flop."
+        assert problemas_de_voz(t) == [f"título fixo {rotulo!r}"], rotulo
+        novo, feitos = limpar(t)
+        assert novo == ("✅ Você jogou bem\n\n"
+                        "Com 12bb, AK em HJ é jam pré-flop."), rotulo
+        assert feitos == ["título fixo removido"], rotulo
+
+
+def test_resumo_no_meio_da_frase_nao_e_titulo_fixo():
+    """'resumo' e 'o que treinar' são português comum — só contam como
+    TÍTULO quando abrem a linha, que é o que um rótulo de seção faz.
+    Acusar 'em resumo, ...' seria o guarda inventando defeito."""
+    t = "✅ Você jogou bem\n\nEm resumo: com 12bb o jam é a única linha."
+    assert problemas_de_voz(t) == []
+    assert limpar(t) == (t, [])
 
 
 def test_limpar_de_none_devolve_string_vazia_nao_none():
