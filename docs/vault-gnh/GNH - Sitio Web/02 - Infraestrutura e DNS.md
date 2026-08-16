@@ -54,12 +54,31 @@ gnhorizons.com, www.gnhorizons.com {
 	handle /assets/img/*   { root * /opt/gnh; file_server }
 
 	# HTML sempre fresco; estáticos com cache
-	@html path / /index.html /ventas/ /institucional/ *.html
+	@html path / /index.html */ *.html
 	header @html Cache-Control "no-cache"
 
 	file_server
 }
 ```
+
+> [!warning] O curinga `*/` é obrigatório — sem ele as subpáginas ficam sem no-cache
+> O matcher `path` casa caminho **exato**, não prefixo. Listar `/ventas/` cobre só
+> a lista; `/ventas/apilador-electrico/` fica de fora e sai **sem** `Cache-Control`,
+> então o navegador serve a versão velha e parece que o deploy não subiu. O `*/`
+> casa qualquer caminho terminado em barra e resolve todas de uma vez.
+>
+> Três variantes furadas já apareceram neste Caddyfile (`@html path *.html /`,
+> `@html path / *.html` e a lista explícita `/ventas/ /institucional/`).
+> **Regra:** toda linha `@html path` sem `*/` está errada. Corrigido em ago/2026;
+> o `vps-aplicar-pendencias.sh` verifica e conserta.
+
+> [!danger] O `/etc/caddy/Caddyfile` está com `chattr +i` (imutável)
+> Nem root escreve nele nem renomeia por cima — `sed -i` falha com
+> `Operation not permitted`, e o erro **não** é de permissão. Confira com
+> `lsattr -d /etc/caddy/Caddyfile` (a flag `i` na string de atributos).
+>
+> Para editar: `chattr -i`, editar, `caddy validate`, `systemctl reload caddy`,
+> `chattr +i` de volta. Nunca deixe sem o `+i` no fim.
 
 **Consequência prática do `no-cache` no HTML:** não existe problema de cache-busting
 para páginas. Mas **vídeos e imagens ficam em cache** — ao trocar um vídeo ou uma

@@ -87,6 +87,7 @@ node gnh-hero/tools/build-sitemap.cjs
 | Arquivo | Papel |
 |---|---|
 | `vps-autodeploy.sh` | O cron do VPS (fonte do que roda em `/opt/gnh-autodeploy.sh`) |
+| `vps-aplicar-pendencias.sh` | Manutenção do VPS: conserta o matcher `@html` do Caddy e reinstala o auto-deploy + cron |
 | `deploy-local.sh` | Deploy manual, rodado **no VPS** |
 | `deploy-gnh.sh` | Deploy remoto via SSH, do PC do dono |
 | `.github/workflows/deploy-vortex.yml` | Deploy por Actions (no-op sem o secret) |
@@ -96,3 +97,36 @@ node gnh-hero/tools/build-sitemap.cjs
 ---
 
 **Ver também:** [[09 - Operacao diaria]] · [[01 - Arquitetura do site]]
+
+
+## Manutenção do VPS — `vps-aplicar-pendencias.sh`
+
+Roda **no VPS**, como root:
+
+```bash
+cd /root/KKNUTHS && git pull && bash vps-aplicar-pendencias.sh
+```
+
+É idempotente e faz, nesta ordem:
+
+1. **Caddy** — troca toda linha `@html path` sem `*/` pela canônica e, se o bloco
+   do `gnhorizons.com` não tiver matcher nenhum, insere `@html` + `header` antes
+   da chave de fechamento dele. Antes de mexer faz backup em
+   `/root/Caddyfile.bak-<data>`, levanta o `chattr +i` temporariamente, roda
+   `caddy validate` e — se falhar — **restaura o backup e aborta sem reload**.
+   Um `trap EXIT` garante que o imutável volte mesmo se o script morrer no meio.
+2. **Auto-deploy** — copia `vps-autodeploy.sh` para `/opt/gnh-autodeploy.sh`,
+   garante o cron de 2 min e remove entradas duplicadas. A crontab do root é
+   compartilhada com os outros sites: ela é salva em `/root/crontab.bak-<data>` e
+   o script aborta em vez de reescrever às cegas se `crontab -l` falhar.
+3. **Conferência** — lista os blocos de site do Caddyfile e testa seis URLs em
+   **HTTPS** (`--resolve` na 443). Testar na porta 80 só mede o redirect 308 para
+   HTTPS e dá falso negativo, sem mostrar o `Cache-Control`.
+
+Sinal de que está tudo certo:
+
+```
+Cache-Control das subpáginas:
+  HTTP/2 200
+  cache-control: no-cache
+```

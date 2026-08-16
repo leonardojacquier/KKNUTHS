@@ -80,17 +80,7 @@ Host e pasta já estão preenchidos no workflow.
 
 ---
 
-## Pendências do VPS — script único
-
-Duas coisas só podem ser feitas **no VPS** e não saem de um push:
-
-1. **Subpáginas de produto sem `Cache-Control: no-cache`.** O matcher `@html` do
-   bloco `gnhorizons.com` precisa cobrir também as URLs de diretório
-   (`/ventas/apilador-electrico/`). Sem o `*/`, o navegador segura a versão
-   velha e o cliente jura que "não atualizou".
-2. **`/opt/gnh-autodeploy.sh` desatualizado.** É uma *cópia* de
-   `vps-autodeploy.sh`; enquanto não for recopiada, o cron publica sem
-   `assets/nuevo/` na raiz e as URLs limpas quebram no vortex.
+## Manutenção do VPS — `vps-aplicar-pendencias.sh`
 
 ```bash
 ssh root@srv1555380.hstgr.cloud
@@ -98,19 +88,50 @@ cd /root/KKNUTHS && git pull
 bash vps-aplicar-pendencias.sh
 ```
 
-O script faz backup do `Caddyfile`, roda `caddy validate` e — se a validação
-falhar — **restaura o backup e aborta sem dar reload** (o VPS é compartilhado:
-um reload ruim derruba todos os domínios). Depois reinstala o auto-deploy,
-garante o cron de 2 min, publica na hora e imprime a conferência (códigos HTTP,
-o header `Cache-Control` e as últimas linhas de `/var/log/gnh-autodeploy.log`).
+Idempotente. Cuida de duas coisas que **não** saem de um push, porque vivem fora
+do repo:
 
-É **idempotente** — rodar de novo não faz nada se já estiver tudo certo. Se ele
-encontrar o Caddyfile num formato que não reconhece, aborta e mostra a linha que
-você precisa deixar assim, à mão:
+**1. Matcher `@html` do Caddy.** O `path` do Caddy casa caminho exato, não
+prefixo: sem o curinga `*/`, uma URL como `/ventas/apilador-electrico/` sai **sem**
+`Cache-Control` e o navegador serve a versão velha — o clássico "deployei e não
+mudou nada". A linha correta é:
 
 ```caddy
 @html path / /index.html */ *.html
 header @html Cache-Control "no-cache"
+```
+
+Três variantes furadas já apareceram neste Caddyfile, então a regra do script é
+geral: **toda linha `@html path` sem `*/` é substituída**. Se o bloco do
+`gnhorizons.com` não tiver matcher nenhum, ele insere as duas linhas.
+
+**2. `/opt/gnh-autodeploy.sh`.** É uma *cópia* de `vps-autodeploy.sh`; enquanto
+não for recopiada, o cron publica sem `assets/nuevo/` na raiz e as URLs limpas
+quebram. O script também garante o cron de 2 min e remove entradas duplicadas.
+
+### Proteções
+
+- Backup do Caddyfile em `/root/Caddyfile.bak-<data>` antes de qualquer escrita.
+- `caddy validate` obrigatório; se falhar, **restaura o backup e aborta sem
+  reload** — o VPS é compartilhado e um reload ruim derruba todos os domínios.
+- O `/etc/caddy/Caddyfile` está com **`chattr +i`** (imutável): nem root escreve,
+  nem renomeia por cima, e o erro aparece como `Operation not permitted` — que
+  **não** é falta de permissão. O script levanta o atributo só durante a edição e
+  um `trap EXIT` o restaura mesmo se algo morrer no meio. Confira com
+  `lsattr -d /etc/caddy/Caddyfile`.
+- A crontab do root é compartilhada com os outros sites: é salva em
+  `/root/crontab.bak-<data>` e o script aborta em vez de reescrevê-la às cegas se
+  `crontab -l` falhar.
+
+### Conferir
+
+O script testa em **HTTPS** — na porta 80 o Caddy responde 308 redirecionando, o
+que só mede o redirect e esconde os headers. Sinal de sucesso:
+
+```
+Cache-Control das subpáginas:
+  HTTP/2 200
+  cache-control: no-cache
 ```
 
 ---
