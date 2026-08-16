@@ -172,33 +172,139 @@ def notify_admin(token: str, text: str) -> bool:
         return False
 
 
-def resumo_de_voz(textos: list[str]) -> dict:
-    """Contadores de VOZ — separados da nota, de propósito.
+def _contar(problema: str, com: dict) -> None:
+    """Classifica UM problema de voz nos contadores. Uma implementação só:
+    as duas leituras (evento cru e texto entregue) têm que contar do mesmo
+    jeito, senão a comparação entre elas não vale nada."""
+    if "título fixo" in problema:
+        com["titulo_fixo"] += 1
+    elif "bastidor" in problema:
+        com["bastidor"] += 1
+    elif "bloco pós-placar" in problema:
+        com["bloco_longo"] += 1
+    elif "autocorreção" in problema:
+        com["autocorrecao"] += 1
 
-    A nota 0-10 e seus critérios ficam intocados: mudar o texto e a régua
-    no mesmo dia faz a média móvel de 7 dias mudar de significado no meio
-    da série. Função pura para dar teste sem rede.
+
+def _tem_placar(texto: str) -> bool:
+    """Análise de MÃO com placar street a street — a única população onde
+    "bloco pós-placar" quer dizer alguma coisa.
+
+    Duas linhas de selo é o piso: uma sozinha é o selo do R1. Sem este
+    filtro entram relatório de TORNEIO e análise de decisão única (R4), que
+    não têm placar — e aí `bloco_pos_placar` devolve tudo o que vem depois
+    da 1ª linha. Executado: um relatório de torneio de ~1200 chars com selo
+    na 1ª linha produz bloco de 1199 chars e é marcado "longo", todo dia. É
+    o mesmo erro de denominador que a spec §9 documenta ter cometido e
+    corrigido — e o juiz o repetia.
     """
-    from app.bot.guarda_voz import bloco_pos_placar, problemas_de_voz
+    return sum(1 for ln in (texto or "").split("\n")
+               if ln.lstrip().startswith(_SELOS)) >= 2
+
+
+def analises_de_mao(linhas: list[dict]) -> list[str]:
+    """Os `summary` que são análise de MÃO — a população dos contadores de voz.
+
+    `mistakes` NULL = relatório de TORNEIO (analyze_tournament nunca grava
+    "spots"; analyze_hand sempre grava a lista, mesmo vazia) ou linha legada.
+    Mesmo filtro do scripts/comparar_voz.py e pelo mesmo motivo: torneio não
+    tem placar, então somá-lo à média do bloco pós-placar mistura duas
+    populações — o erro de denominador que a spec §9 documenta.
+
+    Função pura, e separada de `pares`: a população da NOTA continua a mesma
+    de ontem, senão a média móvel de 7 dias muda de significado no meio da
+    série.
+    """
+    out: list[str] = []
+    for linha in linhas:
+        texto = str(linha.get("summary") or "")
+        if not texto or texto.startswith("[Follow-up]"):
+            continue
+        if linha.get("mistakes") is None:
+            continue
+        out.append(texto)
+    return out
+
+
+def resumo_dos_eventos_de_voz(detalhes: list[dict]) -> dict:
+    """Contadores da voz que o MODELO escreveu — medidos ANTES da limpeza.
+
+    Por que não dá para re-medir o texto salvo: `conferir_e_limpar` LIMPA o
+    texto antes de ele ser gravado (processing.py:577 roda antes de
+    `save_hand_analysis` em :663; :1229 antes de `ctx["history"]` em :1243).
+    Medir o `summary` gravado mede a saída do GUARDA, não a do PROMPT — e
+    como o guarda corrige exatamente título fixo e bastidor, esses dois
+    contadores iriam a ~0 por construção: o bloco R3/R7/V4 do prompt poderia
+    ser um no-op completo e a linha do juiz seria idêntica. O merge está
+    parado esperando justamente essa leitura.
+
+    O dado cru já está gravado e ninguém o lia: os eventos `voz_corrigida` /
+    `voz_medida` guardam `problemas` calculados sobre o texto ORIGINAL
+    (guarda_voz.py, em `conferir_e_limpar`). É o único lugar onde a saída
+    crua do modelo sobrevive.
+
+    ATENÇÃO AO DENOMINADOR: só existe evento quando há algo a apontar ou a
+    corrigir. Isto é NUMERADOR — quantas respostas tiveram cada defeito —,
+    nunca uma taxa. Função pura (recebe os `detail` já lidos) para dar teste
+    sem rede.
+    """
+    com = {"titulo_fixo": 0, "bastidor": 0, "bloco_longo": 0,
+           "autocorrecao": 0}
+    corrigidas = 0
+    conversas = 0
+    validos = 0
+    for d in detalhes:
+        if not isinstance(d, dict):
+            continue
+        validos += 1
+        if d.get("onde") == "conversa":
+            conversas += 1
+        if d.get("feitos"):
+            corrigidas += 1
+        for p in d.get("problemas") or []:
+            _contar(str(p), com)
+    return {"eventos": validos, "corrigidas": corrigidas,
+            "em_conversa": conversas,
+            "com_titulo_fixo": com["titulo_fixo"],
+            "com_bastidor": com["bastidor"],
+            "com_bloco_longo": com["bloco_longo"],
+            "com_autocorrecao": com["autocorrecao"]}
+
+
+def resumo_de_voz(textos: list[str]) -> dict:
+    """Contadores de VOZ sobre o texto ENTREGUE ao aluno — depois da limpeza.
+
+    Mede o PRODUTO, não a saída do modelo (essa é `resumo_dos_eventos_de_voz`,
+    e as duas importam). Aqui título fixo e bastidor tendem a zero de
+    propósito: é o guarda funcionando. O sinal que sobrevive à limpeza e
+    responde ao pedido do dono é o COMPRIMENTO do bloco pós-placar.
+
+    A nota 0-10 e seus critérios ficam intocados: mudar o texto e a régua no
+    mesmo dia faz a média móvel de 7 dias mudar de significado no meio da
+    série. Função pura para dar teste sem rede.
+    """
+    from app.bot.guarda_voz import (bloco_pos_placar, numeros_repetidos,
+                                    problemas_de_voz)
 
     com = {"titulo_fixo": 0, "bastidor": 0, "bloco_longo": 0,
            "autocorrecao": 0, "numero_repetido": 0}
     blocos: list[int] = []
+    ignoradas = 0
     for t in textos:
+        if not _tem_placar(t):
+            ignoradas += 1
+            continue
         blocos.append(len(bloco_pos_placar(t)))
         for p in problemas_de_voz(t):
-            if "título fixo" in p:
-                com["titulo_fixo"] += 1
-            elif "bastidor" in p:
-                com["bastidor"] += 1
-            elif "bloco pós-placar" in p:
-                com["bloco_longo"] += 1
-            elif "autocorreção" in p:
-                com["autocorrecao"] += 1
-            elif "repetido" in p:
-                com["numero_repetido"] += 1
+            _contar(p, com)
+        # contador SECUNDÁRIO (spec §4/§5): saiu de problemas_de_voz porque
+        # o R5b MANDA repetir as % de cada street na história do desfecho.
+        # Continua contado aqui, sem virar defeito nem gerar evento.
+        if numeros_repetidos(t):
+            com["numero_repetido"] += 1
     medios = round(sum(blocos) / len(blocos)) if blocos else 0
-    return {"analisadas": len(textos),
+    return {"analisadas": len(blocos),
+            "sem_placar_ignoradas": ignoradas,
             "com_titulo_fixo": com["titulo_fixo"],
             "com_bastidor": com["bastidor"],
             "com_bloco_longo": com["bloco_longo"],
@@ -240,7 +346,7 @@ def main() -> int:
     # dali um selo que nunca deveria estar lá: dois falsos positivos por dia
     # e a análise de verdade nunca auditada.
     analises = (repo.client.table("hand_analysis")
-                .select("summary,created_at,modelo")
+                .select("summary,created_at,modelo,mistakes")
                 .gte("created_at", day_ago)
                 .order("created_at", desc=True).limit(25).execute().data) or []
     for a in analises:
@@ -269,16 +375,43 @@ def main() -> int:
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
 
-    # VOZ: contadores novos, fora da nota. Linha de base de 15/08 (403
-    # análises): título fixo 25%, bastidor 23%, bloco pós-placar médio 740.
-    voz = resumo_de_voz([str(p.get("a") or "") for p in pares
-                         if not p.get("conversa")])
-    repo.log_event(0, "output_judge", "voz_do_dia", voz)
+    # VOZ: contadores novos, fora da nota. DUAS leituras, porque são duas
+    # coisas diferentes e as duas importam:
+    #   (a) o que o MODELO escreveu — os eventos de voz, medidos ANTES da
+    #       limpeza. É o único que diz se o prompt novo funcionou.
+    #   (b) o que o ALUNO recebeu — o texto gravado, DEPOIS da limpeza. É o
+    #       produto entregue.
+    # Só (b) era medido, e como o guarda corrige título fixo e bastidor
+    # antes de gravar, esses dois iam a ~0 por construção: o bloco R3/R7/V4
+    # do prompt poderia ser um no-op e a linha sairia igual.
+    # Linha de base (spec §9, população certa, n=212/116): título fixo 48%,
+    # bastidor 34%, bloco pós-placar médio 678 chars.
+    eventos_voz = (repo.client.table("bot_events").select("detail")
+                   .in_("event", ["voz_corrigida", "voz_medida"])
+                   .gte("created_at", day_ago)
+                   .limit(300).execute().data) or []
+    detalhes: list[dict] = []
+    for e in eventos_voz:
+        d = e.get("detail") or {}
+        try:
+            detalhes.append(json.loads(d) if isinstance(d, str) else d)
+        except Exception:
+            continue
+    cru = resumo_dos_eventos_de_voz(detalhes)
+    voz = resumo_de_voz(analises_de_mao(analises))
+    repo.log_event(0, "output_judge", "voz_do_dia",
+                   {**voz, "antes_da_limpeza": cru})
     linha_voz = (
-        f"\n🗣 VOZ (contadores, fora da nota) — {voz['analisadas']} análises: "
-        f"título fixo {voz['com_titulo_fixo']} · bastidor {voz['com_bastidor']} "
-        f"· bloco longo {voz['com_bloco_longo']} · pós-placar médio "
-        f"{voz['chars_pos_placar_medio']} chars (base 15/08: 740)")
+        f"\n🗣 VOZ — o que o MODELO escreveu (antes da limpeza; "
+        f"{cru['eventos']} respostas tiveram algo a apontar em 24h, "
+        f"{cru['corrigidas']} corrigidas): título fixo "
+        f"{cru['com_titulo_fixo']} · bastidor {cru['com_bastidor']} · bloco "
+        f"longo {cru['com_bloco_longo']}"
+        f"\n🧹 o que o ALUNO recebeu (depois da limpeza; "
+        f"{voz['analisadas']} análises de mão com placar, "
+        f"{voz['sem_placar_ignoradas']} sem placar fora da conta): "
+        f"pós-placar médio {voz['chars_pos_placar_medio']} chars "
+        f"(base 15/08: 678)")
 
     # nota POR RESPOSTA (teto de 15 por rodada, custo Haiku): cada nota vira
     # evento `nota_resposta` — o histórico que dá a média móvel de 7 dias e
