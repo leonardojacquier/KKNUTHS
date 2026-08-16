@@ -147,8 +147,14 @@ fi
 
 echo "crontab atual salva em $CRONBAK ($(wc -l < "$CRONBAK") linha(s))"
 
-if grep -q gnh-autodeploy "$CRONBAK"; then
-  echo "cron já configurado ($(grep -c gnh-autodeploy "$CRONBAK") entrada(s))"
+CNT=$(grep -c gnh-autodeploy "$CRONBAK" || true)
+if [ "${CNT:-0}" -gt 1 ]; then
+  # Duas entradas rodando o mesmo script a cada 2 min podem se sobrepor no
+  # git reset --hard. Mantém a primeira e descarta as demais.
+  awk '/gnh-autodeploy/{if(vista++) next} {print}' "$CRONBAK" | crontab -
+  echo "cron tinha $CNT entradas duplicadas — mantida 1"
+elif [ "${CNT:-0}" = "1" ]; then
+  echo "cron já configurado (1 entrada)"
 else
   { cat "$CRONBAK"; echo "*/2 * * * * /opt/gnh-autodeploy.sh >/dev/null 2>&1"; } | crontab -
   echo "cron criado (a cada 2 min) — as $(wc -l < "$CRONBAK") linha(s) anteriores foram preservadas"
