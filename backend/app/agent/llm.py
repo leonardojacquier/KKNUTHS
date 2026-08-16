@@ -1730,6 +1730,25 @@ def _tem_selo(texto: str | None) -> bool:
                for ln in (texto or "").split("\n"))
 
 
+def _so_blocos_de_texto(content):
+    """Remove blocos tool_use de um content de assistant.
+
+    A resposta cortada por max_tokens vem com stop_reason='max_tokens' e um
+    tool_use PENDURADO no fim. Recolar esse content na conversa sem responder
+    o tool_use é 400 garantido ('tool_use ids without tool_result') — foi a
+    causa raiz de 16/08: análise longa estourou o teto no meio da ferramenta,
+    o resgate montou a mensagem inválida e o aluno levou o plano C. Só os
+    blocos de TEXTO interessam ao resgate; devolve None se não sobrar nada."""
+    if not isinstance(content, list):
+        return content
+
+    def _tipo(b):
+        return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+
+    so_texto = [b for b in content if _tipo(b) == "text"]
+    return so_texto or None
+
+
 def _resgatar_conclusao(client, modelo, system_blocks, messages,
                         ultimo_assistant=None) -> str | None:
     """A análise nunca veio (só narração de bastidor): pede a CONCLUSÃO.
@@ -1739,6 +1758,7 @@ def _resgatar_conclusao(client, modelo, system_blocks, messages,
     como resposta final. Uma chamada extra SEM tools, com a instrução
     explícita, recupera a análise — e só roda no caminho de falha."""
     msgs = list(messages)
+    ultimo_assistant = _so_blocos_de_texto(ultimo_assistant)
     if ultimo_assistant is not None:
         msgs.append({"role": "assistant", "content": ultimo_assistant})
     instrucao = {"type": "text", "text": (
@@ -1843,6 +1863,27 @@ def _selo_de_emergencia(client, texto: str) -> str | None:
         return None
 
 
+def _registrar_plano_c(motivo: str) -> None:
+    """O aluno recebeu o resumo determinístico em vez da análise: POR QUÊ?
+
+    Blindado como o registro de custo — diagnóstico nunca pode derrubar a
+    resposta. O evento carrega o traceback curto; sem ele, a única pista de
+    uma falha aqui é o aluno reclamar."""
+    import traceback
+
+    logging.getLogger("llm").warning("análise caiu no plano C: %s", motivo)
+    try:
+        from app.db import get_repository
+
+        repo = get_repository()
+        if repo.enabled:
+            repo.log_event(0, None, "plano_c", {
+                "motivo": motivo[:300],
+                "trace": traceback.format_exc(limit=4)[-800:]})
+    except Exception:
+        pass
+
+
 def coach(
     structured: dict,
     stats: dict | None = None,
@@ -1936,6 +1977,18 @@ def coach(
                     final = _conferir_numeros(
                         client, modelo_da_analise, system_blocks, messages,
                         final, fontes_de_numeros)
+                if not final:
+                    # o modelo parou SEM pedir ferramenta e o resgate não
+                    # trouxe nada: retorno mudo que a instrumentação de 16/08
+                    # não cobriu (ela fechou o `except` e o fim-de-rodadas).
+                    # Caso real: a mão 43450b49-8e78-406e-aa00-ced59e1d4364
+                    # caiu por aqui e bot_events não tinha UM registro. O
+                    # motivo é DISTINTO do de rodadas esgotadas — os dois
+                    # galhos são defeitos diferentes — e leva o stop_reason,
+                    # que é o dado que faltava para saber por que ele parou.
+                    _registrar_plano_c(
+                        f"resposta_vazia_sem_tool_use "
+                        f"(stop_reason={resp.stop_reason})")
                 return final or fallback
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -1976,9 +2029,15 @@ def coach(
             final = _conferir_numeros(client, modelo_da_analise,
                                       system_blocks, messages, final,
                                       fontes_de_numeros)
+        if not final:
+            _registrar_plano_c("resposta_vazia_apos_rodadas")
         return final or fallback
-    except Exception:
-        # qualquer falha de rede/SDK -> resumo determinístico
+    except Exception as exc:
+        # qualquer falha de rede/SDK -> resumo determinístico. Mas NUNCA em
+        # silêncio: 16/08, primeira análise pós-deploy da voz caiu aqui e o
+        # except mudo escondeu a causa — rollback às cegas por falta desta
+        # linha. O motivo vira evento consultável (plano_c em bot_events).
+        _registrar_plano_c(f"{type(exc).__name__}: {exc}")
         return fallback
 
 

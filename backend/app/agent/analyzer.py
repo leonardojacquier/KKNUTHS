@@ -200,6 +200,43 @@ def _pot_lido_manda(hand: CanonicalHand, pot_somado: float) -> bool:
     return float(hand.total_pot) > pot_somado + 0.01
 
 
+_CARTAS_ATE_A_STREET = ((StreetName.FLOP, 3), (StreetName.TURN, 4),
+                        (StreetName.RIVER, 5))
+
+
+def board_por_street(hand: CanonicalHand) -> dict:
+    """Board CUMULATIVO de cada street: {'flop': [3 cartas], 'turn': [4], ...}.
+
+    No canônico cada `Street.board` guarda só as cartas NOVAS dela (flop 3,
+    turn 1, river 1) — o board "no turn" é a SOMA flop+turn. Quem precisa
+    dessa soma pronta: o contexto do coach (`_cartas_texto`) e o guarda que
+    confere as cartas citadas na linha do placar (`guarda_fatos`).
+
+    A convenção NÃO é uniforme entre os parsers — `pppoker_replay` e `phh`
+    gravam as cartas novas, `pokerstars` e `dealing_family` gravam o board já
+    somado. Por isso a street que já vem com o tamanho fechado (3/4/5) manda
+    como está, e só a que vem curta é somada à anterior.
+
+    Só streets que existiram: mão que parou no flop não devolve chave de
+    turn. `final_board` entra como reserva para as fontes que não trazem o
+    board separado por street (CSV de tracker, imagem)."""
+    fb = list(hand.final_board or [])
+    out: dict = {}
+    acumulado: list[str] = []
+    for sname, n in _CARTAS_ATE_A_STREET:
+        st = hand.street(sname)
+        novas = list(st.board) if st and st.board else []
+        if len(novas) == n:
+            acumulado = novas          # a fonte já trouxe o board somado
+        elif novas:
+            acumulado = acumulado + novas
+        cartas = acumulado if len(acumulado) == n else fb[:n]
+        if len(cartas) != n:
+            break            # street que não veio: nem ela nem as seguintes
+        out[sname.value] = cartas
+    return out
+
+
 def _cartas_texto(hand: CanonicalHand) -> dict:
     """Cartas em texto de citação (rank + ícone ♠♥♦♣): herói, board e cada
     showdown — prontas para o coach colar na resposta."""
@@ -208,6 +245,14 @@ def _cartas_texto(hand: CanonicalHand) -> dict:
         out["heroi"] = _pretty(hand.hero_cards)
     if hand.final_board:
         out["board"] = _pretty(hand.final_board)
+    # o board FATIADO por street, cumulativo e já bonito. O board final numa
+    # string única obrigava o coach a separar as três primeiras de cabeça
+    # para escrever a linha do placar do R2 — e ele errou (16/08, mão
+    # f2cd6504, board 9h Jd 2h): escreveu "*Flop* 9♥J♦2♦", inventando um
+    # flush draw em que a análise inteira se apoiou. Aqui ele COPIA.
+    por_street = board_por_street(hand)
+    if por_street:
+        out["board_por_street"] = {k: _pretty(v) for k, v in por_street.items()}
     sd = {n: _pretty(cs) for n, cs in (hand.shown_cards or {}).items()}
     if sd:
         out["showdown"] = sd
