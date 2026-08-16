@@ -121,7 +121,9 @@ risco não vale para tudo.
   `test_corretor_nao_estraga_portugues.py` para esta classe exata de bug.
 - frase de **narração de busca** ("deixa eu conferir o EV", "vou puxar o
   histórico") — remove a frase inteira, **exceto quando a frase carrega um
-  número** (ver §10, I1). Medido: 91/403 = **23%**.
+  número** (ver §10 I1 e §11 R1; "número" é `guarda_fatos._TEM_NUMERO`, a
+  definição de conta da casa, não uma cópia só de bb/%). Medido: 91/403 =
+  **23%**.
 
   **Correção feita ao escrever o plano.** Esta linha dizia "anotei no
   caderno". Medindo separado: "anotei no caderno" são 32/403 (8%) e **não é
@@ -396,6 +398,94 @@ spec já tinha corrigido para 67%/678: o prompt segue em 3198/3200 palavras.
 - O caminho de TORNEIO não recebeu a voz nova (`instruction` separada) — o
   que a branch fez foi parar de contá-lo como se fosse análise de mão.
 - O botão 🎈 não tem guarda da voz nem contador.
+
+## 11. Os três resíduos da re-revisão final (16/08/2026)
+
+A re-revisão da onda §10 confirmou os oito consertos e deixou três resíduos
+adjudicados, com prescrição exata. O dono autorizou os três, e nada além
+deles: *"Eu quero q simplifique mas que não apague números importantes. Pode
+consertar as 3"*.
+
+Essa primeira frase é o **critério do guarda da voz**, e está gravada na
+docstring do módulo `guarda_voz.py` e na de `_sem_narracao`, com atribuição.
+Ela resolve toda decisão de corrigir × só medir: simplificar é o pedido,
+apagar número é o limite.
+
+**R1 — a limpeza ainda podia apagar a única conta.** O I1 fechou o cenário,
+não a classe. A trava de `_sem_narracao` usava o `_NUMERO` do próprio
+`guarda_voz`, que só conhece `bb` e `%`. A definição de conta desta casa é
+`guarda_fatos._TEM_NUMERO`, e o comentário dela já dizia por quê: *"exigir
+sufixo bb/%/fichas reprovava as duas formas mais básicas da matemática de
+poker"*. Quatro textos executados pelo re-revisor continuavam perdendo a
+única conta e virando veredito pelado:
+
+| texto do modelo | o que o aluno recebia |
+|---|---|
+| `Vou calcular: o pote paga 2.5 para 1 e você tem 1 em 3. Portanto foi call caro.` | `Portanto foi call caro.` |
+| `Vou conferir: você tinha 9 outs. Portanto foi call caro.` | `Portanto foi call caro.` |
+| `Vou calcular: o pote tinha 5000 fichas e o call custa 1200 fichas. …` | `Portanto foi call caro.` |
+| `Vou rodar o EV: deu +8.2 no shove. Portanto foi jam claro.` | `Portanto foi jam claro.` |
+
+`_sem_narracao` passou a consultar `guarda_fatos._TEM_NUMERO`. Uma definição
+de conta, um lugar só — e `guarda_fatos` não importa `guarda_voz` em direção
+nenhuma, então o import de topo não fecha ciclo (conferido antes). `_NUMERO`
+continua existindo e continua certo para `numeros_repetidos`, cujo universo
+é o placar, e o placar escreve bb e %. Alargar não virou "nunca mais limpo
+nada": `"Vou conferir o range: 16.9 combos."` continua saindo inteira,
+porque número solto sem unidade não é conta — o próprio `_TEM_NUMERO` diz
+isso ("não é afrouxar até `\d`").
+
+**R2 — o juiz media certo e mostrava incompleto.** Os dois defeitos eram de
+REPORTE, e moravam numa f-string dentro de `main()`, função que só roda com
+Supabase — por isso nenhum teste podia pegá-los. A montagem saiu para
+`linha_da_voz(cru, voz)`, pura e testada sobre o texto renderizado.
+
+- **(a) a linha 🗣 não era comparável à base.** Imprimia numerador puro ("1
+  respostas tiveram algo a apontar") ao lado de uma base que é TAXA (48% /
+  34%): absoluto não se compara com percentual, que é o mesmo erro de
+  denominador que a §9 documenta ter cometido. E o numerador somava duas
+  populações — `em_conversa` era calculado e jogado fora na hora de
+  imprimir, com 185 de 423 `summary` históricos sendo follow-up. Agora:
+  `eventos − em_conversa` sobre `voz['analisadas']` (mesma população, mesma
+  janela) vira a taxa comparável; a conversa aparece à parte; os contadores
+  por defeito seguem rotulados como numerador das duas somadas.
+- **(b) a linha 🧹 tinha parado de mostrar o lado do ALUNO.** O conserto do
+  C1 moveu `título fixo · bastidor · bloco longo` para a leitura do modelo —
+  certo, é ela que mede o prompt — e deixou a do aluno só com a média do
+  bloco. São dois lados: o que o modelo produziu mede o PROMPT, o que o
+  aluno recebeu mede o GUARDA. E o lado do aluno virou informativo
+  exatamente agora, porque o I1/R1 fez o guarda RECUSAR limpar quando a
+  frase carrega a única conta: **`com_bastidor` entregue deixou de tender a
+  zero**. A métrica que a onda piorou de propósito era a que tinha saído da
+  tela do dono. A docstring de `resumo_de_voz` ainda afirmava o contrário
+  ("título fixo e bastidor tendem a zero: é o guarda funcionando") e foi
+  corrigida contador a contador.
+
+**R3 — teste que prometia no nome o que não cobrava no código.**
+`test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu` foi reescrito na onda §10
+porque contava consultas (`== 1`) e quebrou com a consulta nova do C1. Ficou
+mais forte num eixo e mais fraco no da própria docstring: com `>= 3`
+consultas e "usa day_ago OU week_ago", trocar a query de análises para
+`week_ago` passava (que é literalmente auditar o museu) e apagar uma
+consulta inteira também. Agora o teste mapeia **cada consulta pelo nome para
+a sua janela exata** — as três de entrega em `day_ago`, e só a média móvel em
+`week_ago`. `bot_events` é lida duas vezes com propósitos opostos, então a
+chave distingue `bot_events/voz` de `bot_events/nota_resposta`.
+
+Junto, o buraco próprio do C1: trocar a consulta a `bot_events` por
+`eventos_voz = []` reinstalava a cegueira do C1 — com rótulo honesto na tela
+— e os 22 testes de juiz/voz ficavam verdes, porque os testes AST prendiam a
+CHAMADA a `resumo_dos_eventos_de_voz` e nunca a query que a alimenta. O
+teste novo prende a corrente inteira por AST: consulta a `bot_events`
+filtrando os dois eventos de voz → laço sobre `eventos_voz` → o mesmo nome
+que entra em `resumo_dos_eventos_de_voz`.
+
+### O que os resíduos NÃO tocaram
+
+O selo (R1 do prompt) e o placar (R2) seguem intocados, o prompt segue em
+3198/3200 palavras, e os itens que são decisão do dono continuam abertos:
+prompt `en`, caminho de torneio, autocorreção narrada sem guarda e o
+`TETO_POS_PLACAR = 800` calibrado sobre a média inflada de 740.
 
 ## Documentos irmãos
 

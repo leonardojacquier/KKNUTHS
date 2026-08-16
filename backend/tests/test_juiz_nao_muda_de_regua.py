@@ -117,6 +117,63 @@ def _lado_do_aluno() -> str:
     return juiz.linha_da_voz(_CRU, _VOZ).strip().splitlines()[1]
 
 
+def _main_ast() -> ast.FunctionDef:
+    return [n for n in ast.walk(ast.parse(_FONTE))
+            if isinstance(n, ast.FunctionDef) and n.name == "main"][0]
+
+
+def test_o_juiz_le_bot_events_de_verdade_e_nao_uma_lista_vazia():
+    """R3 — o buraco de cobertura do próprio C1, executado pela re-revisão
+    final: trocar a consulta por `eventos_voz = []` reinstala a cegueira que
+    o C1 existe para curar (o contador do PROMPT devolvendo zero para
+    sempre, com rótulo honesto na tela) e os 22 testes de juiz/voz ficavam
+    VERDES. Os testes AST prendiam a CHAMADA a `resumo_dos_eventos_de_voz`,
+    nunca a query que a alimenta.
+
+    Aqui a corrente inteira é presa por AST: consulta a `bot_events`
+    filtrando os dois eventos de voz -> laço sobre `eventos_voz` -> o mesmo
+    nome que entra em `resumo_dos_eventos_de_voz`.
+    """
+    main_func = _main_ast()
+
+    atribuicoes = [n for n in ast.walk(main_func) if isinstance(n, ast.Assign)
+                   and any(getattr(a, "id", None) == "eventos_voz"
+                           for a in n.targets)]
+    assert len(atribuicoes) == 1, \
+        "eventos_voz não é atribuído exatamente uma vez em main()"
+
+    chamadas: dict[str, list[ast.Call]] = {}
+    for n in ast.walk(atribuicoes[0].value):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute):
+            chamadas.setdefault(n.func.attr, []).append(n)
+    assert "execute" in chamadas, \
+        "eventos_voz não vem de uma consulta — o C1 voltou a ser cego"
+    tabelas = [a.value for c in chamadas.get("table", []) for a in c.args
+               if isinstance(a, ast.Constant)]
+    assert tabelas == ["bot_events"], \
+        f"os eventos de voz saíram de bot_events: {tabelas}"
+    eventos = sorted(e.value for c in chamadas.get("in_", []) for a in c.args
+                     if isinstance(a, ast.List) for e in a.elts
+                     if isinstance(e, ast.Constant))
+    assert eventos == ["voz_corrigida", "voz_medida"], \
+        f"o filtro de evento mudou e o contador do prompt muda junto: {eventos}"
+
+    # e o resultado da consulta é MESMO o que alimenta o contador
+    chamada = [n for n in ast.walk(main_func)
+               if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+               and n.func.id == "resumo_dos_eventos_de_voz"][0]
+    assert len(chamada.args) == 1 and isinstance(chamada.args[0], ast.Name), \
+        "resumo_dos_eventos_de_voz recebe um literal — a consulta é decorativa"
+    alvo = chamada.args[0].id
+    lacos = [n for n in ast.walk(main_func) if isinstance(n, ast.For)
+             and isinstance(n.iter, ast.Name) and n.iter.id == "eventos_voz"]
+    assert lacos, "eventos_voz é consultado e descartado"
+    assert [n for laco in lacos for n in ast.walk(laco)
+            if isinstance(n, ast.Attribute) and n.attr == "append"
+            and isinstance(n.value, ast.Name) and n.value.id == alvo], \
+        f"o laço sobre eventos_voz não alimenta {alvo}"
+
+
 def test_a_linha_impressa_distingue_o_modelo_do_aluno():
     """As duas leituras medem coisas diferentes e a linha tem que dizer
     qual é qual — senão o dono soma numerador de uma com denominador da

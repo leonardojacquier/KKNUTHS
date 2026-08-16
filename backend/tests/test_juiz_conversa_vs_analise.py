@@ -51,34 +51,59 @@ def test_o_juiz_le_os_dois_artefatos():
     assert "[Follow-up]" in fonte, "follow-up gravado em hand_analysis não é análise"
 
 
+def _consultas_do_juiz() -> dict[str, str | None]:
+    """Cada consulta de `main()` -> a variável de janela que ela usa.
+
+    A chave nomeia a consulta, não a tabela: `bot_events` é lida DUAS vezes
+    com propósitos opostos (os eventos de voz do dia × o histórico de notas
+    que dá a média móvel), e um teste que só olhasse o nome da tabela não
+    saberia distinguir a janela certa da errada.
+    """
+    import inspect
+    import re
+
+    from scripts import output_judge
+
+    fonte = inspect.getsource(output_judge.main)
+    janelas: dict[str, str | None] = {}
+    for trecho in fonte.split("repo.client.table(")[1:]:
+        cadeia = trecho.split(".execute()")[0]
+        tabela = re.match(r'"([^"]+)"', cadeia)
+        assert tabela, f"consulta sem nome de tabela literal: {cadeia[:60]}"
+        nome = tabela.group(1)
+        if nome == "bot_events":
+            nome += ("/nota_resposta" if "nota_resposta" in cadeia
+                     else "/voz")
+        achou = re.search(r'gte\("\w+", (day_ago|week_ago)\)', cadeia)
+        janelas[nome] = achou.group(1) if achou else None
+    return janelas
+
+
 def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
     """O texto gravado é imutável: auditar 'os últimos N' faz o mesmo estoque
     antigo reprovar todo dia. Caso real: um dia depois do conserto do
     preâmbulo, o juiz reportou 5 análises 'sem selo' — todas de ANTES do
     deploy. As pós-conserto estavam limpas, e a nota não media o produto
-    corrente."""
-    import inspect
+    corrente.
 
-    from scripts import output_judge
-
-    import re
-
-    fonte = inspect.getsource(output_judge.main)
-    assert "day_ago" in fonte
-    assert 'gte("updated_at", day_ago)' in fonte, "janela na conversa"
-    # TODA leitura de estoque é janelada — não "existe uma janela em algum
-    # lugar". Contar ocorrências era frágil: a onda final acrescentou a
-    # query dos eventos de voz (spec §10, C1) e o teste quebrou sem que
-    # nada de errado tivesse acontecido. A única janela mais larga que 24h
-    # é a média móvel de 7 dias, que é assim de propósito.
-    consultas = [t for t in fonte.split("repo.client.table(")[1:]]
-    assert len(consultas) >= 3, \
-        f"o juiz faz {len(consultas)} consultas — alguma sumiu?"
-    for i, trecho in enumerate(consultas):
-        cadeia = trecho.split(".execute()")[0]
-        assert re.search(r"gte\(\"\w+\", (day_ago|week_ago)\)", cadeia), (
-            f"a consulta nº {i + 1} do juiz lê o museu inteiro: "
-            f"{cadeia.splitlines()[0]}")
+    O teste cobra o que o nome dele promete: cada consulta pelo NOME e a
+    janela EXATA de cada uma. A versão anterior (`>= 3` consultas + "usa
+    day_ago OU week_ago") ficou mais fraca justamente no eixo desta
+    docstring — a re-revisão final executou as duas fugas: trocar a query
+    de análises para `week_ago` PASSAVA (que é literalmente auditar o
+    museu), e apagar uma consulta inteira PASSAVA (3 de 4 satisfaz `>= 3`).
+    Contar ocorrências não é frágil demais nem de menos; o que faltava era
+    dizer QUAL consulta usa QUAL janela.
+    """
+    janelas = _consultas_do_juiz()
+    assert janelas == {
+        # as três leituras de ENTREGA: o que saiu nas últimas 24h
+        "conversation_state": "day_ago",
+        "hand_analysis": "day_ago",
+        "bot_events/voz": "day_ago",
+        # a única janela mais larga, e de propósito: a média móvel de 7 dias
+        "bot_events/nota_resposta": "week_ago",
+    }, janelas
 
 
 def test_nota_sobre_amostra_pequena_vem_com_aviso():
