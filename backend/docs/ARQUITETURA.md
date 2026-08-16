@@ -1,6 +1,6 @@
 # Arquitetura — mapa do que existe
 
-Atualizado: 2026-08-09 · 99 módulos em `app/`, 74 arquivos de teste, 971 testes.
+Atualizado: 2026-08-09 · 99 módulos em `app/`, 74 arquivos de teste, 1.377 testes.
 
 Este documento é o mapa. O **porquê** das decisões estatísticas está em
 [`METODO.md`](METODO.md); o runbook de operação está em `../../OPERATIONS.md`.
@@ -183,7 +183,7 @@ Função RAG: `match_hand_analysis`.
 
 ## Testes como memória
 
-74 arquivos, 971 testes, todos determinísticos — **teste que depende de LLM já
+74 arquivos, 1.377 testes, todos determinísticos — **teste que depende de LLM já
 travou o deploy uma vez**, e o portão segurou produção intacta.
 
 Os nomes dos arquivos são a lista de erros que o projeto já cometeu, e é assim

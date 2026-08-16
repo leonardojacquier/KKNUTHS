@@ -221,6 +221,83 @@ a leitura do juiz de 16/08. A data da troca fica registrada para a série de
 
 ---
 
+## 9. Resultado (Task 7, 16/08/2026)
+
+### A linha de base, remedida sobre a população certa
+
+O §1 mediu 403 análises sem filtrar follow-up nem torneio. Refeito por SQL
+independente (espelhando os regexes do `guarda_voz`) sobre a população que a
+pergunta pede — **análises de mão reais dos últimos 45 dias**, excluindo
+`summary like '[Follow-up]%'` e exigindo `mistakes is not null`:
+
+| defeito | medido | população |
+|---|---|---|
+| bloco pós-placar | **67% do texto, 678 chars em média** | n=116 (com selo) |
+| título fixo "A conta que mais pesa" | **48%** (102 de 212) | n=212 |
+| bastidor de busca ("deixa eu conferir", "vou puxar") | **34%** (73 de 212) | n=212 |
+| análises com bloco pós-placar > 800 chars | **14%** (30 de 212) | n=212 |
+| autocorreção "... digo," | **3 casos** | n=212 |
+| autocorreção NARRADA ("Corrigindo então:") | **2 casos** | n=212 |
+| tamanho médio da análise | 1052 chars | n=116 |
+
+> **Erro cometido ao escrever este documento e corrigido na conferência**: o
+> §1 publicou "58% do texto, 740 de 1.662 chars, n=183", "título fixo 25%" e
+> "bastidor 23%". O denominador estava contaminado — a amostra incluía
+> follow-ups (sem placar) e análises de torneio, cuja prosa longa dilui a
+> média e cuja ausência de placar não deveria nem entrar na conta de "bloco
+> pós-placar". Filtrando para a população correta os defeitos **não
+> diminuem, aumentam**: 67% em vez de 58%, 48% em vez de 25%, 34% em vez de
+> 23%. A direção da conclusão do §1 se mantém e fica mais forte — mas o
+> número publicado estava medido errado, **pelo mesmo erro que o
+> `METODO.md` §1 existe para impedir**: denominador que engole população que
+> não pertence à pergunta. O erro foi cometido de novo ao escrever este
+> próprio documento, que existe justamente para impedir isso.
+
+**Consequência para o teto calibrado.** `TETO_POS_PLACAR = 800` (§4) foi
+calibrado sobre a média inflada de 740 chars, com a intenção de marcar a
+cauda (34% das análises passavam do teto). Na média real de 678 chars, o
+mesmo teto de 800 pega só **14%** das análises — mais alto, proporcionalmente,
+do que a calibração original pretendia. Continua defensável: ele ainda pega
+a cauda sem acusar o caso comum, e recalibrar para baixo sem a leitura
+lado a lado (§5) seria a mesma pressa que gerou o erro acima. Mas o número
+que vier depois de mergear precisa saber que a régua nasceu do denominador
+errado.
+
+### Achado novo: autocorreção narrada — nenhum guarda cobre
+
+Nos 212 casos apareceu uma forma de defeito que não está em nenhuma das
+listas de §1/§3: uma análise real **narra a própria correção para o
+aluno** — *"Ajustando o fechamento com o número real… Corrigindo então:"* —
+e chega a emitir "A conta que mais pesa" duas vezes na mesma resposta. É
+pior que o `"... digo,"` do R7: ali o modelo tropeça e segue; aqui o aluno
+lê o modelo se contradizendo e se consertando em público, como um rascunho
+que vazou. 2 casos medidos (mesma população de 212).
+
+Nem o guarda determinístico nem o R7 do prompt cobrem essa forma — o R7
+proíbe autocorreção *dentro do texto* mas não descreve narração de
+correção como categoria separada, e o guarda não tem regex para isso.
+**Registrado como pendência conhecida, não corrigido nesta task** — 2 casos
+é frequência baixa demais para justificar um padrão novo de correção
+automática sem antes ver mais exemplos, pelo mesmo motivo que `"... digo,"`
+ficou como evento e não como correção (§4).
+
+### O que falta e não pôde ser feito aqui
+
+O Passo 2 do plano original (rodar `scripts/comparar_voz.py` para gerar o
+lado a lado antes/depois) exige chamar a API da Anthropic com credenciais
+de produção. O ambiente que executou a Task 7 não tem `.env`, não tem
+`ANTHROPIC_API_KEY` e `get_repository().enabled == False` — não há como
+gerar o "depois" aqui. Comando pronto para rodar no VPS:
+
+```bash
+cd /opt/poker-bot && PYTHONPATH=. ./venv/bin/python scripts/comparar_voz.py --n 8 --saida /tmp/voz.md
+```
+
+A leitura de `/tmp/voz.md` continua sendo a decisão do dono (§5) — nenhum
+número desta seção substitui isso.
+
+---
+
 ## Documentos irmãos
 
 `../METODO.md` · `../ARQUITETURA.md` · `../../../OPERATIONS.md`
