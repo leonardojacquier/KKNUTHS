@@ -51,13 +51,19 @@ def test_o_juiz_le_os_dois_artefatos():
     assert "[Follow-up]" in fonte, "follow-up gravado em hand_analysis não é análise"
 
 
-def _consultas_do_juiz() -> dict[str, str | None]:
-    """Cada consulta de `main()` -> a variável de janela que ela usa.
+def _consultas_do_juiz() -> list[tuple[str, str | None, str | None]]:
+    """Cada consulta de `main()` -> (nome, janela que usa, teto que usa).
 
-    A chave nomeia a consulta, não a tabela: `bot_events` é lida DUAS vezes
-    com propósitos opostos (os eventos de voz do dia × o histórico de notas
-    que dá a média móvel), e um teste que só olhasse o nome da tabela não
-    saberia distinguir a janela certa da errada.
+    LISTA, não dicionário. A versão em dict era chaveada por nome de tabela
+    e uma SEGUNDA consulta ao mesmo nome sobrescrevia a primeira: executado,
+    acrescentar a `main()` uma leitura de `hand_analysis` SEM janela nenhuma
+    (o museu inteiro) deixava o teste verde — a fuga que a versão de antes
+    dele, que só exigia "toda consulta é janelada", pegava. Em lista as duas
+    aparecem, a igualdade quebra, e o teste volta a valer para TODA consulta.
+
+    O nome distingue as duas leituras de `bot_events` (os eventos de voz do
+    dia × o histórico de notas da média móvel), que têm propósitos opostos e
+    janelas diferentes de propósito.
     """
     import inspect
     import re
@@ -65,7 +71,7 @@ def _consultas_do_juiz() -> dict[str, str | None]:
     from scripts import output_judge
 
     fonte = inspect.getsource(output_judge.main)
-    janelas: dict[str, str | None] = {}
+    consultas: list[tuple[str, str | None, str | None]] = []
     for trecho in fonte.split("repo.client.table(")[1:]:
         cadeia = trecho.split(".execute()")[0]
         tabela = re.match(r'"([^"]+)"', cadeia)
@@ -75,8 +81,10 @@ def _consultas_do_juiz() -> dict[str, str | None]:
             nome += ("/nota_resposta" if "nota_resposta" in cadeia
                      else "/voz")
         achou = re.search(r'gte\("\w+", (day_ago|week_ago)\)', cadeia)
-        janelas[nome] = achou.group(1) if achou else None
-    return janelas
+        teto = re.search(r"limit\(([^)]+)\)", cadeia)
+        consultas.append((nome, achou.group(1) if achou else None,
+                          teto.group(1) if teto else None))
+    return consultas
 
 
 def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
@@ -94,16 +102,43 @@ def test_o_juiz_audita_a_janela_de_24h_e_nao_o_museu():
     museu), e apagar uma consulta inteira PASSAVA (3 de 4 satisfaz `>= 3`).
     Contar ocorrências não é frágil demais nem de menos; o que faltava era
     dizer QUAL consulta usa QUAL janela.
+
+    E a igualdade é de LISTA. Em dict, uma segunda consulta à mesma tabela
+    sobrescrevia a primeira e passava sem janela nenhuma — buraco executado
+    pela re-revisão, que a versão AINDA anterior do teste pegava.
     """
-    janelas = _consultas_do_juiz()
-    assert janelas == {
+    consultas = [(nome, janela) for nome, janela, _ in _consultas_do_juiz()]
+    nomes = [nome for nome, _ in consultas]
+    assert len(nomes) == len(set(nomes)), \
+        f"duas consultas com o mesmo nome — uma delas não é auditada: {nomes}"
+    assert sorted(consultas) == sorted([
         # as três leituras de ENTREGA: o que saiu nas últimas 24h
-        "conversation_state": "day_ago",
-        "hand_analysis": "day_ago",
-        "bot_events/voz": "day_ago",
+        ("conversation_state", "day_ago"),
+        ("hand_analysis", "day_ago"),
+        ("bot_events/voz", "day_ago"),
         # a única janela mais larga, e de propósito: a média móvel de 7 dias
-        "bot_events/nota_resposta": "week_ago",
-    }, janelas
+        ("bot_events/nota_resposta", "week_ago"),
+    ]), consultas
+
+
+def test_as_duas_consultas_da_razao_leem_o_mesmo_tamanho_de_janela():
+    """Numerador e denominador da linha 🗣 saem de consultas diferentes —
+    os eventos de voz e as análises entregues. Elas tinham tetos diferentes
+    (`.limit(300)` nos eventos contra `.limit(25)` nas análises) e 25 satura:
+    a spec §9 mediu 423 análises com summary em ~10 dias, ~24/dia. Um
+    denominador cortado por baixo é uma taxa inflada por cima, e foi assim
+    que "9 de 4 análises = 225%" ficou possível.
+
+    A janela de tempo é a mesma (`day_ago`, teste acima); o TETO também
+    precisa ser, senão as duas leem recortes de tamanhos diferentes do mesmo
+    dia. A nota tem teto próprio e menor de propósito — ela não entra nesta
+    razão, e mudar a população dela mudaria o significado da média de 7 dias.
+    """
+    tetos = {nome: teto for nome, _, teto in _consultas_do_juiz()}
+    assert tetos["hand_analysis"] == tetos["bot_events/voz"], \
+        (f"a razão 🗣 lê {tetos['bot_events/voz']} eventos contra "
+         f"{tetos['hand_analysis']} análises: numerador e denominador vêm de "
+         f"recortes de tamanhos diferentes")
 
 
 def test_nota_sobre_amostra_pequena_vem_com_aviso():
