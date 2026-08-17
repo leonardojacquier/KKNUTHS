@@ -158,6 +158,68 @@ def _termos() -> str:
     return TERMOS_REGRA
 
 
+# Quantas mãos JOGADAS recebem análise de coach (LLM) num relatório de torneio.
+#
+# Era 40, e acima disso NENHUMA recebia — um torneio de 90 mãos jogadas saía
+# inteiro no veredito determinístico. O dono: *"se tiver torneios mais longos
+# analisa as 150 principais mãos e o resto coloca algo mais simplificado e
+# coloca o botão"*.
+#
+# CUSTO: `per_hand_analysis_llm` roda em lotes de 6, então 150 mãos = 25
+# chamadas de LLM por relatório (centavos com o modelo de análise atual).
+# É o preço do teto, não uma estimativa de uso: torneio com mais de 150 mãos
+# jogadas é raro, e abaixo disso o número de chamadas cai proporcional.
+TETO_MAOS_COACHED = 150
+
+
+def _peso_da_mao(h: CanonicalHand, ordem: int) -> tuple:
+    """Chave de ordenação por IMPORTÂNCIA (menor = mais importante).
+
+    A direção do dono é "as mãos que decidiram o torneio", então o critério é,
+    nesta ordem e sempre determinístico:
+
+    1. **all-in do herói** — num torneio a mão que decide é aquela em que o
+       stack foi para o meio. Um jam de 0.1bb de saldo é decisão de torneio;
+       um pote gordo ganho sem risco de eliminação não é.
+    2. **maior |saldo em bb|** — o tamanho do que mudou de mão. Módulo porque
+       a mão que custou 60bb ensina tanto quanto a que ganhou 60bb.
+    3. **maior pote** — desempate para saldo igual: saldo zero pode ser um
+       pote grande devolvido (aposta não paga, split), que é decisão real, e
+       o pote separa isso de um limp de 0.1bb.
+    4. **ordem no torneio** — desempate final estável: o mesmo torneio sempre
+       escolhe as mesmas 150 mãos, rodando quantas vezes rodar.
+
+    `analyze_hand` pode falhar numa mão malformada; quando falha ela vai para
+    o fim da fila em vez de derrubar o relatório inteiro.
+    """
+    from app.analysis.handsearch import match_pattern
+
+    try:
+        a = analyze_hand(h)
+        saldo = abs(a.get("net_bb") or 0.0)
+        pote = (a.get("pot_total") or 0.0) / (h.stakes.big_blind or 1)
+    except Exception:
+        return (1, 0.0, 0.0, ordem)
+    jam = 0 if match_pattern(h, "allin") else 1
+    return (jam, -saldo, -pote, ordem)
+
+
+def maos_principais(jogadas: list[CanonicalHand],
+                    teto: int = TETO_MAOS_COACHED) -> list[CanonicalHand]:
+    """As `teto` mãos mais importantes do torneio, NA ORDEM em que foram jogadas.
+
+    Acima do teto, cortar pelas primeiras seria cortar pelo começo do torneio —
+    justo a parte em que nada foi decidido. Aqui o corte é por importância
+    (`_peso_da_mao`) e a devolução volta para a ordem cronológica: o corte
+    escolhe QUAIS mãos, nunca reordena o relatório nem o lote do coach.
+    """
+    if len(jogadas) <= teto:
+        return list(jogadas)
+    por_peso = sorted(range(len(jogadas)),
+                      key=lambda i: _peso_da_mao(jogadas[i], i))
+    return [jogadas[i] for i in sorted(por_peso[:teto])]
+
+
 def per_hand_analysis_llm(hands_played: list[CanonicalHand],
                           batch: int = 6) -> dict[str, str]:
     """Análise de coach (2-3 frases) POR MÃO jogada, em lotes — usa APENAS os
@@ -579,6 +641,16 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
                 h, facts, max_chars=NOTA_IMG_MAX)
             strip_img = _hand_strip_img(h, seq, a, verdict_llm, nota_img)
             story_html = "" if strip_img else f"<div class=story>{story}</div>"
+            # HONESTIDADE ENTRE DUAS CLASSES DE TEXTO. Acima de
+            # TETO_MAOS_COACHED mãos jogadas, só as principais recebem o texto
+            # do coach; as outras ficam no veredito determinístico, que é um
+            # resumo mecânico das contas. Sem esta linha o aluno lê os dois
+            # como se fossem a mesma coisa — e o resumo, que nunca julga a
+            # jogada, passa por análise de coach que decidiu não julgar.
+            auto_html = "" if entry else (
+                "<div class=auto>📝 resumo automático (só as contas da mão) — "
+                "para a análise completa desta, me manda o Nº dela no "
+                "chat.</div>")
             played_cards.append(f"""
 <div class=hand>
   <div class=hh><span class=seq>{n_lab}</span> {_cards_html(h.hero_cards)}
@@ -589,6 +661,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
   {strip_img}{story_html}
   <div class=an><b>Análise:</b> {esc(analysis)}</div>
   {f'<details class=simple><summary>🎈 Explica mais simples</summary><p>{esc(simple)}</p></details>' if simple else ''}
+  {auto_html}
 </div>""")
         else:
             verdict = fold_verdict(h, a)
@@ -635,6 +708,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
     .story{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#4A554E;
     background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0}
     .an{font-size:12.5px}
+    .auto{font-size:10.5px;color:#828A84;margin-top:6px;font-style:italic}
     .simple{margin-top:6px}
     .simple summary{cursor:pointer;font-size:11.5px;font-weight:700;color:#2E7D5B}
     .simple p{font-size:12.5px;background:#F0F7F2;border-radius:6px;

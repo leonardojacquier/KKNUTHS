@@ -634,11 +634,11 @@ def _process_upload_inner(
     if is_tournament and len(hands) >= 8 and get_settings().report_auto:
         try:
             from app.analysis.handreport import (
-                _played, build_report_html, per_hand_analysis_llm,
-            )
+                _played, build_report_html, maos_principais,
+                per_hand_analysis_llm)
 
             played = [h for h in hands if _played(h)]
-            per_hand = per_hand_analysis_llm(played) if len(played) <= 40 else {}
+            per_hand = per_hand_analysis_llm(maos_principais(played))
             html = build_report_html(hands, coaching, board_png,
                                      per_hand_analysis=per_hand)
             fname = f"KKNuths-MaoAMao-{hands[0].tournament_id or 'torneio'}.html"
@@ -1300,7 +1300,7 @@ def report_doc_for_user(telegram_id: int,
         return None
 
     from app.analysis.handreport import (
-        _played, build_report_html, per_hand_analysis_llm,
+        _played, build_report_html, maos_principais, per_hand_analysis_llm,
     )
 
     board_png = None
@@ -1311,7 +1311,7 @@ def report_doc_for_user(telegram_id: int,
     except Exception:
         pass
     played = [h for h in hands if _played(h)]
-    per_hand = per_hand_analysis_llm(played) if len(played) <= 40 else {}
+    per_hand = per_hand_analysis_llm(maos_principais(played))
     # AUDITORIA DE ALL-INS: o motor de equilíbrio roda em cada decisão de
     # all-in/fold de stack curto do torneio — determinístico, custo zero de
     # IA. Era o que faltava pra "análise completa de torneio" ter a conta.
