@@ -222,11 +222,23 @@ for u in / /ventas/ /ventas/camion-volquete-de-orugas/ /ventas/apilador-electric
 done
 
 echo
+# O reload do Caddy é gracioso: por um instante os handlers antigos ainda
+# respondem, e esta conferência roda logo depois dele. Sem a espera, dá falso
+# negativo. As outras URLs não servem para checar o root — /ventas/, as fichas e
+# o sitemap.xml respondem 200 nos DOIS roots; só a "/" distingue.
 echo "Home do gnhorizons.com (tem que ser o redesign):"
-if curl -sk --max-time 20 --resolve "gnhorizons.com:443:$IP" https://gnhorizons.com/ | grep -qF 'SZ34D'; then
-  echo "  OK — home é o redesign"
+home_ok=0
+for i in 1 2 3 4 5; do
+  if curl -sk --max-time 20 --resolve "gnhorizons.com:443:$IP" https://gnhorizons.com/ | grep -qF 'SZ34D'; then
+    home_ok=1
+    break
+  fi
+  sleep 3
+done
+if [ "$home_ok" = "1" ]; then
+  echo "  OK — home é o redesign (tentativa $i)"
 else
-  echo "  FALHOU — a home NÃO é o redesign; confira o root do bloco gnhorizons.com"
+  echo "  FALHOU — a home NÃO é o redesign depois de ~15 s; confira o root do bloco gnhorizons.com"
 fi
 
 echo
