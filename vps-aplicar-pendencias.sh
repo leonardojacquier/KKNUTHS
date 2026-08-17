@@ -52,13 +52,7 @@ else
   echo "AVISO: não achei bloco começando em 'gnhorizons.com' — pulando o passo (b)"
 fi
 
-# (c) root do gnhorizons.com apontando para a subpasta em vez de /opt/gnh
-ROOT_ERRADO=0
-if awk '/^gnhorizons\.com/{d=1} d && /^[[:space:]]*root \* \/opt\/gnh\/assets\/nuevo[[:space:]]*$/{f=1} d && /^\}/{exit} END{exit !f}' "$CADDYFILE"; then
-  ROOT_ERRADO=1
-fi
-
-if [ "$N" = "0" ] && [ "$FALTA_GNH" = "0" ] && [ "$ROOT_ERRADO" = "0" ]; then
+if [ "$N" = "0" ] && [ "$FALTA_GNH" = "0" ]; then
   grep -qF "$CANONICO" "$CADDYFILE" \
     && echo "Caddy já está correto — nada a fazer" \
     || die "nenhuma linha '@html path ...' reconhecida em $CADDYFILE.
@@ -69,7 +63,6 @@ depois rode: caddy validate --config $CADDYFILE && systemctl reload caddy"
 else
   [ "$N" = "0" ] || { echo "(a) $N linha(s) @html sem o curinga */:"; grep -nE "$ANTIGO" "$CADDYFILE" | grep -vF '*/' | sed 's/^/    /'; }
   [ "$FALTA_GNH" = "0" ] || echo "(b) bloco gnhorizons.com sem matcher @html — vou inserir"
-  [ "$ROOT_ERRADO" = "0" ] || echo "(c) root do gnhorizons.com em /opt/gnh/assets/nuevo — a home do site oficial está caindo no site antigo; vou apontar para /opt/gnh"
 
   rm -f /etc/caddy/sed?????? 2>/dev/null || true   # sobras de execuções falhas
   cp -a "$CADDYFILE" "$BACKUP"
@@ -113,24 +106,6 @@ else
     awk -v canon="$CANONICO" -v hdr="$HEADER" '
       /^gnhorizons\.com/ { d=1 }
       d && /^\}/ { print "\t" canon; print "\t" hdr; d=0 }
-      { print }
-    ' "$TMP" > "$TMP.2" && mv "$TMP.2" "$TMP"
-  fi
-
-  # (c) O gnhorizons.com é o site OFICIAL e sua home tem que ser o redesign.
-  #     Com root */opt/gnh/assets/nuevo* o redesign em /opt/gnh/index.html nunca
-  #     é servido (a home cai no site antigo) e as fotos do redesign, que
-  #     apontam para assets/nuevo/img/..., quebram. A raiz correta é /opt/gnh,
-  #     a mesma do domínio de preview — é o que os scripts de deploy montam.
-  if [ "$ROOT_ERRADO" = "1" ]; then
-    awk '
-      /^gnhorizons\.com/ { d=1 }
-      d && /^[[:space:]]*root \* \/opt\/gnh\/assets\/nuevo[[:space:]]*$/ {
-        match($0, /^[[:space:]]*/)
-        print substr($0, 1, RLENGTH) "root * /opt/gnh"
-        next
-      }
-      d && /^\}/ { d=0 }
       { print }
     ' "$TMP" > "$TMP.2" && mv "$TMP.2" "$TMP"
   fi
@@ -220,26 +195,6 @@ for u in / /ventas/ /ventas/camion-volquete-de-orugas/ /ventas/apilador-electric
          "https://gnhorizons.com$u" || echo 000)
   printf '  %-46s %s\n' "$u" "$code"
 done
-
-echo
-# O reload do Caddy é gracioso: por um instante os handlers antigos ainda
-# respondem, e esta conferência roda logo depois dele. Sem a espera, dá falso
-# negativo. As outras URLs não servem para checar o root — /ventas/, as fichas e
-# o sitemap.xml respondem 200 nos DOIS roots; só a "/" distingue.
-echo "Home do gnhorizons.com (tem que ser o redesign):"
-home_ok=0
-for i in 1 2 3 4 5; do
-  if curl -sk --max-time 20 --resolve "gnhorizons.com:443:$IP" https://gnhorizons.com/ | grep -qF 'SZ34D'; then
-    home_ok=1
-    break
-  fi
-  sleep 3
-done
-if [ "$home_ok" = "1" ]; then
-  echo "  OK — home é o redesign (tentativa $i)"
-else
-  echo "  FALHOU — a home NÃO é o redesign depois de ~15 s; confira o root do bloco gnhorizons.com"
-fi
 
 echo
 echo "Cache-Control das subpáginas:"

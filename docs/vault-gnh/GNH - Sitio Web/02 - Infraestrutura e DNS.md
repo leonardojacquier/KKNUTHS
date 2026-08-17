@@ -46,7 +46,7 @@ Guardado em `deploy/caddy-gnhorizons.txt`. O essencial:
 ```caddy
 gnhorizons.com, www.gnhorizons.com {
 	import gnh_security
-	root * /opt/gnh
+	root * /opt/gnh/assets/nuevo
 	encode gzip
 
 	# vídeos e logos vivem fora de nuevo/
@@ -60,21 +60,6 @@ gnhorizons.com, www.gnhorizons.com {
 	file_server
 }
 ```
-
-> [!danger] O root do gnhorizons.com é `/opt/gnh` — nunca `/opt/gnh/assets/nuevo`
-> O **gnhorizons.com é o site oficial da empresa**; o `gnh.vortex369.com.br`
-> existe **só como preview** para o dono ver antes de publicar. Os dois servem a
-> mesma pasta `/opt/gnh`, que é o que os scripts de deploy montam: o conteúdo de
-> `assets/nuevo/` vai para a raiz (preservando as URLs indexadas) e o
-> `gnh-redesign.html` é copiado por último para `index.html`, virando a home.
->
-> Entre jul e ago/2026 o bloco esteve apontado para `/opt/gnh/assets/nuevo`. Com
-> esse root o redesign em `/opt/gnh/index.html` **nunca era servido** — a home do
-> domínio oficial caía no site antigo — e as fotos das plataformas quebravam,
-> porque `assets/nuevo/img/...` do redesign viraria
-> `/opt/gnh/assets/nuevo/assets/nuevo/img/...`, que não existe. O erro estava
-> também no `CLAUDE.md`, descrito como se fosse decisão do dono, e por isso foi
-> reafirmado em várias sessões. **Se reencontrar esse root, é bug.**
 
 > [!warning] O curinga `*/` é obrigatório — sem ele as subpáginas ficam sem no-cache
 > O matcher `path` casa caminho **exato**, não prefixo. Listar `/ventas/` cobre só

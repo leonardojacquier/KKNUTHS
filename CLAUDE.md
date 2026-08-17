@@ -9,11 +9,19 @@ Two independent deliverables coexist here — do not mix them up:
 1. **TitanCalc / PavCalc** — a React + TypeScript + Vite app (`src/`) for rigid concrete pavement design (Titan Ingeniería / GNH brand). `TitanCalc.html` and `PavCalc.html` at the root are pre-built single-file exports of earlier versions; the editable source is `src/`.
 2. **GNH website** — `gnh-redesign.html`, a **self-contained single-file site** (all CSS/JS inline, no build step). Its only external files are the hero videos in `assets/video/`. `site-parallax.html` is an earlier standalone parallax demo (Titan-branded), kept as reference.
 
-   🔴 **`gnhorizons.com` IS the company's official site. `gnh.vortex369.com.br` is ONLY the owner's preview URL** — it exists so he can see changes before they are public; it is never the destination. `gnh-redesign.html` is the home of **gnhorizons.com**, not just of the preview.
+   🔴 **`gnhorizons.com` is the company's official site; `gnh.vortex369.com.br` is only the owner's preview URL.** Both are served by the same VPS deploy, but **from different roots, and that difference is deliberate**:
 
-   **Both domains must serve `/opt/gnh` as root**, which is what every deploy script builds: `cp -r assets/nuevo/. /opt/gnh/` puts the already-indexed URLs (`/ventas/`, `/fichas/`, `/img/`, `sitemap.xml`) at the root, and `cp gnh-redesign.html /opt/gnh/index.html` runs last so the home is the redesign. One push updates both via the VPS cron (~2 min).
+   | URL | Serves | Root |
+   |---|---|---|
+   | `gnhorizons.com/` | **commercial home** (`assets/nuevo/index.html`) — two doors: *Ventas →* and *Institucional →* | `/opt/gnh/assets/nuevo` |
+   | `gnhorizons.com/institucional/` | the **institutional page**, i.e. the redesign | same |
+   | `gnh.vortex369.com.br/` | `gnh-redesign.html` at `/`, as a **preview of the institutional page** | `/opt/gnh` |
 
-   ⚠️ **If you ever read that `gnhorizons.com` should be rooted at `/opt/gnh/assets/nuevo`, that is the bug, not the design.** With that root the redesign at `/opt/gnh/index.html` is never served (the domain falls back to the old site's home) and the redesign's own `assets/nuevo/img/...` references resolve to a path that does not exist. This wrong root sat in `deploy/caddy-gnhorizons.txt` and in this file from Jul-2026 until Aug-2026 and made several sessions "confirm" the broken state as intentional. Do not restore it, and do not describe the old home on gnhorizons.com as deliberate.
+   🛑 **`gnh-redesign.html` is the INSTITUTIONAL page, not the home of gnhorizons.com.** Never point `gnhorizons.com` at `/opt/gnh`: that replaces the commercial home — the page that sends visitors to the catalogue — with the institutional one. It was done once, in Aug-2026, and broke the live site until it was rolled back. The commercial home is what must stay at `gnhorizons.com/`.
+
+   ⚠️ The repo contradicts itself here: `DEPLOY-GNH.md` § "Migrar gnhorizons.com" shows `root * /opt/gnh`, which is **stale/aspirational**. The authority is `deploy/caddy-gnhorizons.txt` (`root * /opt/gnh/assets/nuevo`) plus the live Caddyfile. When in doubt, ask the owner — do not "resolve" the contradiction by changing production.
+
+   ⚠️ **No script copies `gnh-redesign.html` into `assets/nuevo/institucional/index.html`**, so edits to the redesign reach the preview domain but **not** `gnhorizons.com/institucional/`, which still serves an older copy. Publishing them there is a pending decision for the owner, not something to do unprompted.
 
 User-facing language: the GNH site is written in **Spanish (es)**; conversation with the repo owner is in Portuguese.
 
@@ -35,7 +43,7 @@ Production is a shared multi-tenant VPS (`root@srv1555380.hstgr.cloud`, Hostinge
 - **From anywhere with SSH key**: `bash deploy-gnh.sh` (uses only 2 SSH connections — the VPS runs fail2ban; avoid bursts of ssh/scp).
 - **GitHub Actions**: `.github/workflows/deploy-vortex.yml` auto-deploys on push to `claude/professional-website-design-qqgnfg` **only if** the `VORTEX_SSH_KEY` secret is set (otherwise it no-ops green). `check-site.yml` is a manual diagnostic that curls the site from a runner.
 - **Never edit `index.html` on the server** — it is overwritten by every deploy (`gnh-redesign.html` is canonical).
-- **`gnhorizons.com` is LIVE from this repo** — it is the official site, served from `/opt/gnh` (same root as the preview domain). Anything added under `assets/nuevo/` publishes to it on the next cron cycle, and `gnh-redesign.html` is its home. Do NOT describe the domain migration as pending.
+- **`gnhorizons.com` is LIVE from this repo** (root = `assets/nuevo/`). Anything added under `assets/nuevo/` publishes to gnhorizons.com on the next cron cycle. Do NOT describe the domain migration as pending, and do NOT change that root — see the table above.
 - ⚠️ When touching Caddy config on the VPS: always `caddy validate` before `systemctl reload caddy` — a bad reload takes down every domain on the shared box.
 - Cache: the HTML is served `no-cache`, and its CSS/JS are inline, so no cache-busting is needed. Videos in `assets/video/` DO cache — rename the file when replacing one.
 

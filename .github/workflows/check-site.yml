@@ -59,11 +59,12 @@ jobs:
 
       - name: Conteúdo no ar
         run: |
-          # gnhorizons.com é o site OFICIAL e sua home tem que ser o redesign.
-          # Os dois domínios servem a mesma raiz /opt/gnh; o vortex é só o
-          # preview do dono. Se o marcador do redesign sumir da home do
-          # gnhorizons.com, o root do bloco do Caddy está errado — foi o que
-          # aconteceu entre jul e ago/2026. Ver CLAUDE.md e DEPLOY-GNH.md.
+          # A home do gnhorizons.com é a COMERCIAL (assets/nuevo/index.html), com
+          # as portas "Ventas" e "Institucional". O gnh-redesign.html é a página
+          # INSTITUCIONAL e vive em /institucional/; no vortex ele aparece em /
+          # porque aquele domínio é o preview. NÃO procure marcador do redesign
+          # na home do gnhorizons.com — em ago/2026 essa suposição levou a
+          # apontar o root para /opt/gnh e derrubou a home do site oficial.
           curl -sk --max-time 25 \
                  -o /tmp/home.html   -w 'gnhorizons home    %{http_code}\n' https://gnhorizons.com/ \
             --next -o /tmp/prod.html -w 'página de produto  %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/ \
@@ -79,7 +80,7 @@ jobs:
             fi
           }
 
-          ver /tmp/home.html 'SZ34D'       'home do gnhorizons.com É o redesign (se falhar: root do Caddy)'
+          ver /tmp/home.html 'Institucional' 'home comercial do gnhorizons.com no ar'
           ver /tmp/prod.html 'HST-YES2000' 'página de produto publicada'
 
           # O HTML precisa sair com no-cache, senão o navegador segura a versão
