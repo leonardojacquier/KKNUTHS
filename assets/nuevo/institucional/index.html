@@ -378,22 +378,22 @@ svg{display:block}
 .svc p{color:var(--muted);font-size:16px}
 
 /* Catálogo — deck de paneles expansibles (desktop) / swipe con snap (móvil) */
-.cat-deck{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px}
+.cat-deck{display:flex;gap:14px;margin-top:52px}
 .cat{
-  position:relative;overflow:hidden;border-radius:22px;min-height:0;
+  position:relative;overflow:hidden;border-radius:22px;flex:1;min-width:88px;min-height:480px;
   color:#fff;padding:28px 24px;display:flex;flex-direction:column;justify-content:flex-end;
   background:
     radial-gradient(420px 260px at 85% -5%,rgba(59,130,246,.28),transparent 62%),
     linear-gradient(165deg,#13214a 0%,var(--navy) 55%,var(--navy-ink) 100%);
   border:1px solid rgba(255,255,255,.08);
-  transition:border-color .4s,transform .4s var(--ease);cursor:pointer;
+  transition:flex .65s var(--ease),border-color .4s;cursor:pointer;
 }
 .cat:nth-child(even){
   background:
     radial-gradient(420px 260px at 15% -5%,rgba(242,109,33,.22),transparent 62%),
     linear-gradient(165deg,#152a63 0%,var(--navy-2) 45%,var(--navy-ink) 100%);
 }
-.cat:hover,.cat:focus-within{border-color:rgba(242,109,33,.45);transform:translateY(-4px)}
+.cat:hover,.cat:focus-within{flex:3;border-color:rgba(242,109,33,.45)}
 .cat .ghost{position:absolute;top:18px;right:16px;width:120px;height:120px;opacity:.08;pointer-events:none}
 .cat .ghost svg{width:100%;height:100%;stroke:#fff}
 .cat .ic{
@@ -407,10 +407,15 @@ svg{display:block}
   writing-mode:vertical-rl;rotate:180deg;
   font-family:var(--font-head);font-weight:600;font-size:16px;letter-spacing:.06em;
   color:rgba(255,255,255,.85);white-space:nowrap;
-  display:none;
+  opacity:1;transition:opacity .3s;
 }
-.cat .body{min-width:0}
-.cat h3{font-size:21px;margin-bottom:8px;white-space:normal}
+.cat .body{
+  opacity:0;transform:translateY(16px);transition:opacity .5s var(--ease) .15s,transform .5s var(--ease) .15s;
+  min-width:240px;
+}
+.cat:hover .body,.cat:focus-within .body{opacity:1;transform:none}
+.cat:hover .t-vert,.cat:focus-within .t-vert{opacity:0}
+.cat h3{font-size:21px;margin-bottom:8px;white-space:nowrap}
 .cat .body p{color:rgba(255,255,255,.72);font-size:15px;margin-bottom:14px;max-width:270px}
 .cat .brands{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
 .cat .brands span{
@@ -426,7 +431,7 @@ svg{display:block}
 .cat .go:hover{gap:13px}
 .cat .go svg{width:17px;height:17px;stroke:currentColor}
 @media(max-width:900px){
-  .cat-deck{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 4px 18px;-webkit-overflow-scrolling:touch}
+  .cat-deck{overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 4px 18px;-webkit-overflow-scrolling:touch}
   .cat{flex:0 0 82%;max-width:340px;min-height:420px;scroll-snap-align:center}
   .cat .body{opacity:1;transform:none}
   .cat .t-vert{display:none}
@@ -917,7 +922,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="wrap">
     <span class="tag reveal">Catálogo</span>
     <h2 class="reveal d1">Un portafolio que construye</h2>
-    <p class="lead reveal d2">Líneas de producto seleccionadas del mercado internacional. El catálogo completo, con fichas técnicas y especificaciones, está en la sección de ventas.</p>
+    <p class="lead reveal d2">Líneas de producto seleccionadas del mercado internacional. Toca una categoría para explorarla.</p>
 
     <div class="cat-deck reveal d2">
       <article class="cat" tabindex="0">
@@ -997,141 +1002,17 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
           <h3>Equipos y Maquinaria</h3>
           <p>Plataformas de trabajo aéreo de hasta 34 m, grúas araña y equipos de elevación para trabajos de precisión.</p>
           <div class="brands"><span>Plataformas 20–34 m</span><span>Central de concreto JBTS20</span><span>Elevación</span></div>
-          <a class="go" href="#plataformas">Ver plataformas y fichas técnicas
+          <a class="go" href="/ventas/plataforma-articulada-y-telescopica/">Ver plataformas y fichas técnicas
             <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
           <a class="go" href="/ventas/equipos-de-concreto/#jbts20" style="margin-left:14px">Central de concreto JBTS20
             <svg viewBox="0 0 24 24" fill="none"><use href="#i-arrow-r"/></svg></a>
         </div>
       </article>
     </div>
-
-    <p class="reveal d3" style="margin-top:34px">
-      <a class="btn" href="/ventas/" style="min-height:44px;padding:10px 22px;font-size:15px">Ver catálogo completo</a>
-    </p>
   </div>
 </section>
 
-<!-- ============ PLATAFORMAS DE TRABAJO AÉREO ============ -->
-<section class="section" id="plataformas" style="background:#fff">
-  <div class="wrap">
-    <span class="tag reveal" data-i18n="plat.tag">Equipos y Maquinaria</span>
-    <h2 class="reveal d1" data-i18n="plat.h2">Plataformas de trabajo aéreo</h2>
-    <p class="lead reveal d2" data-i18n="plat.lead">Siete modelos telescópicos de brazo recto (20,5 a 34,1 m de altura de trabajo, 460 kg de capacidad) y tres articulados de 16 a 22 m. Elevación en línea recta, mayor alcance horizontal y rotación continua de torreta para llegar donde otras plataformas no llegan.</p>
 
-    <div class="plat-kpis reveal d2">
-      <div><strong>34,1 m</strong><span data-i18n="plat.kpi1">altura máxima de trabajo</span></div>
-      <div><strong>460 kg</strong><span data-i18n="plat.kpi2">capacidad de plataforma</span></div>
-      <div><strong>22 m</strong><span data-i18n="plat.kpi3">alcance horizontal máximo</span></div>
-      <div><strong>360°</strong><span data-i18n="plat.kpi4">rotación continua de torreta</span></div>
-    </div>
-
-    <div class="plat-tablewrap reveal d3">
-      <table class="plat">
-        <caption data-i18n="plat.cap">Línea telescópica (brazo recto) · comparativo de modelos</caption>
-        <thead>
-          <tr>
-            <th data-i18n="plat.thModel">Modelo</th>
-            <th data-i18n="plat.thWork">Alt. de trabajo</th>
-            <th data-i18n="plat.thPlat">Alt. de plataforma</th>
-            <th data-i18n="plat.thReach">Alcance horiz.</th>
-            <th data-i18n="plat.thCap">Capacidad</th>
-            <th data-i18n="plat.thWeight">Peso</th>
-            <th data-i18n="plat.thPower">Energía</th>
-            <th><span class="sr-only" data-i18n="plat.thSheet">Ficha técnica</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz20d-thumb.jpg" alt="" loading="lazy"><span>SZ20D<small>20 m · Z20M-LI</small></span></span></td>
-            <td>20.500 mm</td><td>18.500 mm</td><td>12.500 mm</td>
-            <td>300 / 460 kg</td><td>9.800 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi">Eléctrica · Li 51,2 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z20M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz23d-thumb.jpg" alt="" loading="lazy"><span>SZ23D<small>23 m · Z23M-LI</small></span></span></td>
-            <td>24.150 mm</td><td>22.150 mm</td><td>16.500 mm</td>
-            <td>300 / 460 kg</td><td>10.500 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi">Eléctrica · Li 51,2 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z23M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz23-thumb.jpg" alt="" loading="lazy"><span>SZ23<small>23 m · diésel · Z23M-Do</small></span></span></td>
-            <td>24.150 mm</td><td>22.150 mm</td><td>16.500 mm</td>
-            <td>300 / 460 kg</td><td>11.230 kg</td>
-            <td><span class="plat-energy diesel" data-i18n="plat.eDo">Diésel</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z23M-Do" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz26d-thumb.jpg" alt="" loading="lazy"><span>SZ26D<small>26 m · Z26M-LI</small></span></span></td>
-            <td>26.000 mm</td><td>24.150 mm</td><td>18.500 mm</td>
-            <td>300 / 460 kg</td><td>12.000 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi">Eléctrica · Li 51,2 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z26M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz28d-thumb.jpg" alt="" loading="lazy"><span>SZ28D<small>28 m · Z28M-LI</small></span></span></td>
-            <td>28.780 mm</td><td>26.780 mm</td><td>20.900 mm</td>
-            <td>300 / 460 kg</td><td>16.600 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi2">Eléctrica · Li 76,8 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z28M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz30d-thumb.jpg" alt="" loading="lazy"><span>SZ30D<small>30 m · Z30M-LI</small></span></span></td>
-            <td>30.620 mm</td><td>28.620 mm</td><td>20.000 mm</td>
-            <td>300 / 460 kg</td><td>17.500 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi2">Eléctrica · Li 76,8 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z30M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sz34d-thumb.jpg" alt="" loading="lazy"><span>SZ34D<small>34 m · Z34M-LI</small></span></span></td>
-            <td>34.100 mm</td><td>32.100 mm</td><td>22.000 mm</td>
-            <td>300 / 460 kg</td><td>18.600 kg</td>
-            <td><span class="plat-energy" data-i18n="plat.eLi2">Eléctrica · Li 76,8 V</span></td>
-            <td><button type="button" class="plat-sheet" data-model="Z34M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="plat-tablewrap reveal d3" style="margin-top:26px">
-      <table class="plat" style="min-width:640px">
-        <caption data-i18n="plat.capArt">Línea articulada · comparativo de modelos</caption>
-        <thead>
-          <tr>
-            <th data-i18n="plat.thModel">Modelo</th>
-            <th data-i18n="plat.thWork">Alt. de trabajo</th>
-            <th data-i18n="plat.thCap">Capacidad</th>
-            <th data-i18n="plat.thWeight">Peso</th>
-            <th><span class="sr-only" data-i18n="plat.thSheet">Ficha técnica</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sq16d-thumb.jpg" alt="" loading="lazy"><span>SQ16D<small data-i18n="plat.art16e">16 m · articulada · Q16M-LI</small></span></span></td>
-            <td>16 m</td><td>230 kg</td><td>7.600 kg</td>
-            <td><button type="button" class="plat-sheet" data-model="Q16M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sq16-thumb.jpg" alt="" loading="lazy"><span>SQ16<small data-i18n="plat.art16d">16 m · articulada · diésel · Q16M-Do</small></span></span></td>
-            <td>16 m</td><td>230 kg</td><td>8.110 kg</td>
-            <td><button type="button" class="plat-sheet" data-model="Q16M-Do" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-          <tr>
-            <td class="model"><span class="mwrap"><img class="mthumb" src="/img/prod/plataforma/sq22d-thumb.jpg" alt="" loading="lazy"><span>SQ22D<small data-i18n="plat.art22">22 m · articulada · Q22M-LI</small></span></span></td>
-            <td>22 m</td><td>250 kg</td><td>9.200 kg</td>
-            <td><button type="button" class="plat-sheet" data-model="Q22M-LI" data-i18n="plat.btnSheet">Ficha</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="plat-note" data-i18n="plat.note">Capacidad indicada como 300 kg sin restricción de alcance / 460 kg con restricción. Datos del catálogo del fabricante; consultanos por configuraciones, plazos y disponibilidad.</p>
-
-    <div class="plat-cta">
-      <a class="btn" href="https://wa.me/595995360060?text=Hola,%20quiero%20cotizar%20una%20plataforma%20de%20trabajo%20a%C3%A9reo" target="_blank" rel="noopener" data-i18n="plat.cta">Cotizar una plataforma</a>
-    </div>
-  </div>
-</section>
 
 <!-- ============ SHOWCASE FROTA GNH ============ -->
 <section class="showcase" id="flota">
@@ -1302,24 +1183,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
 </button>
 
 <!-- Ficha técnica de plataformas (se rellena por JS) -->
-<dialog id="platModal" aria-labelledby="platTitle">
-  <div class="ps-head">
-    <img id="platPhoto" class="ps-photo" alt="" hidden>
-    <div>
-      <h3 id="platTitle"></h3>
-      <p id="platSub"></p>
-    </div>
-    <button type="button" class="ps-close" id="platClose" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24" fill="none"><use href="#i-close"/></svg>
-    </button>
-  </div>
-  <div class="ps-body" id="platBody"></div>
-  <div class="ps-foot">
-    <a class="btn" id="platWa" href="#" target="_blank" rel="noopener"></a>
-    <a class="plat-sheet" id="platPdf" href="#" download style="text-decoration:none;display:inline-flex;align-items:center">⬇&nbsp;<span></span></a>
-    <small id="platFoot"></small>
-  </div>
-</dialog>
+
 
 <script>
 /* ---------- Plataformas de trabajo aéreo: fichas técnicas ---------- */
