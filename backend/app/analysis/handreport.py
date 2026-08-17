@@ -16,6 +16,10 @@ from app.agent.analyzer import analyze_hand
 from app.analysis.handsearch import _hero_line
 from app.models.canonical import ActionType, CanonicalHand, StreetName
 
+# Teto de caracteres da nota que vai DENTRO da imagem da mão: a figura cresce
+# ~30px por linha quebrada e o PDF do relatório tem uma página por mão.
+NOTA_IMG_MAX = 260
+
 _SYM = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
 _RED = {"h", "d"}
 _RANKS = "23456789TJQKA"
@@ -245,27 +249,90 @@ def decision_stamp(h: CanonicalHand, facts: dict) -> str | None:
     return "decisão ❌" if bad else "decisão ✅"
 
 
-def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
-    """Análise determinística de mão jogada (usada quando não há texto do coach)."""
+def _frase_da_decisao(n: dict) -> str | None:
+    """Uma frase para UMA decisão do herói — o verbo vem de `n['acao']`.
+
+    Três regras que o texto antigo quebrava, todas vistas no relatório do
+    torneio #303773218:
+
+    - **fold é decisão**: `played_facts` grava a street em que o herói largou
+      (com `equity_vs_aleatoria: None` de propósito), e o texto só escrevia a
+      linha quando havia equity — a street sumia do relatório. Aqui ela sai com
+      o preço que estava na frente e o pote, e SEM veredito: sem equity medida
+      não se afirma se largar foi certo (docs/METODO.md).
+    - **raise não é call**: `pagou_bb` é o preço de PAGAR. Colado num raise ele
+      vira "você pagou 1bb" para quem abriu 2.5bb (a #10 Q♥J♥ do CO) e o
+      veredito de preço acusa de call caro quem nem pagou.
+    - o veredito de preço ("o preço estava bom") só vale para quem pagou.
+    """
+    street = n["street"]
+    if "equity_minima" not in n:                 # aposta de iniciativa
+        pct = n.get("sizing_pct_pote")
+        if not pct:
+            return None
+        tam = ("aposta pequena" if pct < 45 else
+               "aposta média" if pct <= 80 else "aposta pesada")
+        verbo = "aumentou para" if n.get("acao") == "raise" else "apostou"
+        return (f"No {street} você {verbo} {n['valor_bb']:g}bb — "
+                f"{pct}% do pote, {tam}")
+    req, acao = n["equity_minima"], n.get("acao")
+    eq = n.get("equity_vs_aleatoria")
+    if acao == "fold":
+        return (f"No {street} você largou — na frente tinha um preço que pedia "
+                f"{req*100:.0f}% de vitória, com {n['pote_bb']:g}bb no pote; "
+                f"sem equity medida, sem veredito")
+    if acao != "call":                           # raise sobre a aposta do vilão
+        mede = (f"sua mão ganha ~{eq*100:.0f}% contra uma aleatória; "
+                if eq is not None else "")
+        return (f"No {street} você aumentou (não pagou) — {mede}"
+                f"o preço de {req*100:.0f}% julga call, não raise")
+    if eq is None:
+        return (f"No {street} você pagou {n['pagou_bb']:g}bb — o preço pedia "
+                f"{req*100:.0f}% de vitória; sem equity medida, sem veredito")
+    ok = ("o preço estava bom" if eq >= req
+          else "pagou mais caro do que a mão valia")
+    return (f"No {street} você pagou {n['pagou_bb']:g}bb — para esse preço "
+            f"precisava ganhar {req*100:.0f}% das vezes, e sua mão ganha "
+            f"~{eq*100:.0f}%: {ok}")
+
+
+def _sob_o_teto(decisoes: list[tuple[float, str]], extras: list[str],
+                fecho: str, teto: int) -> list[str]:
+    """Corta pela decisão MAIS BARATA até o texto caber em `teto` caracteres.
+
+    Só a imagem tem teto (altura da figura no PDF). Cortar a decisão de menor
+    pote é o contrário de cortar por posição: a mão da #7 perdia o preflop
+    porque ele era o primeiro, não porque era o menos importante.
+    """
+    escolhidas = list(decisoes)
+    while escolhidas:
+        if len(". ".join([f for _, f in escolhidas] + extras + [fecho])) <= teto:
+            break
+        escolhidas.pop(min(range(len(escolhidas)),
+                           key=lambda i: escolhidas[i][0]))
+    return [f for _, f in escolhidas] + extras
+
+
+def played_fallback_verdict(h: CanonicalHand, facts: dict,
+                            max_chars: int | None = None) -> str:
+    """Análise determinística de mão jogada (usada quando não há texto do coach).
+
+    Cobre TODAS as streets com decisão. O teto antigo era `numbers[:2]`, e nas
+    fixtures de `tests/sample_hands` ele jogava fora 23 das 81 decisões (28%),
+    em 14 das 41 mãos jogadas — foi a reclamação do dono no torneio
+    #303773218: *"analisa só o pre-flop"*.
+
+    `max_chars` (só a imagem usa, com `NOTA_IMG_MAX`): devolve a versão curta,
+    com as decisões de maior pote que couberem. O HTML recebe sempre a inteira.
+    """
     a = facts["analysis"]
     hc = hand_class(h.hero_cards) or "?"
-    bits = []
-    for n in facts["numbers"][:2]:
-        if "equity_minima" in n:
-            eq, req = n.get("equity_vs_aleatoria"), n["equity_minima"]
-            if eq is not None:
-                ok = ("o preço estava bom" if eq >= req
-                      else "pagou mais caro do que a mão valia")
-                bits.append(
-                    f"No {n['street']} você pagou {n['pagou_bb']:g}bb — para esse "
-                    f"preço precisava ganhar {req*100:.0f}% das vezes, e sua mão "
-                    f"ganha ~{eq*100:.0f}%: {ok}")
-        elif n.get("sizing_pct_pote"):
-            pct = n["sizing_pct_pote"]
-            tam = ("aposta pequena" if pct < 45 else
-                   "aposta média" if pct <= 80 else "aposta pesada")
-            bits.append(f"No {n['street']} você apostou {n['valor_bb']:g}bb — "
-                        f"{pct}% do pote, {tam}")
+    decisoes: list[tuple[float, str]] = []
+    for n in facts["numbers"]:
+        frase = _frase_da_decisao(n)
+        if frase:
+            decisoes.append((n.get("pote_bb") or 0.0, frase))
+    extras: list[str] = []
     stack = a.get("effective_bb")
     pre_jam = any(s.get("all_in") and s["street"] == "preflop" for s in a["spots"])
     if pre_jam and stack and stack <= 20:
@@ -273,11 +340,14 @@ def played_fallback_verdict(h: CanonicalHand, facts: dict) -> str:
 
         pf = push_fold(h.hero_cards, stack, a.get("position") or "MP")
         if pf.get("applicable"):
-            bits.append(
+            extras.append(
                 f"✅ shove certo: com {stack:g}bb, {hc} é all-in lucrativo"
                 if pf["decision"] == "push" else
                 f"❌ shove exagerado: com {stack:g}bb, {hc} ainda não vale all-in")
     res = f"Saldo da mão: {a['net_bb']:+.1f}bb"
+    # o veredito de shove nunca é cortado: é o julgamento da mão inteira
+    bits = ([f for _, f in decisoes] + extras if max_chars is None
+            else _sob_o_teto(decisoes, extras, res, max_chars))
     return ". ".join(bits + [res]) if bits else f"{hc} — {res.lower()}"
 
 
@@ -293,8 +363,8 @@ def _hand_strip_img(h: CanonicalHand, seq: int, a: dict,
         if not bands:
             return ""
         note = (analysis or "").strip()
-        if len(note) > 260:              # limita a altura da imagem no PDF
-            note = note[:257].rstrip() + "…"
+        if len(note) > NOTA_IMG_MAX:     # limita a altura da imagem no PDF
+            note = note[:NOTA_IMG_MAX - 3].rstrip() + "…"
         spec = {
             "title": f"Mão #{seq} — {a.get('position') or '?'}",
             "hero_cards": h.hero_cards,
@@ -501,7 +571,13 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
             # storyboard da mão completa (o filme) — determinístico, custo zero
             # de LLM. Reaproveita o veredito da análise já computada no rodapé.
             # Só para mãos JOGADAS (as foldadas ficam na tabela): PDF não incha.
-            strip_img = _hand_strip_img(h, seq, a, verdict_llm, analysis)
+            # A imagem tem altura limitada (NOTA_IMG_MAX) e o texto agora vai
+            # street por street: sem uma versão curta, quase toda mão viraria
+            # "…" na figura. O HTML fica com a mão inteira; a figura, com as
+            # decisões de maior pote que cabem.
+            nota_img = entry or played_fallback_verdict(
+                h, facts, max_chars=NOTA_IMG_MAX)
+            strip_img = _hand_strip_img(h, seq, a, verdict_llm, nota_img)
             story_html = "" if strip_img else f"<div class=story>{story}</div>"
             played_cards.append(f"""
 <div class=hand>
