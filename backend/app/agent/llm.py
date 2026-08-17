@@ -767,7 +767,7 @@ _SYSTEM = {
         "dele à risca. Cooler/bad beat só existe se o aluno ESTAVA NA FRENTE "
         "e a carta virou (river_mudou_o_vencedor). Mão dominada desde o pré "
         "que perde não é cooler — é o resultado esperado; diga 'você estava "
-        "atrás desde o pré' com as % de cada rua. Par que está NA MESA não "
+        "atrás desde o pré' com as % de cada street. Par que está NA MESA não "
         "é 'seu par': use sua_mao_final/mao_final_dos_viloes pelos nomes "
         "dados. E cuidado com o pronome do azar: quem virou a mão teve "
         "SORTE; o azar foi de quem estava na frente e perdeu. A mão que "

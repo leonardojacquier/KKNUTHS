@@ -39,7 +39,7 @@ from app.models.canonical import CanonicalHand
 # parte da variação de estratégia correta. As fronteiras são onde a ÁRVORE
 # muda, não números redondos por estética.
 FAIXAS: tuple[tuple[str, float, float, str], ...] = (
-    ("deep", 40.0, 1e9, "jogo de 3 ruas; implied odds contam"),
+    ("deep", 40.0, 1e9, "jogo de 3 streets; implied odds contam"),
     ("padrão", 25.0, 40.0, "3-bet ainda cabe sem comprometer o stack"),
     ("re-shove", 15.0, 25.0,
      "o re-shove domina e o 3-bet não-all-in some — a faixa que ninguém "

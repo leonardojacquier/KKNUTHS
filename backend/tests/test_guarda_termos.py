@@ -226,3 +226,82 @@ def test_o_guarda_roda_no_portao_de_entrega_da_voz(repo):
                               onde="analise")
     assert "o river que virou tudo" in saida
     assert repo.evento("termo_corrigido"), "o portão da entrega não conferiu"
+
+
+# ---------------------------------------------------------------------------
+# Caso real de 17/08 (o dono, na íntegra: "Tá colocando RUAS ao invés de
+# streets... Outras coisa tu meteu uma sigla ali que aí sim poderia colocar
+# o que significa entre parênteses"). Duas falhas na mesma análise:
+# "você esteve atrás em TODAS as ruas" e "um OESD de 8 outs" seco.
+
+
+def test_todas_as_ruas_vira_streets():
+    from app.bot.guarda_termos import conferir
+
+    novo, trocas, _ = conferir(
+        "você esteve atrás em TODAAS as ruas".replace("TODAAS", "TODAS"))
+    assert "em TODAS as streets" in novo
+    assert "ruas" not in novo
+    assert trocas
+
+
+def test_colocacoes_de_poker_com_rua():
+    from app.bot.guarda_termos import conferir
+
+    casos = {
+        "apostou nas três ruas": "nas três streets",
+        "pressão em cada rua": "em cada street",
+        "o preço muda rua a rua": "street a street",
+        "valor nas duas ruas": "nas duas streets",
+    }
+    for entrada, esperado in casos.items():
+        novo, trocas, _ = conferir(entrada)
+        assert esperado in novo, f"{entrada!r} -> {novo!r}"
+        assert trocas
+
+
+def test_rua_literal_nao_e_corrigida_so_medida():
+    from app.bot.guarda_termos import conferir
+
+    novo, trocas, ambiguos = conferir("isso não se aprende na rua")
+    assert novo == "isso não se aprende na rua"
+    assert not trocas
+    assert ambiguos  # vira número para o dono decidir depois
+
+
+def test_rua_com_nome_proprio_nem_corrige_nem_conta():
+    from app.bot.guarda_termos import conferir
+
+    novo, trocas, ambiguos = conferir("o clube fica na Rua Augusta")
+    assert "Rua Augusta" in novo
+    assert not trocas
+    assert not ambiguos  # topônimo não é poker nem calque: sujaria a medição
+
+
+def test_oesd_ganha_parentese_na_primeira_aparicao():
+    from app.bot.guarda_termos import conferir
+
+    novo, trocas, _ = conferir(
+        "apostou com um OESD de 8 outs; com OESD no turn a conta muda")
+    assert "OESD (draw de sequência nas duas pontas) de 8 outs" in novo
+    # só a PRIMEIRA aparição ganha o parêntese (V4: teto de explicação)
+    assert novo.count("(draw de sequência nas duas pontas)") == 1
+    assert any("OESD" in t for t in trocas)
+
+
+def test_oesd_ja_com_parentese_nao_ganha_outro():
+    from app.bot.guarda_termos import conferir
+
+    texto = "um OESD (8 outs) no flop"
+    novo, trocas, _ = conferir(texto)
+    assert novo == texto
+    assert not any("OESD" in t for t in trocas)
+
+
+def test_o_prompt_nao_ensina_o_calque_que_proibe_r5b():
+    """R5b dizia 'com as % de cada rua' — e o modelo obedeceu ao vocabulário
+    do prompt, não à regra. 17/08: 'em TODAS as ruas' entregue ao aluno."""
+    from app.agent.llm import _SYSTEM
+
+    assert "cada street" in _SYSTEM["pt"]
+    assert "cada rua" not in _SYSTEM["pt"]
