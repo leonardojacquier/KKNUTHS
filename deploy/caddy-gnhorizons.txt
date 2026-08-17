@@ -7,8 +7,14 @@
 gnhorizons.com, www.gnhorizons.com {
 	# requer o snippet (gnh_security) no topo do Caddyfile — ver caddy-security-headers.txt
 	import gnh_security
-	# raiz do site novo = a pasta assets/nuevo do repo
-	root * /opt/gnh/assets/nuevo
+	# RAIZ = /opt/gnh, a mesma do domínio de preview. É o que os scripts de
+	# deploy montam: assets/nuevo/. vai para a raiz (preserva /ventas/,
+	# /fichas/, /img/, sitemap.xml já indexados) e gnh-redesign.html é copiado
+	# por último para index.html, virando a home.
+	# NÃO aponte para /opt/gnh/assets/nuevo: com esse root o redesign nunca é
+	# servido (a home cai no site antigo) e as referências assets/nuevo/img/...
+	# do redesign apontam para um caminho inexistente.
+	root * /opt/gnh
 	encode gzip
 
 	# vídeos e logos do carrossel vivem fora de nuevo/ (caminhos /assets/... nas páginas)

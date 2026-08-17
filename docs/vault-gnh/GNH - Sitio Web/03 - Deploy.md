@@ -149,13 +149,14 @@ Roda a cada push na branch e faz três coisas, nesta ordem:
 3. **Conteúdo**: home do gnhorizons, redesign no vortex, página de produto e o
    header `Cache-Control: no-cache`.
 
-> [!warning] Os dois roots — o erro que já derrubou o CI
+> [!danger] Os dois domínios servem a MESMA raiz — `/opt/gnh`
 > ```
-> gnhorizons.com        -> /opt/gnh/assets/nuevo   (home = site antigo)
-> gnh.vortex369.com.br  -> /opt/gnh                (home = gnh-redesign.html)
+> gnhorizons.com        -> /opt/gnh   (site OFICIAL, home = gnh-redesign.html)
+> gnh.vortex369.com.br  -> /opt/gnh   (preview do dono, mesmo conteúdo)
 > ```
-> Procurar marcador do **redesign** (`SZ34D`, `plat-sheet`) na home do
-> **gnhorizons.com** dá falso negativo: lá a home é `assets/nuevo/index.html`,
-> de propósito. O redesign só é a home no vortex. As páginas de `/ventas/`,
-> `/fichas/` e os PDFs, sim, aparecem nos dois — é por isso que os catálogos
-> publicam normalmente no gnhorizons.com.
+> Em ago/2026 o CI acusou "SZ34D ausente na home do gnhorizons.com" e a leitura
+> feita na hora foi errada: concluiu-se que a home antiga era intencional e isso
+> chegou a ser documentado aqui. **Era bug de configuração** — o bloco do Caddy
+> apontava para `/opt/gnh/assets/nuevo`. O marcador do redesign **deve** estar na
+> home do gnhorizons.com; se não estiver, o root está errado. Ver
+> [[02 - Infraestrutura e DNS]].

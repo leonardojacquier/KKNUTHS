@@ -65,17 +65,15 @@ jobs:
 
       - name: Conteúdo no ar
         run: |
-          # ATENÇÃO aos dois roots — foi o que fez esta verificação falhar antes:
-          #   gnhorizons.com          -> /opt/gnh/assets/nuevo  (home = site antigo)
-          #   gnh.vortex369.com.br    -> /opt/gnh               (home = gnh-redesign.html)
-          # Procurar marcador do redesign na home do gnhorizons.com dá falso
-          # negativo: lá a home é assets/nuevo/index.html, de propósito.
-          # Ver CLAUDE.md e DEPLOY-GNH.md.
+          # gnhorizons.com é o site OFICIAL e sua home tem que ser o redesign.
+          # Os dois domínios servem a mesma raiz /opt/gnh; o vortex é só o
+          # preview do dono. Se o marcador do redesign sumir da home do
+          # gnhorizons.com, o root do bloco do Caddy está errado — foi o que
+          # aconteceu entre jul e ago/2026. Ver CLAUDE.md e DEPLOY-GNH.md.
           curl -sk --max-time 25 \
                  -o /tmp/home.html   -w 'gnhorizons home    %{http_code}\n' https://gnhorizons.com/ \
             --next -o /tmp/prod.html -w 'página de produto  %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/ \
             --next -I -o /tmp/hdr.txt -w 'headers do produto %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/
-          curl -sk --max-time 25 -o /tmp/redesign.html -w 'redesign (vortex)  %{http_code}\n' https://gnh.vortex369.com.br/
 
           falhas=0
           ver() {  # ver <arquivo> <marcador> <descrição>
@@ -87,9 +85,8 @@ jobs:
             fi
           }
 
-          ver /tmp/home.html     'Generando Nuevos Horizontes' 'home do gnhorizons.com responde'
-          ver /tmp/redesign.html 'SZ34D'                       'redesign no vortex com a tabela de plataformas'
-          ver /tmp/prod.html     'HST-YES2000'                 'página de produto publicada'
+          ver /tmp/home.html 'SZ34D'       'home do gnhorizons.com É o redesign (se falhar: root do Caddy)'
+          ver /tmp/prod.html 'HST-YES2000' 'página de produto publicada'
 
           # O HTML precisa sair com no-cache, senão o navegador segura a versão
           # velha e o deploy "não aparece". Ver DEPLOY-GNH.md § manutenção do VPS.
