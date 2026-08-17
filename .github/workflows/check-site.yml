@@ -1,4 +1,4 @@
-name: Diagnóstico gnh.vortex369.com.br
+name: Diagnóstico do site GNH
 
 on:
   workflow_dispatch:
@@ -15,47 +15,75 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: DNS
-        run: |
-          getent hosts gnh.vortex369.com.br || echo "gnh NAO RESOLVE"
-          getent hosts titancalc.vortex369.com.br || echo "titancalc NAO RESOLVE"
+      - uses: actions/checkout@v4
 
-      - name: Home do site (conteúdo novo no ar?)
+      # O VPS roda fail2ban e já baniu o IP do runner antes: quando isso
+      # acontece, TODAS as requisições dão 000 — inclusive titancalc e umami,
+      # que nada têm a ver com o site — e o run vira uma parede de "AUSENTE"
+      # que não distingue queda real de banimento. Por isso este job faz poucas
+      # requisições, espaçadas, e separa "não alcancei" de "alcancei e o
+      # conteúdo está errado".
+      - name: Alcance do VPS (com retentativa)
         run: |
-          curl -sk -o /tmp/home.html -w "home status=%{http_code} tamanho=%{size_download}\n" \
-            --max-time 20 https://gnh.vortex369.com.br/ || echo "HOME: FALHA DE CONEXAO"
-          for m in "SZ34D" "plat-sheet" "sq22d-thumb" "jbts20"; do
-            grep -qF "$m" /tmp/home.html && echo "OK   home contém: $m" || echo "FALTA na home: $m"
+          for i in 1 2 3; do
+            code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 15 https://gnhorizons.com/ || echo 000)
+            echo "tentativa $i: gnhorizons.com -> $code"
+            if [ "$code" != "000" ]; then
+              exit 0
+            fi
+            if [ "$i" -lt 3 ]; then
+              sleep 60
+            fi
           done
+          echo "DNS:"
+          getent hosts gnhorizons.com || echo "  não resolve"
+          echo "::error::VPS inalcançável do runner: o DNS resolve mas nenhuma conexão TCP completa. Duas causas possíveis, indistinguíveis daqui — fail2ban banindo o IP do runner (já aconteceu antes) ou queda real do servidor. Abra https://gnhorizons.com no navegador antes de agir."
+          exit 1
 
-      - name: Página equipos-de-concreto (caminho atual)
+      - name: Conteúdo no ar
         run: |
-          curl -sk -o /tmp/eq.html -w "assets/nuevo/ventas/equipos-de-concreto status=%{http_code} tamanho=%{size_download}\n" \
-            --max-time 20 https://gnh.vortex369.com.br/assets/nuevo/ventas/equipos-de-concreto/ || echo "FALHA"
-          grep -qF "jbts20" /tmp/eq.html && echo "OK   JBTS20 PRESENTE" || echo "JBTS20 AUSENTE"
+          # Uma conexão só, quatro requisições (curl reaproveita a conexão).
+          curl -sk --max-time 25 \
+                 -o /tmp/home.html    -w 'home                %{http_code}\n' https://gnhorizons.com/ \
+            --next -o /tmp/ventas.html -w 'catálogo /ventas/   %{http_code}\n' https://gnhorizons.com/ventas/ \
+            --next -o /tmp/prod.html   -w 'página de produto   %{http_code}\n' https://gnhorizons.com/ventas/bomba-transportadora-de-concreto/ \
+            --next -I -o /tmp/hdr.txt  -w 'headers do produto  %{http_code}\n' https://gnhorizons.com/ventas/bomba-transportadora-de-concreto/
 
-      - name: Caminhos raiz (script novo instalado?)
-        run: |
-          for p in /ventas/ /ventas/equipos-de-concreto/ /fichas/pdf/central-concreto-jbts20.pdf /sitemap.xml; do
-            curl -sk -o /dev/null -w "raiz $p status=%{http_code}\n" --max-time 20 "https://gnh.vortex369.com.br$p" || echo "raiz $p FALHA"
-          done
+          falhas=0
+          ver() {  # ver <arquivo> <marcador> <descrição>
+            if grep -qF "$2" "$1" 2>/dev/null; then
+              echo "OK     $3"
+            else
+              echo "FALHOU $3  (não achei '$2' em $(basename "$1"))"
+              falhas=$((falhas + 1))
+            fi
+          }
 
-      - name: Outros serviços do VPS (referência de saúde da caixa)
-        run: |
-          curl -sk -o /dev/null -w "titancalc status=%{http_code}\n" --max-time 20 https://titancalc.vortex369.com.br/ || echo "titancalc FALHA"
-          curl -sk -o /dev/null -w "umami heartbeat status=%{http_code}\n" --max-time 20 https://stats.vortex369.com.br/api/heartbeat || echo "umami FALHA"
+          ver /tmp/home.html 'SZ34D'   'home traz a tabela de plataformas'
+          ver /tmp/prod.html 'HBTS-50' 'página de produto com o camión bomba'
 
-      - name: gnhorizons.com — JBTS20 no ar?
-        run: |
-          curl -sk -o /tmp/g.html -w "gnhorizons /ventas/equipos-de-concreto/ status=%{http_code} tamanho=%{size_download}\n" \
-            --max-time 25 https://gnhorizons.com/ventas/equipos-de-concreto/ || echo FALHA
-          grep -qF "jbts20" /tmp/g.html && echo "OK   JBTS20 NO GNHORIZONS" || echo "JBTS20 AUSENTE NO GNHORIZONS"
-          curl -sk -o /dev/null -w "gnhorizons ficha PDF status=%{http_code}\n" --max-time 25 https://gnhorizons.com/fichas/pdf/central-concreto-jbts20.pdf || echo FALHA
-          curl -sk -o /tmp/pp.html -w "gnhorizons página do produto status=%{http_code}\n" --max-time 25 https://gnhorizons.com/ventas/central-de-concreto-jbts20/ || echo FALHA
-          grep -qF "Especificaciones técnicas" /tmp/pp.html && echo "OK   página do produto no ar" || echo "página do produto AUSENTE"
-          echo "-- headers de cache do HTML --"
-          curl -skI --max-time 25 https://gnhorizons.com/ventas/equipos-de-concreto/ | grep -iE 'cache-control|etag|last-modified|server' || true
-          echo "-- catálogo /ventas/ tem o card? --"
-          curl -sk --max-time 25 https://gnhorizons.com/ventas/ -o /tmp/vi.html
-          grep -qF "JBTS20" /tmp/vi.html && echo "OK   card no catálogo (HTML)" || echo "card não está no HTML estático (vem do bundle JS)"
-          grep -oE 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/vi.html | head -2 || true
+          # O HTML precisa sair com no-cache, senão o navegador segura a versão
+          # velha e o deploy "não aparece". Ver DEPLOY-GNH.md § manutenção do VPS.
+          ver /tmp/hdr.txt 'no-cache' 'subpágina de produto com Cache-Control: no-cache'
+
+          # O bundle de busca é cacheado de forma imutável e renomeado a cada
+          # alteração: se o hash publicado difere do hash do repo, o deploy não
+          # chegou (ou chegou pela metade).
+          esperado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' assets/nuevo/ventas/index.html | head -1)
+          publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html | head -1)
+          echo "bundle esperado:  ${esperado:-<nenhum>}"
+          echo "bundle publicado: ${publicado:-<nenhum>}"
+          if [ -n "$publicado" ] && [ "$esperado" = "$publicado" ]; then
+            echo "OK     bundle publicado é o do commit"
+          else
+            echo "FALHOU bundle publicado diverge do repo — o cron do VPS ainda não pegou este commit (roda a cada 2 min), ou o deploy falhou"
+            falhas=$((falhas + 1))
+          fi
+
+          echo
+          if [ "$falhas" = "0" ]; then
+            echo "Tudo no ar."
+          else
+            echo "$falhas verificação(ões) falharam."
+            exit 1
+          fi
