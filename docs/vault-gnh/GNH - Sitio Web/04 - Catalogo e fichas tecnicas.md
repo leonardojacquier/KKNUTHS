@@ -405,3 +405,44 @@ Publicado: página `/ventas/regla-laser-vibratoria-ws940/`, ficha
 > da WS940 — menos da metade. Ou a vibração hidráulica é regulável e medida de
 > outra forma, ou é erro de digitação no folheto. Publicado como impresso;
 > confirmar com a fábrica.
+
+
+## Camión bomba de hormigón HBTS-50
+
+Origem: PDF de uma página do fabricante, "Parámetros del camión bomba de
+hormigón". Entrou **na página que já existia** de bombeo
+(`/ventas/bomba-transportadora-de-concreto/`), que agora cobre duas escalas:
+a bomba estacionária elétrica de 15 kW e o caminhão bomba.
+
+**Grupo de bombeo:** vazão máxima teórica 55 m³/h · pressão máxima 16 MPa ·
+alcance teórico 800 m horizontal / 200 m vertical · slump 100–230 mm · agregado
+brita ≤ 40 mm e seixo ≤ 50 mm · cilindro Ø 200 × 1.050 mm · saída Ø 180 mm ·
+tubo redutor Ø 180→125 · tubulação/mangueira 125 mm · tubulação de três vias ·
+funil 0,8 m³ com altura de enchimento 1.400 mm · motor Cummins 93 kW (Emission
+II) · bomba de óleo Kawasaki · CLP Siemens com menu em inglês e espanhol ·
+conjunto 7.400 × 2.400 × 2.750 mm.
+
+**Chassi:** motor Cummins 125 kW (Emission VI) · 2 eixos · entre-eixos 3.360 mm ·
+velocidade máxima 110 km/h · peso 8.900 kg · peso com carga 11.920 kg · ano 2026.
+
+> [!warning] Inconsistências e omissões deste PDF
+> - **Unidades trocadas:** "Peso de carga (toneladas) 11920" (é kg) e "Velocidad
+>   máxima de desplazamiento (kW) 110" (é km/h). Publicados corrigidos.
+> - **Peso:** carga 11.920 kg > total 8.900 kg. Só fecha se 8.900 for o peso
+>   vazio e 11.920 o PBT. Publicados como "peso do caminhão bomba" e "peso com
+>   carga"; confirmar.
+> - **Dois motores com normas distintas:** grupo de bombeo Cummins 93 kW
+>   *Emission II* e chassi Cummins 125 kW *Emission VI*. Plausível (grupo próprio
+>   sobre chassi novo), mas vale confirmar.
+> - **"Tipo de válvula de distribución: Tragar"** — tradução literal do chinês
+>   (吞). Provavelmente **válvula S**. Omitido da publicação até confirmação.
+> - **"Hydraulic hose / Esfuerzo de MA"** — linha truncada no original, sem
+>   valor. Omitida.
+> - **"SIMENS PLC"** — erro de digitação de *Siemens*. Publicado corrigido.
+> - **Sem foto** no PDF. A página usa a foto da bomba estacionária; pedir à
+>   fábrica uma imagem do caminhão bomba.
+
+> [!note] O pedido dizia "prensa"
+> O arquivo enviado é do **camión bomba**, não de uma prensa. O catálogo tem
+> "Ensayo a Compresión HST-YES2000" (prensa de ensaio à compressão) ainda **sem
+> specs** — se era essa a intenção, falta o material dela.
