@@ -378,22 +378,22 @@ svg{display:block}
 .svc p{color:var(--muted);font-size:16px}
 
 /* Catálogo — deck de paneles expansibles (desktop) / swipe con snap (móvil) */
-.cat-deck{display:flex;gap:14px;margin-top:52px}
+.cat-deck{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px}
 .cat{
-  position:relative;overflow:hidden;border-radius:22px;flex:1;min-width:88px;min-height:480px;
+  position:relative;overflow:hidden;border-radius:22px;min-height:0;
   color:#fff;padding:28px 24px;display:flex;flex-direction:column;justify-content:flex-end;
   background:
     radial-gradient(420px 260px at 85% -5%,rgba(59,130,246,.28),transparent 62%),
     linear-gradient(165deg,#13214a 0%,var(--navy) 55%,var(--navy-ink) 100%);
   border:1px solid rgba(255,255,255,.08);
-  transition:flex .65s var(--ease),border-color .4s;cursor:pointer;
+  transition:border-color .4s,transform .4s var(--ease);cursor:pointer;
 }
 .cat:nth-child(even){
   background:
     radial-gradient(420px 260px at 15% -5%,rgba(242,109,33,.22),transparent 62%),
     linear-gradient(165deg,#152a63 0%,var(--navy-2) 45%,var(--navy-ink) 100%);
 }
-.cat:hover,.cat:focus-within{flex:3;border-color:rgba(242,109,33,.45)}
+.cat:hover,.cat:focus-within{border-color:rgba(242,109,33,.45);transform:translateY(-4px)}
 .cat .ghost{position:absolute;top:18px;right:16px;width:120px;height:120px;opacity:.08;pointer-events:none}
 .cat .ghost svg{width:100%;height:100%;stroke:#fff}
 .cat .ic{
@@ -407,15 +407,10 @@ svg{display:block}
   writing-mode:vertical-rl;rotate:180deg;
   font-family:var(--font-head);font-weight:600;font-size:16px;letter-spacing:.06em;
   color:rgba(255,255,255,.85);white-space:nowrap;
-  opacity:1;transition:opacity .3s;
+  display:none;
 }
-.cat .body{
-  opacity:0;transform:translateY(16px);transition:opacity .5s var(--ease) .15s,transform .5s var(--ease) .15s;
-  min-width:240px;
-}
-.cat:hover .body,.cat:focus-within .body{opacity:1;transform:none}
-.cat:hover .t-vert,.cat:focus-within .t-vert{opacity:0}
-.cat h3{font-size:21px;margin-bottom:8px;white-space:nowrap}
+.cat .body{min-width:0}
+.cat h3{font-size:21px;margin-bottom:8px;white-space:normal}
 .cat .body p{color:rgba(255,255,255,.72);font-size:15px;margin-bottom:14px;max-width:270px}
 .cat .brands{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
 .cat .brands span{
@@ -431,7 +426,7 @@ svg{display:block}
 .cat .go:hover{gap:13px}
 .cat .go svg{width:17px;height:17px;stroke:currentColor}
 @media(max-width:900px){
-  .cat-deck{overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 4px 18px;-webkit-overflow-scrolling:touch}
+  .cat-deck{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 4px 18px;-webkit-overflow-scrolling:touch}
   .cat{flex:0 0 82%;max-width:340px;min-height:420px;scroll-snap-align:center}
   .cat .body{opacity:1;transform:none}
   .cat .t-vert{display:none}
@@ -766,7 +761,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
     <li><a href="#about" data-i18n="nav.acerca">Acerca</a></li>
     <li><a href="#alianzas" data-i18n="nav.alianzas">Alianzas</a></li>
     <li><a href="#servicios" data-i18n="nav.servicios">Servicios</a></li>
-    <li><a href="#catalogo" data-i18n="nav.catalogo">Catálogo</a></li>
+    <li><a href="/ventas/" data-i18n="nav.catalogo">Catálogo</a></li>
     <li><a href="#contacto" data-i18n="nav.contacto">Contacto</a></li>
   </ul>
   <div style="display:flex;align-items:center;gap:8px">
@@ -922,7 +917,7 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
   <div class="wrap">
     <span class="tag reveal">Catálogo</span>
     <h2 class="reveal d1">Un portafolio que construye</h2>
-    <p class="lead reveal d2">Líneas de producto seleccionadas del mercado internacional. Toca una categoría para explorarla.</p>
+    <p class="lead reveal d2">Líneas de producto seleccionadas del mercado internacional. El catálogo completo, con fichas técnicas y especificaciones, está en la sección de ventas.</p>
 
     <div class="cat-deck reveal d2">
       <article class="cat" tabindex="0">
@@ -1009,6 +1004,10 @@ dialog::backdrop{background:rgba(10,16,36,.65);backdrop-filter:blur(6px)}
         </div>
       </article>
     </div>
+
+    <p class="reveal d3" style="margin-top:34px">
+      <a class="btn" href="/ventas/" style="min-height:44px;padding:10px 22px;font-size:15px">Ver catálogo completo</a>
+    </p>
   </div>
 </section>
 

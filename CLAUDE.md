@@ -54,8 +54,9 @@ Production is a shared multi-tenant VPS (`root@srv1555380.hstgr.cloud`, Hostinge
 - **Progressive enhancement, three layers**: vanilla IntersectionObserver reveals + rAF parallax always work; GSAP/ScrollTrigger/Lenis load from CDN and, when present, disconnect the vanilla observer and take over; `prefers-reduced-motion` disables all of it.
 - **Hotlinked images**: the real logos/photos are loaded from `https://gnhorizons.com/assets/...` with `onerror` chains that try a second path and then fall back to inline SVG (nav/footer logo, About spinning logo) or remove themselves (client marquee, built dynamically in JS from `client-1..14.png`). The site must never look broken if gnhorizons.com is unreachable.
 - **Mobile (`@media max-width:640px`)**: the hero deliberately loses `min-height:100svh` so the 16:9 video doesn't over-zoom on portrait screens; the About logo panel is capped at 280px. Keep desktop untouched when adjusting mobile.
-- The contact form posts to the existing site backend (`../api/registerenssage/` with fields `nmcontatct`, `email`, `message`) so it works when dropped onto the current server.
+- **Contact has no form**: the `#contacto` section is `tel:` / `mailto:` / WhatsApp / social links only. (An earlier version posted to `../api/registerenssage/`; that form no longer exists.)
 - SEO: title/meta/OG plus a JSON-LD `Organization` block in `<head>`. The `canonical` points to `https://gnhorizons.com/` (intended final domain).
+- **Catálogo section**: six cards (Cementos, Revoque, Transportes, Pisos, Químicos, Equipos) — the only place the partner brands appear in text (Itambé, Intonaco, Fletepar, Castelatto, Hormigomix, Camargo Química), so do not delete it. The nav "Catálogo" link and the section CTA both go to **`/ventas/`**: the institutional page never hosts a catalogue of its own.
 - **Positioning rule from the owner**: GNH must NOT be described as "una importadora" — it is a *grupo empresarial de comercio internacional* (import is one of five service fronts).
 
 ## Calculator app architecture (`src/`)
