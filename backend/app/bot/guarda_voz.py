@@ -49,6 +49,12 @@ import re
 # (o import de equity dele é tardio), então não há ciclo — conferido nas duas
 # direções antes de escrever esta linha.
 from app.bot import guarda_fatos
+# O guarda dos TERMOS é outro assunto (terminologia, não voz) e por isso é
+# outro módulo, com evento e testes próprios — mas divide o CALL SITE com
+# este, porque `conferir_e_limpar` já é o último portão do texto entregue.
+# `guarda_termos` só depende de `re`/`logging` (o import do repo é tardio),
+# então não há ciclo — conferido nas duas direções antes desta linha.
+from app.bot import guarda_termos
 
 # medido: média de 678 chars depois do placar (n=116); com este teto, 14% das
 # análises são marcadas — a cauda, sem acusar o caso comum. A calibragem
@@ -378,6 +384,15 @@ def conferir_e_limpar(telegram_id: int, texto: str, *,
     """
     if not texto:
         return texto
+    # TERMINOLOGIA entra por aqui, e não por um portão próprio em
+    # processing.py: o arquivo está a UMA linha do teto de
+    # test_processing_nao_incha e um segundo try/except custaria oito. Este
+    # é o último ponto por onde o texto entregue passa nos dois caminhos
+    # (análise e conversa), então é o lugar certo para o encanamento —
+    # a lógica, o evento e os testes moram em `guarda_termos`, que é um
+    # guarda separado porque TERMINOLOGIA não é voz.
+    texto = guarda_termos.conferir_e_registrar(
+        telegram_id, texto, username=username, onde=onde)
     problemas = problemas_de_voz(texto)
     novo, feitos = limpar(texto)
     if not (feitos or problemas):

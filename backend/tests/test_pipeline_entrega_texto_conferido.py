@@ -157,3 +157,63 @@ def test_a_conta_anunciada_sem_conta_e_ao_menos_registrada(rodar_pipeline):
     assert "você paga sempre nesse spot" in saida, (
         "o guarda passou a CORRIGIR — ótimo, mas atualize este teste e o "
         "METODO.md, que hoje descrevem uma conferência que só registra")
+
+
+@pytest.fixture
+def repo_dos_guardas(monkeypatch):
+    """O repo que `guarda_voz`/`guarda_termos` enxergam.
+
+    Eles não recebem o repo por parâmetro — pegam de `app.db` na hora, como
+    o resto da casa. O repo injetado em `rodar_pipeline` é outro objeto,
+    então sem este patch a asserção de evento passaria por não ter nada
+    para comparar, que é o pior jeito de um teste passar.
+    """
+    import app.db
+    from tests.conftest import RepoDePipeline
+
+    r = RepoDePipeline()
+    monkeypatch.setattr(app.db, "get_repository", lambda: r)
+    return r
+
+
+def test_o_termo_traduzido_nao_chega_ao_aluno(rodar_pipeline,
+                                              repo_dos_guardas):
+    """Caso real (16/08): "e foi o rio que virou tudo" e "a fatia de ar do
+    range dele" saíram numa análise entregue. O dono: "se é termo do poker
+    não tem que traduzir" — e já tinha reclamado antes.
+
+    A asserção é a única que importa: o texto que VOLTA para o aluno. Um
+    `assert "guarda_termos" in inspect.getsource(...)` passaria com o
+    guarda desligado — foi esse padrão que deixou um portão invertido
+    passar em 09/08.
+    """
+    texto = ("Seu full de 7 com A só perdia pra AA. Você estava na frente a "
+             "mão inteira e foi o rio que virou tudo — apostar de novo bate "
+             "contra a fatia de ar do range dele.")
+    saida, _repo, _ = rodar_pipeline(texto, _mao_do_full())
+
+    assert "foi o river que virou tudo" in saida, (
+        f"'rio' chegou ao aluno de novo: {saida[:400]}")
+    assert "a fatia de air do range dele" in saida, (
+        f"'ar' chegou ao aluno de novo: {saida[:400]}")
+    evento = repo_dos_guardas.evento("termo_corrigido")
+    assert evento, "corrigiu o texto e não deixou medir"
+    assert evento["onde"] == "analise"
+
+
+def test_o_portugues_com_ar_atravessa_o_pipeline_intacto(rodar_pipeline,
+                                                         repo_dos_guardas):
+    """O outro lado do portão, e a parte difícil desta tarefa: "ar" é
+    palavra comum do português. "é um spot de moeda ao ar" saiu numa
+    análise real (31/07) e está CERTO — guarda que estraga texto bom custa
+    mais confiança do que o calque custa."""
+    texto = ("Seu full de 7 com A só perdia pra AA. Largar vale 0 e é um "
+             "spot de moeda ao ar; ele deixou no ar se pagava.")
+    saida, _repo, _ = rodar_pipeline(texto, _mao_do_full())
+
+    assert "moeda ao ar" in saida and "deixou no ar" in saida, (
+        f"o guarda dos termos estragou português normal: {saida[:400]}")
+    assert repo_dos_guardas.evento("termo_corrigido") is None
+    assert repo_dos_guardas.evento("termo_ambiguo") is None, (
+        "português assentado virou evento — a medição de 'ar' fica com mais "
+        "português do que poker dentro e não decide nada")
