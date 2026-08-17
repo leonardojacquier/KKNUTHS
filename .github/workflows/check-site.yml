@@ -40,14 +40,42 @@ jobs:
           echo "::error::VPS inalcançável do runner: o DNS resolve mas nenhuma conexão TCP completa. Duas causas possíveis, indistinguíveis daqui — fail2ban banindo o IP do runner (já aconteceu antes) ou queda real do servidor. Abra https://gnhorizons.com no navegador antes de agir."
           exit 1
 
+      # O deploy é por cron no VPS (a cada 2 min), não por este workflow: logo
+      # depois do push o site ainda serve o commit anterior. Esperar o bundle
+      # publicado bater com o do repo é o jeito de saber que o deploy chegou —
+      # o nome do bundle muda a cada alteração, por ser cacheado imutável.
+      - name: Esperar o cron publicar este commit
+        run: |
+          esperado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' assets/nuevo/ventas/index.html | head -1)
+          echo "bundle esperado: $esperado"
+          for i in 1 2 3 4 5; do
+            curl -sk --max-time 20 -o /tmp/ventas.html https://gnhorizons.com/ventas/ || true
+            publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html 2>/dev/null | head -1)
+            echo "tentativa $i: publicado = ${publicado:-<nenhum>}"
+            if [ "$esperado" = "$publicado" ]; then
+              echo "OK  deploy chegou"
+              exit 0
+            fi
+            if [ "$i" -lt 5 ]; then
+              sleep 70
+            fi
+          done
+          echo "::error::Passados ~6 min o site ainda serve um bundle diferente do commit. O cron do VPS (/opt/gnh-autodeploy.sh, a cada 2 min) não pegou este commit ou o deploy falhou. Confira: tail -5 /var/log/gnh-autodeploy.log no VPS."
+          exit 1
+
       - name: Conteúdo no ar
         run: |
-          # Uma conexão só, quatro requisições (curl reaproveita a conexão).
+          # ATENÇÃO aos dois roots — foi o que fez esta verificação falhar antes:
+          #   gnhorizons.com          -> /opt/gnh/assets/nuevo  (home = site antigo)
+          #   gnh.vortex369.com.br    -> /opt/gnh               (home = gnh-redesign.html)
+          # Procurar marcador do redesign na home do gnhorizons.com dá falso
+          # negativo: lá a home é assets/nuevo/index.html, de propósito.
+          # Ver CLAUDE.md e DEPLOY-GNH.md.
           curl -sk --max-time 25 \
-                 -o /tmp/home.html    -w 'home                %{http_code}\n' https://gnhorizons.com/ \
-            --next -o /tmp/ventas.html -w 'catálogo /ventas/   %{http_code}\n' https://gnhorizons.com/ventas/ \
-            --next -o /tmp/prod.html   -w 'página de produto   %{http_code}\n' https://gnhorizons.com/ventas/bomba-transportadora-de-concreto/ \
-            --next -I -o /tmp/hdr.txt  -w 'headers do produto  %{http_code}\n' https://gnhorizons.com/ventas/bomba-transportadora-de-concreto/
+                 -o /tmp/home.html   -w 'gnhorizons home    %{http_code}\n' https://gnhorizons.com/ \
+            --next -o /tmp/prod.html -w 'página de produto  %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/ \
+            --next -I -o /tmp/hdr.txt -w 'headers do produto %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/
+          curl -sk --max-time 25 -o /tmp/redesign.html -w 'redesign (vortex)  %{http_code}\n' https://gnh.vortex369.com.br/
 
           falhas=0
           ver() {  # ver <arquivo> <marcador> <descrição>
@@ -59,26 +87,13 @@ jobs:
             fi
           }
 
-          ver /tmp/home.html 'SZ34D'   'home traz a tabela de plataformas'
-          ver /tmp/prod.html 'HBTS-50' 'página de produto com o camión bomba'
+          ver /tmp/home.html     'Generando Nuevos Horizontes' 'home do gnhorizons.com responde'
+          ver /tmp/redesign.html 'SZ34D'                       'redesign no vortex com a tabela de plataformas'
+          ver /tmp/prod.html     'HST-YES2000'                 'página de produto publicada'
 
           # O HTML precisa sair com no-cache, senão o navegador segura a versão
           # velha e o deploy "não aparece". Ver DEPLOY-GNH.md § manutenção do VPS.
           ver /tmp/hdr.txt 'no-cache' 'subpágina de produto com Cache-Control: no-cache'
-
-          # O bundle de busca é cacheado de forma imutável e renomeado a cada
-          # alteração: se o hash publicado difere do hash do repo, o deploy não
-          # chegou (ou chegou pela metade).
-          esperado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' assets/nuevo/ventas/index.html | head -1)
-          publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html | head -1)
-          echo "bundle esperado:  ${esperado:-<nenhum>}"
-          echo "bundle publicado: ${publicado:-<nenhum>}"
-          if [ -n "$publicado" ] && [ "$esperado" = "$publicado" ]; then
-            echo "OK     bundle publicado é o do commit"
-          else
-            echo "FALHOU bundle publicado diverge do repo — o cron do VPS ainda não pegou este commit (roda a cada 2 min), ou o deploy falhou"
-            falhas=$((falhas + 1))
-          fi
 
           echo
           if [ "$falhas" = "0" ]; then

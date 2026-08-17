@@ -130,3 +130,32 @@ Cache-Control das subpáginas:
   HTTP/2 200
   cache-control: no-cache
 ```
+
+
+## O CI `check-site.yml` — o que ele sabe e o que já errou
+
+Roda a cada push na branch e faz três coisas, nesta ordem:
+
+1. **Sonda de alcance** (3 tentativas, 60 s entre elas). Se nenhuma completar,
+   falha com uma mensagem única. Quando o fail2ban bane o IP do runner,
+   **tudo** dá `000` — inclusive titancalc e umami, que não têm relação com o
+   site — e do runner não dá para distinguir banimento de queda real. Nesse caso
+   a instrução é abrir o site no navegador antes de agir.
+2. **Espera o cron publicar** (5 tentativas, ~6 min no total). O deploy é por
+   cron no VPS a cada 2 min, então logo após o push o site ainda serve o commit
+   anterior. O sinal usado é o **nome do bundle** `assets/ventas-<hash>.js`, que
+   muda a cada alteração por ser cacheado imutável: quando o publicado bate com
+   o do repo, o deploy chegou.
+3. **Conteúdo**: home do gnhorizons, redesign no vortex, página de produto e o
+   header `Cache-Control: no-cache`.
+
+> [!warning] Os dois roots — o erro que já derrubou o CI
+> ```
+> gnhorizons.com        -> /opt/gnh/assets/nuevo   (home = site antigo)
+> gnh.vortex369.com.br  -> /opt/gnh                (home = gnh-redesign.html)
+> ```
+> Procurar marcador do **redesign** (`SZ34D`, `plat-sheet`) na home do
+> **gnhorizons.com** dá falso negativo: lá a home é `assets/nuevo/index.html`,
+> de propósito. O redesign só é a home no vortex. As páginas de `/ventas/`,
+> `/fichas/` e os PDFs, sim, aparecem nos dois — é por isso que os catálogos
+> publicam normalmente no gnhorizons.com.
