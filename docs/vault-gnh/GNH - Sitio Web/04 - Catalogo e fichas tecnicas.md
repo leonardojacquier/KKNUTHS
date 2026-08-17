@@ -13,10 +13,10 @@ atualizado: 2026-08-14
 | Item | Quantidade |
 |---|---|
 | Produtos no catálogo de busca | 40 |
-| Páginas estáticas de produto | 35 (29 de produto + 6 de categoria) |
-| Fichas técnicas (HTML) | 89 |
-| PDFs de ficha | 101 |
-| Produtos **sem** tabela de specs | 12 |
+| Páginas estáticas de produto | 36 (30 de produto + 6 de categoria) |
+| Fichas técnicas (HTML) | 90 |
+| PDFs de ficha | 102 |
+| Produtos **sem** tabela de specs | 11 |
 
 ## As três famílias de ficha
 
@@ -117,7 +117,7 @@ de uma vez só (basta editar o array `MODELOS` do gerador).
 ## Produtos sem specs
 
 Não têm página estática porque falta a tabela de dados do fabricante. Restam
-**12** — entre eles Cortadora de Piso, Camión Grúa
+**11** — entre eles Cortadora de Piso, Camión Grúa
 (Grúa Móvil), Montacargas Todoterreno 3,5 t, Rodillo Compactador e Bulldozer.
 
 **Para resolver:** mandar o catálogo do fabricante → vira tabela em `catalogo-data.ts`
@@ -446,3 +446,56 @@ velocidade máxima 110 km/h · peso 8.900 kg · peso com carga 11.920 kg · ano 
 > O arquivo enviado é do **camión bomba**, não de uma prensa. O catálogo tem
 > "Ensayo a Compresión HST-YES2000" (prensa de ensaio à compressão) ainda **sem
 > specs** — se era essa a intenção, falta o material dela.
+
+
+## Prensa de ensayo a compresión HST-YES2000
+
+Origem: **manual do fabricante** (Jinan Hensgrand Instrument / HST Group,
+`M1907-1-EN`, 9 páginas). O card "Ensayo a Compresión HST-YES2000" já existia no
+buscador sem specs e sem página — agora tem o pacote completo.
+
+| Parâmetro | Valor |
+|---|---|
+| Carga máxima | 2.000 kN |
+| Classe de exatidão | Classe 1 |
+| Resolução mínima | 0,01 kN |
+| Pratos de compressão | 220 × 250 mm (personalizável) |
+| Distância vertical máx. entre pratos | 320 mm |
+| Diâmetro do pistão | 250 mm |
+| Curso máximo | 30 mm |
+| Motor | 0,75 kW · 380 V |
+| Dimensões | 880 × 370 × 1.220 mm |
+| Peso líquido | 600 kg |
+
+**Oito códigos de seção** no controlador (o operador escolhe o código e o
+equipamento calcula a resistência): 1 = cubo 100 mm · 2 = cubo 150 mm (padrão) ·
+3 = cubo 200 mm · 4 = não padrão (seção em cm² digitada) · 5 = flexão
+150×150×550 · 6 = flexão 100×100×400 · 7 = flexão 40×40×160 · 8 = cubo 70,7 mm.
+
+**Registro:** 500 ensaios numerados, preservados sem energia, com data e hora ·
+impressão automática ao completar o grupo e reimpressão por número ·
+interface **RS-232C** para exportar a um computador.
+
+**Instalação:** sala limpa, seca, sem vibração, 0,5 m livres em volta, piso
+nivelado em 0,2 mm/m · 380 V estáveis (máx. +10 %) · óleo hidráulico 15 L, N68
+acima de 25 °C e N46 abaixo, troca anual (semestral com uso intensivo) ·
+**verificação anual obrigatória** por organismo autorizado, com anel padrão em
+10, 20, 40, 60 e 100 % da faixa.
+
+Foto `prensa-hst-yes2000.jpg` extraída da capa do manual; a `compresion.png` já
+publicada foi mantida no card. Página
+`/ventas/ensayo-a-compresion-hst-yes2000/`, ficha `/fichas/prensa-hst-yes2000.html`,
+PDF `prensa-hst-yes2000.pdf`, link em *Equipos de Concreto* e sitemap.
+
+> [!note] O manual traz os códigos de calibração de fábrica
+> As páginas 6 e 7 do manual publicam os códigos `66367128` (ajustar as cargas de
+> calibração) e `66253681` (calibrar / autoteste do transdutor). **Não foram
+> publicados no site** — mexer neles desregula a prensa, e a calibração só pode
+> ser feita por pessoal habilitado. Ficam registrados aqui para o suporte.
+
+> [!warning] Armadilha do bundle: selecionar por glob pega o órfão
+> `A.glob('ventas-????????.js')` casa tanto o bundle em uso quanto o antigo
+> `ventas-C7TQ2lMR.js` (também 8 caracteres), e `next()` não garante ordem — numa
+> tentativa o script editou o órfão e a assertion do `index.html` barrou antes de
+> estragar algo. **Selecione sempre pelo que `/ventas/index.html` referencia.**
+> O órfão foi removido nesta rodada.
