@@ -21,7 +21,7 @@ Two independent deliverables coexist here — do not mix them up:
 
    ⚠️ The repo contradicts itself here: `DEPLOY-GNH.md` § "Migrar gnhorizons.com" shows `root * /opt/gnh`, which is **stale/aspirational**. The authority is `deploy/caddy-gnhorizons.txt` (`root * /opt/gnh/assets/nuevo`) plus the live Caddyfile. When in doubt, ask the owner — do not "resolve" the contradiction by changing production.
 
-   ⚠️ **No script copies `gnh-redesign.html` into `assets/nuevo/institucional/index.html`**, so edits to the redesign reach the preview domain but **not** `gnhorizons.com/institucional/`, which still serves an older copy. Publishing them there is a pending decision for the owner, not something to do unprompted.
+   ▶️ **After editing `gnh-redesign.html`, run `python3 gen-institucional.py` and commit the result.** It regenerates `assets/nuevo/institucional/index.html`, which is what `gnhorizons.com/institucional/` actually serves. Without it the edit reaches the preview domain only. The script rewrites the asset paths for the deeper URL (`assets/nuevo/` → `/`, `assets/video/` and `assets/img/` → absolute, served by the Caddy `handle` blocks from `/opt/gnh`) and refuses to write if any relative `assets/` path survives.
 
 User-facing language: the GNH site is written in **Spanish (es)**; conversation with the repo owner is in Portuguese.
 
