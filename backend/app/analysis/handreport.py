@@ -447,6 +447,26 @@ def _hand_strip_img(h: CanonicalHand, seq: int, a: dict,
         return ""
 
 
+def _botao_da_mao(h: CanonicalHand) -> str:
+    """Botão 🔍 que reabre ESTA mão no bot, com a análise completa.
+
+    O relatório é um HTML lido fora do Telegram, e a única ponte de volta era
+    "me manda o Nº no chat" — o aluno tinha que copiar um número de 12 dígitos
+    para outra tela. O dono pediu o atalho: *"...e coloca o botão"*.
+
+    String vazia quando o Nº da mão não cabe no payload de `/start`: aí o
+    rodapé do relatório (que continua pedindo o Nº no chat) é a única promessa
+    feita, e é uma que funciona.
+    """
+    from app.bot.mao_do_relatorio import link_da_mao
+
+    url = link_da_mao(h.hand_id)
+    if not url:
+        return ""
+    return (f"<a class=btn href='{_html.escape(url, quote=True)}'>"
+            f"🔍 Análise completa no bot</a>")
+
+
 def _tabela_auditoria(auditoria: list[dict]) -> str:
     """Seção de AUDITORIA DE ALL-INS: cada decisão de stack curto contra o
     equilíbrio, com o EV em bb. É a conta que o relatório não tinha."""
@@ -649,8 +669,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
             # jogada, passa por análise de coach que decidiu não julgar.
             auto_html = "" if entry else (
                 "<div class=auto>📝 resumo automático (só as contas da mão) — "
-                "para a análise completa desta, me manda o Nº dela no "
-                "chat.</div>")
+                "a análise completa desta mão sai no botão acima.</div>")
             played_cards.append(f"""
 <div class=hand>
   <div class=hh><span class=seq>{n_lab}</span> {_cards_html(h.hero_cards)}
@@ -661,6 +680,7 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
   {strip_img}{story_html}
   <div class=an><b>Análise:</b> {esc(analysis)}</div>
   {f'<details class=simple><summary>🎈 Explica mais simples</summary><p>{esc(simple)}</p></details>' if simple else ''}
+  {_botao_da_mao(h)}
   {auto_html}
 </div>""")
         else:
@@ -709,6 +729,9 @@ def build_report_html(hands: list[CanonicalHand], coach_text: str = "",
     background:#F7F9F7;border-radius:6px;padding:8px 10px;margin:8px 0}
     .an{font-size:12.5px}
     .auto{font-size:10.5px;color:#828A84;margin-top:6px;font-style:italic}
+    .btn{display:inline-block;margin-top:8px;padding:5px 12px;border-radius:6px;
+    background:#2E7D5B;color:#fff;text-decoration:none;font-size:11.5px;
+    font-weight:700}
     .simple{margin-top:6px}
     .simple summary{cursor:pointer;font-size:11.5px;font-weight:700;color:#2E7D5B}
     .simple p{font-size:12.5px;background:#F0F7F2;border-radius:6px;

@@ -224,10 +224,42 @@ _ENVIAR_TXT = (
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    # t.me/BOT?start=<origem> — rastreia de qual convite/grupo o usuário veio
-    ref = ctx.args[0][:60] if ctx.args else None
+    # t.me/BOT?start=<origem> — rastreia de qual convite/grupo o usuário veio.
+    # O corte é MAX_PAYLOAD (o máximo que o Telegram deixa passar) e não um
+    # número redondo: cortando em 60, o Nº de mão mais longo que o botão do
+    # relatório emite chegava truncado e virava "mão não encontrada".
+    from app.bot.mao_do_relatorio import MAX_PAYLOAD, id_no_payload
+
+    ref = ctx.args[0][:MAX_PAYLOAD] if ctx.args else None
     await _log(update, "start", ref=ref)
+    # galho do botão 🔍 do relatório mão a mão: `mao_<Nº da sala>` abre a
+    # análise completa DAQUELA mão em vez do texto de boas-vindas
+    if id_no_payload(ref):
+        await _abrir_mao_do_relatorio(update, ref)
+        return
     await update.message.reply_markdown(WELCOME_SHORT, reply_markup=_START_KB)
+
+
+async def _abrir_mao_do_relatorio(update: Update, ref: str) -> None:
+    """Roda a análise completa da mão do link e responde na conversa.
+
+    Mesma coreografia do upload (aviso → trabalho fora do event loop →
+    resposta → gráficos pendentes), porque é o mesmo caminho de análise: o que
+    muda é só de onde a mão veio.
+    """
+    from app.bot.mao_do_relatorio import analisar_do_link
+
+    tg_user = update.effective_user
+    aviso = await update.message.reply_text(
+        "🔍 Achei a mão do relatório. Analisando ela inteira…")
+    texto = await asyncio.to_thread(analisar_do_link, tg_user.id,
+                                    _uname(tg_user), ref)
+    try:
+        await aviso.delete()
+    except Exception:
+        pass          # o aviso é cosmético; a resposta é que importa
+    await _safe_reply(update.message, texto, kind="hand")
+    await _send_pending_charts(update.message, tg_user.id)
 
 
 async def on_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

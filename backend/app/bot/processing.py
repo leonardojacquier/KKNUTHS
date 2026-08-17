@@ -32,6 +32,7 @@ from app.bot.repeticao import (_CAT_NOMES, drill_category,
 from app.bot.menus import (_DRILL_ACTIONS, action_menu_rows,
                           botoes_pos_treino, drill_action,
                           size_menu_rows, sizing_amounts)
+from app.bot.mao_do_relatorio import maos_ja_lidas
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
 from app.quota import (ADMIN_TELEGRAM_ID, MAX_COACHED_HANDS, PLANOS_MANUAIS,
@@ -241,9 +242,10 @@ def _inflight_lock():
 
 def process_upload(
     content: bytes, fmt: str, telegram_id: int, username: str | None,
-    lang: str = "pt", caption: str | None = None
+    lang: str = "pt", caption: str | None = None, maos: list | None = None
 ) -> str:
-    """Processa um arquivo enviado e retorna a resposta (markdown do Telegram)."""
+    """Arquivo enviado -> resposta (markdown). `maos`: mão JÁ canônica do
+    banco (botão 🔍 do relatório) pula a ingestão — ver `mao_do_relatorio`."""
     repo = get_repository()
     user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
 
@@ -268,7 +270,7 @@ def process_upload(
         _INFLIGHT[telegram_id] = inflight + 1
     try:
         return _process_upload_inner(
-            content, fmt, telegram_id, username, lang, repo, user, caption
+            content, fmt, telegram_id, username, lang, repo, user, caption, maos
         )
     finally:
         with _inflight_lock():
@@ -281,7 +283,7 @@ def process_upload(
 
 def _process_upload_inner(
     content, fmt, telegram_id: int, username: str | None, lang: str, repo, user,
-    caption: str | None = None,
+    caption: str | None = None, maos: list | None = None,
 ) -> str:
 
     # ---- arquivo bruto no Storage (auditoria/reprocessamento) ----
@@ -293,7 +295,7 @@ def _process_upload_inner(
 
     # ---- ingestão ----
     marcar(telegram_id, "Lendo o arquivo")
-    result = ingest(content, source_format=fmt)
+    result = maos_ja_lidas(maos) or ingest(content, source_format=fmt)
     if not result.hands and caption and len(caption.strip()) >= 12:
         # print ilegível mas o aluno NARROU a mão junto: a narração é fonte
         # suficiente — "resolva essa bosta": nunca devolver 'não li' quando
@@ -1300,8 +1302,7 @@ def report_doc_for_user(telegram_id: int,
         return None
 
     from app.analysis.handreport import (
-        _played, build_report_html, maos_principais, per_hand_analysis_llm,
-    )
+        _played, build_report_html, maos_principais, per_hand_analysis_llm)
 
     board_png = None
     try:

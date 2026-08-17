@@ -560,6 +560,33 @@ class Repository:
             return None
 
     @_safe(None)
+    def get_hand_by_room_id(self, user_id: str,
+                            hand_id: str) -> Optional[CanonicalHand]:
+        """A mão do aluno pelo Nº DA SALA — o que o botão 🔍 do relatório abre.
+
+        A consulta é escopada pelo `user_id` de propósito, não por conveniência:
+        o link `t.me/BOT?start=mao_<Nº>` é público e encaminhável, e assim quem
+        clica só alcança linha própria. Mão alheia não chega nem a ser lida do
+        banco — não há dado para vazar numa mensagem de erro, num log, nem num
+        `except` distraído.
+
+        A chave de upsert de `hands` é (user_id, site, hand_id), então um mesmo
+        aluno poderia, em tese, ter o mesmo Nº em duas salas. Desempata a mais
+        recente: é a que ele acabou de ver no relatório.
+        """
+        if not self._guard():
+            return None
+        res = (self.client.table("hands").select("canonical")
+               .eq("user_id", user_id).eq("hand_id", hand_id)
+               .order("played_at", desc=True).limit(1).execute())
+        if not res.data:
+            return None
+        try:
+            return CanonicalHand.model_validate(res.data[0]["canonical"])
+        except Exception:
+            return None
+
+    @_safe(None)
     def update_hand_canonical(self, hand_row_id: str, hand: CanonicalHand) -> None:
         """Regrava o canonical de uma mão — correção de herói dita pelo
         aluno ('eu sou o dscholze1979'): stats, drills e relatórios passam

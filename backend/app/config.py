@@ -18,6 +18,13 @@ class Settings:
 
     def __init__(self) -> None:
         self.telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        # @ do bot — o que monta os deep links `t.me/<BOT>?start=...`. Estava
+        # escrito à mão em cinco arquivos (landing, manual, branding, figura da
+        # mão, rodapé do relatório); aqui ele tem um nome só. Vem do ambiente
+        # porque o bot de teste tem outro @, e um deep link com o @ errado é
+        # um botão que abre o bot errado — falha muda, no aluno.
+        self.telegram_bot_username: str = os.getenv("TELEGRAM_BOT_USERNAME",
+                                                    "KKNUts_BOT")
 
         self.anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
         # Sonnet como default desde 15/08: no A/B do juiz, sonnet 7.7 (n=12)
