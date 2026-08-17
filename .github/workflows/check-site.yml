@@ -17,50 +17,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # O VPS roda fail2ban e já baniu o IP do runner antes: quando isso
-      # acontece, TODAS as requisições dão 000 — inclusive titancalc e umami,
-      # que nada têm a ver com o site — e o run vira uma parede de "AUSENTE"
-      # que não distingue queda real de banimento. Por isso este job faz poucas
-      # requisições, espaçadas, e separa "não alcancei" de "alcancei e o
-      # conteúdo está errado".
-      - name: Alcance do VPS (com retentativa)
-        run: |
-          for i in 1 2 3; do
-            code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 15 https://gnhorizons.com/ || echo 000)
-            echo "tentativa $i: gnhorizons.com -> $code"
-            if [ "$code" != "000" ]; then
-              exit 0
-            fi
-            if [ "$i" -lt 3 ]; then
-              sleep 60
-            fi
-          done
-          echo "DNS:"
-          getent hosts gnhorizons.com || echo "  não resolve"
-          echo "::error::VPS inalcançável do runner: o DNS resolve mas nenhuma conexão TCP completa. Duas causas possíveis, indistinguíveis daqui — fail2ban banindo o IP do runner (já aconteceu antes) ou queda real do servidor. Abra https://gnhorizons.com no navegador antes de agir."
-          exit 1
-
-      # O deploy é por cron no VPS (a cada 2 min), não por este workflow: logo
-      # depois do push o site ainda serve o commit anterior. Esperar o bundle
-      # publicado bater com o do repo é o jeito de saber que o deploy chegou —
-      # o nome do bundle muda a cada alteração, por ser cacheado imutável.
-      - name: Esperar o cron publicar este commit
+      # Um passo só, porque cada requisição extra aumenta a chance de o
+      # fail2ban do VPS banir o runner. Ele resolve duas perguntas de uma vez:
+      #   1. o VPS responde?  (000 em tudo = banimento ou queda; do runner não
+      #      dá para distinguir os dois)
+      #   2. o cron já publicou este commit?  (o deploy é por cron a cada 2 min,
+      #      então logo após o push o site ainda serve o commit anterior; o nome
+      #      do bundle muda a cada alteração, por ser cacheado imutável)
+      # As duas falhas são MUITO diferentes e não podem ser confundidas: um
+      # timeout já foi reportado como "o cron não pegou o commit", diagnóstico
+      # errado que mandou procurar problema no lugar errado.
+      - name: Esperar o deploy (e detectar VPS inalcançável)
         run: |
           esperado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' assets/nuevo/ventas/index.html | head -1)
           echo "bundle esperado: $esperado"
+          code=000
           for i in 1 2 3 4 5; do
-            curl -sk --max-time 20 -o /tmp/ventas.html https://gnhorizons.com/ventas/ || true
-            publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html 2>/dev/null | head -1)
-            echo "tentativa $i: publicado = ${publicado:-<nenhum>}"
-            if [ "$esperado" = "$publicado" ]; then
-              echo "OK  deploy chegou"
-              exit 0
+            code=$(curl -sk --max-time 20 -o /tmp/ventas.html -w '%{http_code}' https://gnhorizons.com/ventas/ || echo 000)
+            if [ "$code" = "000" ]; then
+              echo "tentativa $i: sem resposta (timeout)"
+            else
+              publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html 2>/dev/null | head -1)
+              echo "tentativa $i: HTTP $code — publicado = ${publicado:-<nenhum>}"
+              if [ "$esperado" = "$publicado" ]; then
+                echo "OK  deploy chegou"
+                exit 0
+              fi
             fi
             if [ "$i" -lt 5 ]; then
               sleep 70
             fi
           done
-          echo "::error::Passados ~6 min o site ainda serve um bundle diferente do commit. O cron do VPS (/opt/gnh-autodeploy.sh, a cada 2 min) não pegou este commit ou o deploy falhou. Confira: tail -5 /var/log/gnh-autodeploy.log no VPS."
+          if [ "$code" = "000" ]; then
+            echo "DNS:"
+            getent hosts gnhorizons.com || echo "  não resolve"
+            echo "::error::O VPS parou de responder durante o check (timeout em /ventas/). Do runner não dá para distinguir fail2ban banindo o IP — já aconteceu antes — de queda real. Abra https://gnhorizons.com no navegador: se abrir, era banimento e não há nada a corrigir no código."
+          else
+            echo "::error::Passados ~6 min o site responde mas ainda serve um bundle diferente do commit. O cron do VPS (/opt/gnh-autodeploy.sh, a cada 2 min) não pegou este commit ou o deploy falhou. Confira no VPS: tail -5 /var/log/gnh-autodeploy.log"
+          fi
           exit 1
 
       - name: Conteúdo no ar
