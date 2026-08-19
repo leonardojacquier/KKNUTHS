@@ -94,7 +94,7 @@ def test_resgate_devolve_a_analise_quando_o_forcado_tem_selo(monkeypatch):
 
     capturado = {}
 
-    def fake_force(client, model, system_blocks, msgs):
+    def fake_force(client, model, system_blocks, msgs, teto=None):
         capturado["msgs"] = msgs
         return ("Deixa eu só fechar.\n✅ Você jogou bem — shove padrão\n"
                 "Com 8bb...")

@@ -41,6 +41,35 @@ MAX_TOKENS_ANALISE = 4000
 # no plano B — e uma conclusão pela metade não é conclusão.
 MAX_TOKENS_CONCLUSAO = 2500
 
+# Tetos da LEITURA DO COACH de um TORNEIO — a mesma `coach()`, mas com
+# `key_hands`. Ela não é a análise de uma mão: a entrada é o torneio inteiro e
+# a saída vai para o HTML do relatório, não para o Telegram (onde o limite de
+# 4.096 chars é que manda).
+#
+# Caso medido em 18/08 22:25-22:33 UTC, torneio de 192 mãos: a chamada
+# principal entrou com 9.050 tokens e saiu com EXATOS 4.000 de saída
+# (MAX_TOKENS_ANALISE) — cortada; o resgate saiu com exatos 2.500
+# (MAX_TOKENS_CONCLUSAO) — cortado também; e o aluno recebeu o plano C, o
+# resumo determinístico de uma linha ("Torneio…: 192 mãos, +44.8 BB") no lugar
+# da leitura de padrões.
+#
+# 6.000 é 1,5x o teto da mão, e o pedido passou a trazer o alvo de tamanho
+# (600-900 tokens úteis) junto — teto sem pedido é convite a ensaio. Custo:
+# token de saída só é cobrado quando gerado; com o alvo no pedido a leitura
+# deve ficar bem abaixo, e o teto é rede, não meta.
+MAX_TOKENS_LEITURA_TORNEIO = 6000
+
+# O resgate da leitura de torneio sobe na mesma proporção (2.500 -> 4.000):
+# em 18/08 ele cortou LOGO EM SEGUIDA da principal, e conclusão cortada é
+# plano C — subir só o teto da principal deixaria o defeito de pé no plano B.
+MAX_TOKENS_CONCLUSAO_TORNEIO = 4000
+
+# Alvo de tamanho pedido na leitura de torneio, em tokens úteis. Uma leitura
+# de padrões que serve ao aluno tem 4-6 parágrafos; 4.000 tokens de saída é um
+# ensaio que ninguém lê — e foi o que o modelo tentou escrever em 18/08,
+# porque a instrução do torneio não pedia tamanho NENHUM.
+ALVO_TOKENS_LEITURA_TORNEIO = (600, 900)
+
 # Ferramentas determinísticas expostas ao Claude (function calling).
 TOOLS = [
     {
@@ -1131,7 +1160,8 @@ def _create(client, **kw):
             raise
 
 
-def _force_text(client, model, system_blocks, messages):
+def _force_text(client, model, system_blocks, messages,
+                teto: int = MAX_TOKENS_CONCLUSAO):
     """Última tentativa SEM tools: se o modelo gastou todos os rounds só
     chamando ferramentas e nunca escreveu, obriga-o a redigir a conclusão —
     senão o aluno leva um 'me embananei' no lugar da análise.
@@ -1140,9 +1170,13 @@ def _force_text(client, model, system_blocks, messages):
     'max_tokens', o texto parcial é DESCARTADO (devolve None) e o corte vira
     evento. Sem isto, o defeito de 16/08 19:19 — meia frase entregue como
     análise — só mudava de porta: aqui é a conclusão de resgate e a reescrita
-    da conferência de números que sairiam pela metade."""
+    da conferência de números que sairiam pela metade.
+
+    `teto`: a leitura de torneio passa MAX_TOKENS_CONCLUSAO_TORNEIO. Em 18/08
+    a principal cortou nos 4.000 e o resgate cortou EM SEGUIDA nos 2.500 —
+    subir só o teto da principal deixaria o mesmo defeito de pé no plano B."""
     try:
-        resp = _create(client, model=model, max_tokens=MAX_TOKENS_CONCLUSAO,
+        resp = _create(client, model=model, max_tokens=teto,
                        temperature=0.2,
                        system=system_blocks, messages=messages)
         if getattr(resp, "stop_reason", None) == "max_tokens":
@@ -1793,7 +1827,8 @@ def _so_blocos_de_texto(content):
 
 
 def _resgatar_conclusao(client, modelo, system_blocks, messages,
-                        ultimo_assistant=None) -> str | None:
+                        ultimo_assistant=None,
+                        teto: int = MAX_TOKENS_CONCLUSAO) -> str | None:
     """A análise nunca veio (só narração de bastidor): pede a CONCLUSÃO.
 
     Caso real de 13/08 21:24, nota 2.5: rodadas esgotadas em erros de tool
@@ -1816,14 +1851,15 @@ def _resgatar_conclusao(client, modelo, system_blocks, messages,
         msgs[-1] = {"role": "user", "content": cont}
     else:
         msgs.append({"role": "user", "content": [instrucao]})
-    texto = _force_text(client, modelo, system_blocks, msgs)
+    texto = _force_text(client, modelo, system_blocks, msgs, teto)
     if _tem_selo(texto):
         return _montar_resposta([texto])
     return None
 
 
 def _conferir_numeros(client, modelo, system_blocks, messages, final,
-                      fontes: list) -> str:
+                      fontes: list,
+                      teto: int = MAX_TOKENS_CONCLUSAO) -> str:
     """Todo número da análise precisa de lastro (contexto ou ferramenta).
 
     Sem lastro: UMA reescrita corretiva nomeando os números órfãos; se a
@@ -1854,7 +1890,7 @@ def _conferir_numeros(client, modelo, system_blocks, messages, final,
               "qualitativo.")
     msgs = list(messages) + [{"role": "assistant", "content": final},
                              {"role": "user", "content": pedido}]
-    novo = _force_text(client, modelo, system_blocks, msgs)
+    novo = _force_text(client, modelo, system_blocks, msgs, teto)
     if novo and _tem_selo(novo):
         novo = _montar_resposta([novo])
         if len(conferir_analise(novo, lastro)) < len(fora):
@@ -1995,13 +2031,31 @@ def coach(
             "estruturados (números já calculados, use-os; tools só para "
             "cálculos adicionais):\n\n"
         )
+        # A leitura de TORNEIO é outra tarefa: entrada gorda (o torneio
+        # inteiro) e saída para o HTML do relatório. Teto próprio, resgate com
+        # folga e — o que faltava — um ALVO DE TAMANHO no pedido.
+        eh_leitura_de_torneio = bool(key_hands)
+        teto_de_saida = (MAX_TOKENS_LEITURA_TORNEIO if eh_leitura_de_torneio
+                         else MAX_TOKENS_ANALISE)
+        teto_do_resgate = (MAX_TOKENS_CONCLUSAO_TORNEIO
+                           if eh_leitura_de_torneio else MAX_TOKENS_CONCLUSAO)
         if key_hands:
             context["key_hands"] = key_hands
+            alvo_min, alvo_max = ALVO_TOKENS_LEITURA_TORNEIO
             instruction = (
                 "Analise este TORNEIO. Além do agregado, conte a 'história do torneio': "
                 "os momentos em key_hands foram os que decidiram o resultado — analise "
                 "cada um (use push_fold nos spots de stack curto) e conecte-os num "
-                "diagnóstico único. Dados estruturados:\n\n"
+                "diagnóstico único. "
+                # PEDIDO de tamanho. Sem ele o modelo escreve até o teto: em
+                # 18/08 a leitura de 192 mãos saiu com exatos 4.000 tokens,
+                # cortada no meio. Leitura de padrões não é ensaio — o aluno
+                # precisa dos 3-4 padrões que custaram, não de todos.
+                f"TAMANHO: 4 a 6 parágrafos curtos, entre {alvo_min} e "
+                f"{alvo_max} tokens no total. Escolha os 3 ou 4 padrões que "
+                "mais custaram e deixe o resto de fora; não recite mão por "
+                "mão nem repita número que já apareceu. "
+                "Dados estruturados:\n\n"
             )
         messages = [
             {
@@ -2021,7 +2075,7 @@ def coach(
         for _ in range(MAX_TOOL_ROUNDS):
             resp = _create(client,
                 model=modelo_da_analise,
-                max_tokens=MAX_TOKENS_ANALISE,
+                max_tokens=teto_de_saida,
                 temperature=0.2,  # coach não pode mudar de veredito por sorteio
                 system=system_blocks,
                 tools=TOOLS,
@@ -2043,7 +2097,7 @@ def coach(
                     # aceitar — o selo de emergência é o plano C, não o B
                     resgate = _resgatar_conclusao(
                         client, modelo_da_analise, system_blocks, messages,
-                        ultimo_assistant=resp.content)
+                        ultimo_assistant=resp.content, teto=teto_do_resgate)
                     if cortado:
                         _registrar_corte("analise_principal", bool(resgate))
                     if resgate:
@@ -2064,7 +2118,7 @@ def coach(
                 if final:
                     final = _conferir_numeros(
                         client, modelo_da_analise, system_blocks, messages,
-                        final, fontes_de_numeros)
+                        final, fontes_de_numeros, teto_do_resgate)
                 if not final:
                     # o modelo parou SEM pedir ferramenta e o resgate não
                     # trouxe nada: retorno mudo que a instrumentação de 16/08
@@ -2105,7 +2159,8 @@ def coach(
         final = _montar_resposta(parts)
         if not _tem_selo(final):
             resgate = _resgatar_conclusao(client, modelo_da_analise,
-                                          system_blocks, messages)
+                                          system_blocks, messages,
+                                          teto=teto_do_resgate)
             if resgate:
                 return resgate
         if final and key_hands is None and \
@@ -2116,7 +2171,7 @@ def coach(
         if final:
             final = _conferir_numeros(client, modelo_da_analise,
                                       system_blocks, messages, final,
-                                      fontes_de_numeros)
+                                      fontes_de_numeros, teto_do_resgate)
         if not final:
             _registrar_plano_c("resposta_vazia_apos_rodadas")
         return final or fallback

@@ -683,7 +683,7 @@ def test_resgate_nao_recola_tool_use_pendurado(monkeypatch):
 
     capturado = {}
 
-    def _força_fake(client, modelo, blocks, msgs):
+    def _força_fake(client, modelo, blocks, msgs, teto=None):
         capturado["msgs"] = msgs
         return "✅ Call correto — resgatado."
 
@@ -707,7 +707,7 @@ def test_resgate_com_assistant_so_de_tool_use_nao_apenda_mensagem_vazia(monkeypa
 
     capturado = {}
 
-    def _força_fake(client, modelo, blocks, msgs):
+    def _força_fake(client, modelo, blocks, msgs, teto=None):
         capturado["msgs"] = msgs
         return "✅ ok"
 
@@ -739,7 +739,7 @@ def test_analise_cortada_por_max_tokens_recupera_em_vez_de_plano_c(monkeypatch):
 
     visto = {}
 
-    def _força_fake(client, modelo, blocks, msgs):
+    def _força_fake(client, modelo, blocks, msgs, teto=None):
         visto["tool_use_recolado"] = any(
             getattr(b, "type", None) == "tool_use"
             for m in msgs if isinstance(m.get("content"), list)
