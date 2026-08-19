@@ -1963,7 +1963,8 @@ def _registrar_plano_c(motivo: str) -> None:
         pass
 
 
-def _registrar_corte(onde: str, resgatado: bool = False) -> None:
+def _registrar_corte(onde: str, resgatado: bool = False,
+                     extra: dict | None = None) -> None:
     """A API marcou o texto como incompleto (`stop_reason='max_tokens'`).
 
     Evento com nome próprio porque `plano_c` mistura tudo (falha de rede,
@@ -1972,6 +1973,12 @@ def _registrar_corte(onde: str, resgatado: bool = False) -> None:
     (3,2%) no teto antigo de 1.500 e UMA cortada entregue ao aluno — 16/08
     19:19. `onde` separa a chamada principal da conclusão de resgate;
     `resgatado` diz se o aluno ainda recebeu análise ou caiu no resumo.
+
+    `extra`: detalhe de quem chama. Os lotes do relatório de torneio
+    (`onde="lote_do_relatorio"`) mandam quantas mãos entraram, quantas foram
+    salvas e em que tentativa — em 18/08 foram 16 lotes cortados seguidos, e
+    a única pista de que o relatório inteiro tinha saído em texto de reserva
+    era o aluno reclamar.
 
     Blindado como o registro de custo: diagnóstico nunca derruba a resposta.
     """
@@ -1985,7 +1992,8 @@ def _registrar_corte(onde: str, resgatado: bool = False) -> None:
             repo.log_event(0, None, "analise_cortada", {
                 "onde": onde,
                 "stop_reason": "max_tokens",
-                "resgatado": resgatado})
+                "resgatado": resgatado,
+                **(extra or {})})
     except Exception:
         pass
 

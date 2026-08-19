@@ -169,6 +169,8 @@ def _termos() -> str:
 # chamadas de LLM por relatório (centavos com o modelo de análise atual).
 # É o preço do teto, não uma estimativa de uso: torneio com mais de 150 mãos
 # jogadas é raro, e abaixo disso o número de chamadas cai proporcional.
+# O lote cortado ganha UMA re-tentativa em metades (até +2 chamadas no lote),
+# e só no caminho de falha — em 18/08 a alternativa era perder as 6 mãos.
 TETO_MAOS_COACHED = 150
 
 
@@ -220,13 +222,131 @@ def maos_principais(jogadas: list[CanonicalHand],
     return [jogadas[i] for i in sorted(por_peso[:teto])]
 
 
+# Teto de saída de UM lote de mãos do relatório.
+#
+# Era 1.800 e o corte era total: medido em 18/08 22:25-22:33 UTC, torneio de
+# 192 mãos, FORAM 16 CHAMADAS SEGUIDAS COM SAÍDA = EXATAMENTE 1.800 — todo
+# lote cortado no meio do JSON. Como o parse era `json.loads` do bloco
+# inteiro, JSON truncado lançava e o `except` jogava fora as SEIS mãos do
+# lote; as 96 mãos desses lotes caíram no `played_fallback_verdict` e o
+# relatório das "150 principais" saiu quase todo em texto de reserva.
+#
+# A conta que 1.800 não fecha: 6 mãos × (análise + analise_simples +
+# veredito) dá ~400 tokens por mão, mais as chaves do JSON. 4.000 cabe com
+# folga, e token de saída só é cobrado quando gerado — os lotes que já
+# fechavam abaixo de 1.800 continuam custando o mesmo.
+MAX_TOKENS_LOTE_RELATORIO = 4000
+
+# Alvo de tamanho pedido POR MÃO dentro do lote. Teto maior sem pedido é
+# convite a ensaio (docs/METODO.md): a nota vai para o card do relatório e
+# para a figura da mão, que tem teto de NOTA_IMG_MAX caracteres.
+ALVO_CHARS_NOTA_DO_LOTE = 400
+
+
+def _prompt_do_lote(chunk: list[CanonicalHand]) -> str:
+    """A instrução de UM lote — função pura, para o pedido ser conferível.
+
+    Pede 2-3 frases POR MÃO **com alvo de tamanho**: até 18/08 ela pedia as
+    frases e nada de tamanho, e o modelo escrevia até o teto acabar.
+    """
+    import json
+
+    payload = []
+    for h in chunk:
+        f = played_facts(h)
+        a = f["analysis"]
+        payload.append({
+            "hand_id": h.hand_id,
+            "mao": hand_class(h.hero_cards),
+            "posicao": a.get("position"),
+            "stack_bb": a.get("hero_stack_bb"),
+            "efetivo_bb": a.get("effective_bb"),
+            "blinds": a.get("blinds"),
+            "historia": f["story"],
+            "numeros_calculados": f["numbers"],
+            "resultado_bb": a.get("net_bb"),
+        })
+    return (
+        "Você é um coach de poker brasileiro, informal e claro, falando com "
+        "seu aluno. Para CADA mão abaixo, escreva 2-3 frases em português: "
+        "comece pelo veredito em uma frase simples ('Bem jogada', 'Aqui você "
+        "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
+        "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
+        "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
+        "nada de mencionar sistema/dados/análises anteriores e nada de "
+        "adjetivar o veredito ('brutal', 'honesto', 'papo reto'). Além do "
+        "texto, entregue TAMBÉM: (a) analise_simples — a MESMA ideia para "
+        "quem nunca estudou poker: 1-2 frases, uma analogia do dia a dia, "
+        "no máximo 1 número explicado; " + _termos() + " (b) o veredito da DECISÃO (independente do resultado!): "
+        "'boa' se as decisões foram corretas, 'ruim' se teve erro claro, "
+        "'mista' se teve acerto e erro. "
+        f"TAMANHO: no máximo {ALVO_CHARS_NOTA_DO_LOTE} caracteres por mão "
+        "somando 'analise' e 'analise_simples' — é a nota de um card de "
+        "relatório, não um artigo; 2-3 frases quer dizer 2-3 frases, e "
+        f"todas as {len(chunk)} mãos precisam caber na mesma resposta. "
+        "Responda SOMENTE um JSON "
+        '{hand_id: {"analise": str, "analise_simples": str, '
+        '"veredito": "boa"|"ruim"|"mista"}}.\n\n'
+        + json.dumps(payload, ensure_ascii=False)
+    )
+
+
+def _pares_completos(raw: str) -> dict:
+    """Os pares `"hand_id": {…}` que FECHARAM, mesmo em JSON truncado.
+
+    `json.loads` do bloco inteiro é tudo-ou-nada: em 18/08 ele lançou nos 16
+    lotes e levou junto as mãos cujo objeto já estava completo. Aqui o objeto
+    externo é percorrido par a par com `raw_decode`, e a leitura para no
+    primeiro par que não fecha — o que veio antes dele é dado bom.
+
+    Não tenta consertar o objeto truncado: meia análise no relatório é o
+    mesmo defeito que o guarda de corte de 16/08 proíbe na análise de mão.
+    """
+    import json
+
+    dec = json.JSONDecoder()
+    inicio = raw.find("{")
+    if inicio < 0:
+        return {}
+    out: dict = {}
+    pos = inicio + 1
+    n = len(raw)
+    while True:
+        while pos < n and raw[pos] in " \t\r\n,":
+            pos += 1
+        if pos >= n or raw[pos] != '"':
+            return out
+        try:
+            chave, pos = dec.raw_decode(raw, pos)     # a chave (hand_id)
+        except ValueError:
+            return out
+        while pos < n and raw[pos] in " \t\r\n":
+            pos += 1
+        if pos >= n or raw[pos] != ":":
+            return out
+        pos += 1
+        while pos < n and raw[pos] in " \t\r\n":
+            pos += 1
+        try:
+            valor, pos = dec.raw_decode(raw, pos)     # o objeto da mão
+        except ValueError:
+            return out
+        out[chave] = valor
+
+
 def per_hand_analysis_llm(hands_played: list[CanonicalHand],
                           batch: int = 6) -> dict[str, str]:
     """Análise de coach (2-3 frases) POR MÃO jogada, em lotes — usa APENAS os
     números calculados. Sem chave de API, devolve {} e o relatório cai no
-    veredito determinístico."""
-    import json
+    veredito determinístico.
 
+    CORTE NO TETO NÃO PERDE O LOTE. Em 18/08 os 16 lotes de um torneio de 192
+    mãos saíram cortados (saída = exatamente 1.800, o teto de então) e cada
+    corte levou as 6 mãos. Agora: o que fechou é salvo, e só as que faltaram
+    voltam — UMA vez, em lote da metade, que é o que muda o tamanho da
+    resposta pedida. Segunda falha e essas mãos ficam no fallback, com evento
+    `analise_cortada` (`onde="lote_do_relatorio"`).
+    """
     from app.config import get_settings
 
     settings = get_settings()
@@ -234,55 +354,58 @@ def per_hand_analysis_llm(hands_played: list[CanonicalHand],
         return {}
     import anthropic
 
-    from app.agent.llm import _create
+    from app.agent.llm import _create, _registrar_corte
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+    def _um_lote(chunk: list[CanonicalHand]) -> tuple[dict, bool]:
+        """-> (mãos cujo JSON fechou, a API disse que cortou?).
+
+        Falha de rede devolve ({}, False): ela já tem caminho (as mãos caem
+        no veredito determinístico) e `_create` já faz o retry dela sozinho —
+        re-tentar aqui seria retry em cima de retry.
+        """
+        try:
+            resp = _create(client,
+                model=settings.analysis_model,
+                max_tokens=MAX_TOKENS_LOTE_RELATORIO,
+                temperature=0.2,
+                messages=[{"role": "user",
+                           "content": _prompt_do_lote(chunk)}],
+            )
+        except Exception:
+            return {}, False
+        raw = "".join(b.text for b in resp.content
+                      if b.type == "text").strip()
+        cortado = getattr(resp, "stop_reason", None) == "max_tokens"
+        return _pares_completos(raw), cortado
+
     out: dict[str, str] = {}
     for i in range(0, len(hands_played), batch):
         chunk = hands_played[i:i + batch]
-        payload = []
-        for h in chunk:
-            f = played_facts(h)
-            a = f["analysis"]
-            payload.append({
-                "hand_id": h.hand_id,
-                "mao": hand_class(h.hero_cards),
-                "posicao": a.get("position"),
-                "stack_bb": a.get("hero_stack_bb"),
-                "efetivo_bb": a.get("effective_bb"),
-                "blinds": a.get("blinds"),
-                "historia": f["story"],
-                "numeros_calculados": f["numbers"],
-                "resultado_bb": a.get("net_bb"),
-            })
-        prompt = (
-            "Você é um coach de poker brasileiro, informal e claro, falando com "
-            "seu aluno. Para CADA mão abaixo, escreva 2-3 frases em português: "
-            "comece pelo veredito em uma frase simples ('Bem jogada', 'Aqui você "
-            "pagou caro'), depois o porquê com NO MÁXIMO 1-2 números — use APENAS "
-            "os numeros_calculados fornecidos e os stacks dados, nunca invente nem "
-            "estime. Fale com 'você', como papo de mesa — nada de soar robótico, "
-            "nada de mencionar sistema/dados/análises anteriores e nada de "
-            "adjetivar o veredito ('brutal', 'honesto', 'papo reto'). Além do "
-            "texto, entregue TAMBÉM: (a) analise_simples — a MESMA ideia para "
-            "quem nunca estudou poker: 1-2 frases, uma analogia do dia a dia, "
-            "no máximo 1 número explicado; " + _termos() + " (b) o veredito da DECISÃO (independente do resultado!): "
-            "'boa' se as decisões foram corretas, 'ruim' se teve erro claro, "
-            "'mista' se teve acerto e erro. Responda SOMENTE um JSON "
-            '{hand_id: {"analise": str, "analise_simples": str, '
-            '"veredito": "boa"|"ruim"|"mista"}}.\n\n'
-            + json.dumps(payload, ensure_ascii=False)
-        )
-        try:
-            resp = _create(client,
-                model=settings.analysis_model, max_tokens=1800,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = "".join(b.text for b in resp.content if b.type == "text").strip()
-            out.update(json.loads(raw[raw.index("{"):raw.rindex("}") + 1]))
-        except Exception:
-            continue  # lote falhou -> veredito determinístico cobre
+        salvas, cortado = _um_lote(chunk)
+        out.update(salvas)
+        if not cortado:
+            continue
+        faltam = [h for h in chunk if h.hand_id not in salvas]
+        _registrar_corte("lote_do_relatorio", resgatado=bool(salvas),
+                         extra={"tentativa": 1, "maos_no_lote": len(chunk),
+                                "maos_salvas": len(salvas),
+                                "maos_perdidas": len(faltam)})
+        # RE-TENTATIVA ÚNICA, em lote da METADE: mandar as mesmas 6 de volta
+        # pediria uma resposta do mesmo tamanho e cortaria de novo.
+        menor = max(1, len(chunk) // 2)
+        for j in range(0, len(faltam), menor):
+            sub = faltam[j:j + menor]
+            salvas2, cortado2 = _um_lote(sub)
+            out.update(salvas2)
+            if cortado2:
+                perdidas = [h for h in sub if h.hand_id not in salvas2]
+                _registrar_corte(
+                    "lote_do_relatorio", resgatado=bool(salvas2),
+                    extra={"tentativa": 2, "maos_no_lote": len(sub),
+                           "maos_salvas": len(salvas2),
+                           "maos_perdidas": len(perdidas)})
     return out
 
 
