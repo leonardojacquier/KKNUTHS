@@ -131,6 +131,18 @@ svg{display:block}
 .lang{display:flex;gap:4px}
 .lang button{font-family:var(--font-head);font-weight:600;font-size:11.5px;letter-spacing:.03em;color:rgba(255,255,255,.62);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 8px;min-height:30px;cursor:pointer;transition:color .25s,background .25s,border-color .25s}
 .lang button:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+/* Área de toque de 44px sem alterar o visual: o pseudo-elemento estende o
+   alvo clicável para além da borda desenhada do botão (WCAG 2.5.5). */
+.lang button{position:relative}
+.lang button::after{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:100%;height:44px}
+/* só a altura cresce: os botões ficam a 39px um do outro, então alargar a
+   área para 44px faria a de um invadir a do vizinho e trocar o idioma. */
+/* Idem para os links de telefone/e-mail, que são texto de 18px de altura.
+   Ficam em #locales e no rodapé, e a altura vai a 32px em vez de 44 para as
+   áreas de links empilhados não se sobreporem — sobreposição faz o dedo
+   acertar o link errado, que é pior do que o alvo pequeno. */
+#locales a,footer a{position:relative}
+#locales a::after,footer a::after{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:100%;height:32px}
 .lang button.on{color:#fff;background:var(--orange);border-color:var(--orange)}
 @media(max-width:420px){.lang button{padding:4px 6px;font-size:10.5px}}
 .menu-toggle{display:none;background:none;border:0;cursor:pointer;padding:10px;min-width:44px;min-height:44px}
