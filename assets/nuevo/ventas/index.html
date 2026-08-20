@@ -49,6 +49,10 @@
        clicável — o visual do menu continua idêntico. */
     header nav a{position:relative}
     header nav a::after{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:100%;height:40px}
+
+    /* Contraste dos CTAs: branco sobre #F26D21 dá 3,01:1 e reprova o mínimo AA
+       de 4,5:1. Navy sobre o mesmo laranja dá 5,31:1, sem mexer na cor da marca. */
+    .vh-cta,.v-promo-cta,a[class*="bg-orange"],button[class*="bg-orange"]{color:#14213D !important}
   </style>
 </head>
 <body class="bg-paper font-body text-ink antialiased">
@@ -58,7 +62,7 @@
     <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
       <a href="../" class="flex min-h-[44px] items-center gap-2" aria-label="GNH — inicio">
         <!-- Logo oficial GNH (misma del institucional: logo_b.png); si falla, entra el SVG blanco de respaldo -->
-        <img src="../img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes" class="h-10 w-auto"
+        <img src="../img/logo-blanca-sola.png" alt="GNH — Generando Nuevos Horizontes" class="h-10 w-auto"
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <svg viewBox="0 0 230 80" class="h-10 w-auto" style="display:none" role="img" aria-label="GNH">
           <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
