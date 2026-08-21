@@ -1657,10 +1657,10 @@ def spot_range_chart(telegram_id: int) -> tuple[bytes, str] | None:
 # gg.gl é o ENCURTADOR de replay da GGPoker. Sem ele na lista o link não era
 # nem reconhecido como replay: caía no leitor de texto e o aluno recebia
 # "não entendi", que é a pior resposta possível — sugere que ele errou.
-_REPLAY_HOSTS = ("replay.pppoker.net", "pppoker.net", "pppoker.club",
-                 "supremapoker.net", "clubgg.com", "wepoker", "pokerbros",
-                 "upoker", "gg.gl", "ggpoker.com", "ggpoker.net",
-                 "gg.poker")
+# "pppoker." cobre .net/.club e o .ph da rls_20260819 (21/08, caso real)
+_REPLAY_HOSTS = ("pppoker.", "supremapoker.net", "clubgg.com", "wepoker",
+                 "pokerbros", "upoker", "gg.gl", "ggpoker.com",
+                 "ggpoker.net", "gg.poker")
 
 
 def replay_link_info(text: str, legenda: bool = False) -> dict | None:

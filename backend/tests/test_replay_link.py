@@ -162,3 +162,18 @@ def test_clube_desconhecido_nao_quebra_a_mensagem():
     txt = replay_fallback_text("outro")
     assert "desse clube" in txt and "PPPoker" in txt
     assert replay_fallback_text(None)     # sem site: ainda tem que sair texto
+
+
+def test_dominio_novo_do_pppoker_ph_e_reconhecido():
+    """21/08: PPPoker trocou o replay para replay.pppoker.ph (release
+    rls_20260819). O link real de um aluno caiu na CONVERSA como pergunta,
+    cortou duas vezes no teto e virou 'me embananei' — para o aluno, a
+    ferramenta parecia parada. A mensagem abaixo é a real, sem https://."""
+    from app.bot.processing import replay_link_info
+
+    msg = ("replay.pppoker.ph/new_game_record_publish/Frame/rls_20260819/"
+           "index.html?shareKey=8aa6bf59-390a-983a-d9f7-945cb383d8e3&lan=pt")
+    info = replay_link_info(msg)
+    assert info is not None, "o domínio .ph não é reconhecido"
+    assert info["site"] == "pppoker"
+    assert info["share_key"] == "8aa6bf59-390a-983a-d9f7-945cb383d8e3"
