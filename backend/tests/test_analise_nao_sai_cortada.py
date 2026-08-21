@@ -305,3 +305,36 @@ def test_evento_do_corte_carrega_amostra_do_texto(llm, monkeypatch, repo):
     assert cortes and "amostra_inicio" in cortes[0]
     assert TEXTO_QUE_O_ALUNO_RECEBEU.startswith(
         cortes[0]["amostra_inicio"][:40])
+
+
+# --- 21/08, segunda sonda: corte SEM texto (loop dentro do tool_use) ------
+#
+# A mão PDQ do Rico cortou 4000 com amostra NULA: o teto inteiro foi
+# queimado num tool_use cujo input nunca fecha. Amostra de texto não vê
+# isso; a de blocos vê — nome da ferramenta e o RABO do input.
+
+
+def test_corte_sem_texto_amostra_os_blocos(llm, monkeypatch, repo):
+    so_tool = SimpleNamespace(
+        stop_reason="max_tokens",
+        content=[_bloco("tool_use", id="t1", name="ev_call",
+                        input={"range": ["AA", "KK"] * 40})])
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: so_tool)
+    llm.coach({"summary": "PLANO C"}, None)
+    cortes = [d for e, d in repo.eventos
+              if e == "analise_cortada" and d.get("onde") == "analise_principal"]
+    assert cortes, "o corte nem foi registrado"
+    amostra = cortes[0].get("amostra_inicio") or ""
+    assert "ev_call" in amostra          # a ferramenta do loop tem nome
+    assert "input_fim" in amostra        # e o rabo do input está lá
+
+
+def test_corte_do_resgate_amostra_o_texto(llm, monkeypatch, repo):
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: SimpleNamespace(
+        stop_reason="max_tokens",
+        content=[_bloco("text", text="tagarelando sobre ranges " * 30)]))
+    llm._force_text(None, "m", [], [{"role": "user", "content": "x"}])
+    cortes = [d for e, d in repo.eventos
+              if e == "analise_cortada" and d.get("onde") == "forca_conclusao"]
+    assert cortes and "tagarelando sobre ranges" in \
+        (cortes[0].get("amostra_inicio") or "")

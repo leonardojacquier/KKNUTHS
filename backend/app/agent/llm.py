@@ -1180,7 +1180,13 @@ def _force_text(client, model, system_blocks, messages,
                        temperature=0.2,
                        system=system_blocks, messages=messages)
         if getattr(resp, "stop_reason", None) == "max_tokens":
-            _registrar_corte("forca_conclusao")
+            # sem tools aqui, o corte é texto puro: a amostra diz sobre o QUE
+            # o resgate tagarelava (21/08: 2500 cortados e nenhuma pista)
+            texto_cortado = "".join(
+                b.text for b in resp.content if b.type == "text")
+            _registrar_corte("forca_conclusao",
+                             amostra=texto_cortado
+                             or _amostra_de_blocos(resp.content))
             return None
         return "".join(b.text for b in resp.content if b.type == "text").strip() or None
     except Exception as exc:
@@ -1963,6 +1969,32 @@ def _registrar_plano_c(motivo: str) -> None:
         pass
 
 
+def _amostra_de_blocos(content) -> str:
+    """Descreve os blocos de uma resposta cortada SEM texto.
+
+    21/08, mão PDQ do Rico: o corte de 4000 veio com amostra NULA — o teto
+    inteiro foi queimado dentro de um tool_use cujo input nunca fecha (loop
+    no JSON de argumentos). Texto o guarda já amostra; isto amostra o resto:
+    tipo de cada bloco e, no tool_use, o nome e o RABO do input — é no fim
+    que o loop aparece."""
+    partes = []
+    for b in (content or []):
+        tipo = b.get("type") if isinstance(b, dict) else getattr(b, "type", "?")
+        if tipo == "tool_use":
+            nome = (b.get("name") if isinstance(b, dict)
+                    else getattr(b, "name", "?"))
+            try:
+                bruto = json.dumps(
+                    b.get("input") if isinstance(b, dict)
+                    else getattr(b, "input", None), ensure_ascii=False)
+            except Exception:
+                bruto = str(getattr(b, "input", ""))[:400]
+            partes.append(f"[tool_use {nome} input_fim=…{bruto[-260:]}]")
+        else:
+            partes.append(f"[{tipo}]")
+    return " ".join(partes)
+
+
 def _registrar_corte(onde: str, resgatado: bool = False,
                      extra: dict | None = None,
                      amostra: str | None = None) -> None:
@@ -2127,8 +2159,9 @@ def coach(
                             system_blocks, messages,
                             ultimo_assistant=resp.content, teto=teto_do_resgate)
                     if cortado:
-                        _registrar_corte("analise_principal", bool(resgate),
-                                         amostra=final)
+                        _registrar_corte(
+                            "analise_principal", bool(resgate),
+                            amostra=final or _amostra_de_blocos(resp.content))
                     if resgate:
                         return resgate
                     if cortado:
