@@ -338,3 +338,60 @@ def test_corte_do_resgate_amostra_o_texto(llm, monkeypatch, repo):
               if e == "analise_cortada" and d.get("onde") == "forca_conclusao"]
     assert cortes and "tagarelando sobre ranges" in \
         (cortes[0].get("amostra_inicio") or "")
+
+
+# --- 21/08, a CAUSA RAIZ da semana: thinking adaptativo por omissão --------
+#
+# O sonnet-5 liga pensamento adaptativo quando `thinking` é omitido, e o
+# pensamento consome max_tokens ANTES do texto (sonda: 2500 tokens = um
+# bloco [thinking] e nada mais). A casa decide: o LLM julga, as FERRAMENTAS
+# fazem a conta — thinking desligado por padrão, com retry se o modelo
+# rejeitar o parâmetro (mesmo contrato do _NO_TEMP).
+
+
+class _ClienteQueCaptura:
+    def __init__(self):
+        self.kwargs: list[dict] = []
+
+        class _Msgs:
+            def __init__(s, outer):
+                s.outer = outer
+
+            def create(s, **kw):
+                s.outer.kwargs.append(kw)
+                return SimpleNamespace(
+                    stop_reason="end_turn",
+                    content=[_bloco("text", text="ok")], usage=None)
+
+        self.messages = _Msgs(self)
+
+
+def test_create_desliga_thinking_por_padrao(llm):
+    cli = _ClienteQueCaptura()
+    llm._create(cli, model="claude-sonnet-5", max_tokens=100,
+                messages=[{"role": "user", "content": "x"}])
+    assert cli.kwargs[0]["thinking"] == {"type": "disabled"}
+
+
+def test_modelo_que_rejeita_thinking_entra_na_lista_e_segue(llm):
+    class _ClienteQueRejeita(_ClienteQueCaptura):
+        def __init__(self):
+            super().__init__()
+            self._ja = False
+            create_ok = self.messages.create
+
+            def create(**kw):
+                if not self._ja and "thinking" in kw:
+                    self._ja = True
+                    raise ValueError("thinking is not supported on this model")
+                return create_ok(**kw)
+
+            self.messages.create = create
+
+    llm._NO_THINK.discard("modelo-arcaico")
+    cli = _ClienteQueRejeita()
+    resp = llm._create(cli, model="modelo-arcaico", max_tokens=100,
+                       messages=[{"role": "user", "content": "x"}])
+    assert resp.stop_reason == "end_turn"       # a resposta saiu
+    assert "modelo-arcaico" in llm._NO_THINK    # e o modelo foi memorizado
+    assert "thinking" not in cli.kwargs[-1]     # segunda tentativa sem o parâmetro

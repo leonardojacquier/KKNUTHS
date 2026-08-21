@@ -1064,6 +1064,7 @@ def set_tarefa(nome: str) -> None:
 # deprecated for this model') — descoberto em produção: o deploy da
 # consistência derrubou a leitura de prints inteira
 _NO_TEMP: set[str] = set()
+_NO_THINK: set[str] = set()
 
 
 def _is_transient(exc) -> bool:
@@ -1106,6 +1107,19 @@ def _create(client, **kw):
     model = kw.get("model")
     if model in _NO_TEMP:
         kw.pop("temperature", None)
+    # THINKING DESLIGADO por padrão. O sonnet-5 liga pensamento ADAPTATIVO
+    # quando o parâmetro é omitido, e o pensamento consome o max_tokens ANTES
+    # do texto — 21/08, amostra da sonda: resposta de 2500 tokens contendo UM
+    # bloco [thinking] e nada mais. Foi a causa de TODA a família de cortes
+    # da semana (4000/2500/1200 exatos, mãos PDQ, conversa, resgate). Não há
+    # budget_tokens nesta geração (400); é desligar ou effort. A arquitetura
+    # da casa decide: o LLM julga, as FERRAMENTAS fazem a conta — pensamento
+    # aqui é refazer conta de cabeça sem orçamento. Modelo que rejeitar o
+    # parâmetro entra em _NO_THINK e segue sem (mesmo contrato do _NO_TEMP).
+    if model in _NO_THINK:
+        kw.pop("thinking", None)
+    else:
+        kw.setdefault("thinking", {"type": "disabled"})
     # cache de 1h exige o header beta; sem custo quando o system não usa ttl
     kw.setdefault("extra_headers", {}).setdefault("anthropic-beta", _BETA_TTL)
     log = logging.getLogger("llm")
@@ -1128,6 +1142,10 @@ def _create(client, **kw):
             if "temperature" in msg and kw.pop("temperature", None) is not None:
                 _NO_TEMP.add(model)
                 log.warning("modelo %s rejeita temperature; seguindo sem", model)
+                continue
+            if "thinking" in msg and kw.pop("thinking", None) is not None:
+                _NO_THINK.add(model)
+                log.warning("modelo %s rejeita thinking; seguindo sem", model)
                 continue
             # API rejeitou o ttl de 1h -> volta pro cache padrão de 5min na
             # mesma chamada e desliga o ttl no processo (sem quebrar o aluno)
