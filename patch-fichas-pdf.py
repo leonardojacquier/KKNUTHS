@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Troca, DENTRO dos PDFs já publicados, o logo GNH com o slogan pelo logo só
-com as três letras, e as fotos do WS940/WS940C pelas novas.
+com as três letras, e as fotos de produto que foram substituídas no site (o
+mapa FOTOS diz quais).
 
 Por que patch e não regerar
 ---------------------------
@@ -51,6 +52,8 @@ LOGOS = {
 FOTOS = {
     ('regla-laser-ws940.pdf', (800, 600)): 'prod/ws940.png',
     ('regla-laser-ws940.pdf', (1147, 860)): 'prod/ws940c.jpg',
+    ('alisadora-vs836.pdf', (1000, 896)): 'prod/alisadora-vs836.jpg',
+    ('alisadora-vs836h.pdf', (1000, 938)): 'prod/alisadora-vs836h.jpg',
 }
 
 NAVY_MAX = 160  # luminancia media dos pixels opacos; acima disso e o logo branco
@@ -113,13 +116,29 @@ def ja_e_a_foto_nova(doc, xref, rel, dim):
 
 
 def foto(rel, dim):
-    """a foto nova nas dimensoes exatas do XObject que ela substitui."""
+    """A foto nova nas dimensoes EXATAS do XObject que ela substitui.
+
+    O retangulo no PDF tem a proporcao do XObject antigo, entao um resize
+    direto esticaria a maquina (a foto nova da alisadora e 4:3 e o quadro
+    antigo era 1,12). Encaixa preservando a proporcao e completa com branco —
+    e o mesmo fundo da pagina, entao a faixa nao aparece.
+    """
     im = Image.open(IMG / rel)
+    if im.mode == 'RGBA' or 'transparency' in im.info:
+        rgba = im.convert('RGBA')
+        im = Image.new('RGB', rgba.size, (255, 255, 255))
+        im.paste(rgba, mask=rgba.getchannel('A'))
+    else:
+        im = im.convert('RGB')
     if im.size != dim:
-        im = im.resize(dim, Image.LANCZOS)
+        esc = min(dim[0] / im.width, dim[1] / im.height)
+        encaixe = im.resize((max(1, round(im.width * esc)), max(1, round(im.height * esc))),
+                            Image.LANCZOS)
+        im = Image.new('RGB', dim, (255, 255, 255))
+        im.paste(encaixe, ((dim[0] - encaixe.width) // 2, (dim[1] - encaixe.height) // 2))
     caminho = TMP / ('foto-' + rel.replace('/', '-'))
     if caminho.suffix == '.jpg':
-        im.convert('RGB').save(caminho, 'JPEG', quality=88, optimize=True)
+        im.save(caminho, 'JPEG', quality=88, optimize=True)
     else:
         im.save(caminho)
     return caminho
