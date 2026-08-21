@@ -21,7 +21,7 @@ import{b as K,a as _,s as X,t as O,r as R}from"./track-JhbWRakp.js";const $={ins
       <!-- marca + redes + contacto -->
       <div class="mx-auto max-w-6xl px-6 py-12 grid gap-10 md:grid-cols-2 border-t border-white/10 mt-12">
         <div>
-          <img src="${e}img/logo-blanca.png" alt="GNH — Generando Nuevos Horizontes" class="h-14 w-auto"
+          <img src="${e}img/logo-blanca-sola.png" alt="GNH — Generando Nuevos Horizontes" class="w-auto" style="height:42px"
                onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'font-display text-2xl font-bold text-white',textContent:'GNH'}))">
           <p class="mt-4 font-display text-lg font-semibold text-white">Generando Nuevos Horizontes</p>
           <p class="mt-1 text-sm max-w-xs">Tu aliado estratégico para el crecimiento.</p>
