@@ -62,6 +62,9 @@ FOTOS = {
     ('maquina-marcado-vial.pdf', (800, 600)): 'prod/marcado.png',
     ('prensa-hst-yes2000.pdf', (1019, 764)): 'prod/prensa-hst-yes2000.jpg',
     ('proyectora-de-revoque.pdf', (800, 600)): 'prod/gnh-proyectora.png',
+    ('apilador-cdd-d.pdf', (623, 900)): 'prod/apilador-cdd-d.jpg',
+    ('apilador-cdd-d.pdf', (1571, 1178)): 'prod/apilador-cdd20-35.jpg',
+    ('apilador-autoelevante-cdd.pdf', (736, 900)): 'prod/apilador-autoelevante.jpg',
 }
 
 NAVY_MAX = 160  # luminancia media dos pixels opacos; acima disso e o logo branco
