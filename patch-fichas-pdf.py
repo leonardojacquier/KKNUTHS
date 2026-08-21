@@ -61,6 +61,7 @@ FOTOS = {
     ('central-concreto-jbts20.pdf', (800, 600)): 'prod/central-concreto.png',
     ('maquina-marcado-vial.pdf', (800, 600)): 'prod/marcado.png',
     ('prensa-hst-yes2000.pdf', (1019, 764)): 'prod/prensa-hst-yes2000.jpg',
+    ('proyectora-de-revoque.pdf', (800, 600)): 'prod/gnh-proyectora.png',
 }
 
 NAVY_MAX = 160  # luminancia media dos pixels opacos; acima disso e o logo branco
