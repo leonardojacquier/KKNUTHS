@@ -2602,6 +2602,17 @@ def followup(
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
                 final = _montar_resposta(parts)
+                if resp.stop_reason == "max_tokens":
+                    # 19/08: o juiz pegou uma conversa entregue cortada no
+                    # meio — este caminho não lia o sinal que o coach() já
+                    # lê desde 16/08. Texto que a API marcou como cortado
+                    # nunca vai ao aluno: resgate sem tools (quase sempre
+                    # completa, e se cortar o _force_text devolve None), e
+                    # None vira o recado honesto do processing.
+                    resgate = _force_text(client, settings.analysis_model,
+                                          system_blocks, messages)
+                    _registrar_corte("conversa", bool(resgate))
+                    return resgate
                 return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []
@@ -2685,6 +2696,12 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
             parts.extend(b.text for b in resp.content if b.type == "text")
             if resp.stop_reason != "tool_use":
                 final = _montar_resposta(parts)
+                if resp.stop_reason == "max_tokens":
+                    # mesma regra da conversa (19/08): corte nunca é entregue.
+                    resgate = _force_text(client, settings.analysis_model,
+                                          system_blocks, messages)
+                    _registrar_corte("simulador", bool(resgate))
+                    return resgate
                 return final or None
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = []

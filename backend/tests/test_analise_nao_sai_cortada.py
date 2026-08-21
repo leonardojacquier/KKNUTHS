@@ -202,3 +202,52 @@ def test_o_caminho_bom_continua_intacto(llm, monkeypatch, repo):
 
     assert "Flop" in out
     assert repo.eventos == [], "o caminho bom não paga pedágio de evento"
+
+
+# --- 19/08: o juiz pegou uma CONVERSA entregue cortada no meio ------------
+#
+# `followup` (teto 1200) e `evaluate_line` (900) só liam `tool_use`: corte
+# por max_tokens era tratado como resposta final e ia ao aluno. "Resposta
+# incompleta (corta no meio)" — juiz de 19/08, nota 5.5, n=1.
+
+
+def test_conversa_cortada_nao_e_entregue(llm, monkeypatch, repo):
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: _resposta_cortada())
+    monkeypatch.setattr(llm, "_force_text",
+                        lambda *a, **k: "Resposta inteira do resgate.")
+    out = llm.followup({"summary": "mão analisada"}, [], "e se ele 3-beta?")
+    assert out == "Resposta inteira do resgate."
+    assert TEXTO_QUE_O_ALUNO_RECEBEU not in (out or "")
+    assert any(e == "analise_cortada" and d.get("onde") == "conversa"
+               for e, d in repo.eventos)
+
+
+def test_conversa_cortada_sem_resgate_devolve_none(llm, monkeypatch, repo):
+    """None faz o processing mandar o recado honesto ('me embananei') em vez
+    de meia frase — o mesmo contrato que o followup já tinha para falha."""
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: _resposta_cortada())
+    monkeypatch.setattr(llm, "_force_text", lambda *a, **k: None)
+    assert llm.followup({"summary": "m"}, [], "?") is None
+
+
+def test_simulador_cortado_nao_e_entregue(llm, monkeypatch, repo):
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: _resposta_cortada())
+    monkeypatch.setattr(llm, "_force_text",
+                        lambda *a, **k: "Veredito inteiro do resgate.")
+    out = llm.evaluate_line({"cards": ["As", "Kd"], "position": "CO",
+                             "history": [], "street": "flop"})
+    assert out == "Veredito inteiro do resgate."
+    assert any(e == "analise_cortada" and d.get("onde") == "simulador"
+               for e, d in repo.eventos)
+
+
+def test_conversa_sem_corte_continua_intacta(llm, monkeypatch, repo):
+    inteira = SimpleNamespace(
+        stop_reason="end_turn",
+        content=[_bloco("text", text="Resposta completa, sem corte.")])
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: inteira)
+    monkeypatch.setattr(llm, "_force_text",
+                        lambda *a, **k: pytest.fail("resgate não devia rodar"))
+    out = llm.followup({"summary": "m"}, [], "?")
+    assert out == "Resposta completa, sem corte."
+    assert repo.eventos == []
