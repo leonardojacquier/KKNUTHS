@@ -34,6 +34,12 @@ class Settings:
         self.analysis_model: str = os.getenv("ANALYSIS_MODEL",
                                              "claude-sonnet-5")
         self.cheap_model: str = os.getenv("CHEAP_MODEL", "claude-haiku-4-5-20251001")
+        # RESERVA do titular quando ele degenera: 3x (16/08 2x, 21/08) o
+        # sonnet-5 entrou em loop de escrita em mãos de replay PDQ e cortou
+        # o teto na análise E no resgate. Repetir o mesmo modelo repete o
+        # loop; o opus-4-8 analisou essas mesmas mãos em 300-750 tokens.
+        self.analysis_fallback_model: str = os.getenv(
+            "ANALYSIS_FALLBACK_MODEL", "claude-opus-4-8")
         # roteamento por complexidade: mão de decisão única pré-flop pode ir
         # num modelo mais barato (ex.: claude-sonnet-5). VAZIO = desligado —
         # só liga depois que o juiz comparar a clareza por modelo.

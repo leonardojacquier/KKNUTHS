@@ -1964,7 +1964,8 @@ def _registrar_plano_c(motivo: str) -> None:
 
 
 def _registrar_corte(onde: str, resgatado: bool = False,
-                     extra: dict | None = None) -> None:
+                     extra: dict | None = None,
+                     amostra: str | None = None) -> None:
     """A API marcou o texto como incompleto (`stop_reason='max_tokens'`).
 
     Evento com nome próprio porque `plano_c` mistura tudo (falha de rede,
@@ -1989,11 +1990,18 @@ def _registrar_corte(onde: str, resgatado: bool = False,
 
         repo = get_repository()
         if repo.enabled:
-            repo.log_event(0, None, "analise_cortada", {
+            detalhe = {
                 "onde": onde,
                 "stop_reason": "max_tokens",
                 "resgatado": resgatado,
-                **(extra or {})})
+                **(extra or {})}
+            if amostra:
+                # começo E fim do texto cortado: é o fim que diz se o modelo
+                # degenerou (repetição) ou só escreveu longo — 3x (16 e
+                # 21/08) o corte foi diagnosticado às cegas por falta disto.
+                detalhe["amostra_inicio"] = amostra[:500]
+                detalhe["amostra_fim"] = amostra[-300:]
+            repo.log_event(0, None, "analise_cortada", detalhe)
     except Exception:
         pass
 
@@ -2106,8 +2114,21 @@ def coach(
                     resgate = _resgatar_conclusao(
                         client, modelo_da_analise, system_blocks, messages,
                         ultimo_assistant=resp.content, teto=teto_do_resgate)
+                    if cortado and not resgate:
+                        # 21/08, TERCEIRA mão PDQ no mesmo buraco: o titular
+                        # degenera (corta 4000 na análise e 2500 no resgate,
+                        # sempre exatos). Repetir o MESMO modelo repete o
+                        # loop — a reserva troca de modelo UMA vez antes de
+                        # aceitar o plano C. Em 16/08 o opus resolveu essas
+                        # mesmas mãos em 300-750 tokens.
+                        resgate = _resgatar_conclusao(
+                            client, getattr(settings, "analysis_fallback_model",
+                                            "claude-opus-4-8"),
+                            system_blocks, messages,
+                            ultimo_assistant=resp.content, teto=teto_do_resgate)
                     if cortado:
-                        _registrar_corte("analise_principal", bool(resgate))
+                        _registrar_corte("analise_principal", bool(resgate),
+                                         amostra=final)
                     if resgate:
                         return resgate
                     if cortado:

@@ -127,7 +127,10 @@ def test_os_dois_finais_do_coach_passam_pelo_resgate():
     import app.agent.llm as llm
 
     fonte = inspect.getsource(llm.coach)
-    assert fonte.count("_resgatar_conclusao(") == 2
+    # 3 = os dois finais + o resgate de RESERVA (21/08: troca de modelo no
+    # corte duplo, antes do plano C). Se cair para 2, um final perdeu o
+    # resgate ou a reserva sumiu — os dois são regressão.
+    assert fonte.count("_resgatar_conclusao(") == 3
 
 
 # ---- o plano C com dignidade (13/08 22:26) ----------------------------------

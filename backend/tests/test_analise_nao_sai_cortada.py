@@ -251,3 +251,57 @@ def test_conversa_sem_corte_continua_intacta(llm, monkeypatch, repo):
     out = llm.followup({"summary": "m"}, [], "?")
     assert out == "Resposta completa, sem corte."
     assert repo.eventos == []
+
+
+# --- 21/08: TERCEIRA mão PDQ com corte duplo (4000 + 2500, sempre exatos) --
+#
+# O titular degenera nessas mãos; repetir o mesmo modelo repete o loop. A
+# reserva troca de modelo UMA vez antes do plano C — em 16/08 o opus fez
+# essas mesmas mãos em 300-750 tokens.
+
+
+def _create_por_modelo(chamadas):
+    """_create fake: titular sempre corta; a reserva responde inteiro."""
+    def _fake(client, **kw):
+        chamadas.append(kw.get("model"))
+        if kw.get("model") == "reserva-m":
+            return SimpleNamespace(
+                stop_reason="end_turn",
+                content=[_bloco("text", text=ANALISE_INTEIRA)])
+        return _resposta_cortada()
+    return _fake
+
+
+def test_corte_duplo_tenta_a_reserva_e_o_aluno_recebe_analise(
+        llm, monkeypatch, repo):
+    chamadas: list = []
+    monkeypatch.setattr(llm, "_create", _create_por_modelo(chamadas))
+    monkeypatch.setattr(
+        llm, "get_settings",
+        lambda: type("S", (), {"anthropic_api_key": "sk-teste",
+                               "analysis_model": "titular-m",
+                               "cheap_model": "barato",
+                               "analysis_fallback_model": "reserva-m"})())
+    out = llm.coach({"summary": "PLANO C"}, None)
+    assert out == ANALISE_INTEIRA          # análise de verdade, não o resumo
+    assert "reserva-m" in chamadas          # a reserva foi chamada
+    assert chamadas.count("reserva-m") == 1  # UMA vez, não um segundo loop
+    assert any(e == "analise_cortada" and d.get("resgatado") is True
+               for e, d in repo.eventos)
+
+
+def test_reserva_tambem_cortada_cai_no_plano_c(llm, monkeypatch, repo):
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: _resposta_cortada())
+    out = llm.coach({"summary": "PLANO C"}, None)
+    assert out == "PLANO C"
+    assert any(e == "plano_c" for e, d in repo.eventos)
+
+
+def test_evento_do_corte_carrega_amostra_do_texto(llm, monkeypatch, repo):
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: _resposta_cortada())
+    llm.coach({"summary": "PLANO C"}, None)
+    cortes = [d for e, d in repo.eventos
+              if e == "analise_cortada" and d.get("onde") == "analise_principal"]
+    assert cortes and "amostra_inicio" in cortes[0]
+    assert TEXTO_QUE_O_ALUNO_RECEBEU.startswith(
+        cortes[0]["amostra_inicio"][:40])
