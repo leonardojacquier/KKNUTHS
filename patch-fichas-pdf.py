@@ -54,6 +54,10 @@ FOTOS = {
     ('regla-laser-ws940.pdf', (1147, 860)): 'prod/ws940c.jpg',
     ('alisadora-vs836.pdf', (1000, 896)): 'prod/alisadora-vs836.jpg',
     ('alisadora-vs836h.pdf', (1000, 938)): 'prod/alisadora-vs836h.jpg',
+    ('camion-volquete-orugas.pdf', (1269, 952)): 'prod/minidumper-qy500.jpg',
+    ('camion-volquete-orugas.pdf', (1384, 1038)): 'prod/minidumper-12t.jpg',
+    ('bomba-transportadora-concreto.pdf', (800, 600)): 'prod/bomba-cemento.png',
+    ('mini-excavadora-ht15.pdf', (800, 600)): 'prod/excavadora.png',
 }
 
 NAVY_MAX = 160  # luminancia media dos pixels opacos; acima disso e o logo branco
@@ -99,18 +103,29 @@ def logo_sem_slogan(dim):
     return caminho
 
 
-def ja_e_a_foto_nova(doc, xref, rel, dim):
+def ja_e_a_foto_nova(doc, info, rel, dim):
     """True se o XObject ja carrega a foto nova — mesma razao da guarda do logo:
-    cada passagem recodifica o JPEG e perde qualidade."""
+    cada passagem recodifica o JPEG e perde qualidade.
+
+    Quando a imagem tem transparencia, o PDF guarda a cor numa stream e o alpha
+    noutra (a SMask), e a stream de cor traz PRETO onde deveria ser transparente.
+    Comparar essa stream crua com a foto nova achatada em branco daria sempre
+    "diferente", e a cada passagem o arquivo seria reescrito — por isso a SMask
+    entra na conta antes da comparacao."""
     try:
-        atual = Image.open(io.BytesIO(doc.extract_image(xref)['image'])).convert('RGB')
+        atual = Image.open(io.BytesIO(doc.extract_image(info[0])['image'])).convert('RGB')
+        if info[1]:
+            alfa = Image.open(io.BytesIO(doc.extract_image(info[1])['image'])).convert('L')
+            if alfa.size != atual.size:
+                alfa = alfa.resize(atual.size)
+            branco = Image.new('RGB', atual.size, (255, 255, 255))
+            branco.paste(atual, mask=alfa)
+            atual = branco
     except Exception:
         return False
-    nova = Image.open(IMG / rel)
-    fundo = Image.new('RGB', nova.size, (255, 255, 255))
-    fundo.paste(nova, mask=nova.getchannel('A') if nova.mode == 'RGBA' else None)
+    esperada = Image.open(foto(rel, dim))
     p = (64, 48)
-    a, b = atual.resize(p, Image.LANCZOS), fundo.resize(p, Image.LANCZOS)
+    a, b = atual.resize(p, Image.LANCZOS), esperada.resize(p, Image.LANCZOS)
     dif = sum(abs(x - y) for pa, pb in zip(a.getdata(), b.getdata()) for x, y in zip(pa, pb))
     return dif / (p[0] * p[1] * 3) < 6
 
@@ -195,7 +210,7 @@ def main(so_conferir=False, apenas=None):
                     pagina.replace_image(xref, filename=str(prontos[dim]))
                     feitas.append(f'logo {dim[0]}x{dim[1]}')
                 elif (nome, dim) in FOTOS:
-                    if ja_e_a_foto_nova(doc, xref, FOTOS[(nome, dim)], dim):
+                    if ja_e_a_foto_nova(doc, info, FOTOS[(nome, dim)], dim):
                         continue
                     vistos.add(xref)
                     pagina.replace_image(xref, filename=str(foto(FOTOS[(nome, dim)], dim)))
