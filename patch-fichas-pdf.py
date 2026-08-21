@@ -58,6 +58,9 @@ FOTOS = {
     ('camion-volquete-orugas.pdf', (1384, 1038)): 'prod/minidumper-12t.jpg',
     ('bomba-transportadora-concreto.pdf', (800, 600)): 'prod/bomba-cemento.png',
     ('mini-excavadora-ht15.pdf', (800, 600)): 'prod/excavadora.png',
+    ('central-concreto-jbts20.pdf', (800, 600)): 'prod/central-concreto.png',
+    ('maquina-marcado-vial.pdf', (800, 600)): 'prod/marcado.png',
+    ('prensa-hst-yes2000.pdf', (1019, 764)): 'prod/prensa-hst-yes2000.jpg',
 }
 
 NAVY_MAX = 160  # luminancia media dos pixels opacos; acima disso e o logo branco
