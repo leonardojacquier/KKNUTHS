@@ -53,6 +53,14 @@
     /* Contraste dos CTAs: branco sobre #F26D21 dá 3,01:1 e reprova o mínimo AA
        de 4,5:1. Navy sobre o mesmo laranja dá 5,31:1, sem mexer na cor da marca. */
     .vh-cta,.v-promo-cta,a[class*="bg-orange"],button[class*="bg-orange"]{color:#14213D !important}
+
+    /* Fundo das fotos de produto: branco, o mesmo fundo em que elas foram
+       fotografadas — o navy exigia recorte perfeito de cada foto e qualquer
+       sobra de sombra aparecia. A moldura dourada continua sendo o que delimita
+       a área da foto, agora que ela e o corpo do card têm a mesma cor. */
+    .v-card-media{background:#fff}
+    .v-card-media:after{opacity:1}
+    .v-card-media .ph{color:#14213d73}
   </style>
 </head>
 <body class="bg-paper font-body text-ink antialiased">

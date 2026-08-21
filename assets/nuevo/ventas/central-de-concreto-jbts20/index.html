@@ -28,7 +28,7 @@ h1{font-family:'Satoshi',system-ui,Arial,sans-serif;font-size:clamp(25px,4vw,36p
 .cat{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
 .lead{font-size:17px;color:#39434f;margin:12px 0 22px}
 figure{margin:18px 0}
-figure img{width:100%;max-width:560px;height:auto;border-radius:10px;background:#eef2f7}
+figure img{width:100%;max-width:560px;height:auto;border-radius:10px;background:#fff;border:1.5px solid #d4af37}
 h2{font-family:'Satoshi',system-ui,Arial,sans-serif;font-size:20px;color:var(--navy);margin:26px 0 12px}
 table{width:100%;border-collapse:collapse;font-size:14px;display:block;overflow-x:auto}
 th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap}
@@ -48,7 +48,15 @@ tbody tr:nth-child(even){background:#fafbfd}
 .figs a:hover figcaption{color:var(--navy)}
 footer{max-width:920px;margin:0 auto;padding:22px 20px 40px;font-size:13px;color:var(--mut)}
 footer a{color:var(--navy)}
-</style>
+
+    /* Moldura dourada nas fotos de produto, agora que o fundo delas e branco
+       igual ao da pagina. Nas paginas com .figs a moldura tem de ficar na
+       figure, nao na img: la a img e limitada a 560px dentro de uma figure
+       mais larga, e a borda na img deixava metade do quadro vazia. Estas
+       regras vem depois das de .figs para vencer no empate de especificidade. */
+    .figs img{max-width:none;border:0}
+    .figs figure{border:1.5px solid #d4af37}
+  </style>
 </head>
 <body>
 <header><div class="in"><a href="/">GNH</a>
