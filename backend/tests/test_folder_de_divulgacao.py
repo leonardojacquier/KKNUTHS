@@ -21,20 +21,26 @@ def test_sao_exatamente_duas_paginas_a4():
     assert "296mm" in html, "altura de página perdida — o PDF vai cortar"
 
 
-def test_o_piloto_e_por_convite_sem_link_do_bot():
+def test_o_folder_leva_o_link_do_bot():
+    """22/08 o dono ABRIU o acesso: o folder passa a levar o link.
+
+    O teste inverteu junto com o docstring — antes ele proibia o link. Se um
+    dia fechar de novo, os três mudam juntos (folder, docstring, teste),
+    senão o material e o teste contam versões diferentes da decisão.
+    """
     html = build_folder_html()
-    assert "t.me/" not in html, (
-        "vazou link do bot: o piloto é por convite (ver docstring). Se o "
-        "acesso abriu, atualize o docstring E este teste juntos.")
-    assert "convite" in html.lower()
+    assert "t.me/" in html, "o folder ficou sem link depois da abertura"
+    assert html.count("t.me/") >= 2, "o link tem que estar nas duas páginas"
+    assert "https://t.me/" in html, "o botão precisa de href absoluto"
 
 
-def test_nenhuma_imagem_carrega_o_link_do_bot_desenhado():
-    """O link pode estar DENTRO do png, e aí o teste de texto passa verde.
+def test_a_restricao_de_imagem_com_link_saiu_com_o_piloto_fechado():
+    """Enquanto o piloto era fechado, imagem com link/QR era proibida.
 
-    22/08: site_card.png (com QR e t.me/KKNUts_BOT desenhados) entrou no
-    folder do piloto. O HTML estava limpo, o teste passou, e o link ia
-    impresso do mesmo jeito. Este teste lê o FONTE, não o HTML gerado.
+    O link podia estar DENTRO do png e o teste de texto passava verde —
+    site_card.png entrou assim. Com o acesso aberto (22/08) a proibição
+    perdeu o motivo, e este teste guarda a REMOÇÃO dela: se alguém
+    reintroduzir a lista sem reabrir a discussão, aqui acusa.
     """
     import inspect
 
@@ -42,10 +48,9 @@ def test_nenhuma_imagem_carrega_o_link_do_bot_desenhado():
 
     fonte = inspect.getsource(folder_page)
     corpo = fonte.split("def build_folder_html")[1]
-    for nome in folder_page._COM_LINK_DO_BOT:
-        assert nome not in corpo, (
-            f"{nome} tem o link do bot desenhado dentro da imagem — "
-            "no piloto o folder não pode carregar link")
+    assert not hasattr(folder_page, "_COM_LINK_DO_BOT"), (
+        "a lista de assets proibidos só fazia sentido no piloto fechado; "
+        "com o acesso aberto ela saiu junto com a restrição")
 
 
 def test_nao_depende_de_fonte_da_rede():

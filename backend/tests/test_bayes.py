@@ -3366,14 +3366,16 @@ def test_aviso_de_espera_do_solver(monkeypatch):
         "_valores_posflop", pos_tool), "o aviso saiu DEPOIS do cálculo"
 
 
-def test_folder_do_piloto_nao_leva_link():
-    # o folder do piloto é entregue a dedo (10 convidados). Com link do bot
-    # ele vira cadastro aleatório e o teste perde o controle da amostra.
+def test_folder_leva_link_e_segue_atualizado():
+    # 22/08 o dono ABRIU o acesso: o folder passa a levar o link do bot.
+    # Antes ele era entregue a dedo (10 convidados) e link vira cadastro
+    # aleatório — consequência aceita ao abrir. O resto do canário (as
+    # novidades, o pedido ao testador, a promessa de segurança) continua:
+    # é o que impede o folder de envelhecer sem ninguém notar.
     from app.api.folder_page import build_folder_html
 
     html = build_folder_html()
-    assert "t.me/" not in html and "KKNUts_BOT" not in html
-    assert "Acesso por convite" in html
+    assert "t.me/" in html, "o folder ficou sem link depois da abertura"
     # e o que entrou depois da última versão do folder está lá
     for novidade in ("/spot", "/prova", "Gráfico de EV de qualquer mão",
                      "Leitura declarada", "Caderno do coach"):

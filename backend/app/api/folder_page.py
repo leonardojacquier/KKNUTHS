@@ -3,10 +3,17 @@
 Servido em /folder (compartilhável) e exportado em PDF (asset) para envio
 direto por WhatsApp/Telegram ou impressão em clube.
 
-VERSÃO PILOTO (convite): SEM link do bot. O acesso é dado a dedo, um a um —
-o dono chama os testadores pessoalmente. Folder que circula com link vira
-cadastro aleatório e o piloto perde o controle da amostra. Se um dia o
-acesso abrir, é só voltar o BOT_URL no rodapé e nas barras de CTA.
+ACESSO ABERTO (decisão do dono, 22/08): o folder LEVA o link do bot.
+
+Até aqui ele circulava sem link, de propósito — o acesso era dado a dedo e
+folder com link vira cadastro aleatório, o que tira do piloto o controle da
+amostra. O dono decidiu abrir. Consequência aceita: quem receber o folder
+entra sozinho, e a amostra deixa de ser escolhida.
+
+Se um dia voltar a fechar, é remover BOT_URL das barras de CTA e do rodapé,
+devolver o selo "Acesso por convite" e reverter os dois testes que guardam
+isto (test_folder_de_divulgacao.py e test_bayes.py) — os três juntos, senão
+o folder e o teste contam versões diferentes da mesma decisão.
 
 DESIGN (22/08): a tese comercial passou a ser a INVERSÃO — todo concorrente
 vende "powered by AI"; aqui o argumento é "a IA não faz a conta". É o que a
@@ -29,11 +36,20 @@ from __future__ import annotations
 
 from app.api.manual_page import _img
 
-# Imagens que trazem o link/QR do bot DESENHADO dentro do PNG. Elas são
-# corretas na landing pública e proibidas aqui: o folder do piloto não pode
-# carregar link (ver docstring). 22/08: site_card.png entrou no folder e o
-# teste passou verde, porque ele lia o HTML e o link estava no pixel.
-_COM_LINK_DO_BOT = ("site_card.png",)
+def _bot_url() -> str:
+    """O @ do bot vem do setting, nunca de literal espalhado pelo HTML."""
+    try:
+        from app.config import get_settings
+
+        return f"https://t.me/{get_settings().telegram_bot_username}"
+    except Exception:
+        return "https://t.me/KKNUts_BOT"
+
+
+def _bot_curto() -> str:
+    """t.me/KKNUts_BOT — o que a pessoa digita, sem o https:// na frente."""
+    return _bot_url().replace("https://", "")
+
 
 _CSS = """
 *{box-sizing:border-box}
@@ -183,8 +199,9 @@ print-color-adjust:exact}
 .ctabar small{display:block;color:#BFD3C6;font-size:11px;font-family:system-ui}
 .invite{background:var(--ouro-claro);color:#3A2C12;font-weight:800;
 font-size:14px;border-radius:10px;padding:7px 14px;text-align:center;
-flex:none;print-color-adjust:exact}
-.invite small{display:block;color:#6B5C3C;font-weight:600;font-size:10px}
+flex:none;print-color-adjust:exact;text-decoration:none;display:block}
+.invite small{display:block;color:#6B5C3C;font-weight:600;font-size:10px;
+font-family:var(--mono);letter-spacing:-.01em}
 .foot{color:var(--mut);font-size:10px;text-align:center;line-height:1.45}
 .foot b{color:var(--tinta)}
 
@@ -272,8 +289,9 @@ def build_folder_html() -> str:
         <figcaption>&#127916; O filme da mão — cada street com a conta na figura</figcaption>
       </figure>
       <figure>
-        <img src="{_img('ev_sb10.png')}" alt="Grade 13x13 com o EV de cada mão">
-        <figcaption>&#128200; EV de cada mão em bb — verde rende mais que foldar</figcaption>
+        <img src="{_img('site_card.png')}" alt="Card de desafio pronto pro grupo do clube">
+        <figcaption>&#128227; Card pronto pro grupo — o spot vira desafio, com o
+          link de volta pro bot</figcaption>
       </figure>
     </div>
   </div>
@@ -297,9 +315,9 @@ def build_folder_html() -> str:
   </div>
 
   <div class="ctabar">
-    <div class="go">Fase de <em>testes fechados</em>
+    <div class="go">Manda a primeira mão <em>agora</em>
       <small>Grátis durante o piloto — 50 análises por mês, sem instalar nada.</small></div>
-    <span class="invite">Acesso por convite<small>fale com quem te passou este folder</small></span>
+    <a class="invite" href="{_bot_url()}">Abrir no Telegram<small>{_bot_curto()}</small></a>
   </div>
 
   <div class="foot">KKNuths &#9824; · análise <b>pós-sessão</b> sobre replays e
@@ -381,8 +399,8 @@ def build_folder_html() -> str:
 
   <div class="two">
     <div class="passos">
-      <div class="passo"><span class="n">1</span><span><b>Peça seu acesso</b>
-        <span>O convite é pessoal, um a um — quem te passou este folder te libera.</span></span></div>
+      <div class="passo"><span class="n">1</span><span><b>Abra o bot</b>
+        <span>Toque no link, dê Iniciar. Sem instalar nada, sem cadastro.</span></span></div>
       <div class="passo"><span class="n">2</span><span><b>Mande uma mão</b>
         <span>Cola o link do replay, o print ou o arquivo. 30 segundos até a primeira análise.</span></span></div>
       <div class="passo"><span class="n">3</span><span><b>Discuta com o coach</b>
@@ -403,7 +421,7 @@ def build_folder_html() -> str:
     <div class="go">Pare de achar. <em>Calcule.</em>
       <small>Toda resposta passa por conferência determinística antes de chegar
       em você — regra é pedido, conferência é garantia.</small></div>
-    <span class="invite">Acesso por convite<small>fale com quem te passou este folder</small></span>
+    <a class="invite" href="{_bot_url()}">Abrir no Telegram<small>{_bot_curto()}</small></a>
   </div>
 
   <div class="foot">KKNuths &#9824; · o coach lembra de você: cada mão enviada
