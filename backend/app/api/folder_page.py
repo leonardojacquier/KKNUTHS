@@ -384,6 +384,10 @@ def build_folder_html() -> str:
           <span class="ex">exclusivo</span></li>
         <li><b>Leaks em dinheiro</b> + Tilt Detector: onde sua decisão muda
           depois de uma perda <span class="ex">exclusivo</span></li>
+        <li><b>Blockers</b>: o que as SUAS cartas tiram do range dele — "seu
+          A&#9824; bloqueia o nut flush, blefe melhor do range"</li>
+        <li><b>Tendências da população</b>: com que frequência o field folda
+          para agressão em cada street</li>
         <li><b>/spot</b>: EV de qualquer all-in — abrir, re-shove, squeeze,
           pagar <span class="ex">exclusivo</span></li>
         <li><b>Gráfico de EV de qualquer mão</b>, do flop ao river</li>
