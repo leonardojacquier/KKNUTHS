@@ -7,6 +7,7 @@ mostra exatamente o que o usuário vai receber no Telegram.
 from __future__ import annotations
 
 import base64
+import logging
 from functools import lru_cache
 from pathlib import Path
 
@@ -151,9 +152,27 @@ font-size:13px;color:var(--mut)}
 
 
 def build_manual_html() -> str:
-    """Design oficial do manual (feito no Claude Design, aprovado pelo dono):
-    editorial claro, autossuficiente (fontes/QR embutidos). O asset é a fonte
-    da verdade; o gerador antigo abaixo fica como fallback se o asset sumir."""
+    """O manual, gerado A PARTIR do MANUAL.md (fonte única desde 22/08).
+
+    Antes o PDF vinha de `manual_design.html`, um export estático — e o
+    markdown que a gente edita não chegava nele. Os dois divergiram: o
+    markdown dizia "100 análises/mês" contra as 50 que o código aplica, e
+    corrigir o markdown não corrigia o PDF, que é o que o aluno lê.
+
+    Ordem de fallback, do mais correto ao menos: markdown renderizado ->
+    export estático (visual bom, conteúdo congelado) -> gerador legado.
+    Cada degrau só existe para o manual nunca sair vazio.
+    """
+    try:
+        from app.api.manual_md import build_manual_html_from_md
+
+        html = build_manual_html_from_md()
+        if len(html) > 5_000:
+            return html
+    except Exception:
+        logging.getLogger("manual").warning(
+            "markdown do manual falhou; caindo no export estático",
+            exc_info=True)
     design = _ASSETS / "manual_design.html"
     try:
         html = design.read_text()

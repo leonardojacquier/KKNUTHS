@@ -43,6 +43,7 @@ estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
 | 🎙️ **Áudio** | Grave sua pergunta por voz — o coach entende e responde |
 
 **Onde pegar o arquivo de mãos:**
+
 - **GGPoker**: PokerCraft → sua sessão/torneio → *Download hand history*
 - **PokerStars**: pasta `Documentos\PokerStars\HandHistory\seu_nick\`
 

@@ -59,3 +59,51 @@ def test_o_manual_promete_o_que_o_produto_entrega():
     texto = _texto()
     for prometido in ("Link de replay", "botão 🔍", "150", "Por que confiar"):
         assert prometido in texto, f"o manual não cita: {prometido}"
+
+
+# --- o PDF passa a ser GERADO do markdown (22/08) -------------------------
+#
+# Antes existiam dois manuais: o MANUAL.md que a gente edita e um export
+# estático que virava o PDF. Corrigir um não corrigia o outro — foi assim
+# que "100 análises/mês" sobreviveu no texto que o aluno lê.
+
+
+def test_o_manual_html_e_gerado_do_markdown():
+    from app.api.manual_page import build_manual_html
+
+    html = build_manual_html()
+    # um trecho que só existe no MANUAL.md prova a origem
+    assert "Por que confiar no número" in html
+    assert "/dossie" in html
+    assert len(html) > 20_000
+
+
+def test_o_markdown_nao_tem_lista_colada_em_paragrafo():
+    """Lista sem linha em branco antes vira PARÁGRAFO no render.
+
+    22/08: 'Onde pegar o arquivo de mãos:' seguido direto dos itens saiu no
+    PDF como um bloco de texto corrido com hífens no meio. O markdown estava
+    'certo' aos olhos de quem escreve e errado para o renderizador.
+    """
+    import re
+
+    linhas = _texto().splitlines()
+    coladas = []
+    for i in range(1, len(linhas)):
+        ant, at = linhas[i - 1], linhas[i]
+        if re.match(r"^[-*]\s", at) and ant.strip() \
+                and not ant.startswith(("|", ">", "#", "  ")) \
+                and not re.match(r"^\s*([-*]\s|\d+\.\s)", ant):
+            coladas.append(i + 1)
+    assert not coladas, (
+        f"linhas {coladas}: lista colada no parágrafo anterior — no PDF ela "
+        "vira texto corrido. Ponha uma linha em branco antes.")
+
+
+def test_as_tabelas_de_comando_viram_tabela_de_verdade():
+    from app.api.manual_page import build_manual_html
+
+    html = build_manual_html()
+    assert html.count("<table>") >= 4, "as 4 tabelas de comando não renderizaram"
+    # o comando tem que sair como <code> dentro da célula, não como texto cru
+    assert "<code>/dossie</code>" in html
