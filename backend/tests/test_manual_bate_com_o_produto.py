@@ -107,3 +107,57 @@ def test_as_tabelas_de_comando_viram_tabela_de_verdade():
     assert html.count("<table>") >= 4, "as 4 tabelas de comando não renderizaram"
     # o comando tem que sair como <code> dentro da célula, não como texto cru
     assert "<code>/dossie</code>" in html
+
+
+# --- cobertura: o manual acompanha o produto? -----------------------------
+#
+# 22/08 o dono apontou: "manual não tá falando do tilt detector". Auditando
+# depois, 11 de 15 features não estavam citadas — o Tilt Detector era só a
+# que ele notou. Feature que existe e ninguém documenta é feature que ninguém
+# usa, e o custo já foi pago para construí-la.
+#
+# A lista abaixo é de features de PRODUTO (o aluno reconhece pelo nome), não
+# de motores internos. Quem construir uma nova acrescenta aqui e no manual —
+# ou este teste falha e lembra.
+
+FEATURES_QUE_O_ALUNO_VE = {
+    "Tilt Detector": ("tilt detector",),
+    "blockers": ("blocker",),
+    "PKO/bounty": ("pko", "bounty"),
+    "defesa do river": ("defesa do river",),
+    "spot pós-flop": ("spot pós-flop", "pós-flop"),
+    "tendências da população": ("população",),
+    "estrutura do torneio": ("estrutura do torneio",),
+    "quiz diário": ("quiz",),
+    "resumo da semana": ("resumo da semana", "domingo"),
+    "filme da mão": ("filme da mão",),
+    "gráfico de range": ("range 13×13", "13×13"),
+    "botão de reabrir a mão": ("botão 🔍",),
+}
+
+
+@pytest.mark.parametrize("feature,termos", sorted(FEATURES_QUE_O_ALUNO_VE.items()))
+def test_o_manual_cita_a_feature(feature, termos):
+    baixo = _texto().lower()
+    assert any(t.lower() in baixo for t in termos), (
+        f"'{feature}' existe no produto e não está no manual — "
+        "feature que ninguém documenta é feature que ninguém usa")
+
+
+def test_o_tilt_detector_tem_secao_e_nao_so_uma_linha():
+    """Era citado só numa célula de tabela; o dono reclamou com razão."""
+    texto = _texto()
+    assert "### 🧠 KKN Tilt Detector" in texto
+    # os dois padrões opostos, que é o que a ferramenta mede de verdade
+    assert "Chase" in texto and "Medo de ganhar" in texto
+    # e os números que o código aplica, para o texto não inventar limiar
+    from app.analysis.mental import DELTA_PP, TRIGGER_BB, WINDOW
+
+    corrido_ = " ".join(texto.split())
+    assert f"{TRIGGER_BB:.0f}bb" in corrido_
+    assert f"{WINDOW} mãos" in corrido_
+    # o markdown quebra linha onde quiser: normaliza antes de procurar
+    corrido = " ".join(texto.split())
+    assert f"{DELTA_PP:.0f} pontos" in corrido, (
+        f"o manual não cita o limiar real ({DELTA_PP:.0f} pontos de VPIP) — "
+        "texto que inventa limiar é pior que texto que não fala dele")

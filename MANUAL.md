@@ -99,6 +99,29 @@ conferências determinísticas antes de chegar em você:
 - **E se a análise não fechar**, você recebe o resumo honesto com os números da
   mão e um aviso de que a análise completa não saiu — nunca meia frase.
 
+### 🧠 KKN Tilt Detector — o que a perda faz com o seu jogo
+
+O tilt deixa de ser sensação e vira número. Depois de **cada pote grande**
+(15bb ou mais), o KKNuths observa as **8 mãos seguintes** e compara com a sua
+linha de base — não com a de um jogador médio, com a **sua**.
+
+Ele procura dois padrões opostos, os dois vindos da Teoria da Perspectiva de
+**Daniel Kahneman** (Nobel de Economia de 2002):
+
+- **Chase** — depois de PERDER um pote grande, você abre mais mãos do que
+  costuma, tentando voltar ao zero. É a aversão à perda virando busca de risco.
+- **Medo de ganhar** — depois de GANHAR um pote grande, você trava e folda
+  além da conta, com medo de devolver. Justamente quando o stack te dava
+  pressão para usar.
+
+**Ele não acusa por pouco.** Só chama de padrão quando o desvio passa de **8
+pontos de VPIP** e há mãos suficientes na janela — meia dúzia de mãos agitadas
+não vira diagnóstico. E o resultado vem com o preço: *"nessas 24 mãos o saldo
+foi −31.4bb"*. Você vê o que o padrão custou, não só que ele existe.
+
+Sai no `/stats`, e alimenta o `/preparar` — o briefing pré-torneio lembra do
+seu padrão antes de você sentar.
+
 ### 💬 Converse com o coach — sobre a mão ou sobre QUALQUER coisa de poker
 Discordou da análise? Tem mais contexto? Responda na conversa (texto ou áudio):
 
@@ -110,6 +133,25 @@ Se algo do print foi mal lido, diga — ele relê a imagem e corrige.
 E não precisa ser sobre uma mão: pergunte o que quiser —
 *"como lidar com downswing?"*, *"que stakes devo jogar com banca de $500?"* —
 o coach responde levando em conta o **seu** perfil de jogo.
+
+### 🔬 O que mais roda por baixo
+
+Nem tudo tem comando próprio — muita coisa entra sozinha quando o spot pede:
+
+- **Blockers**: o que as SUAS cartas tiram do range dele. *"Seu A♠ bloqueia o
+  nut flush — blefe melhor do range"* é conta, não impressão.
+- **PKO / bounty**: em torneio de recompensa, eliminar o vilão paga a bounty
+  **agora** — isso é dinheiro morto a mais no pote, e muda o preço do call.
+  A conta entra automática quando a mão tem bounty.
+- **Defesa do river**: contra a aposta final, a pergunta que tem resposta
+  exata — com que frequência você precisa pagar para não ser explorado.
+- **Spot pós-flop**: gráfico de EV mão a mão a partir da SUA mão real, do
+  flop ao river — não só de all-in pré-flop.
+- **Tendências da população**: com que frequência o field folda para agressão
+  em cada street. É a base de todo exploit, e cruza com o perfil do vilão.
+- **Estrutura do torneio**: o ritmo (turbo, regular, hyper) **medido nas suas
+  mãos**, não adivinhado pelo nome que você digitou. Quando você manda o print
+  do lobby, ele lê a tabela de blinds, o relógio e o stack inicial.
 
 ---
 
