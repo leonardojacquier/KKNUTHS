@@ -34,8 +34,9 @@ estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
 
 | Jeito | Como fazer |
 |---|---|
+| 🔗 **Link de replay** | Cola o link do replay do clube (**PPPoker** e **Suprema**) e a mão abre sozinha — nada de digitar |
 | 📸 **Print/foto** | Tire print do replay da mão (ou da mesa) e envie como foto. O KKNuths lê as cartas, stacks, posições e a ação completa |
-| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars (inclusive Zoom), Winamax, PartyPoker e 888poker** — cash e torneio |
+| 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars (inclusive Zoom), Winamax, PartyPoker e 888poker** — cash e torneio. Para **PPPoker** e **Suprema**, cola o link do replay |
 | 📋 **Colar o texto** | Copie o texto da mão (ou da sessão inteira!) e cole direto na conversa. Texto longo demais? O Telegram corta em partes — **pode colar tudo em sequência que eu junto sozinho**; se a última parte não vier, é só responder “analisar” |
 | 📊 **CSV do seu tracker** | Exporte do Hold'em Manager / PokerTracker e anexe |
 | 📑 **PDF** | Relatórios em PDF também funcionam |
@@ -80,6 +81,23 @@ que* a jogada decide o spot — sem título fixo, sem repetir a conta que o
 placar já deu. Termo técnico fica em inglês, como se fala na mesa (*river* é
 river, *flop* é flop), e ganha um parêntese curto na primeira vez.
 
+### 🛡️ Por que confiar no número
+
+A regra da casa é: **regra é pedido, conferência é garantia.** Pedir a um modelo
+que não erre é esperança, não garantia — então toda resposta passa por
+conferências determinísticas antes de chegar em você:
+
+- **A conta não vem do modelo.** Equity, ICM, equilíbrio de Nash e pot odds saem
+  de código matemático. O coach lê, julga e explica; quem calcula é a matemática.
+- **As cartas conferem com a mesa.** A carta citada no placar é comparada com o
+  board real. Divergiu, corrige; ficou ambíguo, ele avisa em vez de chutar.
+- **Número sem lastro não passa.** Todo número precisa vir de uma ferramenta ou
+  do histórico da mão — sem lastro, não é entregue.
+- **Termo de poker não vira tradução.** *River* é river, *flop* é flop, *air* é
+  air. Do jeito que se fala na mesa.
+- **E se a análise não fechar**, você recebe o resumo honesto com os números da
+  mão e um aviso de que a análise completa não saiu — nunca meia frase.
+
 ### 💬 Converse com o coach — sobre a mão ou sobre QUALQUER coisa de poker
 Discordou da análise? Tem mais contexto? Responda na conversa (texto ou áudio):
 
@@ -96,27 +114,44 @@ o coach responde levando em conta o **seu** perfil de jogo.
 
 ## 🎮 Comandos
 
+Os mesmos quatro grupos que aparecem no `/start` — toque no botão da categoria
+e a lista abre com tudo clicável.
+
+### 📊 Análise e perfil
 | Comando | O que faz |
 |---|---|
-| `/start` | Menu inicial |
-| `/stats` | Seu perfil de estilo (VPIP, agressividade, tendência) calculado sobre todas as suas mãos |
-| `/simular` | **Simulador**: jogue uma mão SUA de novo, decisão a decisão, com botões — no final, compare sua linha com a real e receba o veredito do coach |
-| `/treino` | Drill rápido: **uma decisão** de uma mão sua — a mais instrutiva da mão, com a história até ali. O que você faria? Ao responder, chega **o filme da mão** (storyboard): a jogada do pré até a sua decisão, com a matemática (equity/EV) e o veredito |
-| `/range` | **Gráficos de range 13×13**: `/range btn` (open por posição) · `/range sb 10` (Nash de all-in com 10bb) · `/range bb 8` (Nash de call) · `/range sb 10 ev` (**EV em BB de cada mão**, verde = empurrar rende mais que foldar) · `/range sb 10 icm 1.5` (o mesmo **sob pressão de ICM** — veja o range mudar perto da bolha) |
-| `/ask` + pergunta | Pesquise no seu histórico: *"/ask minhas maiores perdas no river"* |
-| `/foco` | **No que você está trabalhando**: um problema por vez — o mais caro que passou por cinco portões (amostra, frequência, custo, recorrência, procedência) — com o critério de alta escrito ANTES e o número de mãos que ainda faltam |
-| `/evolucao` | Sua linha do tempo, com gráficos por indicador |
-| `/estilo` | Você comparado com os arquétipos dos grandes nomes |
-| `/torneio` | Quadro do último torneio + **onde o EV foi embora, por profundidade de stack**, e com que frequência você entra em cada faixa |
-| `/relatorio` | **Relatório mão a mão do torneio**, em documento: cada mão jogada com o filme quadro a quadro, a análise do coach e um botão **🔍 Análise completa no bot** — toque e aquela mão reabre no chat, com placar street a street, pronta pra você discutir |
-| `/preparar` | Preparação pré-torneio: o perfil daquele formato e o que ele exige |
-| `/spot` | EV de all-in escrito em linguagem de mesa: `/spot reshove btn 12 co` |
-| `/prova` | **Audite a ferramenta** nas suas próprias mãos — oito classes de verificação, com as falhas na cara |
-| `/leitura` | Adivinhe a mão do vilão a partir da linha dele |
-| `/vilao` | Dossiê de um oponente específico |
-| `/banca` | Risco de ruína e downswing esperado |
+| `/stats` | Perfil de estilo, leaks em bb/100 e **KKN Tilt Detector** — onde sua decisão muda depois de uma perda |
+| `/estilo` | Cartão visual do seu estilo comparado com os grandes nomes, com plano de transição |
+| `/evolucao` | Sua linha do tempo (VPIP, PFR, resultado…) com gráficos por indicador |
+| `/torneio` | Quadro de um torneio: o último, ou escolha na lista — `/torneio 2` e `/torneio <código>` também valem |
+| `/relatorio` | **O torneio inteiro analisado, mão por mão** (HTML): o filme de cada mão, a análise do coach e o botão 🔍 que reabre qualquer uma no chat |
+| `/prova` | **Audite a ferramenta** nas suas próprias mãos — classes de verificação, com as falhas na cara |
+
+### 🎮 Treino
+| Comando | O que faz |
+|---|---|
+| `/preparar` | Briefing pré-torneio: seus leaks, protocolo mental e metas |
+| `/simular` | Jogue uma mão SUA de novo, decisão a decisão, com botões — e compare sua linha com a real |
+| `/treino` | Drill rápido: o que você faria neste spot? Ao responder, chega o filme da mão |
+| `/leitura` | Adivinhe a mão do vilão a partir da linha que ele tomou |
+| `/foco` | No que você está trabalhando agora, e como está indo — um problema por vez, com o critério de alta escrito ANTES |
+
+### 📐 Ferramentas
+| Comando | O que faz |
+|---|---|
+| `/spot` | EV de all-in: o equilíbrio do spot, **com e sem ICM** |
+| `/range` | Gráficos 13×13: `/range btn` · `/range sb 10` · `/range sb 10 ev` (EV em bb de cada mão) · `/range sb 10 icm 1.5` (sob pressão de ICM) |
+| `/vilao` | Perfil rápido de um oponente, no chat: frequências, showdowns e como explorar |
+| `/dossie` | **Dossiê completo em HTML** de um vilão num torneio: `/dossie fulano` · `/dossie fulano 2` (torneio anterior) |
+| `/banca` | Risco de ruína e downswing esperado para a sua banca |
+| `/ask` | Busque no seu histórico: `/ask quantas vezes paguei 3-bet fora de posição?` |
+
+### ⚙️ Conta e ajuda
+| Comando | O que faz |
+|---|---|
 | `/manual` | Este manual em PDF |
-| `/plano` | Seu plano e limites |
+| `/plano` | Seu plano, seus limites e o que já usou |
+| `/start` | Voltar ao começo, com os atalhos do primeiro minuto |
 
 ### 🃏 Quiz do dia
 Todo dia às 19h o KKNuths te manda **uma decisão real das suas mãos**: "o que você
@@ -135,7 +170,7 @@ Todo domingo: suas mãos da semana, resultado, evolução das estatísticas e o
 
 | | **Grátis** | **Pro** *(em breve)* |
 |---|---|---|
-| Análises por mês | 100 | Ilimitadas |
+| Análises por mês | 50 | Ilimitadas |
 | Torneio completo + história | ✔️ | ✔️ |
 | Simulador, quiz diário e gráficos de range | ✔️ | ✔️ |
 | Voz, prints, todos os formatos | ✔️ | ✔️ |
