@@ -2631,6 +2631,13 @@ def followup(
             "PERGUNTAR pelo número ('quanto custou aquele call?', 'qual era "
             "o EV do shove?'), DÊ O NÚMERO — refeito pela ferramenta se "
             "houver dado novo. Resposta sem número é o defeito (C11). "
+            "\nQUAL MÃO: 'essa mão' é a ÚLTIMA que o aluno trouxe na "
+            "conversa. Se ele NARROU uma mão por texto, é DELA que se fala "
+            "— a do contexto é a última ANALISADA e vira pano de fundo. "
+            "Narração vence análise; só volte à analisada se ele disser. "
+            "Na dúvida entre duas, PERGUNTE em uma linha citando as cartas "
+            "de cada uma, antes de fazer conta. Nunca responda sobre uma "
+            "mão sem nomear as cartas dela: é como o aluno percebe a troca. "
             + (
                 "\nA IMAGEM ORIGINAL do print está anexada: se o aluno disser que algo "
                 "foi lido errado ou está faltando, RELEIA a imagem com atenção — nomes, "
@@ -2640,7 +2647,14 @@ def followup(
             )
         )
         system_blocks = _bloco_cacheado(system)
-        ctx_text = "Contexto da análise em discussão:\n" + json.dumps(
+        # RÓTULO HONESTO. Era "Contexto da análise em discussão" — e o modelo
+        # acreditava: 21/08 o dono narrou uma mão de K♠5♠ depois de ter
+        # analisado uma de A♠A♥, pediu "o EV dessa mão" e levou três
+        # respostas sobre a A♠A♥ ("Não seu burro quero a outra mão que eu
+        # estava narrando"). O rótulo prometia o que o dado não é: ele é a
+        # última mão ANALISADA, não necessariamente a mão da conversa.
+        ctx_text = ("Última mão ANALISADA (pode NÃO ser a mão de que o aluno "
+                    "fala agora — veja a regra QUAL MÃO):\n") + json.dumps(
             context, ensure_ascii=False, indent=2
         )
         first_content: list | str = ctx_text
