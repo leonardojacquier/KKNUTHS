@@ -49,6 +49,11 @@ estatísticas, evolução — e deixa o coaching cada vez mais personalizado.
 do torneio" — os momentos que decidiram seu resultado — e seu perfil evolui muito
 mais rápido.*
 
+**Torneio grande não vira resumo.** Num torneio longo, o coach analisa até **150
+mãos** — e escolhe as que decidiram o resultado (all-ins primeiro, depois as de
+maior impacto no seu stack), não as 150 primeiras. As demais entram com resumo
+automático, avisado como tal, e o botão 🔍 reabre qualquer uma no chat.
+
 ---
 
 ## 🧠 O que você recebe em cada análise
@@ -69,6 +74,11 @@ mais rápido.*
   decisões de bubble e mesa final, all-ins de stack curto comparados com o
   **equilíbrio Nash calculado**
 - **Plano de melhoria**: 2–3 pontos priorizados para estudar
+
+💬 **E soa como coach, não como formulário.** A análise fecha explicando *por
+que* a jogada decide o spot — sem título fixo, sem repetir a conta que o
+placar já deu. Termo técnico fica em inglês, como se fala na mesa (*river* é
+river, *flop* é flop), e ganha um parêntese curto na primeira vez.
 
 ### 💬 Converse com o coach — sobre a mão ou sobre QUALQUER coisa de poker
 Discordou da análise? Tem mais contexto? Responda na conversa (texto ou áudio):
@@ -98,7 +108,7 @@ o coach responde levando em conta o **seu** perfil de jogo.
 | `/evolucao` | Sua linha do tempo, com gráficos por indicador |
 | `/estilo` | Você comparado com os arquétipos dos grandes nomes |
 | `/torneio` | Quadro do último torneio + **onde o EV foi embora, por profundidade de stack**, e com que frequência você entra em cada faixa |
-| `/relatorio` | Relatório mão a mão do torneio, em documento |
+| `/relatorio` | **Relatório mão a mão do torneio**, em documento: cada mão jogada com o filme quadro a quadro, a análise do coach e um botão **🔍 Análise completa no bot** — toque e aquela mão reabre no chat, com placar street a street, pronta pra você discutir |
 | `/preparar` | Preparação pré-torneio: o perfil daquele formato e o que ele exige |
 | `/spot` | EV de all-in escrito em linguagem de mesa: `/spot reshove btn 12 co` |
 | `/prova` | **Audite a ferramenta** nas suas próprias mãos — oito classes de verificação, com as falhas na cara |
