@@ -66,8 +66,29 @@ def _e_analise_de_mao(texto: str) -> bool:
     return any(s in t for s in _STREETS) and bool(re.search(r"\d[\d.,]*\s*bb", t))
 
 
+# PERGUNTA DE DECISÃO: o aluno pede o VEREDITO, não uma explicação. Aqui a
+# ausência de selo é defeito — juiz de 22/08, pior resposta (3.5/10): "não diz
+# se a decisão foi certa ou errada com clareza". Medido na janela: 7 perguntas
+# de decisão, 5 sem selo (71%). Deliberadamente ESTREITO: pergunta explicativa
+# ("não seria melhor o shove?", "me explica fold equity") continua sem exigir
+# selo — carimbá-la é o ruído que o docstring abaixo proíbe desde sempre.
+_PERGUNTA_DE_DECISAO = re.compile(
+    r"(joguei|jogei)\s+(certo|errado|mal|bem)"
+    r"|(t[áa]|est[áa]|foi|seria|era)\s+(certo|errado|correto)"
+    r"|certo\s+(o|esse|este|dar|pagar)\b"
+    r"|dev(ia|eria)\b"
+    r"|foi\s+(um\s+)?erro|é\s+erro\b|erro\s+(dar|pagar|foldar)"
+    r"|vale\s+a\s+pena|compensa(va)?\b",
+    re.I)
+
+
+def _e_pergunta_de_decisao(pergunta: str | None) -> bool:
+    return bool(pergunta and _PERGUNTA_DE_DECISAO.search(pergunta))
+
+
 def judge_answer(texto: str, conversa: bool = False,
-                 calques_extra: tuple = ()) -> list[str]:
+                 calques_extra: tuple = (),
+                 pergunta: str | None = None) -> list[str]:
     """Problemas de FORMA numa resposta do coach (lista vazia = passou).
     Função pura — é o contrato que o prompt promete ao aluno.
 
@@ -80,6 +101,12 @@ def judge_answer(texto: str, conversa: bool = False,
     if not t:
         return ["resposta vazia"]
     probs: list[str] = []
+
+    # o aluno PEDIU o veredito: entregar equity e narrativa sem dizer se a
+    # decisão foi certa é responder outra pergunta (ver _PERGUNTA_DE_DECISAO)
+    if conversa and _e_pergunta_de_decisao(pergunta) and \
+            not any(s in t for s in _SELOS):
+        probs.append("pergunta de decisão respondida sem veredito (selo)")
 
     if _e_analise_de_mao(t) and not conversa:
         primeira = t.split("\n", 1)[0]
@@ -497,7 +524,8 @@ def main() -> int:
         origem = ("conversa" if p.get("conversa")
                   else f"análise·{p.get('modelo', '?')}")
         for prob in judge_answer(str(p.get("a") or ""), conversa=p["conversa"],
-                                 calques_extra=extra):
+                                 calques_extra=extra,
+                                 pergunta=str(p.get("q") or "")):
             achados.append(f"[{origem}] {prob} — "
                            f"«{str(p.get('q') or '')[:50]}…»")
 
