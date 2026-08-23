@@ -1075,8 +1075,33 @@ async def on_drill_answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             pass
 
 
+_EXT_DE_IMAGEM = (".jpg", ".jpeg", ".png", ".webp", ".heic", ".bmp", ".gif")
+
+
+def _documento_e_imagem(nome: str | None, mime: str | None) -> bool:
+    """Arquivo que é FOTO, não dado. Só nele o link da legenda manda.
+
+    A separação importa: hand history de verdade é dado, e um .txt cuja
+    legenda cita um replay continua tendo que ser analisado como arquivo."""
+    if (mime or "").lower().startswith("image/"):
+        return True
+    return (nome or "").lower().endswith(_EXT_DE_IMAGEM)
+
+
 async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     doc = update.message.document
+
+    # A MESMA imagem promocional do on_photo, só que sem compressão: é assim
+    # que o Telegram Desktop (e alguns Androids) entregam o compartilhamento
+    # do app do clube. Sem este desvio ela ia pra visão e gastava uma análise
+    # da cota pra responder "não veio legível" — com o replay na legenda.
+    if _documento_e_imagem(doc.file_name, doc.mime_type):
+        from app.bot.processing import replay_link_info
+
+        rl = replay_link_info(update.message.caption or "", legenda=True)
+        if rl:
+            await _tratar_replay(update, rl)
+            return
 
     # limite de tamanho ANTES do download (custo e abuso)
     if doc.file_size and doc.file_size > MAX_UPLOAD_MB * 1024 * 1024:

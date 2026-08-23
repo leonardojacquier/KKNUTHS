@@ -52,7 +52,8 @@ def test_os_modulos_extraidos_continuam_folha():
     Se um dia `leitura_da_mao` precisar do `processing`, o ciclo aparece e o
     import quebra no ar, em produção, não aqui."""
     for nome in ("leitura_da_mao.py", "menus.py", "storyboard.py",
-                 "repeticao.py", "memoria_do_processo.py"):
+                 "repeticao.py", "memoria_do_processo.py",
+                 "link_do_clube.py"):
         fonte = _fonte(nome)
         assert "from app.bot.processing" not in fonte, \
             f"{nome} importa de volta o processing — isso é ciclo"
@@ -75,7 +76,8 @@ def test_modulo_extraido_nao_deixa_NOME_LIVRE_para_tras():
     import builtins
 
     for nome in ("leitura_da_mao.py", "menus.py", "storyboard.py",
-                 "repeticao.py", "memoria_do_processo.py"):
+                 "repeticao.py", "memoria_do_processo.py",
+                 "link_do_clube.py"):
         arvore = ast.parse(_fonte(nome))
         definidos = set(dir(builtins)) | {"annotations", "__name__", "__doc__"}
         for n in ast.walk(arvore):
@@ -130,7 +132,8 @@ def test_quem_importava_do_processing_continua_importando():
     for nome in ("_walk_hand", "_preflop_summary", "_pretty_cards", "_fmt_bb",
                  "_seats_at_decision", "_mark_aggressor", "_decision_aggressor",
                  "_describe_safe", "action_menu_rows", "size_menu_rows",
-                 "sizing_amounts", "drill_action", "botoes_pos_treino"):
+                 "sizing_amounts", "drill_action", "botoes_pos_treino",
+                 "replay_link_info", "replay_fallback_text"):
         assert hasattr(processing, nome), \
             f"{nome} sumiu de processing — quem importava de lá quebrou"
 
