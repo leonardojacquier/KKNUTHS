@@ -1,9 +1,17 @@
 """Nash push/fold heads-up REAL — equilíbrio calculado, não aproximado.
 
 Carrega o resultado do fictitious play (scripts/gen_nash_pushfold.py) sobre a
-matriz de equity exata. Cobre o jogo SB-vs-BB jam/fold — a decisão dominante
-do stack curto em MTT. Para posições não-HU, o sistema cai na aproximação
-por thresholds (pushfold.py), sinalizando a diferença.
+matriz de equity exata. Cobre o jogo SB-vs-BB jam/fold de um MATCH heads-up.
+
+ATENÇÃO — este NÃO é o modelo do SB de um MTT de 9 lugares. Lá o pote tem o
+ante de todos, o dinheiro morto é muito maior e o range certo é bem mais
+largo: 7% das mãos diferem a 6bb, 12% a 20bb. Quem escolhe entre os dois é
+`pushfold.push_fold` pelo parâmetro `jogadores`; não chame esta função direto
+sem ter certeza de que a mesa é heads-up de verdade.
+
+(Posições não-HU são resolvidas por `open_shove_solver`, não pela tabela de
+thresholds — a frase anterior desta docstring dizia o contrário e estava
+desatualizada.)
 """
 from __future__ import annotations
 

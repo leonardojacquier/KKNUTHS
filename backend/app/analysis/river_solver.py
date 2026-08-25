@@ -343,15 +343,80 @@ class RiverSolver:
             return ev_me, u_opp_total
         return u_opp_total, ev_me
 
+    def _freqs_das_raizes(self) -> dict:
+        """Frequência média de cada ação nas raízes dos dois jogadores.
+
+        É exatamente o que o `summary` publica — medir outra coisa daria uma
+        convergência que não fala do número entregue."""
+        out = {}
+        for chave in ("|", "|x"):
+            node = self.nodes.get(chave)
+            if node is not None:
+                out[chave] = node.avg_strategy().mean(axis=0).copy()
+        return out
+
     def solve(self, iterations: int = 400) -> "RiverSolver":
         # multi-street (chance amostrada): mais iterações pros nós fundos
         if len(self.board0) < 5:
             iterations = max(iterations, 600)
         r0 = np.ones(self._n[0])
         r1 = np.ones(self._n[1])
-        for _ in range(iterations):
+        meio = max(1, iterations // 2)
+        no_meio: dict | None = None
+        for i in range(iterations):
             self._cfr("|", 0, 0.0, (0.0, 0.0), (r0, r1), True)
+            if i + 1 == meio:
+                no_meio = self._freqs_das_raizes()
+        self.convergencia = self._medir_convergencia(no_meio, iterations)
         return self
+
+    def _medir_convergencia(self, no_meio: dict | None,
+                            iterations: int) -> dict | None:
+        """Quanto as frequências ainda se moviam na segunda metade do solve.
+
+        NÃO é exploitability e NÃO é intervalo de confiança. É a medida barata
+        que dá para carregar junto sem dobrar o custo — e ela SUBESTIMA o erro
+        real, porque a estratégia média já é amortecida por construção.
+        Calibração medida em 25/08 (river A♥K♦7♣2♠9♥, pote 20, stack 60,
+        contra o MESMO spot resolvido a 20.000 iterações):
+
+            iterações   esta medida   erro real   subestima
+                  400       0,71 pp     1,75 pp      2,5x
+                1.600       0,50 pp     1,02 pp      2,0x
+                6.400       0,31 pp     0,23 pp      0,7x
+
+        Ela acompanha o erro de verdade (cai junto) e o subestima justamente
+        onde ele é grande — que é o pior lugar para subestimar. Serve para
+        dizer "esta resposta é grossa", nunca para dizer "esta resposta está
+        a X pontos do certo". Por isso sai rotulada como PISO: o METODO
+        proíbe o número que parece saber mais do que sabe.
+        """
+        if not no_meio:
+            return None
+        fim = self._freqs_das_raizes()
+        # POR RAIZ, não as duas somadas: o `summary` publica a raiz de UM
+        # jogador, e a do IP ("|x") só é visitada quando o OOP dá check —
+        # ela converge bem mais devagar e contaminaria a medida da outra.
+        por_raiz: dict[str, dict] = {}
+        for chave, f in fim.items():
+            antes = no_meio.get(chave)
+            if antes is None or len(antes) != len(f):
+                continue
+            d = abs(np.asarray(f) - np.asarray(antes)) * 100
+            por_raiz[chave] = {
+                "iteracoes": iterations,
+                "desvio_medio_pp": round(float(np.mean(d)), 2),
+                "desvio_max_pp": round(float(np.max(d)), 2),
+                "leitura": "piso do erro: quanto as frequências ainda se "
+                           "moviam na segunda metade do solve. Subestima o "
+                           "desvio real (~2x a 400 iterações) — nunca leia "
+                           "como intervalo.",
+            }
+        return por_raiz or None
+
+    def convergencia_de(self, player: str = "oop") -> dict | None:
+        """A convergência DA RAIZ que o `summary(player)` publica."""
+        return (self.convergencia or {}).get("|" if player == "oop" else "|x")
 
     # ------------------------------------------------------------------
     def hand_values(self, player: str = "oop", passes: int = 120) -> dict | None:
@@ -442,6 +507,12 @@ class RiverSolver:
         return out
 
 
+# acima deste desvio a resposta vira "ordem de grandeza": calibrado na
+# medição de 25/08 — 400 iterações davam 0,70pp de piso para 1,75pp de
+# erro real, e 6.400 davam 0,27pp para 0,23pp (aí já convergiu).
+_CONVERGIU_PP = 0.5
+
+
 def solve_river(
     board: list[str], oop_range: str, ip_range: str,
     pot: float, stack: float, player: str = "oop",
@@ -454,7 +525,11 @@ def solve_river(
         raise ValueError(
             f"solve exige board de 3, 4 ou 5 cartas (recebi {len(board)})"
         )
-    key = f"{'/'.join(sorted(board))}|{oop_range}|{ip_range}|{pot}|{stack}|{player}"
+    # `iterations` ENTRA na chave: sem ele, um spot resolvido antes a 400
+    # devolvia o resultado velho para quem pedisse 6.400 — o parâmetro era
+    # aceito e ignorado, e a resposta saía com cara de mais exata sem ser.
+    key = (f"{'/'.join(sorted(board))}|{oop_range}|{ip_range}|{pot}|{stack}"
+           f"|{player}|{iterations}")
     if key in _CACHE:
         return _CACHE[key]
     solver = RiverSolver(board, oop_range, ip_range, pot, stack).solve(iterations)
@@ -468,6 +543,16 @@ def solve_river(
     }
     result["nota"] = (notas[len(board)]
                       + "; sizings 50%/100%/all-in, uma raise no máximo")
+    conv = solver.convergencia_de(player)
+    if conv:
+        result["convergencia"] = conv
+        # a nota é o que sempre chega junto do número; quem lê só ela precisa
+        # saber que a resposta é grossa, sem abrir o dicionário
+        if conv["desvio_medio_pp"] >= _CONVERGIU_PP:
+            result["nota"] += (
+                f"; ATENÇÃO: convergência grosseira — as frequências ainda se "
+                f"moviam {conv['desvio_medio_pp']:g}pp (piso) no fim do solve, "
+                f"trate como ordem de grandeza")
     _CACHE[key] = result
     return result
 

@@ -1,9 +1,21 @@
-"""Push/fold para stacks curtos em torneio (aproximação Nash, determinística).
+"""Push/fold para stacks curtos em torneio — duas perguntas, dois motores.
 
-`HAND_RANKING` foi gerado por Monte Carlo (equity vs mão aleatória, treys, seed fixo)
-com o próprio avaliador do projeto — ordenação estável e reproduzível. Os limiares
-por posição/stack aproximam ranges Nash de open-shove publicados; são uma referência
-de MVP (o LLM contextualiza como "aproximação"), não um solver.
+  `push_fold`     — abrir de all-in?  (open_shove_solver / jam_fold_solver)
+  `call_de_allin` — pagar um all-in?  (a faixa de call do MESMO equilíbrio)
+
+QUAL motor depende do tamanho da mesa, e isso É o veredito: mesa de 9 tem o
+ante de todo mundo no pote, um match heads-up tem dois. Mais dinheiro morto,
+range mais largo. Rotear errado custava 7% das mãos a 6bb e 12% a 20bb.
+
+`HAND_RANKING` foi gerado por Monte Carlo (equity vs mão aleatória, treys, seed
+fixo) com o próprio avaliador do projeto — ordenação estável e reproduzível.
+Serve para o percentil da mão ("seu T9s está no top X%").
+
+`_THRESHOLDS` é a tabela estática antiga, hoje só RESERVA para quando o solver
+não sobe. Ela ignora os antes e sai sistematicamente tight — não a use como
+referência de nada. (A docstring deste módulo dizia por muito tempo que a
+tabela era o caminho normal, e isso já levou a um diagnóstico errado: o
+solver assumiu o lugar dela e ninguém atualizou o texto aqui em cima.)
 """
 from __future__ import annotations
 
@@ -69,8 +81,66 @@ def shove_threshold(position: str, stack_bb: float) -> float | None:
     return None
 
 
+def call_de_allin(cards: list[str], stack_bb: float,
+                  vilao_pos: str | None = "SB", ante_bb: float = 0.125,
+                  jogadores: int = 9) -> dict:
+    """Diante de um all-in: pagar ou largar. NÃO é `push_fold`.
+
+    São perguntas diferentes e por isso são funções diferentes. Enfiar as
+    duas na mesma saída fazia `decision` mudar de vocabulário ("push"/"fold"
+    virava "call"/"fold") sem avisar ninguém — e os seis chamadores de
+    `push_fold` leem esse campo. O relatório mão a mão teria chamado de
+    "❌ shove exagerado" todo all-in do BB, e o `/treino` teria estourado
+    KeyError procurando `shove_range_pct`.
+
+    Em HU é o range de call do equilíbrio jam/fold. Em mesa cheia é o
+    `call_range` que o solver de open-shove resolve JUNTO com o range do
+    herói — as duas estratégias se ajustam uma à outra, então usar a faixa de
+    call daquele range de shove é o único jeito de não se contradizer.
+    """
+    mao = canonical_hand(cards)
+    if int(jogadores) <= 2 and stack_bb <= 25:
+        from app.analysis.nash_pushfold import nash_jam_fold
+
+        hu = nash_jam_fold(cards, stack_bb, "BB")
+        if hu:
+            return hu
+    if stack_bb <= 20:
+        try:
+            from app.analysis.open_shove_solver import solve_open_shove
+
+            sol = solve_open_shove((vilao_pos or "SB").upper(),
+                                   round(float(stack_bb), 1), 1.0,
+                                   round(float(ante_bb), 3))
+        except Exception:
+            sol = None
+        if sol:
+            freq = sol["call_range"].get(mao, 0.0)
+            return {
+                "applicable": True,
+                "decision": "call" if freq > 0.5 else "fold",
+                "hand": mao,
+                "hand_top_pct": round(hand_percentile(cards) * 100, 1),
+                "call_range_pct": sol["call_pct"],
+                "stack_bb": stack_bb,
+                "position": "BB",
+                "vilao_pos": (vilao_pos or "SB").upper(),
+                "fonte": "solver",
+                "premissas": sol["premissas"],
+            }
+    return {
+        "applicable": False,
+        "reason": "decisão de call de all-in fora do alcance do jam/fold "
+                  "(stack acima de 20bb): use equity_vs_range com o range "
+                  "de shove do vilão",
+        "hand": mao,
+        "stack_bb": stack_bb,
+        "position": "BB",
+    }
+
+
 def push_fold(cards: list[str], stack_bb: float, position: str,
-              ante_bb: float = 0.125) -> dict:
+              ante_bb: float = 0.125, jogadores: int = 9) -> dict:
     """Decisão push/fold para open-shove em stack curto.
 
     Usa o SOLVER de open-shove (equilíbrio resolvido para a posição, com os
@@ -78,9 +148,45 @@ def push_fold(cards: list[str], stack_bb: float, position: str,
     tabela ignorava os antes e saía sistematicamente mais tight — e o
     gráfico de EV, que vem do solver, contradiria o veredito.
 
+    `jogadores` escolhe QUAL JOGO modelar, e essa escolha é o veredito:
+
+      · mesa cheia (padrão, 9) -> `open_shove_solver`: ante de todo mundo no
+        pote, muito dinheiro morto, range mais largo;
+      · heads-up de verdade (2) -> `jam_fold_solver`: match SB vs BB, 2 antes.
+
+    Não são dois palpites do mesmo jogo — são dois jogos. Roteado errado, o
+    SB de um MTT de 9 recebia o range de um HU e saía tight: 7% das mãos
+    erradas a 6bb, 12% a 20bb, com o erro CRESCENDO com o stack. A decisão
+    mora aqui, e só aqui, para as portas (relatório, storyboard, tool do
+    agente) não divergirem de novo.
+
     Retorna decisão, limiar usado e o percentil da mão — o LLM usa isso para
     contextualizar ("sua mão está no top X%, o range de shove aqui é Y%").
     """
+    pos = (position or "MP").upper()
+
+    # BB não ABRE de all-in: ele PAGA. O caminho velho mandava essa decisão
+    # para a tabela estática (via _POSITION_GROUP, que mapeava BB no grupo do
+    # SB) e devolvia um range de OPEN-SHOVE para quem ia decidir um call.
+    # Aqui a resposta é "essa não é a minha pergunta", que todo chamador já
+    # sabe tratar — todos conferem `applicable`.
+    if pos == "BB":
+        return {
+            "applicable": False,
+            "reason": "BB não abre de all-in — essa é uma decisão de CALL; "
+                      "use call_de_allin(cards, stack_bb, vilao_pos)",
+            "hand": canonical_hand(cards),
+            "stack_bb": stack_bb,
+            "position": pos,
+        }
+
+    if pos == "SB" and int(jogadores) <= 2 and stack_bb <= 25:
+        from app.analysis.nash_pushfold import nash_jam_fold
+
+        hu = nash_jam_fold(cards, stack_bb, "SB")
+        if hu:
+            return hu
+
     if stack_bb <= 20:
         try:
             from app.analysis.open_shove_solver import solve_open_shove

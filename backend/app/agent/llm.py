@@ -659,15 +659,28 @@ TOOLS = [
     },
     {
         "name": "push_fold",
-        "description": "Decisão push/fold aproximada de Nash para stack curto (<=20bb) em "
+        "description": "Decisão push/fold de equilíbrio para stack curto (<=20bb) em "
         "torneio, por posição. Retorna decisão, range de shove e percentil da mão. Use em "
-        "spots de open-shove de MTT.",
+        "spots de open-shove de MTT. Com position='BB' responde a decisão de CALL "
+        "diante de um all-in (passe vilao_pos com quem empurrou).",
         "input_schema": {
             "type": "object",
             "properties": {
                 "cards": {"type": "array", "items": {"type": "string"}},
                 "stack_bb": {"type": "number"},
                 "position": {"type": "string"},
+                "jogadores": {
+                    "type": "integer",
+                    "description": "quantos ainda estão NA MESA (não na mão). "
+                    "Padrão 9 = mesa cheia de MTT. Passe 2 SÓ em heads-up de "
+                    "verdade (mesa final a dois): o jogo é outro — menos ante "
+                    "no pote, range bem mais tight.",
+                },
+                "vilao_pos": {
+                    "type": "string",
+                    "description": "só com position='BB': posição de quem "
+                    "empurrou (BTN, CO, SB…). O range de call depende dela.",
+                },
             },
             "required": ["cards", "stack_bb", "position"],
         },
@@ -1578,15 +1591,18 @@ def _dispatch(name: str, args: dict):
         return {"error": "parâmetros insuficientes: passe range_notation OU "
                          "role ('SB'/'BB') + stack_bb OU position + stack_bb (<=20)"}
     if name == "push_fold":
-        from app.analysis.nash_pushfold import nash_jam_fold
-        from app.analysis.pushfold import push_fold
+        from app.analysis.pushfold import call_de_allin, push_fold
 
+        # QUAL jogo modelar (mesa cheia x match heads-up) NÃO se decide aqui:
+        # é do motor, e rotear por fora foi o que fez o SB de um MTT de 9
+        # receber o range de um HU e sair tight. Aqui só se despacha a
+        # PERGUNTA: abrir de all-in é uma, pagar um all-in é outra.
         pos = (args.get("position") or "MP").upper()
-        if pos in ("SB", "BB"):
-            exact = nash_jam_fold(args["cards"], args["stack_bb"], pos)
-            if exact:
-                return exact
-        return push_fold(args["cards"], args["stack_bb"], pos)
+        mesa = int(args.get("jogadores") or 9)
+        if pos == "BB":
+            return call_de_allin(args["cards"], args["stack_bb"],
+                                 args.get("vilao_pos"), jogadores=mesa)
+        return push_fold(args["cards"], args["stack_bb"], pos, jogadores=mesa)
     if name == "solve_river":
         from app.analysis.river_solver import solve_river
         from app.bot.notify import avisar_solver
