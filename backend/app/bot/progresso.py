@@ -55,8 +55,12 @@ def texto_do_contador(etapa: str | None, segundos: float,
     m, s = divmod(int(segundos), 60)
     tempo = f"{m}min {s:02d}s" if m else f"{s}s"
     corpo = etapa or titulo
-    aviso = ("\n\n_Torneio grande leva alguns minutos — pode deixar aí que "
-             "eu aviso._" if segundos >= 45 else "")
+    # a linha longa era escrita só para torneio ("Torneio grande leva alguns
+    # minutos") e passou a aparecer também no solver pós-flop, que não tem
+    # torneio nenhum. Frase que não bate com a etapa faz o aluno desconfiar
+    # justamente do aviso que existe para ele NÃO desconfiar.
+    aviso = ("\n\n_Isso leva alguns minutos — pode deixar aí que eu aviso "
+             "quando terminar._" if segundos >= 45 else "")
     return f"⏳ *{corpo}…*\n`{tempo}`{aviso}"
 
 

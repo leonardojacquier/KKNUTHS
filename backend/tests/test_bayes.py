@@ -3342,12 +3342,15 @@ def test_aviso_de_espera_do_solver(monkeypatch):
     tg, txt = mandados[-1]
     assert tg == 777
     assert "flop" in txt and "Q♠ 10♥ 4♦" in txt        # naipe com ícone
-    assert "1 minuto" in txt                           # o tempo, honesto
+    # o tempo agora é o TETO que o solver garante, não uma média medida numa
+    # máquina e prometida em outra — ele para sozinho ao encostar nele
+    assert "no máximo" in txt and "75 segundos" in txt
+    assert "relógio" in txt                            # e o contador se mexe
     assert "Não travou" in txt                         # o que ele precisava ler
     assert "2 gráficos" in txt                         # e o que vai chegar
 
     notify.avisar_solver(777, ["Qs", "Th", "4d", "8c", "2s"], 0)
-    assert "15 segundos" in mandados[-1][1]            # river é rápido: não mente
+    assert "30 segundos" in mandados[-1][1]            # river é rápido: não mente
     assert "gráfico" not in mandados[-1][1]            # solve_river não manda figura
 
     # sem chat/sem token o aviso não pode derrubar a análise

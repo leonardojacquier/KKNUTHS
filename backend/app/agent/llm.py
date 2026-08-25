@@ -1604,13 +1604,20 @@ def _dispatch(name: str, args: dict):
                                  args.get("vilao_pos"), jogadores=mesa)
         return push_fold(args["cards"], args["stack_bb"], pos, jogadores=mesa)
     if name == "solve_river":
-        from app.analysis.river_solver import solve_river
+        from app.analysis.river_solver import solve_river, texto_do_progresso
         from app.bot.notify import avisar_solver
+        from app.bot.progresso import marcar
 
-        avisar_solver(_TOOL_CHAT.get(), args.get("board") or [], 0)
+        chat = _TOOL_CHAT.get()
+        board = args.get("board") or []
+        avisar_solver(chat, board, 0)
+        # o aviso acima é UMA mensagem parada; o contador é o que se mexe. Sem
+        # ele o aluno olha para um texto imóvel por um minuto — que é
+        # exatamente a cara de um travamento ("foi isso que me lascou").
         return solve_river(
             args["board"], args["oop_range"], args["ip_range"],
             args["pot"], args["stack"], args.get("player", "oop"),
+            ao_progredir=lambda f: marcar(chat, texto_do_progresso(board, f)),
         )
     if name == "population_tendencies":
         from app.analysis.population import exploit_hints, population_tendencies

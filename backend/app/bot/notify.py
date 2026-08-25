@@ -69,10 +69,13 @@ def avisar(telegram_id: int | None, texto: str) -> bool:
         return False
 
 
-# quanto custa o equilíbrio por street, medido na máquina do deploy:
-# flop ~57s, turn ~60s (carta amostrada em cada runout), river ~13s (exato)
-ESPERA = {3: "cerca de 1 minuto", 4: "cerca de 1 minuto",
-          5: "uns 15 segundos"}
+# O TETO de relógio do solver (app/analysis/river_solver._TETO_SEGUNDOS), não
+# uma média. A estimativa média era medida numa máquina e prometida em outra:
+# quando o deploy estava mais lento, o "cerca de 1 minuto" virava dois e a
+# promessa quebrada era pior que promessa nenhuma. O teto o solver GARANTE —
+# ele para sozinho e diz na nota que parou.
+ESPERA = {3: "no máximo 75 segundos", 4: "no máximo 1 minuto",
+          5: "no máximo 30 segundos"}
 
 
 def avisar_solver(telegram_id: int | None, board: list[str],
@@ -82,12 +85,12 @@ def avisar_solver(telegram_id: int | None, board: list[str],
     from app.analysis.equity import pretty_cards
 
     street = {3: "flop", 4: "turn", 5: "river"}.get(len(board or []), "spot")
-    tempo = ESPERA.get(len(board or []), "cerca de 1 minuto")
+    tempo = ESPERA.get(len(board or []), "no máximo 1 minuto")
     volta = {0: "a conta", 1: "a conta e o *gráfico*"}.get(
         quantos_graficos, "a conta e os *2 gráficos*")
     return avisar(
         telegram_id,
         f"⏳ Resolvendo o equilíbrio do *{street}* {pretty_cards(list(board))} "
         f"— é CFR+ de verdade, mão a mão, e leva *{tempo}*.\n"
-        f"Pode largar o celular: eu volto aqui com {volta} quando terminar. "
-        f"(Não travou.)")
+        f"O relógio aqui embaixo vai andando; quando parar, volto com "
+        f"{volta}. (Não travou.)")

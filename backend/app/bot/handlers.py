@@ -1857,10 +1857,20 @@ async def _route_text(update: Update, text: str) -> None:
         await _send_pending_charts(update.message, tg_user.id)
         return
 
-    await update.message.reply_text("🤔 Analisando sua colocação…")
-    answer = await asyncio.to_thread(
-        process_followup, tg_user.id, _uname(tg_user), text
-    )
+    # CONTADOR também aqui. Ele existia só nos caminhos de upload — mas é na
+    # conversa que o solver pós-flop roda, e é a espera DELE que já fez o
+    # aluno achar que tinha quebrado. Um texto parado por um minuto é
+    # indistinguível de travamento; o relógio andando resolve isso sozinho.
+    aviso = await update.message.reply_text("🤔 Analisando sua colocação…")
+    from app.bot import progresso
+
+    contador = await progresso.acompanhar(aviso, tg_user.id, "Analisando")
+    try:
+        answer = await asyncio.to_thread(
+            process_followup, tg_user.id, _uname(tg_user), text
+        )
+    finally:
+        await progresso.encerrar(contador, tg_user.id, aviso)
     if answer:
         await _safe_reply(update.message, answer, simplify_btn=True,
                           kind=LAST_UPLOAD_KIND.get(tg_user.id))

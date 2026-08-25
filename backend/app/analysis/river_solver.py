@@ -21,11 +21,15 @@ Convenção de EV: fichas ganhas em relação ao início do solve (pot0 no meio)
 from __future__ import annotations
 
 import itertools
+import logging
 import random
+import time
 
 import numpy as np
 
 from app.analysis.ranges import expand_combos, parse_range
+
+log = logging.getLogger(__name__)
 
 _CACHE: dict[str, dict] = {}
 _MAX_COMBOS = 900        # river (exato)
@@ -355,23 +359,62 @@ class RiverSolver:
                 out[chave] = node.avg_strategy().mean(axis=0).copy()
         return out
 
-    def solve(self, iterations: int = 400) -> "RiverSolver":
+    def solve(self, iterations: int = 400, teto_segundos: float | None = None,
+              ao_progredir=None) -> "RiverSolver":
+        """Roda até as `iterations` OU até o teto de relógio, o que vier antes.
+
+        O teto existe porque orçamento em iteração é orçamento em trabalho, e
+        trabalho vira tempo diferente em cada máquina: os números medidos aqui
+        não valem no servidor do deploy, que é mais lento. Com teto, a espera
+        do aluno é limitada em qualquer máquina — e a medida de convergência
+        conta o que deu para comprar dentro dele.
+
+        `ao_progredir(fracao)` é chamado ~20 vezes ao longo do solve, para
+        alguém lá em cima mexer o contador. Falha dele nunca derruba a conta:
+        aviso que mata o trabalho é pior que silêncio.
+        """
         # multi-street (chance amostrada): mais iterações pros nós fundos
         if len(self.board0) < 5:
             iterations = max(iterations, 600)
         r0 = np.ones(self._n[0])
         r1 = np.ones(self._n[1])
-        meio = max(1, iterations // 2)
-        no_meio: dict | None = None
+        # cadência das fotos: ~20 ao longo do solve, mas nunca mais de 200
+        # iterações entre elas. O teto importa quando o RELÓGIO corta cedo —
+        # com foto só a cada 1/20 de um orçamento grande, um corte no começo
+        # deixava uma foto só, e uma foto não mede convergência nenhuma.
+        passo = max(1, min(iterations // 20, 200))
+        comeco = time.monotonic()
+        # fotos periódicas: com corte por tempo não dá para marcar "a metade"
+        # de antemão — no fim escolhe-se a foto mais perto da metade do que
+        # REALMENTE rodou. Sem isso, uma solve cortada cedo saía sem medida
+        # nenhuma, que é justo quando a medida mais importa.
+        fotos: list[tuple[int, dict]] = []
+        feitas = 0
+        cortado = False
         for i in range(iterations):
             self._cfr("|", 0, 0.0, (0.0, 0.0), (r0, r1), True)
-            if i + 1 == meio:
-                no_meio = self._freqs_das_raizes()
-        self.convergencia = self._medir_convergencia(no_meio, iterations)
+            feitas = i + 1
+            # relógio conferido a CADA iteração (monotonic custa nanossegundos
+            # contra ~2ms de uma passada de CFR): conferir só na foto fazia o
+            # teto de 1s virar 4s no primeiro múltiplo.
+            estourou = bool(teto_segundos
+                            and time.monotonic() - comeco >= teto_segundos)
+            if feitas % passo and feitas != iterations and not estourou:
+                continue
+            fotos.append((feitas, self._freqs_das_raizes()))
+            if ao_progredir is not None:
+                try:
+                    ao_progredir(feitas / iterations)
+                except Exception as exc:      # noqa: BLE001
+                    log.debug("contador do solver falhou: %s", exc)
+            if estourou and feitas < iterations:
+                cortado = True
+                break
+        self.convergencia = self._medir_convergencia(fotos, feitas, cortado)
         return self
 
-    def _medir_convergencia(self, no_meio: dict | None,
-                            iterations: int) -> dict | None:
+    def _medir_convergencia(self, fotos: list, feitas: int,
+                            cortado: bool) -> dict | None:
         """Quanto as frequências ainda se moviam na segunda metade do solve.
 
         NÃO é exploitability e NÃO é intervalo de confiança. É a medida barata
@@ -391,9 +434,12 @@ class RiverSolver:
         a X pontos do certo". Por isso sai rotulada como PISO: o METODO
         proíbe o número que parece saber mais do que sabe.
         """
-        if not no_meio:
+        if len(fotos) < 2:
             return None
-        fim = self._freqs_das_raizes()
+        # a foto mais perto da METADE do que rodou de verdade
+        alvo = feitas / 2
+        no_meio = min(fotos[:-1], key=lambda f: abs(f[0] - alvo))[1]
+        fim = fotos[-1][1]
         # POR RAIZ, não as duas somadas: o `summary` publica a raiz de UM
         # jogador, e a do IP ("|x") só é visitada quando o OOP dá check —
         # ela converge bem mais devagar e contaminaria a medida da outra.
@@ -404,7 +450,8 @@ class RiverSolver:
                 continue
             d = abs(np.asarray(f) - np.asarray(antes)) * 100
             por_raiz[chave] = {
-                "iteracoes": iterations,
+                "iteracoes": feitas,
+                "cortado_por_tempo": cortado,
                 "desvio_medio_pp": round(float(np.mean(d)), 2),
                 "desvio_max_pp": round(float(np.max(d)), 2),
                 "leitura": "piso do erro: quanto as frequências ainda se "
@@ -507,16 +554,44 @@ class RiverSolver:
         return out
 
 
-# acima deste desvio a resposta vira "ordem de grandeza": calibrado na
-# medição de 25/08 — 400 iterações davam 0,70pp de piso para 1,75pp de
-# erro real, e 6.400 davam 0,27pp para 0,23pp (aí já convergiu).
-_CONVERGIU_PP = 0.5
+# ORÇAMENTO POR STREET — medido em 25/08 (tempo / piso de convergência):
+#
+#            400 iter        1.600 iter       6.400 iter
+#   river    0,7s/0,71pp     2,2s/0,50pp      9,1s/0,31pp
+#   turn     5,0s/1,55pp    12,9s/0,85pp     53,2s/0,84pp
+#   flop    15,4s/1,51pp    24,3s/0,94pp     74,9s/0,91pp
+#
+# No river, iteração compra precisão. No turn e no flop o piso EMPACA em
+# ~0,9pp a partir de ~1.600: lá o limite é a carta AMOSTRADA, não a iteração,
+# e 4x mais trabalho compra 0,01pp. Por isso o orçamento não é um número só.
+_ORCAMENTO = {5: 6400, 4: 1600, 3: 1600}
+
+# Teto de RELÓGIO por street. Os tempos acima são desta máquina; a do deploy
+# é mais lenta, e orçamento só em iteração vira espera imprevisível lá. Com
+# teto, a promessa feita ao aluno ("no máximo X") vale em qualquer máquina.
+_TETO_SEGUNDOS = {5: 30.0, 4: 60.0, 3: 75.0}
+
+# acima deste desvio a resposta vira "ordem de grandeza". No river o piso
+# alcançável é 0,31pp, então 0,5 separa bem. No turn/flop o piso da amostragem
+# já é ~0,9pp — cobrar 0,5 lá faria o aviso disparar SEMPRE, e aviso que
+# sempre aparece ninguém lê.
+_CONVERGIU_PP = {5: 0.5, 4: 1.2, 3: 1.2}
+
+_STREET = {3: "flop", 4: "turn", 5: "river"}
+
+
+def texto_do_progresso(board: list[str], fracao: float) -> str:
+    """A linha que o aluno vê enquanto o CFR roda. PURA — testável sem bot."""
+    street = _STREET.get(len(board or []), "spot")
+    return f"Resolvendo o equilíbrio do {street} — {fracao * 100:.0f}%"
 
 
 def solve_river(
     board: list[str], oop_range: str, ip_range: str,
     pot: float, stack: float, player: str = "oop",
-    iterations: int = 400,
+    iterations: int | None = None,
+    teto_segundos: float | None = None,
+    ao_progredir=None,
 ) -> dict:
     """Interface (e tool do agente): equilíbrio da street atual (flop, turn
     ou river). River = showdown exato; turn = equity realizada em todos os
@@ -525,14 +600,19 @@ def solve_river(
         raise ValueError(
             f"solve exige board de 3, 4 ou 5 cartas (recebi {len(board)})"
         )
-    # `iterations` ENTRA na chave: sem ele, um spot resolvido antes a 400
-    # devolvia o resultado velho para quem pedisse 6.400 — o parâmetro era
-    # aceito e ignorado, e a resposta saía com cara de mais exata sem ser.
+    if iterations is None:
+        iterations = _ORCAMENTO.get(len(board), 1600)
+    if teto_segundos is None:
+        teto_segundos = _TETO_SEGUNDOS.get(len(board), 60.0)
+    # `iterations` e o teto ENTRAM na chave: sem eles, um spot resolvido antes
+    # a 400 devolvia o resultado velho para quem pedisse 6.400 — o parâmetro
+    # era aceito e ignorado, e a resposta saía com cara de mais exata sem ser.
     key = (f"{'/'.join(sorted(board))}|{oop_range}|{ip_range}|{pot}|{stack}"
-           f"|{player}|{iterations}")
+           f"|{player}|{iterations}|{teto_segundos}")
     if key in _CACHE:
         return _CACHE[key]
-    solver = RiverSolver(board, oop_range, ip_range, pot, stack).solve(iterations)
+    solver = RiverSolver(board, oop_range, ip_range, pot, stack).solve(
+        iterations, teto_segundos=teto_segundos, ao_progredir=ao_progredir)
     result = solver.summary(player)
     notas = {
         5: "equilíbrio CFR+ do sub-jogo de river (showdown exato)",
@@ -548,11 +628,16 @@ def solve_river(
         result["convergencia"] = conv
         # a nota é o que sempre chega junto do número; quem lê só ela precisa
         # saber que a resposta é grossa, sem abrir o dicionário
-        if conv["desvio_medio_pp"] >= _CONVERGIU_PP:
+        if conv["desvio_medio_pp"] >= _CONVERGIU_PP.get(len(board), 1.2):
             result["nota"] += (
                 f"; ATENÇÃO: convergência grosseira — as frequências ainda se "
                 f"moviam {conv['desvio_medio_pp']:g}pp (piso) no fim do solve, "
                 f"trate como ordem de grandeza")
+        if conv.get("cortado_por_tempo"):
+            result["nota"] += (
+                f"; parou no teto de tempo ({teto_segundos:g}s) com "
+                f"{conv['iteracoes']} iterações — resposta cortada para não "
+                f"deixar o aluno esperando")
     _CACHE[key] = result
     return result
 
