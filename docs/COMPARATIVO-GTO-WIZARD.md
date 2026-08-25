@@ -187,3 +187,92 @@ E a linha que o WSOP acabou de nos dar de graça:
 - [GTO Wizard's Fair Play Check at heart of multiple online-poker cheating accusations — poker.org](https://www.poker.org/latest-news/gto-wizards-fair-play-check-at-heart-of-multiple-online-poker-cheating-accusations-and-controversies-aDfUQ8T4eJle/)
 - [WSOP Issues GTO Solver Table Ban Notice — HighStakesDB](https://highstakesdb.com/news/high-stakes-reports/wsop-issues-gto-solver-table-ban-notice)
 - [The Muck: Solver at Table Causes Stir in WPT Gardens Poker Championship — PokerNews](https://www.pokernews.com/news/2023/05/gto-solver-wpt-gardens-poker-43611.htm)
+
+---
+
+# Anexo — precisão: quanto dá pra ganhar SEM mexer na metodologia
+
+*Medido em 25/08/2026, rodando os próprios motores do repositório.*
+
+A metodologia (`backend/docs/METODO.md`) diz **quem** responde o quê: o LLM
+julga, a matemática calcula, os guardas conferem, e na dúvida a ferramenta
+cala a boca. Nada disso fala sobre **quão exato** o número calculado é. Ou
+seja: toda a precisão abaixo é ganho livre — não encosta no contrato.
+
+## Achado 1 — dois solvers exatos discordam no MESMO spot ⚠️
+
+O SB de stack curto tem **dois** caminhos no código, e eles dão respostas
+diferentes:
+
+| stack | `jam_fold_solver` (HU) | `open_shove_solver` (mesa 9) | discordam |
+|---|---|---|---|
+| 6bb | empurra 78,7% | empurra 85,8% | 7% das mãos |
+| 10bb | 70,4% | 78,7% | 8% |
+| 15bb | 60,9% | 71,6% | 11% |
+| 20bb | 52,1% | 63,9% | 12% |
+
+Exemplo concreto — **SB, 6bb, 65o**: a ferramenta `push_fold` diz **push**;
+o tool que o LLM chama para SB diz **fold**.
+
+**Nenhum dos dois está com bug.** Eles modelam jogos diferentes: o
+`jam_fold_solver` é um *match* heads-up (2 antes no pote), o
+`open_shove_solver` é uma **mesa de 9 com ante de todos** — muito mais
+dinheiro morto, e com mais dinheiro morto empurrar mais largo está certo.
+
+**O defeito é o roteamento.** `app/agent/llm.py` manda *todo* SB para o
+modelo heads-up, inclusive num MTT de 9 lugares — onde ele sai
+sistematicamente tight, e o erro **cresce com o stack**. Deveria rotear pelo
+tamanho da mesa: mesa cheia → `open_shove_solver`; HU de verdade (mesa final
+a dois) → `jam_fold_solver`.
+
+Impacto: atinge o spot mais comum do stack curto em torneio.
+
+## Achado 2 — o solver pós-flop entrega a 400 iterações
+
+`solve_river` roda 400 iterações de CFR+. Convergência medida no mesmo spot
+(river A♥K♦7♣2♠9♥, pote 20, stack 60):
+
+| iterações | tempo | erro médio vs convergido | pior ação |
+|---|---|---|---|
+| 400 *(o que está no ar)* | 0,5s | **1,75 pp** | 3,50 pp |
+| 1.600 | 2,1s | 1,02 pp | 2,10 pp |
+| **6.400** | **8,3s** | **0,23 pp** | **0,30 pp** |
+| 20.000 | 27,2s | — (referência) | — |
+
+Concreto: a frequência de `bet 10` sai **3,7%** com 400 iterações e **7,2%**
+convergida — quase o dobro. Subir para 6.400 custa ~8 segundos e corta o erro
+por ~7×. O aluno já espera mais que isso pela análise.
+
+## Achado 3 — o cache ignora o número de iterações 🐛
+
+A chave de `_CACHE` em `solve_river` é
+`board|oop|ip|pot|stack|player` — **sem `iterations`**. Se um spot for
+resolvido primeiro a 400, um pedido posterior por mais precisão devolve o
+resultado antigo **em silêncio**. Isso precisa ser consertado *antes* do
+Achado 2, senão o ganho não chega.
+
+## Achado 4 — o EV do solver não carrega intervalo
+
+`METODO.md` exige que *toda taxa carregue sua margem de erro*. O solver
+declara honestamente a **abstração** ("sizings 50%/100%/all-in, uma raise no
+máximo") — mas entrega frequência e EV **sem nenhuma medida de convergência**.
+Não sabemos, por resposta, se aquele número está a 0,2 ou a 3,5 pontos do
+equilíbrio.
+
+Medir exploitability e ou publicá-la, ou usá-la para iterar até um alvo, é
+literalmente aplicar a metodologia a um lugar onde ela ainda não chegou.
+
+## O que NÃO fecha por aqui
+
+Escala de biblioteca, pós-flop multiway e PLO (§2.1–2.3) continuam de pé:
+são capital computacional e cobertura, não afinação. Os quatro achados acima
+não nos empatam com o GTO Wizard — eles fecham a distância **onde nós já
+respondemos**, que é onde o erro dói de verdade, porque é o número que o
+aluno recebe achando que está certo.
+
+## Ordem sugerida
+
+1. **Achado 3** (cache) — pequeno, e destrava o 2.
+2. **Achado 1** (roteamento do SB) — maior ganho por linha mexida.
+3. **Achado 2** (iterações) — decidir o orçamento de tempo por spot.
+4. **Achado 4** (exploitability) — o mais alinhado ao METODO.
