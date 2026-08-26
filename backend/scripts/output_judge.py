@@ -48,6 +48,30 @@ _ADJETIVOS = ("resumo brutal", "verdade honesta", "papo reto", "na lata",
 _CALQUES = ("par grande", "par alto", "mão grande", "sequência de cor",
             "stack fundo", "como valor", " rua ", " etapa ", "igualar o",
             "aumentou", "aumentar", "sequência", "carta alta", "check atrás")
+
+# COLOCAÇÕES LEGÍTIMAS — o mesmo desenho do _RIO_LUGAR no guarda_termos.
+# 'sequência' é calque quando quer dizer STRAIGHT ("fechou a sequência") e é
+# português normal quando quer dizer ORDEM ("a sequência de 3-bets"). O
+# app/agent/termos.py já documenta a decisão de não trocar o segundo caso; o
+# juiz é que acusava assim mesmo, e queimou a única linha de problema de dois
+# relatórios seguidos com isso.
+#
+# A exceção NÃO é anistia: só vale quando TODAS as ocorrências da resposta são
+# legítimas. Basta sobrar uma solta para a acusação voltar — senão bastaria
+# escrever 'sequência de ações' uma vez para blindar o texto inteiro.
+_EXCECOES_DE_CALQUE = {
+    "sequência": re.compile(
+        r"sequ[êe]ncia\s+de\s+(?:a[çc][õo]es|jogadas|decis[õo]es|apostas|"
+        r"3-?bets?|4-?bets?|raises?|m[ãa]os|eventos|passos|blefes)", re.I),
+}
+
+
+def _so_uso_legitimo(calque: str, texto: str) -> bool:
+    """Todas as ocorrências do calque estão numa colocação de português?"""
+    excecao = _EXCECOES_DE_CALQUE.get(calque)
+    if excecao is None:
+        return False
+    return calque not in excecao.sub(" ", texto).lower()
 # carta escrita sem ícone: rank maiúsculo + naipe minúsculo ('Kh', '10d').
 # 'As' fica de fora de propósito — é artigo em português e daria falso positivo.
 _CARTA_CRUA = re.compile(r"\b(?:10|[KQJT98765432])[shdc]\b|\bA[hdc]\b")
@@ -84,6 +108,41 @@ _PERGUNTA_DE_DECISAO = re.compile(
 
 def _e_pergunta_de_decisao(pergunta: str | None) -> bool:
     return bool(pergunta and _PERGUNTA_DE_DECISAO.search(pergunta))
+
+
+# TETO do que o juiz-LLM LÊ. Era 1500, cru, e a análise de mão com placar
+# street a street mais o bloco pós-placar (1063 chars médios em 26/08) passa
+# disso com folga: o auditor recebia a resposta partida no meio de uma palavra
+# e descontava nota por "frase incompleta" — um defeito que ele mesmo criava.
+# Quanto mais completa a análise, mais ela era punida.
+#
+# 6000 cobre com folga o teto real da entrega (o guarda de forma já acusa
+# acima de 3500 chars) e mantém o custo do Haiku desprezível.
+TETO_DO_TEXTO_JULGADO = 6000
+
+_FIM_DE_FRASE = ("\n", ". ", "! ", "? ", "; ")
+
+
+def texto_para_o_juiz(texto: str, teto: int = TETO_DO_TEXTO_JULGADO) -> str:
+    """O texto como o auditor deve lê-lo. PURA — testável sem rede.
+
+    Se couber, vai inteiro. Se não couber, corta num FIM DE FRASE e avisa, em
+    primeira pessoa, que o corte é do auditor — senão o juiz reporta como
+    defeito do coach uma frase que o coach terminou.
+    """
+    t = (texto or "").strip()
+    if len(t) <= teto:
+        return t
+    corte = t[:teto]
+    for sep in _FIM_DE_FRASE:
+        p = corte.rfind(sep)
+        if p > teto * 0.6:          # não vale recuar até quase o começo
+            corte = corte[:p + len(sep)]
+            break
+    return (corte.rstrip() + "\n\n[NOTA DO AUDITOR: fui EU que cortei aqui, "
+            "para o texto caber na auditoria — a resposta do coach segue "
+            "além deste ponto. NÃO trate isto como frase incompleta nem "
+            "desconte nota por isso.]")
 
 
 def judge_answer(texto: str, conversa: bool = False,
@@ -126,7 +185,7 @@ def judge_answer(texto: str, conversa: bool = False,
         if frase in baixo:
             probs.append(f"auto-elogio proibido: '{frase}'")
     for c in _CALQUES + tuple(calques_extra):
-        if c in baixo:
+        if c in baixo and not _so_uso_legitimo(c, t):
             probs.append(f"calque proibido: '{c.strip()}'")
     if _FULL_CRU.search(t):
         probs.append("full house nomeado como 'X cheio de Y' "
@@ -164,7 +223,7 @@ def _nota_uma(par: dict) -> dict | None:
                 "{\"nota\": 8.5, \"pior\": \"1 frase ou null\"}"),
             messages=[{"role": "user", "content":
                        f"PERGUNTA: {par.get('q', '')[:200]}\n"
-                       f"RESPOSTA: {str(par.get('a', ''))[:1500]}"}])
+                       f"RESPOSTA: {texto_para_o_juiz(par.get('a', ''))}"}])
         # o cron também gasta: sem isto o custo total do produto fica menor
         # do que a fatura, que é o jeito clássico de se enganar sozinho
         from app.agent import custo
