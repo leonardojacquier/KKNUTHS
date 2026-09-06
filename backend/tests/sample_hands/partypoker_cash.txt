@@ -1,0 +1,27 @@
+***** Hand History for Game 23456789012 *****
+$0.05/$0.10 USD NL Texas Hold'em - Saturday, April 15, 20:30:12 CEST 2023
+Table Milan (Real Money)
+Seat 3 is the button
+Total number of players : 6
+Seat 1: Villain1 ( $10.00 USD )
+Seat 2: Villain2 ( $8.50 USD )
+Seat 3: Villain3 ( $12.30 USD )
+Seat 4: Hero ( $10.00 USD )
+Seat 5: Villain4 ( $9.75 USD )
+Seat 6: Villain5 ( $11.00 USD )
+Hero posts small blind [$0.05 USD].
+Villain4 posts big blind [$0.10 USD].
+** Dealing down cards **
+Dealt to Hero [ Ah Qh ]
+Villain5 folds
+Villain1 folds
+Villain2 raises [$0.30 USD]
+Villain3 folds
+Hero calls [$0.25 USD]
+Villain4 folds
+** Dealing Flop ** [ Qc, 7d, 3s ]
+Hero checks
+Villain2 bets [$0.40 USD]
+Hero raises [$1.20 USD]
+Villain2 folds
+Hero wins $1.48 USD

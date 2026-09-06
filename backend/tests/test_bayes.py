@@ -1,0 +1,4034 @@
+"""Shrinkage bayesiano: números honestos com amostra pequena (fase 1)."""
+from pathlib import Path
+
+import pytest
+
+from app.analysis.bayes import bayes_stats, fmt_rate, shrunk_af, shrunk_rate
+from app.analysis.stats import compute_player_stats
+from app.parsers import parse_text
+
+
+def _hands():
+    return parse_text(
+        (Path(__file__).parent / "sample_hands" / "gg_tournament_paste.txt").read_text()
+    )
+
+
+def test_small_sample_never_screams_100pct():
+    # caso real que nos queimou: 2 oportunidades, 2 3-bets -> "100%" cru
+    mean, lo, hi = shrunk_rate(2, 2, 7.0, 25.0)
+    assert mean < 20.0            # ancorado no field, não em 100%
+    assert hi - lo > 10.0         # e o intervalo confessa a incerteza
+
+
+def test_large_sample_dominates_prior():
+    mean, lo, hi = shrunk_rate(300, 1000, 24.0, 40.0)
+    assert abs(mean - 30.0) < 1.5  # o dado manda, o prior quase some
+    assert hi - lo < 7.0           # intervalo estreito = cravado
+
+
+def test_af_shrinks_toward_field():
+    assert 1.5 < shrunk_af(3, 0) < 3.5   # 3 bets, 0 calls: cru seria infinito
+    big = shrunk_af(300, 100)
+    assert abs(big - 3.0) < 0.3          # amostra grande ~ AF cru (300/100)
+
+
+def test_bayes_stats_from_real_hands():
+    s = compute_player_stats(_hands(), player=None)
+    b = bayes_stats(s)
+    for k in ("vpip", "pfr", "three_bet"):
+        assert 0.0 <= b[k]["lo"] <= b[k]["mean"] <= b[k]["hi"] <= 100.0
+        assert not b[k]["firm"]          # 4 mãos não cravam nada
+    assert b["af"]["mean"] > 0
+    txt = fmt_rate(b["vpip"], "VPIP")
+    assert "entre" in txt                # frase honesta com amostra pequena
+
+
+def test_stats_report_exists_and_runs_offline():
+    # regressão: o `def stats_report` sumiu numa edição e /stats quebrou em
+    # produção sem nenhum teste acusar — este teste trava a porta
+    import app.bot.processing as proc
+
+    tg = 313131
+    proc.RECENT_HANDS[tg] = _hands()
+    try:
+        msg = proc.stats_report(tg, "tester")
+        assert msg and "Seu perfil" in msg
+        assert "100%" not in msg          # shrinkage segura o 3-bet de amostra mínima
+    finally:
+        proc.RECENT_HANDS.pop(tg, None)
+
+
+def test_leak_detector_and_study_plan():
+    from app.analysis.leaks import detect_leaks, leaks_text
+
+    hands = _hands()
+    # amostra limpa: folds padrão não viram leak (nada de acusação vazia)
+    assert detect_leaks(hands * 3) == []
+
+    # o herói folda AKo em pote não aberto
+    folded = next(h for h in hands if h.hand_id == "TM6146070321")
+
+    def _fakes(n):
+        out = []
+        for i in range(n):
+            fk = folded.model_copy(deep=True)
+            fk.hand_id = f"FAKE{i}"
+            fk.hero_cards = ["Ah", "Kc"]
+            out.append(fk)
+        return out
+
+    # 4 DE 4 NÃO É LEAK, e esta asserção mudou de lado em 09/08.
+    # `detect_leaks` cortava por `taxa_mean < 25.0` — a MÉDIA, que é
+    # exatamente o que `agregar` existe para não usar. Com 4 chances o limite
+    # inferior fica em ~12%, abaixo da tolerância de 30% do open_perdido:
+    # acidente não é leak, e quatro mãos não são amostra.
+    assert detect_leaks(_fakes(4)) == [], (
+        "4 escorregadas em 4 chances viraram leak — é a média decidindo")
+
+    # com amostra que sustenta, o leak aparece
+    leaks = detect_leaks(_fakes(40))
+    assert leaks and leaks[0]["leak"] == "open_perdido"
+    assert leaks[0]["escorregadas"] == 40
+    assert leaks[0]["custo_bb_100maos"] > 0
+    txt = leaks_text(leaks)
+    assert "custando" in txt and "40 de 40" in txt
+
+    # 1 escorregada em 2 chances NÃO crava leak crônico (shrinkage segura)
+    assert detect_leaks([_fakes(1)[0], folded]) == []
+
+
+def test_range_tracker_updates_toward_value_on_big_bets():
+    from app.analysis.rangetracker import RangeTracker
+
+    tr = RangeTracker("CO", "open", dead=["Ah", "Qd"])
+    board = ["Kh", "7d", "2c"]
+    antes = tr.shares(board)
+    tr.update(board, "bet", size_pct_pot=85)
+    depois = tr.shares(board)
+    # bomba de 85% do pote: fatia de mão forte SOBE, ar DESCE
+    assert depois["forte"] > antes["forte"]
+    assert depois["ar"] < antes["ar"]
+
+
+def test_range_tracker_check_shifts_to_weak():
+    from app.analysis.rangetracker import RangeTracker
+
+    tr = RangeTracker("BTN", "open")
+    board = ["As", "Td", "4c"]
+    antes = tr.shares(board)
+    tr.update(board, "check")
+    depois = tr.shares(board)
+    assert depois["forte"] < antes["forte"]  # check esconde pouco valor
+
+
+def test_read_villain_full_line_and_odds():
+    from app.analysis.rangetracker import odds_pt, read_villain
+
+    out = read_villain(
+        "CO", "open", ["Kh", "7d", "2c", "2s"],
+        [{"board_cards": 3, "action": "bet", "size_pct_pot": 33},
+         {"board_cards": 4, "action": "bet", "size_pct_pot": 80}],
+        hero_cards=["Ah", "Qd"],
+    )
+    assert out["p_valor"] > out["p_blefe_ou_draw"]
+    assert "pra 1" in out["leitura"] or "equilibrado" in out["leitura"]
+    assert len(out["passos"]) == 2
+    assert "estimativa" in out["atencao"]      # nunca vende certeza
+    assert odds_pt(0.8, 0.2).startswith("cerca de 4 pra 1")
+    assert "equilibrado" in odds_pt(0.5, 0.5)
+
+
+def test_read_villain_dispatch():
+    from app.agent.llm import _dispatch
+
+    r = _dispatch("read_villain", {
+        "position": "BTN", "preflop": "open",
+        "board": ["9h", "8h", "2d"],
+        "actions": [{"board_cards": 3, "action": "bet", "size_pct_pot": 70}],
+        "hero_cards": ["Ac", "Kc"],
+    })
+    assert "leitura" in r and "fatias" in r
+    # board com draws: a fatia de draw existe e é considerada
+    assert r["fatias"]["draw"] > 0
+
+
+def test_parser_captures_shown_cards():
+    hands = _hands()
+    sd = next(h for h in hands if h.hand_id == "TM6146070388")
+    assert sd.shown_cards.get("Hero") == ["3c", "Ad"]
+    assert sd.shown_cards.get("609c9948") == ["Tc", "Ts"]
+
+
+def test_bucket_of_combo_extremes():
+    from app.analysis.calibration import bucket_of_combo
+
+    board = ["Kh", "7d", "2c"]
+    assert bucket_of_combo(["Kd", "Kc"], board) == "forte"   # trinca
+    assert bucket_of_combo(["4c", "3d"], board) == "ar"      # nada, sem draw
+
+
+def test_showdown_observation_and_blend():
+    from app.analysis.calibration import (
+        calibrated_tables, empty_counts, observe_showdowns,
+    )
+    from app.analysis.rangetracker import LIKELIHOOD
+    from app.models.canonical import (
+        Action, ActionType, CanonicalHand, Street, StreetName,
+    )
+
+    # vilão mostra trinca no showdown e tinha APOSTADO o flop: 1 observação
+    # (bet | forte)
+    h = CanonicalHand(
+        site="GGPoker", hand_id="CAL1", hero="Hero",
+        shown_cards={"Hero": ["Ah", "Ad"], "vilao": ["Kd", "Kc"]},
+        streets=[
+            Street(name=StreetName.PREFLOP),
+            Street(name=StreetName.FLOP, board=["Kh", "7d", "2c"], actions=[
+                Action(actor="vilao", type=ActionType.BET, amount=100),
+                Action(actor="Hero", type=ActionType.CALL, amount=100),
+            ]),
+        ],
+    )
+    counts = observe_showdowns([h, h])  # duplicada: dedupe por (site, hand_id)
+    assert counts["bet"]["forte"] == 1
+    assert sum(v for by in counts.values() for v in by.values()) == 1
+
+    # blend: sem dado nenhum, tabela == prior
+    assert calibrated_tables(empty_counts()) == {
+        a: {b: LIKELIHOOD[a][b] for b in LIKELIHOOD[a]} for a in LIKELIHOOD}
+    # com MUITO dado de "forte aposta", bet_big|forte sobe e check|forte cai
+    heavy = empty_counts()
+    heavy["bet"]["forte"] = 200
+    t = calibrated_tables(heavy)
+    assert t["bet_big"]["forte"] > LIKELIHOOD["bet_big"]["forte"]
+    assert t["check"]["forte"] < LIKELIHOOD["check"]["forte"]
+
+
+def test_tracker_loads_calibration_file(tmp_path, monkeypatch):
+    import json
+
+    from app.analysis import rangetracker as rt
+
+    tables = {a: dict(rt.LIKELIHOOD[a]) for a in rt.LIKELIHOOD}
+    tables["bet_big"]["forte"] = 0.9
+    f = tmp_path / "calibration.json"
+    f.write_text(json.dumps({"tables": tables}))
+    monkeypatch.setenv("CALIBRATION_FILE", str(f))
+    rt.reset_calibration_cache()
+    try:
+        assert rt._likelihood()["bet_big"]["forte"] == 0.9
+    finally:
+        rt.reset_calibration_cache()
+    # sem arquivo: cai no prior sem quebrar
+    monkeypatch.setenv("CALIBRATION_FILE", str(tmp_path / "nao_existe.json"))
+    rt.reset_calibration_cache()
+    try:
+        assert rt._likelihood() == rt.LIKELIHOOD
+    finally:
+        rt.reset_calibration_cache()
+
+
+def test_tilt_detector_chase_pattern():
+    from app.analysis.mental import mental_from_series
+
+    # 60 mãos: base VPIP ~25%, mas nas 8 mãos depois de cada pote perdido
+    # grande o jogador abre quase tudo (chase clássico)
+    nets, vpips = [], []
+    for bloco in range(3):
+        for i in range(12):                    # jogo normal
+            nets.append(-1.0 if i % 4 == 0 else 0.0)
+            vpips.append(i % 4 == 0)           # 25%
+        nets.append(-22.0)                     # pote grande perdido
+        vpips.append(True)
+        for i in range(8):                     # janela pós-perda: abre tudo
+            nets.append(-2.0)
+            vpips.append(i % 8 != 7)           # ~87%
+    found = mental_from_series(nets, vpips)
+    tipos = [f["tipo"] for f in found]
+    assert "tilt_chase" in tipos
+    tilt = next(f for f in found if f["tipo"] == "tilt_chase")
+    assert tilt["vpip_janela"] > tilt["vpip_base"] + 8
+    assert tilt["saldo_janela_bb"] < 0
+    assert "perseguindo prejuízo" in tilt["frase"]
+
+
+def test_tilt_detector_quiet_on_steady_play():
+    from app.analysis.mental import mental_from_series
+
+    # mesmo VPIP antes e depois dos potes grandes: nenhum diagnóstico
+    nets = ([-22.0] + [0.0] * 9 + [22.0] + [0.0] * 9) * 3
+    vpips = [i % 4 == 0 for i in range(len(nets))]
+    assert mental_from_series(nets, vpips) == []
+    # amostra pequena nunca diagnostica
+    assert mental_from_series([-22.0, -2.0], [True, True]) == []
+
+
+def test_detect_mental_runs_on_real_hands():
+    from app.analysis.mental import detect_mental, mental_text
+
+    out = detect_mental(_hands())          # 4 mãos: sem diagnóstico, sem crash
+    assert out == []
+    assert mental_text(out) == ""
+    assert "Tilt Detector" in mental_text(
+        [{"frase": "depois de perder um pote grande você abre 40%"}])
+
+
+def test_decision_stamp_independent_of_result():
+    from app.analysis.handreport import build_report_html, decision_stamp, played_facts
+
+    hands = _hands()
+    a3o = next(h for h in hands if h.hand_id == "TM6146070388")
+    stamp = decision_stamp(a3o, played_facts(a3o))
+    assert stamp in ("decisão ✅", "decisão ❌", None)
+    html = build_report_html(hands, "leitura")
+    # o relatório explica o antídoto ao viés de resultado
+    assert "não o desfecho" in html and "variância" in html
+
+
+def test_tournament_upload_attaches_hand_by_hand_report():
+    # feedback duro do admin: "pedi a análise completa das mãos" — upload de
+    # torneio TEM que sair com o relatório mão a mão anexado, sempre
+    import app.bot.processing as proc
+
+    tg = 424299
+    content = (Path(__file__).parent / "sample_hands" /
+               "demo_kknuths_tournament.txt").read_bytes()
+    reply = proc.process_upload(content, "txt", tg, "tester")
+    assert reply
+    docs = proc.pop_docs(tg)
+    assert docs, "upload de torneio sem relatório mão a mão anexado"
+    data, fname, caption = docs[0]
+    assert fname.startswith("KKNuths-MaoAMao")
+    html = data.decode("utf-8")
+    assert "Análise mão a mão" in html
+    assert html.count("class=hand") >= 20      # TODAS as mãos jogadas viram card
+    assert "decisão" in html                    # selos decisão vs resultado
+    proc.RECENT_HANDS.pop(tg, None)
+    proc.LAST_ANALYSIS.pop(tg, None)
+
+
+def test_report_embeds_simple_version_per_hand():
+    from app.analysis.handreport import build_report_html
+
+    hands = _hands()
+    html = build_report_html(hands, "leitura", per_hand_analysis={
+        "TM6146070388": {"analise": "análise técnica do spot",
+                         "analise_simples": "versão de iniciante com analogia",
+                         "veredito": "mista"},
+    })
+    assert "análise técnica do spot" in html
+    assert "Explica mais simples" in html
+    assert "versão de iniciante com analogia" in html
+    assert "decisão ⚠️" in html                 # veredito 'mista' vira selo
+    # compat: valor string (formato antigo) não quebra nem cria toggle vazio
+    html2 = build_report_html(hands, "leitura",
+                              per_hand_analysis={"TM6146070388": "só texto"})
+    assert "só texto" in html2
+
+
+def test_simplify_button_flow():
+    # 🎈 "explica mais simples": reexplica a última fala do coach
+    import app.bot.processing as proc
+    from app.agent.llm import simplify
+
+    assert simplify("equity 31% contra pot odds de 25%") is None  # offline
+    tg = 555001
+    proc.LAST_ANALYSIS[tg] = {
+        "context": {"coaching_anterior": "call correto: equity 31% > 25%"},
+        "history": [], "hand_row_id": None, "user_id": None,
+    }
+    try:
+        out = proc.simplify_last(tg, "t")
+        assert out and "embananei" in out       # offline: fallback amigável
+        assert proc.simplify_last(999998, "t") is None  # sem contexto: None
+    finally:
+        proc.LAST_ANALYSIS.pop(tg, None)
+
+
+def test_style_report_uses_corrected_numbers():
+    import app.bot.processing as proc
+
+    tg = 323232
+    # 4 mãos < mínimo de 10 -> None (sem quebrar com o caminho bayesiano)
+    proc.RECENT_HANDS[tg] = _hands()
+    try:
+        assert proc.style_report(tg, "tester") is None
+    finally:
+        proc.RECENT_HANDS.pop(tg, None)
+
+
+def test_snapshot_image_routes_to_spot_analysis():
+    # caso real: print da mesa no meio da mão era tratado como mão completa e
+    # o coach "analisava" lances que nunca viu — análise saía nada a ver
+    from app.bot.processing import _augment_snapshot
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    h = CanonicalHand(
+        site="PokerStars", hand_id="vision-snapshot", hero="Hero",
+        source_format="image", stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=i, name=f"p{i}", stack=50) for i in range(1, 8)]
+        + [PlayerSeat(seat=8, name="Hero", stack=39.2, is_hero=True)],
+        hero_cards=["Qs", "Kh"], total_pot=6.7,
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="p7", type=ActionType.CALL, amount=2, to_amount=2)])],
+    )
+    st = {"net_bb": 0, "spots": []}
+    _augment_snapshot(st, h)
+    assert "FOTO DA MESA" in st["modo"]
+    assert "PROIBIDO narrar" in st["instrucao_snapshot"]
+    assert st["spot_atual"]["equity_vs_maos_aleatorias"] is not None
+
+    # mão de print COM a linha do herói lida e board: análise normal (sem modo)
+    h2 = h.model_copy(deep=True)
+    h2.final_board = ["Kd", "7c", "2s"]
+    h2.streets[0].actions.append(
+        Action(actor="Hero", type=ActionType.RAISE, amount=3, to_amount=3))
+    st2 = {"net_bb": 0, "spots": []}
+    _augment_snapshot(st2, h2)
+    assert "instrucao_snapshot" not in st2
+
+
+def test_student_numbers_are_valid_tool_inputs():
+    # caso real: aluno narrou pote e sizings na legenda e o coach respondeu
+    # "não consegui calcular o EV porque faltam os sizings" — número dito
+    # pelo aluno é INSUMO legítimo; se faltar de verdade, pergunta o dado
+    from app.agent.llm import _SYSTEM
+
+    pt = _SYSTEM["pt"]
+    assert "INSUMOS" in pt
+    assert "ALUNO INFORMOU" in pt
+    assert "PERGUNTE o dado exato" in pt
+    en = _SYSTEM["en"]
+    assert "student's own words" in en
+
+    # e a instrução que acompanha o relato do usuário diz o mesmo
+    import inspect
+
+    from app.bot import processing
+
+    src = inspect.getsource(processing._process_upload_inner)
+    assert "INSUMOS válidos" in src
+    assert "pergunte esse dado" in src
+
+
+def test_coach_calls_are_low_temperature():
+    # caso real: mesma mão (99) recebeu '3-beta' num dia e '3-bet só 25%'
+    # no outro — temperature default (1.0) sorteava o conselho. Análise e
+    # conversa rodam frias; extração de mão/imagem roda determinística.
+    import inspect
+
+    from app.agent import llm
+    from app.analysis import handreport
+
+    for fn in (llm.coach, llm.followup, llm.evaluate_line, llm.simplify,
+               llm.synthesize_answer):
+        assert "temperature=0.2" in inspect.getsource(fn), fn.__name__
+    for fn in (llm.extract_from_hand_text, llm.extract_from_image):
+        assert "temperature=0.0" in inspect.getsource(fn), fn.__name__
+    assert "temperature=0.2" in inspect.getsource(
+        handreport.per_hand_analysis_llm)
+
+    # e o prompt exige veredito ancorado + coerência entre mensagens
+    pt = llm._SYSTEM["pt"]
+    assert "CONSISTÊNCIA DE VEREDITO" in pt
+    assert "MESMO veredito" in pt
+    src = inspect.getsource(llm.followup)
+    assert "COERÊNCIA" in src
+
+
+def test_each_print_gets_own_hand_id():
+    # caso real: todo print virava hand_id 'vision-snapshot' e o upsert por
+    # (user, site, hand_id) fazia cada foto SOBRESCREVER a anterior no banco —
+    # 4 análises do dia apontavam para a mão de uma semana atrás
+    from app.agent.llm import _fingerprint, _snapshot_to_canonical
+
+    data = {"hero_cards": ["9h", "9s"], "site": "GGPoker",
+            "blinds": {"small_blind": 1, "big_blind": 2}}
+    a = _snapshot_to_canonical(data, fingerprint=_fingerprint(b"foto-A"))
+    b = _snapshot_to_canonical(data, fingerprint=_fingerprint(b"foto-B"))
+    assert a.hand_id != b.hand_id            # prints diferentes, linhas diferentes
+    assert a.hand_id.startswith("vision-")
+    # MESMO print reenviado -> mesmo id (dedupe continua funcionando)
+    assert _fingerprint(b"foto-A") == _fingerprint(b"foto-A")
+
+
+def test_unreadable_image_with_caption_falls_back_to_narration(monkeypatch):
+    # caso real: print ilegível + aluno narrou a mão -> resposta era
+    # 'não consegui ler'; a narração tem que virar a fonte da análise
+    from app.bot import processing as proc
+    from app.ingestion.pipeline import IngestResult
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      Stakes, Street, StreetName)
+
+    monkeypatch.setattr(
+        "app.ingestion.pipeline.ingest",
+        lambda *a, **k: IngestResult([], None, "image", 0.0, True, "ilegível"),
+    )
+    monkeypatch.setattr(proc, "ingest", lambda *a, **k: IngestResult(
+        [], None, "image", 0.0, True, "ilegível"))
+
+    narrated = CanonicalHand(
+        site="GGPoker", hand_id="vision-abc", hero="Hero",
+        source_format="txt", stakes=Stakes(small_blind=1, big_blind=2),
+        hero_cards=["9h", "9s"], confidence=0.8,
+        streets=[Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="UTG", type=ActionType.RAISE, amount=4, to_amount=4)])],
+    )
+    monkeypatch.setattr("app.agent.llm.extract_from_hand_text",
+                        lambda text: narrated)
+
+    captured = {}
+
+    def fake_coach(structured, stats, **kw):
+        captured["structured"] = structured
+        return "análise ok"
+
+    monkeypatch.setattr(proc, "coach", fake_coach)
+
+    out = proc._process_upload_inner(
+        b"\x89PNG...", "image", 999001, "t", "pt",
+        proc.get_repository(), None,
+        caption="99 no CO, 50bb, UTG abriu 2x",
+    )
+    assert "não consegui ler" not in out.lower()
+    assert captured["structured"].get("relato_do_usuario")
+
+    # sem legenda, print ilegível ainda retorna a mensagem de falha
+    out2 = proc._process_upload_inner(
+        b"\x89PNG...", "image", 999001, "t", "pt",
+        proc.get_repository(), None, caption=None,
+    )
+    assert "não consegui ler" in out2.lower()
+
+
+def test_log_event_survives_nul_bytes(monkeypatch):
+    # caso real: excerpt binário de um print levava \x00 ao INSERT e o
+    # Postgres derrubava o log_event inteiro (22P05) — a falha sumia do radar
+    from app.db.repository import _scrub_nul
+
+    dirty = {"excerpt": "PNG\x00\x00header", "nested": [{"a": "b\x00c"}], "n": 3}
+    clean = _scrub_nul(dirty)
+    assert "\x00" not in clean["excerpt"]
+    assert clean["nested"][0]["a"] == "bc"
+    assert clean["n"] == 3
+
+
+def test_create_retries_without_temperature_when_model_rejects():
+    # caso real: 'temperature is deprecated for this model' (400) derrubou a
+    # leitura de prints INTEIRA no deploy da consistência — o wrapper refaz a
+    # chamada sem o parâmetro e memoriza o modelo
+    from app.agent import llm
+
+    calls = []
+
+    class FakeMessages:
+        def create(self, **kw):
+            calls.append(dict(kw))
+            if "temperature" in kw:
+                raise RuntimeError(
+                    "Error code: 400 - `temperature` is deprecated for this model.")
+            return "ok"
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    llm._NO_TEMP.discard("modelo-novo")
+    out = llm._create(FakeClient(), model="modelo-novo", temperature=0.2,
+                      max_tokens=10, messages=[])
+    assert out == "ok"
+    assert len(calls) == 2 and "temperature" not in calls[1]
+    # memorizado: próxima chamada nem tenta com temperature
+    calls.clear()
+    out2 = llm._create(FakeClient(), model="modelo-novo", temperature=0.2,
+                       max_tokens=10, messages=[])
+    assert out2 == "ok" and len(calls) == 1 and "temperature" not in calls[0]
+    llm._NO_TEMP.discard("modelo-novo")
+
+    # erro que NÃO é de temperature propaga
+    class FakeMessages2:
+        def create(self, **kw):
+            raise RuntimeError("overloaded")
+
+    class FakeClient2:
+        messages = FakeMessages2()
+
+    import pytest
+    with pytest.raises(RuntimeError, match="overloaded"):
+        llm._create(FakeClient2(), model="outro", max_tokens=10, messages=[])
+
+
+def test_shove_chart_matches_push_fold_verdict():
+    # caso real: quiz de JTs UTG 8.9bb -> veredito 'fold' (shove = top 12%),
+    # mas a tabela pedida saiu um range de abertura deep COM JTs —
+    # o gráfico do spot de shove tem que sair do MESMO push_fold
+    from app.agent.llm import charts_from_tool_call
+    from app.analysis.pushfold import push_fold, shove_threshold
+    from app.analysis.ranges import parse_range
+
+    from app.analysis.open_shove_solver import solve_open_shove
+
+    res = push_fold(["Td", "Jd"], 8.9, "UTG")
+    assert res["fonte"] == "solver"          # equilíbrio, não a tabela MVP
+
+    # COERÊNCIA (o que o canário existe pra proteger): o gráfico do spot sai
+    # do MESMO solver que deu o veredito — nada de tabela deep com a mão que
+    # o coach mandou foldar.
+    spec = charts_from_tool_call("push_fold",
+                                 {"cards": ["Td", "Jd"], "stack_bb": 8.9,
+                                  "position": "UTG"}, res)
+    assert spec == ("nashpos", "UTG", 8.9, "freq")
+    sol = solve_open_shove("UTG", 8.9, 1.0, 0.125)
+    joga = sol["shove"]["JTs"] > 0.5
+    assert joga == (res["decision"] == "push"), "gráfico x veredito divergem"
+
+    # pedido explícito de tabela: position + stack_bb cai no mesmo solver
+    spec2 = charts_from_tool_call("send_range_chart",
+                                  {"position": "UTG", "stack_bb": 8.9}, {"ok": True})
+    assert spec2 == ("nashpos", "UTG", 8.9, "freq")
+
+    # acima de 20bb não existe shove aproximado (nem solver)
+    assert shove_threshold("UTG", 35) is None
+    assert push_fold(["Td", "Jd"], 35, "UTG")["applicable"] is False
+    assert parse_range("top 12%")            # notação segue válida
+
+
+def test_chart_pipeline_coherence(monkeypatch):
+    # auditoria de incoerências gráfico↔análise:
+    # (a) dedupe: o mesmo range 2x vira 1 gráfico
+    # (b) render que falha vira AVISO explícito (o texto prometeu o gráfico)
+    # (c) gráfico órfão (TTL vencido) não gruda na resposta seguinte
+    import time
+
+    from app.bot import processing as proc
+
+    rendered = []
+    monkeypatch.setattr(
+        "app.analysis.range_chart.render_spec",
+        lambda spec: (b"PNG", f"ok {spec[1]}") if spec[1] != "quebra" else None,
+    )
+
+    specs = [("range", "top 12%", "Shove UTG"),
+             ("range", "top 12%", "Shove UTG"),      # duplicata
+             ("range", "quebra", "Range impossível")]  # render falha
+    proc._stash_charts(111222, specs, None)
+    charts = proc.pop_charts(111222)
+    assert len(charts) == 2                      # dedupe aplicado
+    assert charts[0] == (b"PNG", "ok top 12%")
+    assert charts[1][0] == b"" and "Não consegui montar" in charts[1][1]
+
+    # TTL: chart velho não é entregue
+    proc.PENDING_CHARTS[111222] = (time.time() - 9999, [(b"PNG", "velho")])
+    assert proc.pop_charts(111222) == []
+
+    # docs seguem a mesma regra
+    proc.PENDING_DOCS[111222] = (time.time() - 9999, [(b"X", "f.html", "c")])
+    assert proc.pop_docs(111222) == []
+    proc.PENDING_DOCS[111222] = (time.time(), [(b"X", "f.html", "c")])
+    assert proc.pop_docs(111222) == [(b"X", "f.html", "c")]
+
+
+def test_icm_chart_requires_real_bubble_factor():
+    # bf chutado (default 1.5) no gráfico ICM contradiz o bubble factor do texto
+    from app.agent.llm import _dispatch
+
+    out = _dispatch("send_range_chart", {"role": "SB", "stack_bb": 10,
+                                         "mode": "icm"})
+    assert "error" in out and "bf" in out["error"]
+
+
+def test_3bet_chart_title_names_the_opener():
+    # 'Range de 3bet — CO' lia-se como range DO CO; é o range CONTRA o open de CO
+    from app.agent.llm import charts_from_tool_call
+
+    spec = charts_from_tool_call(
+        "preflop_range", {"position": "CO", "action": "3bet"},
+        {"range": "TT+, AJs+, KQs, A5s, A4s, AQo+"})
+    assert spec is not None and "contra open de CO" in spec[2]
+
+
+def test_audit_round2_sim_charts_bb_shove_and_snapshot():
+    import inspect
+
+    from app.agent import llm
+    from app.bot import handlers, processing
+    from app.db import repository
+
+    # (2) simulação: gráfico do veredito 'e se' é coletado e enviado
+    assert "collect_charts=chart_specs" in inspect.getsource(processing.sim_whatif)
+    assert "_send_pending_charts" in inspect.getsource(handlers.on_sim_answer)
+
+    # (5) 'Shove BB' não existe: dispatch rejeita e nenhum gráfico sai
+    out = llm._dispatch("send_range_chart", {"position": "BB", "stack_bb": 9})
+    assert "error" in out
+    assert llm.charts_from_tool_call(
+        "send_range_chart", {"position": "BB", "stack_bb": 9}, {"ok": True}) is None
+
+    # (3) /evolucao grava os MESMOS números do /stats (bayes na flag)
+    assert "bayes_stats" in inspect.getsource(
+        repository.Repository.snapshot_player_stats)
+
+    # (1) prompt manda o coach referenciar os gráficos automáticos
+    assert "GRÁFICOS AUTOMÁTICOS" in llm._SYSTEM["pt"]
+
+
+def test_post_analysis_buttons_by_context():
+    # botões de pós-análise: vitrine contextual (torneio vs mão avulsa) —
+    # features atrás de comando ninguém descobre (caso real: beta só usou
+    # /relatorio depois de anúncio por mensagem)
+    from app.bot.handlers import _post_kb
+
+    def labels(kb):
+        return [b.text for row in kb.inline_keyboard for b in row]
+
+    t = labels(_post_kb("tournament"))
+    assert any("Relatório" in x for x in t) and any("evolução" in x for x in t)
+    h = labels(_post_kb("hand"))
+    assert any("Simular" in x for x in h) and any("Range do spot" in x for x in h)
+    # 🎈 sempre presente; nunca mais de 3 botões além dele
+    assert any("simples" in x for x in t) and any("simples" in x for x in h)
+    assert len(t) <= 4 and len(h) <= 4
+
+    # o contexto vem do processing (torneio vs mão)
+    import inspect
+
+    from app.bot import processing
+    # (a gravação passou a ir por `lembrar`, que dá teto de memória ao mapa —
+    #  o contexto continua saindo daqui)
+    assert "lembrar(LAST_UPLOAD_KIND, telegram_id," in inspect.getsource(
+        processing._process_upload_inner)
+
+
+def test_preparar_briefing_flow(monkeypatch):
+    # /preparar fase 1: briefing das mãos do próprio aluno + metas parseadas
+    from app.bot import processing as proc
+
+    # extração de metas: só linhas META N:, no máximo 2
+    metas = proc._extract_metas(
+        "bla\nMETA 1: não pagar 3-bet fora de posição com par médio\n"
+        "META 2: pausa de 2 min após pote grande perdido\nMETA 3: extra")
+    assert len(metas) == 2 and metas[0].startswith("não pagar")
+    assert proc._extract_metas("sem metas aqui") == []
+
+    # prompt do briefing (ANTES do monkeypatch, que troca a função):
+    # glossário + temperatura baixa + metas parseáveis
+    import inspect
+
+    from app.agent import llm
+    src = inspect.getsource(llm.prepare_briefing)
+    assert "TERMOS_REGRA" in src and "temperature=0.2" in src
+    assert "META 1:" in src
+
+    # fluxo: com mãos + LLM stubado, devolve o briefing e loga o evento
+    from pathlib import Path
+
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[777001] = hands
+    captured = {}
+
+    def fake_briefing(ctx, lang="pt"):
+        captured["ctx"] = ctx
+        return "*Preparação*\nMETA 1: abrir os pares médios do CO\nMETA 2: pausa pós pote grande"
+
+    monkeypatch.setattr("app.agent.llm.prepare_briefing", fake_briefing)
+    out = proc.prepare_report(777001, "t", "turbo 25bb")
+    assert out and "META 1" in out
+    assert captured["ctx"]["torneio_de_hoje"]["descricao"] == "turbo 25bb"
+    assert captured["ctx"]["torneio_de_hoje"]["formato"] == "turbo"
+    assert captured["ctx"]["perfil"]["maos"] > 0
+    assert "leaks" in captured["ctx"] and "tilt" in captured["ctx"]
+
+    # sem mãos -> None (handler explica)
+    proc.RECENT_HANDS.pop(777002, None)
+    assert proc.prepare_report(777002, "t") is None
+
+
+def test_preparacao_por_formato_de_torneio(monkeypatch):
+    # a preparação se adapta ao TIPO de torneio: dicas verificadas em código
+    # (não inventadas pelo LLM) + range do formato como imagem
+    from app.analysis.prep import dicas_para, parse_tournament_profile
+
+    p = parse_tournament_profile("turbo pko de $22 no GG, field mole")
+    assert p["formato"] == "turbo" and p["pko"] is True
+    assert p["buyin"] == 22.0 and p["field"] == "recreativo"
+    d = dicas_para(p)
+    assert any("push/fold" in x for x in d)        # dica de turbo
+    assert any("ounty" in x for x in d)            # dica de PKO
+    assert any("recreativo" in x for x in d)       # dica de field mole
+
+    assert parse_tournament_profile("").get("formato") is None
+    assert dicas_para({}) == []
+
+    # turbo anexa o equilíbrio de shove como gráfico
+    from pathlib import Path
+
+    from app.bot import processing as proc
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[777003] = hands
+    monkeypatch.setattr("app.agent.llm.prepare_briefing",
+                        lambda ctx, lang="pt": "ok\nMETA 1: x\nMETA 2: y"
+                        if ctx.get("dicas_do_formato") else None)
+    stashed = []
+    monkeypatch.setattr(proc, "_stash_charts",
+                        lambda tg, specs, uid=None: stashed.append(specs))
+    out = proc.prepare_report(777003, "t", "turbo de $11")
+    assert out is not None                     # dicas chegaram ao LLM
+    assert stashed and stashed[0][0][0] == "nashmode"
+
+
+def test_phh_format_support():
+    # caso real: admin subiu .phh (dataset do WSOP) e recebeu "formato não
+    # suportado"; a mão era Seven Card Stud — a resposta deve NOMEAR o jogo
+    from app.ingestion.pipeline import ingest
+    from app.parsers.phh import parse_phh
+
+    stud = """variant = 'F7S/8'
+antes = [50000, 50000]
+starting_stacks = [4575000, 1700000]
+actions = ['d dh p1 ??????', 'd dh p2 7d2dTs', 'p1 f']
+players = ['James Obst', 'Talal Shakerchi']
+event = 'WSOP 2023'
+"""
+    hands, note = parse_phh(stud)
+    assert hands == [] and "Seven Card Stud" in note
+
+    r = ingest(stud.encode(), source_format="phh")
+    assert not r.hands and "Seven Card Stud" in r.note
+
+    # hold'em NT parseia de verdade: streets, blinds, showdown, herói
+    nt = """variant = 'NT'
+antes = [0, 0, 0]
+blinds_or_straddles = [400, 800, 0]
+min_bet = 800
+starting_stacks = [20000, 30000, 25000]
+actions = ['d dh p1 ????', 'd dh p2 ????', 'd dh p3 AhKd', 'p3 cbr 1600', 'p1 f', 'p2 cc', 'd db 7c2d9s', 'p2 cc', 'p3 cbr 2000', 'p2 f', 'p3 sm AhKd']
+players = ['Alice', 'Bob', 'Hero']
+event = 'Torneio Teste'
+"""
+    hands, note = parse_phh(nt)
+    assert len(hands) == 1 and not note
+    h = hands[0]
+    assert h.hero == "Hero" and h.hero_cards == ["Ah", "Kd"]
+    assert h.final_board == ["7c", "2d", "9s"]
+    pre = h.streets[0]
+    tipos = [(a.actor, a.type.value) for a in pre.actions if a.type.value != "post"]
+    assert ("Hero", "raise") in tipos and ("Bob", "call") in tipos
+    flop = h.streets[1]
+    ftipos = [(a.actor, a.type.value) for a in flop.actions]
+    assert ("Bob", "check") in ftipos and ("Hero", "bet") in ftipos
+    assert h.shown_cards.get("Hero") == ["Ah", "Kd"]
+    assert h.stakes.big_blind == 800 and h.format.value == "tournament"
+
+    # detecção por conteúdo (colado como txt, sem extensão)
+    r2 = ingest(nt, source_format="txt")
+    assert r2.source_format == "phh" and len(r2.hands) == 1
+
+
+def test_analise_fala_de_jogador_para_jogador():
+    # feedback do admin (07/08): análise vinha "traduzindo" termo com
+    # parênteses didáticos, e a regra virou proibição seca — didática só no 🎈.
+    #
+    # 15/08 (voz-do-coach): o dono pediu técnico E didático na MESMA frase, e
+    # a proibição seca caiu. O que ela defendia não cai junto: o termo real
+    # continua obrigatório e a explicação ganhou TETO (parêntese curto, só na
+    # primeira aparição, no máximo 2 por resposta). Este teste cobra o teto —
+    # quem cobra que as duas regras não voltem a se contradizer é
+    # test_prompt_nao_briga_consigo.py::test_o_prompt_nao_proibe_e_manda_explicar.
+    from app.agent.llm import TERMOS_REGRA, _SYSTEM
+
+    pt = _SYSTEM["pt"]
+    assert "LINGUAGEM ACESSÍVEL" not in pt          # regra antiga extinta
+    assert "PRIMEIRA APARIÇÃO" in pt
+    assert "Máximo 2 parênteses" in pt
+    # a própria TERMOS_REGRA carrega o teto (ela vai para mais 5 prompts que
+    # não têm o V4 do lado), e o termo REAL nunca vira tradução inventada
+    assert "PRIMEIRA APARIÇÃO" in TERMOS_REGRA and "máximo 2" in TERMOS_REGRA
+    assert "substitua o termo por tradução inventada" in TERMOS_REGRA
+    # e a simplificação continua sendo o lugar sem teto
+    assert "não\n    tem esse teto" in TERMOS_REGRA or \
+           "não tem esse teto" in TERMOS_REGRA
+
+
+def test_deep_nunca_stack_fundo():
+    # 'stack fundo' não existe no poker BR — é DEEP. O calque estava até
+    # HARDCODED em títulos de gráfico e dicas (autoria nossa, não do LLM)
+    import inspect
+
+    from app.agent import llm
+    from app.analysis import prep
+    from app.bot import processing
+
+    assert "'stack fundo'" in llm.TERMOS_REGRA          # banido no glossário
+    for mod in (llm, prep, processing):
+        src = inspect.getsource(mod)
+        # fora da linha do glossário (que cita o calque para bani-lo),
+        # nenhuma outra ocorrência
+        assert src.count("stack fundo") <= (1 if mod is llm else 0), mod.__name__
+
+    spec = llm.charts_from_tool_call(
+        "preflop_range", {"position": "BTN", "action": "open"},
+        {"range": "22+, A2s+"})
+    assert "deep" in spec[2] and "fundo" not in spec[2]
+
+
+def test_conversa_herda_teclado_contextual():
+    # "nas minhas últimas conversas não tá aparecendo os botões": followup
+    # agora herda o teclado do último upload (kind persiste, não é popped)
+    import inspect
+
+    from app.bot import handlers
+
+    src = inspect.getsource(handlers)
+    assert "LAST_UPLOAD_KIND.get(tg_user.id)" in src
+    assert "LAST_UPLOAD_KIND.pop" not in src        # persistência, não consumo
+    # followup passa kind E simplify (fallback 🎈 quando não houve upload)
+    ot = inspect.getsource(handlers._route_text)
+    assert "simplify_btn=True" in ot and "kind=LAST_UPLOAD_KIND.get" in ot
+
+
+def test_botoes_agem_sobre_a_mao_analisada(monkeypatch):
+    # "os botões deveriam ser funcionalidades referentes à análise que está
+    # sendo feita": Simular mira a mão da análise; Range do spot usa o
+    # stack/posição DELA (curto -> shove Nash; deep -> open da posição)
+    from pathlib import Path
+
+    from app.bot import processing as proc
+    from app.parsers import parse_text
+
+    hands = parse_text((Path(__file__).parent / "sample_hands" /
+                        "gg_tournament_paste.txt").read_text())
+    proc.RECENT_HANDS[888001] = hands
+
+    # build_simulation com hand_id acha AQUELA mão (se ela tem decisão)
+    from app.agent.analyzer import hand_timeline
+    alvo = next(h for h in hands if h.hero and h.hero_cards and
+                any(e["kind"] == "decision" for e in hand_timeline(h)))
+    sim = proc.build_simulation(888001, alvo.hand_id)
+    assert sim and sim["hand_id"] == alvo.hand_id
+
+    # range do spot: curto -> top X%; deep -> open da posição
+    proc.LAST_HAND_META[888002] = {"hand_id": "x", "position": "CO",
+                                   "stack_bb": 9.0}
+    png, cap = proc.spot_range_chart(888002)
+    assert png and "Shove CO" in cap
+    proc.LAST_HAND_META[888002] = {"hand_id": "x", "position": "CO",
+                                   "stack_bb": 60.0}
+    png2, cap2 = proc.spot_range_chart(888002)
+    assert png2 and "open — CO" in cap2
+    assert proc.spot_range_chart(888003) is None  # sem contexto -> aviso
+
+
+def test_link_de_replay_deteccao():
+    # caso real: usuário novo mandou link de replay e o coach tratou a URL
+    # como pergunta. Agora é detectado (PPPoker puxa sozinho; outros pedem print)
+    from app.bot.processing import replay_link_info
+
+    assert replay_link_info("https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5")
+    # link comum (não replay) NÃO dispara
+    assert replay_link_info("https://google.com") is None
+    # url no meio de uma pergunta longa não dispara
+    assert replay_link_info(
+        "achei essa análise em https://replay.pppoker.net/x mas discordo "
+        "totalmente do que ele falou sobre o meu 3-bet, o que você acha?"
+    ) is None
+    assert replay_link_info("qual o range de UTG?") is None
+
+
+def _pppoker_fixture():
+    # estrutura real de uma mão PPPoker (engenharia reversa da mão do Ricardo):
+    # AKo, raise pré, call do CO, resto folda; flop Q34, check-fold do herói
+    antes = [{"seatid": s, "chips": 50000, "hand_chips": 1_000_000, "type": 10}
+             for s in (5, 7, 8, 0, 1, 2, 3, 4)]
+    return {
+        "share_key": "test-key", "create_time": 1,
+        "info": {
+            "room": {"small_blind": 200000, "ante": 50000, "dealer_seatid": 4,
+                     "room_name": "Monster Stack", "gameid": "g1",
+                     "mtt": {"is_ft": True}},
+            "players": [
+                {"user_name": "RicoFarah", "seatid": 0, "hand_chips": 21305500,
+                 "uid": 1, "isSelf": True},
+                {"user_name": "vilmots", "seatid": 1, "hand_chips": 6870800, "uid": 2,
+                 "hunter_bonus": 150},
+                {"user_name": "KKNUThS", "seatid": 2, "hand_chips": 6394900, "uid": 3},
+                {"user_name": "ImperadorJuju", "seatid": 3, "hand_chips": 44596700, "uid": 4},
+                {"user_name": "btn", "seatid": 4, "hand_chips": 4477000, "uid": 5},
+                {"user_name": "sbp", "seatid": 5, "hand_chips": 16827800, "uid": 6},
+                {"user_name": "bbp", "seatid": 7, "hand_chips": 13106900, "uid": 7},
+                {"user_name": "arisn", "seatid": 8, "hand_chips": 26020400, "uid": 8},
+            ],
+            "cards": [269, 782],  # Kd, Ah = AKo (naipe 1=d, 3=h)
+        },
+        "flow": {
+            "pre_flop": {"cards": [], "actions": antes + [
+                {"seatid": 5, "chips": 200000, "type": 8},   # SB
+                {"seatid": 7, "chips": 400000, "type": 9},   # BB
+                {"seatid": 8, "chips": 0, "type": 1},        # fold
+                {"seatid": 0, "chips": 1120000, "type": 4, "hand_chips": 20185500},  # raise
+                {"seatid": 1, "chips": 0, "type": 1},
+                {"seatid": 2, "chips": 0, "type": 1},
+                {"seatid": 3, "chips": 1120000, "type": 3, "hand_chips": 43476700},  # call
+                {"seatid": 4, "chips": 0, "type": 12},       # fold
+                {"seatid": 5, "chips": 0, "type": 1},
+                {"seatid": 7, "chips": 0, "type": 1},
+            ], "pools": [{"poolid": 0, "pool": 3240000}]},
+            "flop": {"cards": [268, 1027, 1028], "actions": [  # Qd 3s 4s
+                {"seatid": 0, "chips": 0, "type": 2},        # check
+                {"seatid": 3, "chips": 1820000, "type": 7},  # bet
+                {"seatid": 0, "chips": 0, "type": 1},        # fold
+            ], "chips_back": [{"seatid": 3, "chips": 1820000}]},
+            "turn": {"cards": [], "actions": []},
+            "river": {"cards": [], "actions": []},
+            # showdown (formato real da sonda): mão completa revelada por
+            # seatid em show_hands; carta única voluntária em show_cards
+            "show_hands": [{"seatid": 3, "code": [520, 1032]}],   # 8c 8s
+            "show_cards": [{"seatid": 1, "code": 771}],           # 3h
+            "winning_info": [{"seatid": 3, "chips": 3240000, "profit": 2070000}],
+        },
+    }
+
+
+def test_pppoker_replay_parser():
+    from app.parsers.pppoker_replay import parse, share_key_from_url
+
+    # extração do share_key do link colado
+    url = ("https://replay.pppoker.net/new_game_record_publish/Frame/"
+           "rls_20260624/index.html?shareKey=f48bcbb5-ef29-46d2-3a6c-5d8642064240&lan=pt")
+    assert share_key_from_url(url) == "f48bcbb5-ef29-46d2-3a6c-5d8642064240"
+    assert share_key_from_url("https://google.com") is None
+
+    h = parse(_pppoker_fixture(), "f48bcbb5")
+    assert h is not None
+    assert h.hero == "RicoFarah"
+    # naipes: 1=♦ 2=♣ 3=♥ 4=♠ (escada asiática; o vídeo do replay confirmou
+    # que código 4 = espadas — o mapa antigo dava paus)
+    assert set(h.hero_cards) == {"Kd", "Ah"}                 # AKo decodificado
+    assert h.final_board == ["Qd", "3s", "4s"]               # flop decodificado
+    assert h.stakes.big_blind == 400000 and h.stakes.small_blind == 200000
+    assert h.stakes.ante == 50000
+    assert h.format.value == "tournament"
+
+    # posições: SB=seat5, BB=seat7, ordem horária → herói (seat0) é UTG+1
+    pos = {p.name: p.position for p in h.players}
+    assert pos["sbp"] == "SB" and pos["bbp"] == "BB"
+    assert pos["btn"] == "BTN" and pos["RicoFarah"] == "UTG+1"
+
+    # ações: pré = raise do herói + call do CO; flop = check/bet/fold
+    pre = h.streets[0]
+    tipos = [(a.actor, a.type.value) for a in pre.actions
+             if a.type.value != "post"]
+    assert ("RicoFarah", "raise") in tipos
+    assert ("ImperadorJuju", "call") in tipos
+    assert tipos.count(("arisn", "fold")) == 1
+    flop = h.streets[1]
+    ftipos = [(a.actor, a.type.value) for a in flop.actions]
+    assert ftipos == [("RicoFarah", "check"), ("ImperadorJuju", "bet"),
+                      ("RicoFarah", "fold")]
+    assert h.total_pot == 3240000 and h.collected.get("ImperadorJuju") == 3240000
+
+    # showdown: mão completa de flow.show_hands + carta única de show_cards
+    assert h.shown_cards["ImperadorJuju"] == ["8c", "8s"]
+    assert h.shown_cards["vilmots"] == ["3h"]
+
+    # PKO: bounty capturado do hunter_bonus e exposto pro coach
+    from app.agent.analyzer import analyze_hand
+    vilmots = next(p for p in h.players if p.name == "vilmots")
+    assert vilmots.bounty == 150
+    a = analyze_hand(h)
+    assert a["pko"] is True and 150 in a["bounties"].values()
+
+
+def test_replay_link_detection_routes_pppoker():
+    from app.bot.processing import replay_link_info
+
+    r = replay_link_info(
+        "https://replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
+        "index.html?shareKey=abc123def456aa99&lan=pt")
+    assert r and r["site"] == "pppoker" and r["share_key"] == "abc123def456aa99"
+
+    # a Suprema PASSOU a ser suportada: o link inteiro vira a chave, porque a
+    # derivação do endpoint (prefixo de 8 + ambiente pelo caractere 10) é
+    # regra do replayer e mora no parser. Antes este assert exigia None, que
+    # era o estado "reconheço o clube mas não sei abrir".
+    s = replay_link_info("https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5")
+    assert s and s["site"] == "suprema"
+    assert s["share_key"] == "https://r.supremapoker.net/?t=ob2mfsa3002pt&er=5"
+
+    assert replay_link_info("qual o range de UTG?") is None
+
+    # link novo de compartilhamento (share.php em pppoker.club, shareKey UUID)
+    # — antes caía no fallback genérico porque o host não batia
+    p = replay_link_info(
+        "https://pppoker.club/poker/api/share.php?share_type=handreview&"
+        "uid=1151574&lang=pt&time=1784248958&"
+        "shareKey=29e84d82-10f9-93aa-a5f1-78cd9edaf984")
+    assert p and p["site"] == "pppoker"
+    assert p["share_key"] == "29e84d82-10f9-93aa-a5f1-78cd9edaf984"
+
+    # link SEM https:// (como o público copia do chat do clube) — caso real:
+    # o admin colou assim e caía no coach em vez de abrir a mão
+    s2 = replay_link_info(
+        "replay.pppoker.net/new_game_record_publish/Frame/rls_20260624/"
+        "index.html?shareKey=1027209d-560c-25ed-40c1-878cf23f0056&lan=pt")
+    assert s2 and s2["site"] == "pppoker"
+    assert s2["share_key"] == "1027209d-560c-25ed-40c1-878cf23f0056"
+    # texto comum com ponto não vira link ("kknuths.com" citado numa frase longa)
+    assert replay_link_info(
+        "olha, o site kknuths.com/manual tem a explicação completa dessa "
+        "jogada que a gente discutiu ontem, dá uma olhada com calma") is None
+
+
+def test_drill_narracao_pre_flop_limpa():
+    # feedback do admin: "a sequência das ações está confusa, precisa ser
+    # contada a partir do UTG". Pré-flop cronológico (UTG-first nas mãos
+    # reais), posts e folds escondidos, como um jogador conta.
+    from app.bot.processing import _preflop_summary
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # pote 3-bet: MP abre, herói folda, SB 3-beta, MP paga (ordem cronológica)
+    pl = [
+        PlayerSeat(seat=1, name="mp", stack=6000, position="MP"),
+        PlayerSeat(seat=2, name="Hero", stack=3900, position="CO", is_hero=True),
+        PlayerSeat(seat=3, name="sb", stack=5000, position="SB"),
+        PlayerSeat(seat=4, name="bb", stack=6000, position="BB"),
+        PlayerSeat(seat=5, name="utg", stack=6000, position="UTG"),
+    ]
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=100, post_type="sb"),
+        Action(actor="bb", type=ActionType.POST, amount=200, post_type="bb"),
+        Action(actor="utg", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.RAISE, amount=400, to_amount=400),
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="sb", type=ActionType.RAISE, amount=1100, to_amount=1200),
+        Action(actor="bb", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.CALL, amount=800, to_amount=1200),
+    ])
+    h = CanonicalHand(site="x", hand_id="d1", hero="Hero",
+                      stakes=Stakes(small_blind=100, big_blind=200),
+                      players=pl, hero_cards=["5h", "4h"], streets=[pre])
+
+    s = _preflop_summary(h)
+    assert s.startswith("Pré-flop:")
+    # cronológico: MP abre ANTES do SB 3-betar ANTES do MP pagar
+    assert s.index("MP abre") < s.index("SB 3-beta") < s.index("MP paga")
+    assert "MP paga 6bb" not in s and "MP paga" in s  # call sem valor
+    assert "folda" not in s and "post" not in s.lower()  # posts/folds escondidos
+
+    # stop_actor: para antes da ação do herói (decisão no pré) — só o open do MP
+    s2 = _preflop_summary(h, stop_actor="Hero")
+    assert "MP abre" in s2 and "3-beta" not in s2
+
+    # foldou geral até o herói -> aviso curto
+    pre2 = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=100, post_type="sb"),
+        Action(actor="utg", type=ActionType.FOLD),
+        Action(actor="mp", type=ActionType.FOLD),
+    ])
+    h2 = h.model_copy(update={"streets": [pre2]})
+    assert _preflop_summary(h2, stop_actor="Hero") == "Pré-flop: folda até você"
+
+
+def test_botoes_com_tamanho_real_em_bb():
+    # feedback do admin: "só tem raise pote e coisas do tipo" — os botões de
+    # sizing agora mostram o NÚMERO (bb) calculado do spot, capado no stack.
+    from app.bot.processing import drill_buttons, sizing_amounts
+
+    # enfrentando aposta: pote 9bb (já inclui a aposta), 3bb a pagar, 40bb stack
+    amt = sizing_amounts(9.0, 3.0, 40.0)
+    assert amt["raise3x"] == 9.0            # 3× a aposta
+    assert amt["raisepot"] == 15.0          # pote + 2× aposta
+    assert amt["allin"] == 40.0
+    # cap no stack: sem sizing maior que o all-in
+    curto = sizing_amounts(9.0, 3.0, 10.0)
+    assert curto["raisepot"] == 10.0
+
+    # fluxo em DOIS passos ("quero apertar no raise e escolher o tamanho"):
+    # menu principal = ação; toque em Raise/Bet abre o submenu de tamanhos
+    from app.bot.processing import drill_size_buttons
+
+    d = {"pot_bb": 9.0, "to_call_bb": 3.0, "stack_bb": 40.0}
+    main = " | ".join(b["text"] for r in drill_buttons(d) for b in r)
+    assert "Fold" in main and "Call (3bb)" in main and "Raise" in main
+    assert "3x" not in main                    # tamanhos só no submenu
+    cbs = [b["callback_data"] for r in drill_buttons(d) for b in r]
+    assert "drill:sizes" in cbs                # o toque que abre o submenu
+
+    sub = " | ".join(b["text"] for r in drill_size_buttons(d) for b in r)
+    assert "3x (9bb)" in sub and "Pote (15bb)" in sub
+    assert "All-in (40bb)" in sub and "Voltar" in sub
+
+    # sem aposta: frações do pote no submenu
+    d2 = {"pot_bb": 12.0, "to_call_bb": 0, "stack_bb": 33.0}
+    main2 = " | ".join(b["text"] for r in drill_buttons(d2) for b in r)
+    assert "Check" in main2 and "Bet" in main2
+    sub2 = " | ".join(b["text"] for r in drill_size_buttons(d2) for b in r)
+    assert "⅓ pote (4bb)" in sub2 and "½ pote (6bb)" in sub2
+    assert "Pote (12bb)" in sub2 and "All-in (33bb)" in sub2
+
+
+def test_simular_mao_foldada_pre_vira_filme():
+    # caso real do Leo: colou um replay onde FOLDOU o pré-flop e clicou simular.
+    # Não há decisão dele pra rejogar (1 decisão, um fold) -> a sim marca
+    # dead_end e o handler mostra o FILME da mão em vez de um beco sem saída.
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pl = [
+        PlayerSeat(seat=1, name="Hero", stack=30000, position="UTG",
+                   is_hero=True),
+        PlayerSeat(seat=2, name="vilaoA", stack=40000, position="BTN"),
+        PlayerSeat(seat=3, name="vilaoB", stack=50000, position="BB"),
+    ]
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilaoB", type=ActionType.POST, amount=200, post_type="bb"),
+        Action(actor="Hero", type=ActionType.FOLD),
+        Action(actor="vilaoA", type=ActionType.RAISE, amount=600, to_amount=600),
+        Action(actor="vilaoB", type=ActionType.CALL, amount=400, to_amount=600),
+    ])
+    flop = Street(name=StreetName.FLOP, board=["Qs", "3c", "4c"], actions=[
+        Action(actor="vilaoA", type=ActionType.BET, amount=500),
+        Action(actor="vilaoB", type=ActionType.CALL, amount=500),
+    ])
+    h = CanonicalHand(site="PPPoker · clube", hand_id="pppoker-fold-pre",
+                      hero="Hero", stakes=Stakes(small_blind=100, big_blind=200),
+                      players=pl, hero_cards=["7s", "2d"], streets=[pre, flop],
+                      final_board=["Qs", "3c", "4c"],
+                      shown_cards={"vilaoA": ["Ah", "Qd"]},
+                      collected={"vilaoA": 2200}, total_pot=2200)
+
+    tid = 555001
+    proc.RECENT_HANDS[tid] = [h]
+    try:
+        sim = proc.build_simulation(tid, "pppoker-fold-pre")
+        assert sim and sim.get("dead_end") is True
+        # o filme da mão inteira sai como PNG válido
+        png = proc.hand_film(tid, "pppoker-fold-pre")
+        assert png and png[:8] == b"\x89PNG\r\n\x1a\n"
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+
+    # o filme termina com a banda "Resultado": showdown GRÁFICO (cartas do
+    # vilão desenhadas via reveals) + quem levou o pote
+    bands = proc.film_bands(h)
+    assert bands[-1]["name"] == "Resultado"
+    rv = bands[-1]["reveals"][0]
+    assert rv["who"] == "vilaoA (BTN) mostra" and rv["cards"] == ["Ah", "Qd"]
+    assert rv["desc"] == "par de Q, kicker A"
+    assert "leva o pote (11bb)" in " ".join(bands[-1]["lines"])
+    # pós-flop identifica o vilão por NOME (posição), não só posição
+    flop_blob = " ".join(bands[1]["lines"])
+    assert "vilaoA (BTN) aposta" in flop_blob
+
+
+def test_leitura_deterministica_da_mao_feita():
+    # caso real: coach disse "trinca de J" quando o herói (K♥T♠ no
+    # J♠T♦J♦7♠6♥) tinha DOIS PARES (J e 10). A leitura agora é calculada.
+    from app.agent.analyzer import analyze_hand
+    from app.analysis.equity import describe_hand
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    board = ["Js", "Td", "Jd", "7s", "6h"]
+    assert describe_hand(["Kh", "Ts"], board) == "dois pares (J e 10), kicker K"
+    assert describe_hand(["Ad", "Qc"], board) == "par de J, kicker A"
+    assert describe_hand(["Jc", "2c"], board) == "trinca de J"
+    # "X cheio de Y" e "sequência" são calques que TERMOS_REGRA proíbe — o
+    # desenho escrevia assim porque não passa pelo corretor (07/08)
+    assert describe_hand(["Th", "Tc"], board) == "full de 10 com J (trinca de 10)"
+    assert describe_hand(["Ah", "Kd"], ["9s", "9h", "9c", "As", "3d"]) \
+        == "full de 9 com A (trinca de 9)"      # o cooler TT vs AK do 999-A-3
+    assert describe_hand(["Kh", "Ts"], ["Js"]) is None  # sem 5 cartas
+
+    h = CanonicalHand(
+        site="x", hand_id="t1", hero="Hero",
+        stakes=Stakes(small_blind=100, big_blind=200),
+        players=[PlayerSeat(seat=1, name="Hero", stack=10000, is_hero=True)],
+        hero_cards=["Kh", "Ts"], final_board=board,
+        shown_cards={"vilao": ["Ad", "Qc"]},
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    a = analyze_hand(h)
+    assert a["hero_final_hand"] == "dois pares (J e 10), kicker K"
+    assert a["showdown_hands"]["vilao"] == "par de J, kicker A"
+
+    # QUANDO a mão ficou pronta (caso real: coach disse que o KJ 'fechou a
+    # sequência no river' quando a broadway estava pronta JÁ NO FLOP T-A-Q)
+    h2 = h.model_copy(update={
+        "hero_cards": ["Ah", "4d"],
+        "final_board": ["Tc", "Ad", "Qd", "Ts", "8c"],
+        "shown_cards": {"ImperadorJuju": ["Jd", "Kh"]},
+    })
+    bs = analyze_hand(h2)["hand_by_street"]
+    assert bs["ImperadorJuju"]["flop"] == "straight até A"   # pronta no flop
+    assert bs["ImperadorJuju"]["river"] == "straight até A"  # e segue no river
+    assert bs["heroi"]["flop"] == "par de A, kicker Q"
+    assert bs["heroi"]["turn"] == "dois pares (A e 10), kicker Q"
+
+
+def test_leitura_de_mao_hipotetica_e_textura():
+    # caso real: coach disse que "QJ fechou flush" no board 10♥8♦A♠5♣K♥ —
+    # flush é impossível ali (duas copas); QJ fecha a SEQUÊNCIA broadway no
+    # river. A leitura hipotética agora é da ferramenta, nunca de cabeça.
+    from app.agent.llm import _dispatch
+    from app.analysis.equity import (board_texture, hand_on_board,
+                                     pretty_card, pretty_cards)
+
+    board = ["Th", "8d", "As", "5c", "Kh"]  # a mão real do erro
+    r = hand_on_board(["Qs", "Jd"], board)
+    assert r["por_street"]["river"] == "straight até A"
+    assert r["por_street"]["flop"] == "A high"             # nada no flop
+    assert r["textura_do_board"]["flush_possivel"] is False
+    assert "IMPOSSÍVEL" in r["textura_do_board"]["nota"]
+
+    # sem naipes ('e se ele tivesse QJ?'): lê offsuit, nunca inventa flush
+    r2 = hand_on_board(["Q", "J"], ["Ac", "7c", "2c", "Kc", "3d"])
+    assert r2["por_street"]["river"] != "flush, maior carta A"
+    assert "OFFSUIT" in r2["nota_naipes"]
+    # com 3+ do naipe no board a textura avisa que flush existe
+    assert board_texture(["Ah", "7h", "2h", "Kd"])["flush_possivel"] is True
+
+    # dispatch aceita 'QJ' numa string só e cartas com ícone
+    d = _dispatch("leitura_de_mao", {"cards": "QJ", "board": board})
+    assert d["por_street"]["river"] == "straight até A"
+    d2 = _dispatch("leitura_de_mao",
+                   {"cards": ["Q♠", "J♦"], "board": ["10♥", "8♦", "A♠"]})
+    assert d2["mao"] == "Q♠ J♦"
+    assert _dispatch("leitura_de_mao", {"cards": ["Qs"], "board": board})[
+        "error"].startswith("preciso")
+
+    # ícones nas descrições (pedido do aluno): 'Th' -> '10♥'
+    assert pretty_card("Th") == "10♥"
+    assert pretty_cards(["Kc", "9c"]) == "K♣ 9♣"
+
+
+def test_cartas_texto_no_gabarito():
+    # cartas prontas com ícone no contexto do coach (herói, board, showdown)
+    from app.agent.analyzer import analyze_hand
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    h = CanonicalHand(
+        site="x", hand_id="ct1", hero="Hero",
+        stakes=Stakes(small_blind=100, big_blind=200),
+        players=[PlayerSeat(seat=1, name="Hero", stack=10000, is_hero=True)],
+        hero_cards=["Ac", "9d"], final_board=["Th", "8d", "As", "5c", "Kh"],
+        shown_cards={"vilao": ["Kc", "9c"]},
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    a = analyze_hand(h)
+    assert a["cartas_texto"]["heroi"] == "A♣ 9♦"
+    assert a["cartas_texto"]["board"] == "10♥ 8♦ A♠ 5♣ K♥"
+    assert a["cartas_texto"]["showdown"]["vilao"] == "K♣ 9♣"
+    assert a["textura_do_board"]["flush_possivel"] is False
+
+
+def test_resumo_diario_de_uso():
+    # resumo diário pro admin: 1ª linha responde 'entrou gente nova?';
+    # sistema (telegram_id 0) filtrado; ativos/sumidos corretos
+    import sys
+    from datetime import datetime, timedelta, timezone
+    sys.path.insert(0, "scripts")
+    from daily_usage import build_summary
+
+    now = datetime(2026, 7, 23, 23, 0, tzinfo=timezone.utc)
+    day_ago = (now - timedelta(hours=24)).isoformat()
+    reais = [
+        {"telegram_id": 111, "username": "Leo", "created_at": "2026-07-09"},
+        {"telegram_id": 222, "username": "Ricardo", "created_at": "2026-07-13"},
+        {"telegram_id": 333, "username": "sumido", "created_at": "2026-07-01"},
+    ]
+    ev = ([{"telegram_id": 111, "event": "followup"}] * 3
+          + [{"telegram_id": 111, "event": "photo"}] * 2
+          + [{"telegram_id": 222, "event": "drill_answer"}] * 2
+          + [{"telegram_id": 0, "event": "deploy"}] * 5)   # sistema: some
+
+    txt, m = build_summary(now, reais, ev, day_ago)
+    assert "Nenhum usuário novo hoje" in txt
+    # (as métricas de entrega entraram depois; aqui não há pedido no dia)
+    assert {k: m[k] for k in ("novos", "ativos", "base", "maos",
+                              "perguntas", "quiz")} == {
+        "novos": 0, "ativos": 2, "base": 3, "maos": 2,
+        "perguntas": 3, "quiz": 2}
+    assert m["entrega_pct"] is None and m["entrega_pedidos"] == 0
+    assert "sumido" in txt.split("Sem aparecer hoje")[1]     # retenção
+    assert "Leo — 5 ações" in txt                            # ranking
+
+    # usuário novo hoje -> 1ª métrica muda e o cabeçalho grita
+    novo = {"telegram_id": 999, "username": "NovoDoClube",
+            "created_at": now.isoformat()}
+    txt2, m2 = build_summary(now, reais + [novo], ev, day_ago)
+    assert m2["novos"] == 1 and m2["base"] == 4
+    assert "NovoDoClube" in txt2 and "novo(s) hoje" in txt2
+
+    # CUSTO no resumo: sem o número na cara todo dia, o preço volta a ser
+    # chute. 2 mãos no dia e US$ 0,60 -> US$ 0,30/mão.
+    custo = {"chamadas": 9, "usd": 0.6, "chamadas_sem_preco": 0,
+             "por_tarefa": {"analise": 0.4, "conversa": 0.2}}
+    txt3, m3 = build_summary(now, reais, ev, day_ago, custo)
+    assert m3["custo_usd"] == 0.6
+    assert "Custo hoje: US$ 0.60" in txt3 and "US$ 0.30/mão" in txt3
+    assert "analise US$ 0.40" in txt3
+    # sem dado de custo o resumo continua saindo (nada de quebrar por isso)
+    assert build_summary(now, reais, ev, day_ago)[1]["custo_usd"] is None
+
+    # EVENTO SEM telegram_id não pode virar um usuário chamado "None". O log
+    # de custo gravava None nas chamadas de cron, e o resumo o listou como
+    # ativo — 5 ativos numa base de 4.
+    sujo = ev + [{"telegram_id": None, "event": "custo_llm"}] * 3
+    txt4, m4 = build_summary(now, reais, sujo, day_ago)
+    assert "None" not in txt4
+    assert m4["ativos"] == 2, "evento sem dono inflou a contagem de ativos"
+
+
+def test_repeticao_espacada_do_treino():
+    # o quiz persegue o leak: categorias com erro sustentado pesam mais no
+    # sorteio; indo bem (ou sem histórico) o boost some sozinho
+    from app.bot.processing import (_leak_note, drill_category, leak_boost,
+                                    leak_error_rates)
+
+    assert drill_category({"street": "preflop", "stack_bb": 12,
+                           "format": "tournament"}) == "push_fold"
+    assert drill_category({"street": "preflop", "stack_bb": 60,
+                           "format": "tournament"}) == "preflop"
+    assert drill_category({"street": "preflop", "stack_bb": 12,
+                           "format": "cash"}) == "preflop"
+    assert drill_category({"street": "river"}) == "river"
+
+    verdicts = ([{"cat": "river", "verdict": "ruim"}] * 4
+                + [{"cat": "flop", "verdict": "boa"}] * 4
+                + [{"cat": "turn", "verdict": "mista"}] * 2
+                + [{"cat": None, "verdict": "ruim"},          # legado sem cat
+                   {"cat": "river", "verdict": "xyz"}])       # veredito inválido
+    rates = leak_error_rates(verdicts)
+    assert rates["river"]["n"] == 4 and rates["river"]["taxa"] > 0.7
+    assert rates["flop"]["taxa"] < 0.3
+    # erra river -> boost forte; acerta flop -> sem boost; sem dados -> neutro
+    assert leak_boost(rates, "river") > 2.5
+    assert leak_boost(rates, "flop") == 1.0
+    assert leak_boost(rates, "preflop") == 1.0
+    assert leak_boost({}, "river") == 1.0
+
+    # aviso "spot na mira" só com amostra (3+) e erro sustentado
+    assert "Spot na mira" in _leak_note(rates, "river")
+    assert _leak_note(rates, "flop") is None
+    assert _leak_note(rates, "turn") is None      # n=2: amostra curta
+    assert _leak_note({}, "river") is None
+
+    # o aviso aparece no texto do quiz
+    from app.bot.processing import drill_message
+    d = {"format": "tournament", "stack_bb": 20, "blinds": "100/200",
+         "players": 8, "cards_pretty": "A♠ K♥", "position": "BTN",
+         "street": "river", "pot_bb": 12.0, "story": "",
+         "leak_note": _leak_note(rates, "river")}
+    assert "Spot na mira" in drill_message(d)
+
+
+def test_filme_comenta_cada_street_na_figura():
+    # o pedido do aluno: os comentários NA figura do filme. film_bands anexa
+    # a cada street o veredito do herói com a conta (números determinísticos).
+    from app.api.site_assets import _demo_hand
+    from app.bot.processing import film_bands, hand_film_png
+
+    h = _demo_hand()                       # QJ vs A-high, herói ganha sempre
+    bands = film_bands(h)
+    notas = {b["name"]: b.get("hero_note") for b in bands if b.get("hero_note")}
+    assert {"Pré-flop", "Flop", "Turn", "River"} <= set(notas)
+    flop = notas["Flop"]
+    # figura = FATO do replay (à frente/atrás da mão dele), tom NEUTRO —
+    # o veredito bom/ruim é do texto, pra não se contradizerem
+    assert flop["tag"] in ("▲", "≈", "▼") and flop["kind"] == "info"
+    assert "pedia 28%" in flop["text"] and "69% vs a mão dele" in flop["text"]
+    assert "Resultado" not in notas                          # sem decisão lá
+    # a figura renderiza sem quebrar, maior que a versão sem notas
+    png = hand_film_png(h)
+    assert png and len(png) > 5000
+
+
+def test_filme_allin_multiway_mostra_evolucao_de_equity():
+    # aluno: mão de all-in a 3 no pré 'confusa de ler' — as streets do
+    # run-out ficavam vazias. Agora cada street mostra a equity de cada mão
+    # conhecida evoluindo, como o replayer da sala.
+    from app.bot.processing import film_bands
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="V1", type=ActionType.RAISE, amount=40, to_amount=40,
+               all_in=True),
+        Action(actor="Hero", type=ActionType.RAISE, amount=72, to_amount=72,
+               all_in=True),
+        Action(actor="V1", type=ActionType.CALL, amount=32, to_amount=72)])
+    flop = Street(name=StreetName.FLOP, board=["Js", "2d", "9s"], actions=[])
+    turn = Street(name=StreetName.TURN, board=["7h"], actions=[])
+    riv = Street(name=StreetName.RIVER, board=["2s"], actions=[])
+    h = CanonicalHand(
+        site="x", hand_id="mwallin", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=72, is_hero=True,
+                            position="BB"),
+                 PlayerSeat(seat=2, name="V1", stack=72, position="BTN"),
+                 PlayerSeat(seat=3, name="V2", stack=72, position="SB")],
+        hero_cards=["Ks", "Jh"], final_board=["Js", "2d", "9s", "7h", "2s"],
+        shown_cards={"V1": ["Kd", "Kc"], "V2": ["Qh", "4h"]},
+        collected={"V1": 216}, streets=[pre, flop, turn, riv])
+    bands = {b["name"]: b for b in film_bands(h)}
+    # cada street do run-out tem a linha de equity, herói primeiro
+    for st in ("Flop", "Turn", "River"):
+        el = bands[st].get("equity_line")
+        assert el and el.startswith("equity: VOCÊ")
+        assert "V1" in el and "V2" in el
+    # a corrida faz sentido: KK domina, herói cai até 0 no river
+    assert "VOCÊ 0%" in bands["River"]["equity_line"]
+    assert "100%" in bands["River"]["equity_line"]           # KK fecha
+    # sem all-in, NÃO mostra a evolução (alguém ainda podia foldar)
+    h2 = h.model_copy(update={"streets": [
+        Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="V1", type=ActionType.RAISE, amount=3, to_amount=3),
+            Action(actor="Hero", type=ActionType.CALL, amount=3, to_amount=3),
+            Action(actor="V2", type=ActionType.CALL, amount=3, to_amount=3)]),
+        flop, turn, riv]})
+    assert film_bands(h2) and not any(
+        b.get("equity_line") for b in film_bands(h2))
+
+def test_range_deep_nao_vale_para_stack_curto():
+    # aluno perguntou: "ele fala 'range do MP deep' — é o torneio ou o meu
+    # stack? com 20bb não estou deep". O '(deep)' descrevia a TABELA e nada
+    # impedia o gráfico deep de ir pra quem tinha 20bb (referência errada).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+
+    curto = {"position": "MP", "action": "open", "stack_bb": 20}
+    r = _dispatch("preflop_range", curto)
+    assert r["vale_para_este_stack"] is False
+    assert "push/fold" in r["aviso"] and "20bb" in r["aviso"]
+    # SUBSTITUI pelo gráfico certo (shove do solver) — sumir com a imagem foi
+    # regressão real ("não tá mandando o gráfico dos ranges")
+    spec_curto = charts_from_tool_call("preflop_range", curto, r)
+    assert spec_curto is not None, "stack curto ficou SEM gráfico"
+    assert spec_curto == ("nashpos", "MP", 20.0, "freq")
+    # e o gráfico renderiza de verdade
+    from app.analysis.range_chart import render_spec
+    png, leg = render_spec(spec_curto)
+    assert png and len(png) > 5000 and "all-in do MP" in leg
+
+    fundo = {"position": "MP", "action": "open", "stack_bb": 60}
+    r2 = _dispatch("preflop_range", fundo)
+    assert r2["vale_para_este_stack"] is True
+    spec = charts_from_tool_call("preflop_range", fundo, r2)
+    assert spec and "referência 25bb+" in spec[2]      # título sem ambiguidade
+
+    # sem stack informado: manda, mas o título diz de que referência se trata
+    sem = {"position": "MP"}
+    r3 = _dispatch("preflop_range", sem)
+    assert r3["referencia"] == "deep (~25bb+)"
+    assert "referência 25bb+" in charts_from_tool_call("preflop_range", sem, r3)[2]
+    # 3-bet também deixa a referência explícita
+    tb = {"position": "CO", "action": "3bet"}
+    assert "referência 25bb+" in charts_from_tool_call(
+        "preflop_range", tb, _dispatch("preflop_range", tb))[2]
+
+    # e o prompt obriga a informar o stack
+    from app.agent.llm import _SYSTEM
+    assert "SEMPRE passe stack_bb no preflop_range" in _SYSTEM["pt"]
+
+
+def test_portas_do_motor_spot_e_auditoria():
+    # o motor existia mas não tinha porta: nenhum comando/botão chegava nele
+    # ("temos as ferramentas mas eu não estou testando isso"). Agora tem
+    # /spot (acesso direto) e a auditoria de all-ins no relatório.
+    from app.analysis.allin_audit import (_spot_do_heroi, auditar_allins,
+                                          resumo_auditoria)
+    from app.bot.processing import spot_reply
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # --- /spot entende linguagem de mesa e devolve os DOIS gráficos ---
+    for texto, kind, pct_min in (("reshove btn 12 co", "reshove", 5),
+                                 ("open mp 10", "open_shove", 5),
+                                 ("squeeze bb 15 mp", "squeeze", 5),
+                                 ("call_shove btn 12 mp", "call_shove", 1)):
+        out = spot_reply(texto)
+        assert out, f"/spot não entendeu: {texto}"
+        txt, specs = out
+        assert len(specs) == 2 and specs[0][4] == "freq" and specs[1][4] == "ev"
+        assert specs[0][1] == kind
+        assert "Equilíbrio: joga" in txt and "Melhores" in txt
+    assert spot_reply("banana") is None          # entrada ruim não inventa
+
+    # --- auditoria: a MÃO REAL do aluno (A4o de BB all-in vs open+call) ---
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=1, post_type="sb"),
+        Action(actor="Hero", type=ActionType.POST, amount=2, post_type="bb"),
+        Action(actor="UTG1", type=ActionType.RAISE, amount=2, to_amount=2),
+        Action(actor="Juju", type=ActionType.CALL, amount=2, to_amount=2),
+        Action(actor="Hero", type=ActionType.RAISE, amount=18, to_amount=20,
+               all_in=True)])
+    h = CanonicalHand(
+        site="x", hand_id="a4o", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2, ante=0.25),
+        players=[PlayerSeat(seat=1, name="Hero", stack=40, is_hero=True,
+                            position="BB"),
+                 PlayerSeat(seat=2, name="UTG1", stack=80, position="UTG+1"),
+                 PlayerSeat(seat=3, name="Juju", stack=200, position="CO")],
+        hero_cards=["Ah", "4d"], streets=[pre])
+
+    spot = _spot_do_heroi(h)
+    assert spot["spot"] == "squeeze" and spot["pagaram"] == 1
+    linhas = auditar_allins([h])
+    assert len(linhas) == 1
+    l = linhas[0]
+    assert l["mao"] == "A4o" and l["voce_fez"] == "all-in"
+    assert l["equilibrio"] == "fold" and l["acertou"] is False
+    assert l["custo_bb"] > 0        # o erro tem preço em bb
+    r = resumo_auditoria(linhas)
+    assert r["total"] == 1 and r["erros"] == 1 and r["custo_total_bb"] > 0
+
+    # mão deep NÃO entra na auditoria (push/fold não é o framework)
+    deep = h.model_copy(update={"players": [
+        PlayerSeat(seat=1, name="Hero", stack=400, is_hero=True, position="BB"),
+        PlayerSeat(seat=2, name="UTG1", stack=800, position="UTG+1"),
+        PlayerSeat(seat=3, name="Juju", stack=800, position="CO")]})
+    assert auditar_allins([deep]) == []
+
+    # a seção HTML do relatório sai com a conta
+    from app.analysis.handreport import _tabela_auditoria
+    html = _tabela_auditoria(linhas)
+    assert "Auditoria de all-ins" in html and "A4o" in html and "bb" in html
+    assert _tabela_auditoria([]) == ""
+
+    # e /spot está no menu do Telegram (senão continua sem porta)
+    from app.bot.catalogo import pares_do_menu
+    assert "spot" in {n for n, _ in pares_do_menu()}
+
+
+def test_prova_real_encontra_defeito_e_e_honesta():
+    # "não estou confiando que a ferramenta esteja confiável" — a resposta
+    # não é pedir confiança, é entregar verificação que o aluno roda e vê.
+    # O canário exige que a prova (a) ache defeito plantado e (b) NUNCA
+    # afirme que está tudo certo.
+    from app.analysis.selfcheck import prova_real, texto_prova
+    from app.api.site_assets import _demo_hand
+
+    sadia = prova_real([_demo_hand()])
+    assert sadia["maos"] == 1 and sadia["classes"] >= 6
+    assert sadia["problemas"] == 0, sadia["achados"]
+
+    # a ressalva de honestidade vai SEMPRE junto, mesmo na prova limpa
+    txt_ok = texto_prova(sadia)
+    assert "NÃO prova que está tudo certo" in txt_ok
+    assert "continua invisível" in txt_ok
+
+    # defeito plantado: carta duplicada + showdown inválido
+    h = _demo_hand()
+    h.final_board = ["Qs", "Th", "4d", "8c", "Qs"]
+    h.shown_cards = {"Rival do Clube": ["Zz", "K9"]}
+    ruim = prova_real([h])
+    assert ruim["problemas"] >= 2
+    classes = {a["classe"] for a in ruim["achados"]}
+    assert "parser" in classes
+    blob = " ".join(a["problema"] for a in ruim["achados"])
+    assert "duas vezes" in blob or "inválido" in blob
+    assert "problema(s)" in texto_prova(ruim)
+
+    # gabarito: 'flush' impossível no board é pego
+    from app.analysis.selfcheck import _check_gabarito
+    h2 = _demo_hand()
+    h2.final_board = ["Qh", "Th", "4h", "8h", "2h"]   # 5 copas: flush existe
+    assert _check_gabarito(h2) == []                  # aqui NÃO deve acusar
+
+    # motor: a checagem independente de mão responde
+    from app.analysis.selfcheck import _check_motor
+    assert _check_motor() == [], "o motor de equilíbrio falhou a autochecagem"
+
+    # sem mãos, não inventa placar
+    assert "Não achei mãos suas" in texto_prova(prova_real([]))
+
+    # e /prova está no menu
+    from app.bot.catalogo import pares_do_menu
+    assert "prova" in {n for n, _ in pares_do_menu()}
+
+
+def test_auditoria_cobre_todo_tipo_de_jogada():
+    # aluno: "quero análise de todo tipo de jogada, não só all-in". A
+    # auditoria passa a ter TRÊS níveis, cada um rotulado pelo rigor.
+    from app.analysis.allin_audit import (_decisoes_posflop, auditar_posflop,
+                                          auditar_preflop_deep)
+    from app.analysis.handreport import _tabela_posflop, _tabela_pre_deep
+    from app.api.site_assets import _demo_hand
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # --- PRÉ-FLOP DEEP contra a referência (open de mão fraca = fora) ---
+    def _mao_pre(cards, acao, stack=100):
+        pre = Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="Hero", type=acao, amount=2.5, to_amount=2.5)
+            if acao != ActionType.FOLD else
+            Action(actor="Hero", type=ActionType.FOLD)])
+        return CanonicalHand(
+            site="x", hand_id=f"p{cards[0]}{acao}", hero="Hero",
+            stakes=Stakes(small_blind=0.5, big_blind=1),
+            players=[PlayerSeat(seat=1, name="Hero", stack=stack,
+                                is_hero=True, position="UTG")],
+            hero_cards=cards, streets=[pre])
+
+    # AA de UTG: abrir está na referência; largar seria fora
+    ok = auditar_preflop_deep([_mao_pre(["Ah", "As"], ActionType.RAISE)])
+    assert ok and ok[0]["acertou"] and ok[0]["nivel"] == "referência"
+    ruim = auditar_preflop_deep([_mao_pre(["7h", "2d"], ActionType.RAISE)])
+    assert ruim and not ruim[0]["acertou"]     # 72o de UTG: fora da referência
+    # stack curto NÃO entra aqui (é do motor de all-in)
+    assert auditar_preflop_deep([_mao_pre(["Ah", "As"],
+                                          ActionType.RAISE, stack=10)]) == []
+
+    # --- PÓS-FLOP: só decisões de INICIATIVA (apostar/check) ---
+    h = _demo_hand()
+    ds = _decisoes_posflop(h)
+    assert ds and all(d["acao"] in ("bet", "check") for d in ds), (
+        "call/fold enfrentando aposta é OUTRO nó — comparar com a "
+        "frequência de aposta seria erro de categoria")
+
+    linhas = auditar_posflop([h], max_spots=2)
+    assert linhas, "pós-flop não auditou nada"
+    for l in linhas:
+        assert l["equilibrio"] in ("apostar", "check", "mista")
+        # faixa mista (30-70%) nunca é marcada como erro
+        if 30 <= l["freq_equilibrio_pct"] <= 70:
+            assert l["equilibrio"] == "mista" and l["acertou"]
+        assert l["valor_bb"] is not None
+
+    # as tabelas do relatório saem com os rótulos de rigor
+    assert "referência" in _tabela_pre_deep(ok)
+    html = _tabela_posflop(linhas)
+    assert "CFR+" in html and "MISTO" in html
+    assert _tabela_pre_deep([]) == "" and _tabela_posflop([]) == ""
+
+
+def test_range_view_posflop():
+    # o CFR+ já calculava valor por combo; faltava expor como matriz 13×13.
+    # No equilíbrio as ações do suporte valem o MESMO, então o gráfico útil
+    # é o VALOR da mão e a frequência de agressão (range view de solver).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+    from app.analysis.river_solver import RiverSolver
+
+    # river seco de gabarito: AA (nuts) vs QQ (bluff-catcher)
+    s = RiverSolver(["Kh", "8d", "5c", "2s", "7h"], "AA, 33", "QQ",
+                    100.0, 100.0).solve(400)
+    hv = s.hand_values("oop")
+    assert hv and hv["combos"] > 0
+    assert hv["ev"]["AA"] > hv["ev"]["33"]          # nuts vale mais que ar
+    assert hv["ev"]["AA"] > hv["ev_medio"]          # e acima da média
+    assert hv["freq"]["AA"] > 0.8                   # nuts aposta quase sempre
+    # valor em ESCALA de fichas (o EV contrafactual cru dava centenas)
+    assert abs(hv["ev"]["AA"]) < 4 * s.pot
+
+    # estabilidade: o modo avaliação usa a estratégia MÉDIA, não a corrente
+    s2 = RiverSolver(["Kh", "8d", "5c", "2s", "7h"], "AA, 33", "QQ",
+                     100.0, 100.0).solve(900)
+    assert abs(s2.hand_values("oop")["ev"]["AA"] - hv["ev"]["AA"]) < 8
+
+    # flop com range REALISTA: era o caso que estourava (carta duplicada no
+    # nó de chance chegava no treys)
+    f = RiverSolver(["Ah", "7d", "2c"], "22+, A2s+, KQs, AJo+",
+                    "22+, A2s+, KJs+, AQo+", 6.0, 20.0).solve(600)
+    fv = f.hand_values("oop")
+    assert fv and fv["combos"] > 50
+    # poker: set e top par valem mais que par abaixo do ás
+    assert fv["ev"]["77"] > fv["ev"]["KK"]
+    assert fv["ev"]["AA"] > fv["ev"]["JJ"]
+
+    # tool + gráfico
+    a = {"board": ["Ah", "7d", "2c"], "oop_range": "22+, A2s+, KQs, AJo+",
+         "ip_range": "22+, A2s+, KJs+, AQo+", "pot": 6, "stack": 20,
+         "grafico": "ev"}
+    d = _dispatch("range_view_posflop", a)
+    assert d["street"] == "flop" and d["melhores"] and d["piores"]
+    spec = charts_from_tool_call("range_view_posflop", a, d)
+    assert spec[0] == "posflop"
+    from app.analysis.range_chart import render_spec
+    png, leg = render_spec(spec)
+    assert png and len(png) > 5000 and "VALE" in leg
+    # board inválido não passa
+    assert "error" in _dispatch("range_view_posflop", {**a, "board": ["Ah"]})
+
+
+def test_motor_allin_cobre_todos_os_spots():
+    # motor único de all-in pré-flop: os 6 nós que aparecem numa mesa de 9.
+    # Validado contra os DOIS solvers que já existiam (é a garantia de que a
+    # generalização não inventou matemática nova).
+    from app.agent.llm import _dispatch, charts_from_tool_call
+    from app.analysis.allin_engine import available, solve_spot
+    from app.analysis.jam_fold_solver import solve_jam_fold
+    from app.analysis.open_shove_solver import solve_open_shove
+
+    if not available():
+        return
+
+    # OURO 1: o nó open_shove reproduz o solver especializado (exato)
+    for pos, stk in (("MP", 12.0), ("BTN", 10.0)):
+        m = solve_spot("open_shove", pos, stk)
+        o = solve_open_shove(pos, stk)
+        assert max(abs(m["ev"][h] - o["ev"][h]) for h in m["hands"]) < 0.01
+
+    # OURO 2: o nó call_shove do BB vs SB reproduz o jam/fold heads-up
+    for stk in (8.0, 12.0):
+        m = solve_spot("call_shove", "BB", stk, 0.0, 1.0, "SB")
+        r = solve_jam_fold(stk, 1.0, 0.0)
+        assert max(abs(m["ev"][h] - r["bb_ev"][h]) for h in m["hands"]) < 0.06
+
+    # os spots NOVOS existem e têm forma de poker
+    for spot, kw in (
+        ("reshove", dict(vilao_pos="CO")),
+        ("squeeze", dict(vilao_pos="MP", pagaram=1)),
+        ("call_shove", dict(vilao_pos="MP")),
+        ("overcall", dict(vilao_pos="CO", pagaram=1)),
+    ):
+        r = solve_spot(spot, "BTN", 12.0, 0.125, 1.0, **kw)
+        assert r and r["ev"]["AA"] > 3 and r["ev"]["72o"] < 0
+        assert 0 < r["acao_pct"] < 100 and r["dead"] > 0
+
+    # PROPRIEDADES do poker (o que prova que o modelo não é arbitrário)
+    pct = lambda **k: solve_spot(**k)["acao_pct"]
+    # mais fundo => mais tight
+    assert (pct(spot="reshove", hero_pos="BB", stack_bb=25.0, vilao_pos="MP")
+            < pct(spot="reshove", hero_pos="BB", stack_bb=12.0, vilao_pos="MP"))
+    # squeeze (2 na frente) é mais tight que reshove (1)
+    assert (pct(spot="squeeze", hero_pos="BB", stack_bb=15.0,
+                vilao_pos="MP", pagaram=1)
+            < pct(spot="reshove", hero_pos="BB", stack_bb=15.0, vilao_pos="MP"))
+    # pagar all-in é mais tight que empurrar
+    assert (pct(spot="call_shove", hero_pos="BTN", stack_bb=12.0, vilao_pos="MP")
+            < pct(spot="open_shove", hero_pos="BTN", stack_bb=12.0))
+    # ICM aperta o range
+    assert (pct(spot="open_shove", hero_pos="MP", stack_bb=12.0, bf=1.8)
+            <= pct(spot="open_shove", hero_pos="MP", stack_bb=12.0))
+
+    # a tool devolve o EV da mão do aluno e anexa o gráfico
+    a = {"spot": "reshove", "hero_pos": "BTN", "stack_bb": 12,
+         "vilao_pos": "CO", "cards": ["Ah", "Js"]}
+    d = _dispatch("ev_allin", a)
+    assert d["mao"] == "AJo" and d["decisao"] == "all-in"
+    # os dois baselines, cada um com o nome do que é. 'ev_da_mao_bb' era
+    # ambíguo: valia o EV absoluto e o coach o citava como "vs foldar",
+    # contradizendo o gráfico ao lado (caso real 07/08).
+    assert d["ev_vs_fold_bb"] > 0 and d["melhores_vs_fold"]
+    assert d["ev_vs_fold_bb"] == pytest.approx(
+        d["ev_absoluto_bb"] - d["fold_ev"], abs=0.011)
+    spec = charts_from_tool_call("ev_allin", a, d)
+    assert spec[0] == "spot" and spec[1] == "reshove"
+    from app.analysis.range_chart import render_spec
+    png, leg = render_spec(spec)
+    assert png and len(png) > 5000 and "re-shove" in leg
+    # e o par frequência + EV
+    ev_spec = ("spot", "reshove", "BTN", 12.0, "ev", "CO", 2.2, 0)
+    png2, leg2 = render_spec(ev_spec)
+    assert png2 and "EV de cada mão" in leg2
+
+
+def test_solver_open_shove_bate_com_o_heads_up():
+    # VALIDAÇÃO do solver multiway: o SB tem exatamente 1 jogador atrás (o
+    # BB), então com ante=0 o jogo é IDÊNTICO ao do solver heads-up que já
+    # existia. Se os dois não baterem, o multiway está errado.
+    from app.analysis.jam_fold_solver import solve_jam_fold
+    from app.analysis.open_shove_solver import available, solve_open_shove
+
+    if not available():
+        return
+    for stk in (8.0, 12.0, 20.0):
+        novo = solve_open_shove("SB", stk, 1.0, 0.0)
+        ref = solve_jam_fold(stk, 1.0, 0.0)
+        difs = [abs(novo["ev"][h] - ref["sb_ev"][h]) for h in novo["hands"]]
+        assert max(difs) < 0.05, f"{stk}bb: EV diverge {max(difs):.3f}bb do HU"
+        assert abs(novo["shove_pct"] - 100 * sum(ref["sb_jam"].values())
+                   / len(ref["sb_jam"])) < 1.5
+
+    # sanidade do equilíbrio em mesa cheia
+    mp = solve_open_shove("MP", 12.0)
+    assert mp["atras"] == 6 and mp["ev"]["AA"] > 3
+    assert mp["ev"]["72o"] < 0 and mp["shove"]["AA"] > 0.9
+    # quanto mais gente atrás, MAIS tight (menos fold equity)
+    assert (solve_open_shove("UTG", 12.0)["shove_pct"]
+            < solve_open_shove("BTN", 12.0)["shove_pct"])
+    # stack mais fundo => shove mais tight
+    assert (solve_open_shove("MP", 18.0)["shove_pct"]
+            < solve_open_shove("MP", 8.0)["shove_pct"])
+    # o ante abre o range (dinheiro morto vale a pena roubar)
+    assert (solve_open_shove("MP", 12.0, 1.0, 0.0)["shove_pct"]
+            < solve_open_shove("MP", 12.0, 1.0, 0.125)["shove_pct"])
+    # BB não tem open-shove (ninguém atrás)
+    assert solve_open_shove("BB", 10.0) is None
+
+
+def test_ev_acompanha_o_range_em_qualquer_posicao(monkeypatch):
+    # aluno: "os EVs não estão aparecendo" e depois "vamos implementar os
+    # outros gráficos de EV". Agora o EV por mão existe em QUALQUER posição
+    # (solver de open-shove multiway), e vem junto do gráfico de frequência.
+    from app.agent.llm import _SYSTEM, _dispatch, charts_from_tool_call
+    from app.bot import processing as proc
+
+    class _Repo:
+        enabled = False
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _Repo())
+
+    def _charts(spec):
+        proc.PENDING_CHARTS.clear()
+        proc._stash_charts(4242, [spec], None)
+        return proc.PENDING_CHARTS.get(4242, (0, []))[1]
+
+    # SB com stack curto -> frequência + EV (dois gráficos)
+    sb = {"position": "SB", "action": "open", "stack_bb": 10}
+    spec_sb = charts_from_tool_call("preflop_range", sb,
+                                    _dispatch("preflop_range", sb))
+    assert spec_sb[0] == "nashmode" and spec_sb[1] == "SB"
+    caps = [c for _p, c in _charts(spec_sb)]
+    assert len(caps) == 2, "EV não acompanhou o range do SB"
+    assert any("EV de cada mão" in c for c in caps)
+
+    # push_fold do SB (o outro caminho) também puxa o EV
+    caps2 = [c for _p, c in _charts(("nash", "SB", 10.0))]
+    assert len(caps2) == 2 and any("EV de cada mão" in c for c in caps2)
+
+    # POSIÇÃO DE MESA CHEIA: agora também vem o par (era o buraco)
+    for pos in ("UTG", "MP", "CO", "BTN"):
+        a = {"position": pos, "action": "open", "stack_bb": 10}
+        spec = charts_from_tool_call("preflop_range", a, _dispatch("preflop_range", a))
+        assert spec == ("nashpos", pos, 10.0, "freq")
+        caps = [c for _p, c in _charts(spec)]
+        assert len(caps) == 2, f"{pos} ficou sem o EV"
+        assert any(f"all-in do {pos}" in c for c in caps)
+        assert any("EV de cada mão" in c and pos in c for c in caps)
+
+    # o prompt anuncia que o EV existe em qualquer posição
+    assert "EV POR MÃO: existe em QUALQUER posição" in _SYSTEM["pt"]
+
+
+def test_juiz_da_saida():
+    # os canários checavam a MATEMÁTICA; quem descobria texto ruim era o
+    # aluno. O juiz audita as respostas reais contra o contrato do prompt.
+    import sys
+    sys.path.insert(0, "scripts")
+    from output_judge import _e_analise_de_mao, judge_answer
+
+    boa = (
+        "✅ Você jogou bem — 3-bet e c-bet no board certo\n\n"
+        "✅ *Pré* — 3-bet A♠K♠ de BB: contra o open do CO, +EV.\n"
+        "✅ *Flop* A♦7♣2♠ — c-bet 4bb: top par (você tinha 78%).\n"
+        "🟡 *Turn* 5♥ — check behind perde 1 street de valor.\n\n"
+        "A que mais pesou: o check do turn custou ~3bb."
+    )
+    assert judge_answer(boa) == []
+
+    ruim = ("Papo reto: você tinha Kh Qd e no river o par grande dele "
+            "dominava. Precisava igualar o preço na rua final. "
+            "Sua equity era boa. Pote de 20bb no flop.")
+    probs = " | ".join(judge_answer(ruim))
+    assert "auto-elogio" in probs                  # 'papo reto'
+    assert "calque" in probs                       # 'par grande'/'rua'
+    assert "sem ícone" in probs and "Kh" in probs  # carta crua
+    assert "equity sem nenhum número" in probs
+
+    # análise de mão SEM selo é o defeito nº1 (aluno não sabe o veredito)
+    sem_selo = "No flop você apostou 5bb e no river pagou 12bb com top par."
+    assert any("SEM selo" in p for p in judge_answer(sem_selo))
+
+    # papo de teoria NÃO exige selo (falso positivo destruiria o juiz)
+    teoria = ("O range de open do BTN é amplo — cerca de 45% das mãos. "
+              "Contra um reg tight dá pra abrir ainda mais.")
+    assert judge_answer(teoria) == [] and not _e_analise_de_mao(teoria)
+    # 'As' é artigo em português: não pode virar 'carta sem ícone'
+    art = ("✅ Você jogou bem — top par\n\nAs cartas dele eram A♠K♦ "
+           "no flop de 12bb.")
+    assert judge_answer(art) == []
+    # bastidor do sistema é proibido pro coach
+    assert any("bastidor" in p for p in
+               judge_answer("Usei a ferramenta de equity pra calcular."))
+
+
+def test_multiway_equity_e_mdf():
+    # buraco achado na auditoria: o motor pensava heads-up, mas MTT de 9
+    # lugares é multiway na maioria dos potes grandes (caso real: A4o de BB
+    # contra open+call — 28% vs 1 vilão, bem menos contra dois).
+    from app.agent.llm import _dispatch
+    from app.analysis.ranges import equity_vs_range
+    from app.analysis.tools import mdf
+
+    rng_call = "77+, ATs+, AJo+"
+    eq = [equity_vs_range(["Ah", "4d"], rng_call, iterations=2500, seed=7,
+                          num_opponents=n)["equity"] for n in (1, 2, 3)]
+    # a equity DESPENCA com cada vilão a mais — é o que aperta o range de call
+    assert eq[0] > eq[1] > eq[2]
+    assert 0.24 < eq[0] < 0.34          # heads-up: ~28%
+    assert eq[1] < 0.22                 # contra dois já é lixo
+    r2 = equity_vs_range(["Ah", "4d"], rng_call, iterations=1500, seed=7,
+                         num_opponents=2)
+    assert r2["oponentes"] == 2 and "multiway" in r2["nota"]
+
+    # MDF multiway: a defesa é DIVIDIDA — cada um defende menos que heads-up,
+    # e o produto dos folds tem que dar exatamente alpha
+    hu = mdf(100, 100)
+    assert hu["mdf_pct"] == 50.0 and hu["defensores"] == 1
+    for n in (2, 3, 4):
+        m = mdf(100, 100, defensores=n)
+        assert m["mdf_pct"] < hu["mdf_pct"]
+        assert m["mdf_heads_up_pct"] == 50.0
+        fold_cada = 1 - m["mdf_pct"] / 100
+        assert abs(fold_cada ** n - m["alpha_pct"] / 100) < 0.01
+    assert "dividida" in mdf(100, 100, defensores=2)["leitura"]
+
+    # as duas ferramentas expõem o parâmetro ao coach
+    assert _dispatch("mdf", {"pot": 100, "bet": 100,
+                             "defensores": 3})["mdf_pct"] < 25
+    d = _dispatch("equity_vs_range", {"hero_cards": ["Ah", "Kh"],
+                                      "villain_range": "22+, A2s+",
+                                      "num_opponents": 3})
+    assert d["oponentes"] == 3
+
+    # e a regra do multiway está no prompt (C2) — sem ela o coach não passa N
+    from app.agent.llm import _SYSTEM
+    assert "C2 MULTIWAY" in _SYSTEM["pt"]
+    assert "num_opponents" in _SYSTEM["pt"] and "defensores=N" in _SYSTEM["pt"]
+
+
+def test_prompt_em_blocos_sem_duplicata():
+    # o prompt cresceu por remendo até ter DUAS regras '4e)' e DUAS '4f)'
+    # com conteúdos diferentes. Agora é organizado em 5 blocos temáticos
+    # (R resposta, F fatos, C contas, V voz, A automático) — este canário
+    # trava rótulo repetido, bloco faltando e numeração fora de ordem.
+    import collections
+    import re
+
+    from app.agent.llm import _SYSTEM
+
+    s = _SYSTEM["pt"]
+    for bloco in ("== R) A RESPOSTA ==", "== F) FATOS", "== C) CONTAS",
+                  "== V) VOZ", "== A) AUTOMÁTICO =="):
+        assert bloco in s, f"bloco sumiu do prompt: {bloco}"
+
+    labels = re.findall(r"\n([RFCVA])(\d+) ", s)
+    assert labels, "prompt sem regras rotuladas"
+    dups = [k for k, v in collections.Counter(labels).items() if v > 1]
+    assert not dups, f"rótulos duplicados: {dups}"
+
+    por_bloco: dict[str, list[int]] = {}
+    for letra, num in labels:
+        por_bloco.setdefault(letra, []).append(int(num))
+    for letra, nums in por_bloco.items():
+        assert nums == sorted(nums), f"bloco {letra} fora de ordem: {nums}"
+        assert nums == list(range(1, len(nums) + 1)), (
+            f"bloco {letra} com buraco na numeração: {nums}")
+
+
+def test_prompt_exige_selo_e_placar():
+    # canário do FORMATO da saída: o aluno reclamou que não sabia se jogou
+    # certo ou errado. O prompt tem que exigir o selo de veredito na 1ª linha
+    # + placar street a street — guard contra remoção acidental no futuro.
+    from app.agent.llm import _SYSTEM
+
+    s = _SYSTEM["pt"]
+    assert "SELO NA 1ª LINHA" in s
+    assert "PLACAR STREET A STREET" in s
+    for selo in ("✅ Você jogou bem", "🟡 Dava pra jogar melhor",
+                 "❌ Jogada cara"):
+        assert selo in s
+    # o placar é o PADRÃO, não opt-in atrás de pedido
+    assert "padrão, não espere o aluno pedir" in s
+    # e cada decisão com preço mostra a conta (foi o 'por que ser econômico?')
+    assert "pedia X%, tinha Y%" in s
+    # a instrução da análise de mão também cobra o selo
+    from app.agent import llm as _llm
+    import inspect
+    src = inspect.getsource(_llm.coach)
+    assert "SELO de veredito" in src and "PLACAR street a" in src
+
+
+def test_analise_por_street_ancorada():
+    # o filme comentado: decisões de um jogador street a street com pote,
+    # preço, equity mínima e mão feita — a matéria-prima do coach
+    from app.api.site_assets import _demo_hand
+    from app.bot.processing import decisions_by_street
+
+    h = _demo_hand()
+    r = decisions_by_street(h)                      # herói por padrão
+    assert r["jogador"] == "VOCÊ" and r["cartas_conhecidas"] is True
+    sts = [d["street"] for d in r["decisoes_por_street"]]
+    assert sts[0] == "preflop" and "river" in sts   # cobre pré->river
+    pre = r["decisoes_por_street"][0]
+    assert pre["equity_minima_pct"] == 27 and "pagou" in pre["acao"]
+    flop = next(d for d in r["decisoes_por_street"] if d["street"] == "flop")
+    assert flop["mao_feita"] == "par de Q, kicker J"   # mão feita ancorada
+    assert flop["board"] == "Q♠ 10♥ 4♦"                # board com ícone
+
+    # A CONTA de cada decisão: equity real vs o campo do showdown + EV do call
+    assert r["equity_real_vs"] == ["Rival do Clube"]        # heads-up aqui
+    assert r["equity_real_cartas"] == {"Rival do Clube": "A♥ K♣"}
+    assert r["jogadores_no_showdown"] == 2
+    # QJ vs A-high: pré ~40%, flop com par de Q ~69%, river decidido = 100%
+    assert 35 <= r["decisoes_por_street"][0]["equity_real_pct"] <= 45
+    river_call = [d for d in r["decisoes_por_street"]
+                  if d["street"] == "river" and d["pagar_bb"] > 0][0]
+    assert river_call["equity_real_pct"] == 100
+    assert river_call["ev_call_bb"] > 0        # pagou e ganhou -> EV+ (real)
+    # o call do flop tem preço E equity real -> as duas contas presentes
+    flop_call = [d for d in r["decisoes_por_street"]
+                 if d["street"] == "flop" and d["pagar_bb"] > 0][0]
+    assert flop_call["equity_minima_pct"] and flop_call["equity_real_pct"]
+
+    # equity EXATA vs uma mão conhecida (determinística, enumera o board)
+    from app.analysis.equity import equity_vs_hand
+    assert equity_vs_hand(["Ah", "Ks"], ["Qd", "Jc"],
+                          ["Qs", "Th", "4d", "8c", "2s"]) == 0.0   # perde
+    assert equity_vs_hand(["Kd", "Kc"], ["Ah", "As"], []) < 0.25   # KK vs AA
+    assert equity_vs_hand(["Kd"], ["Ah", "As"], []) is None        # incompleta
+
+    # MULTIWAY (caso real: all-in a 3, trinca de 4 no flop 2-4-A vs 2 mãos):
+    # equity vs o CAMPO todo, não vs uma mão só — figura não fica "estranha"
+    from app.analysis.equity import equity_vs_hands
+    eq3 = equity_vs_hands(["4s", "4c"], [["Ts", "As"], ["Ah", "Jh"]],
+                          ["2c", "4h", "Ac"])
+    assert eq3 is not None and eq3 > 0.85           # set esmaga o campo
+    # 'pedia' (pot odds) NÃO aparece em raise/aposta, só em call
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+    from app.bot.processing import film_bands
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="V1", type=ActionType.RAISE, amount=2, to_amount=2),
+        Action(actor="Hero", type=ActionType.RAISE, amount=6, to_amount=6),
+        Action(actor="V1", type=ActionType.CALL, amount=4, to_amount=6),
+        Action(actor="V2", type=ActionType.CALL, amount=6, to_amount=6)])
+    flop = Street(name=StreetName.FLOP, board=["2c", "4h", "Ac"], actions=[
+        Action(actor="Hero", type=ActionType.BET, amount=8, to_amount=8,
+               all_in=True),
+        Action(actor="V1", type=ActionType.CALL, amount=8, to_amount=8),
+        Action(actor="V2", type=ActionType.CALL, amount=8, to_amount=8)])
+    h3 = CanonicalHand(
+        site="x", hand_id="mw", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True,
+                            position="UTG"),
+                 PlayerSeat(seat=2, name="V1", stack=100, position="BTN"),
+                 PlayerSeat(seat=3, name="V2", stack=100, position="BB")],
+        hero_cards=["4s", "4c"], final_board=["2c", "4h", "Ac", "Kh", "2d"],
+        shown_cards={"V1": ["Ts", "As"], "V2": ["Ah", "Jh"]},
+        streets=[pre, flop])
+    notas = {b["name"]: b.get("hero_note") for b in film_bands(h3)
+             if b.get("hero_note")}
+    assert "pedia" not in notas["Pré-flop"]["text"]        # raise: sem 'pedia'
+    assert "vs o campo" in notas["Pré-flop"]["text"]       # multiway
+    assert "93% vs o campo" in notas["Flop"]["text"]       # ~93% com a trinca
+    assert notas["Flop"]["tag"] == "▲"                     # à frente (neutro)
+    assert notas["Flop"]["kind"] == "info"                 # cor neutra, sem ✔
+
+    # outro jogador: usa as cartas do showdown, sem inventar
+    v = decisions_by_street(h, "Rival")
+    assert v["jogador"] == "Rival do Clube" and v["cartas"] == "A♥ K♣"
+    assert v["decisoes_por_street"][0]["acao"].startswith("aumentou")
+    # jogador fora da mesa: erro claro
+    assert "não está na mesa" in decisions_by_street(h, "zzz")["error"]
+
+    # a tool cai no mesmo caminho, pela mão da conversa
+    from app.agent.llm import _dispatch, set_tool_chat
+    from app.bot import processing as proc
+    proc.LAST_ANALYSIS[777] = {
+        "context": {"analysis": {}, "hand_id": h.hand_id},
+        "history": [], "hand_row_id": None, "user_id": None}
+    proc.RECENT_HANDS[777] = [h]
+    set_tool_chat(777)
+    try:
+        d = _dispatch("analise_por_street", {})
+        assert d["jogador"] == "VOCÊ" and d["decisoes_por_street"]
+        d2 = _dispatch("analise_por_street", {"nome": "Rival"})
+        assert d2["cartas"] == "A♥ K♣"
+    finally:
+        set_tool_chat(None)
+        proc.LAST_ANALYSIS.pop(777, None)
+        proc.RECENT_HANDS.pop(777, None)
+
+
+def test_definir_heroi_refaz_a_analise(monkeypatch):
+    # caso real: print com 5 jogadores, a visão escolheu "Guigacwb" como
+    # herói; o aluno explicou que era o dscholze1979 e o coach só recusou.
+    # Agora o coach chama definir_heroi e a análise refaz do ponto certo.
+    from app.agent.llm import _dispatch, set_tool_chat
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Guigacwb", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="dscholze1979", type=ActionType.CALL, amount=5,
+               to_amount=5),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="dh1", hero="Guigacwb",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Guigacwb", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="dscholze1979", stack=180,
+                            position="BB")],
+        hero_cards=["Kd", "Kc"], streets=[pre])
+
+    updates = []
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_hand_canonical(self, row_id):
+            return h
+
+        def update_hand_canonical(self, row_id, hand):
+            updates.append((row_id, hand.hero))
+
+        def set_conversation(self, t, s):
+            pass
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _FakeRepo())
+    proc.LAST_ANALYSIS[999] = {
+        "context": {"analysis": {"hero": "Guigacwb",
+                                 "relato_do_usuario": "3-bet pequeno"}},
+        "history": [], "hand_row_id": "row9", "user_id": None}
+    try:
+        # nome aproximado ('dscholze') SEM cartas: as KK eram do herói antigo,
+        # então NÃO viram cartas do novo — ficam desconhecidas (bug real: o
+        # aluno reclamou que trocou o herói mas colou as cartas erradas)
+        r = proc.redefine_hero(999, "dscholze")
+        assert r["ok"] and r["heroi"] == "dscholze1979"
+        assert r["cartas_conhecidas"] is False
+        assert "quais eram suas cartas" in r["aviso"].lower()
+        assert updates == [("row9", "dscholze1979")]
+        an = proc.LAST_ANALYSIS[999]["context"]["analysis"]
+        assert an["hero"] == "dscholze1979" and an["position"] == "BB"
+        assert an["hero_cards"] == []                        # não chutou nada
+        assert an["hero_final_hand"] is None                 # sem mão feita
+        assert an["relato_do_usuario"] == "3-bet pequeno"    # relato preservado
+        # cartas explícitas do aluno têm prioridade (aceita ícones/‘10’)
+        r2 = proc.redefine_hero(999, "dscholze1979", ["A♥", "Qh"])
+        assert r2["cartas_conhecidas"] is True
+        assert r2["analysis"]["hero_cards"] == ["Ah", "Qh"]
+        # se o novo herói MOSTROU cartas no showdown, usa essas (não pergunta)
+        h.shown_cards = {"Guigacwb": ["Ts", "Td"]}
+        r3 = proc.redefine_hero(999, "Guiga")
+        assert r3["cartas_conhecidas"] is True
+        assert r3["analysis"]["hero_cards"] == ["Ts", "Td"]
+        assert "showdown" in (r3["aviso"] or "")
+        # nome fora da mesa: erro claro com a lista de jogadores
+        assert "não está na mesa" in proc.redefine_hero(999, "zzz")["error"]
+
+        # o dispatch da tool cai no mesmo caminho (contextvar do chat)
+        set_tool_chat(999)
+        d = _dispatch("definir_heroi", {"nome": "dscholze", "cards": ["Kd", "Kc"]})
+        assert d["ok"] and d["heroi"] == "dscholze1979"
+        set_tool_chat(None)
+        assert "error" in _dispatch("definir_heroi", {"nome": "x"})
+    finally:
+        proc.LAST_ANALYSIS.pop(999, None)
+        set_tool_chat(None)
+
+
+def test_caderno_automatico_de_sessao(monkeypatch):
+    # conversa encerrada vira 0-2 notas NOVAS no caderno do aluno
+    from app.agent.llm import _parse_notebook_notes
+    from app.bot import processing as proc
+
+    # parser: fence, kinds inválidos filtrados, teto de 2, nota vazia fora
+    ok = _parse_notebook_notes(
+        '```json\n{"notas": [{"kind": "leak", "note": "superestima draws"},'
+        '{"kind": "invalido", "note": "x"}, {"kind": "meta", "note": ""},'
+        '{"kind": "estilo", "note": "b"}, {"kind": "leak", "note": "c"}]}\n```')
+    assert ok == [{"kind": "leak", "note": "superestima draws"},
+                  {"kind": "estilo", "note": "b"}]
+    assert _parse_notebook_notes("não é json") == []
+    assert _parse_notebook_notes('{"notas": []}') == []
+
+    saved = []
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_notes(self, user_id, limit=8):
+            return [{"note": "já sabia disso"}]
+
+        def save_note(self, user_id, kind, note):
+            saved.append((kind, note))
+
+        def log_event(self, *a, **k):
+            pass
+
+    monkeypatch.setattr(proc, "get_repository", lambda: _FakeRepo())
+    import app.agent.llm as llm_mod
+    monkeypatch.setattr(llm_mod, "session_notebook_notes",
+                        lambda h, r, e: [{"kind": "leak",
+                                          "note": "confunde equity com odds"}])
+    prev = {"history": [{"q": "a", "a": "b"}, {"q": "c", "a": "d"}],
+            "user_id": "u1",
+            "context": {"analysis": {"summary": "mão X"}}}
+    assert proc.summarize_session_to_notebook(prev, 1) == 1
+    assert saved == [("leak", "confunde equity com odds")]
+    # sem conversa de verdade (0-1 trocas) não gasta LLM nem grava nada
+    assert proc.summarize_session_to_notebook(
+        {"history": [{"q": "a", "a": "b"}], "user_id": "u1"}, 1) == 0
+    assert proc.summarize_session_to_notebook(None, 1) == 0
+
+
+def test_refresh_gabarito_de_conversa_fossilizada():
+    # caso real: a conversa persistida atravessou o deploy do fix e seguiu
+    # SEM linha_da_mao — repetindo o erro corrigido. O refresh recomputa os
+    # campos-gabarito da mão salva.
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilao", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="Hero", type=ActionType.RAISE, amount=16, to_amount=16),
+        Action(actor="vilao", type=ActionType.CALL, amount=11, to_amount=16),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="g1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="vilao", stack=200, position="CO")],
+        hero_cards=["As", "Kd"], streets=[pre])
+
+    class _FakeRepo:
+        enabled = True
+
+        def get_hand_canonical(self, row_id):
+            return h
+
+        def set_conversation(self, t, s):
+            pass
+
+    ctx = {"context": {"analysis": {"hero_cards": ["As", "Kd"]}},  # fóssil
+           "history": [], "hand_row_id": "row1", "user_id": None}
+    real = proc.get_repository
+    proc.get_repository = lambda: _FakeRepo()
+    try:
+        proc._refresh_gabarito(ctx, 1)
+    finally:
+        proc.get_repository = real
+    an = ctx["context"]["analysis"]
+    assert "3-beta" in " ".join(an["linha_da_mao"]["preflop"])
+    assert "hero_final_hand" in an and "showdown_cards" in an
+
+
+def test_linha_da_mao_registra_3bet_pago():
+    # caso real: aluno perguntou se o vilão jogou certo pagando o 3-BET dele
+    # e o coach respondeu "ele só pagou seu open" — a sequência de ações não
+    # chegava ao contexto. Agora linha_da_mao é o registro oficial.
+    from app.agent.analyzer import analyze_hand
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="sb", type=ActionType.POST, amount=1, post_type="sb"),
+        Action(actor="bb", type=ActionType.POST, amount=2, post_type="bb"),
+        Action(actor="vilaoCO", type=ActionType.RAISE, amount=5, to_amount=5),
+        Action(actor="Hero", type=ActionType.RAISE, amount=16, to_amount=16),
+        Action(actor="sb", type=ActionType.FOLD),
+        Action(actor="bb", type=ActionType.FOLD),
+        Action(actor="vilaoCO", type=ActionType.CALL, amount=11, to_amount=16),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="l1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="vilaoCO", stack=200, position="CO"),
+                 PlayerSeat(seat=3, name="sb", stack=200, position="SB"),
+                 PlayerSeat(seat=4, name="bb", stack=200, position="BB")],
+        hero_cards=["As", "Kd"], streets=[pre])
+    linha = analyze_hand(h)["linha_da_mao"]["preflop"]
+    assert linha == ["CO abre 2.5bb", "HERÓI 3-beta 8bb", "SB folda",
+                     "BB folda", "CO paga 8bb"]
+
+
+def test_figura_da_mesa_render():
+    # figura da mesa: render deterministico (custo zero de LLM). Só garante
+    # que sai um PNG válido e não quebra sem board/vilões.
+    from app.analysis.hand_figure import render_hand_figure, spot_from_drill
+
+    spot = {"hero_cards": ["Ah", "Kd"], "board": ["Qs", "3c", "4c"],
+            "position": "BB", "stack_bb": 52, "pot_bb": 6.5, "to_call_bb": 4.5,
+            "required_eq": 0.41, "street": "flop", "blinds": "100/200",
+            "villains": [{"pos": "CO", "stack_bb": 48}]}
+    png = render_hand_figure(spot)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 5000
+
+    # pré-flop sem board, sem preço (check/bet) — não quebra
+    png2 = render_hand_figure({"hero_cards": ["7h", "7c"], "board": [],
+                               "position": "BTN", "stack_bb": 30, "pot_bb": 1.5,
+                               "street": "preflop", "villains": []})
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n"
+
+    # conversão do drill preserva os campos
+    d = {"cards": ["As", "Ks"], "board": [], "position": "CO", "stack_bb": 40,
+         "pot_bb": 2.5, "to_call_bb": 2, "street": "preflop",
+         "villains": [{"pos": "MP", "stack_bb": 50}]}
+    s = spot_from_drill(d)
+    assert s["hero_cards"] == ["As", "Ks"] and s["villains"][0]["pos"] == "MP"
+
+
+def test_storyboard_da_mao_render():
+    # storyboard: mão inteira numa imagem (custo zero de LLM). Garante PNG
+    # válido, altura dinâmica, e que não quebra sem math/veredito.
+    from app.analysis.hand_figure import render_hand_strip
+
+    spot = {
+        "title": "Mão teste — SB", "hero_cards": ["6c", "4c"], "position": "SB",
+        "stack_bb": 39, "blinds": "35/70",
+        "streets": [
+            {"name": "Pré-flop", "board": [], "pot_bb": 3.6,
+             "lines": ["UTG abre 2.3bb", "VOCÊ paga"], "note": "multiway"},
+            {"name": "River", "board": ["7c", "9d", "Qs", "Ad", "2s"],
+             "pot_bb": 7.2, "lines": ["BB aposta 2.3bb", "VOCÊ tem 6-high"]},
+        ],
+        "math": {"equity": 0.06, "need": 0.24, "ev_bb": -1.7,
+                 "note": "call precisaria de 24%"},
+        "verdict": "boa", "verdict_text": "Fold é a jogada certa e você acertou.",
+        "correct": "FOLD — 6-high não paga aposta de valor.",
+    }
+    png = render_hand_strip(spot)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 5000
+
+    # sem math, sem decisão certa, veredito ruim — não quebra
+    png2 = render_hand_strip({
+        "title": "T", "hero_cards": ["As", "Ks"], "position": "BTN",
+        "streets": [{"name": "Flop", "board": ["2c", "7d", "9h"],
+                     "lines": ["check"]}],
+        "verdict": "ruim", "verdict_text": "Passou a mão."})
+    assert png2[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def _odilon_hand():
+    from app.models.canonical import (CanonicalHand, Stakes, PlayerSeat,
+        Street, Action, ActionType, StreetName, HandFormat)
+
+    def A(a, t, amt=0, to=0, post=None):
+        return Action(actor=a, type=t, amount=amt, to_amount=to, post_type=post)
+
+    players = [PlayerSeat(seat=8, name="Hero", stack=2730, position="SB",
+                          is_hero=True),
+               PlayerSeat(seat=1, name="BB", stack=2731, position="BB"),
+               PlayerSeat(seat=3, name="UTG2", stack=5729, position="UTG+1")]
+    return CanonicalHand(
+        site="PS", hand_id="h1", format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=35, big_blind=70, ante=8), hero="Hero",
+        players=players, hero_cards=["6c", "4c"], streets=[
+            Street(name=StreetName.PREFLOP, actions=[
+                A("Hero", ActionType.POST, 35, post="sb"),
+                A("BB", ActionType.POST, 70, post="bb"),
+                A("UTG2", ActionType.RAISE, 161, to=161),
+                A("Hero", ActionType.CALL, 126, to=161),
+                A("BB", ActionType.CALL, 91, to=161)]),
+            Street(name=StreetName.FLOP, board=["7c", "9d", "Qs"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.CHECK),
+                A("UTG2", ActionType.CHECK)]),
+            Street(name=StreetName.TURN, board=["Ad"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.CHECK),
+                A("UTG2", ActionType.CHECK)]),
+            Street(name=StreetName.RIVER, board=["2s"], actions=[
+                A("Hero", ActionType.CHECK), A("BB", ActionType.BET, 160, to=160),
+                A("UTG2", ActionType.FOLD), A("Hero", ActionType.FOLD)])],
+        final_board=["7c", "9d", "Qs", "Ad", "2s"])
+
+
+def test_treino_tem_variedade_nao_repete():
+    # /treino não pode cair sempre nas mesmas 5 mãos parecidas: memória
+    # anti-repetição + pool amplo + rotação de street.
+    from app.parsers import parse_text
+    from app.bot import processing
+    from app.bot.processing import build_drill
+
+    hands = parse_text(
+        (Path(__file__).parent / "sample_hands" /
+         "demo_kknuths_tournament.txt").read_text())
+    uid = 90909
+    processing.RECENT_HANDS[uid] = hands
+    for g in (processing.RECENT_DRILLS, processing._RECENT_DRILL_STREETS):
+        g.pop(uid, None)
+
+    seen, streets = [], set()
+    for _ in range(12):
+        d = build_drill(uid)
+        seen.append(d["hand_id"])
+        streets.add(d["street"])
+
+    assert len(set(seen)) >= 9            # variedade de mãos (era ~5 fixas)
+    assert all(seen[i] != seen[i + 1] for i in range(11))  # sem repetir seguido
+    assert len(streets) >= 2              # não é só um tipo de spot
+    del processing.RECENT_HANDS[uid]
+    processing.RECENT_DRILLS.pop(uid, None)
+    processing._RECENT_DRILL_STREETS.pop(uid, None)
+
+
+def test_simular_esta_mao_nunca_troca_de_mao():
+    # bug: "Simular esta mão" / "/simular" traziam OUTRA mão quando a pedida não
+    # dava pra simular. Agora: ou simula a pedida, ou devolve sentinela — nunca
+    # substitui em silêncio.
+    from app.bot import processing
+    from app.bot.processing import build_simulation
+
+    h = _odilon_hand()  # tem decisões, hand_id "h1"
+    processing.RECENT_HANDS[4242] = [h]
+
+    # mão pedida inexistente -> sentinela, NÃO a h1
+    out = build_simulation(4242, "NAO_EXISTE")
+    assert out and out.get("unsimulable") and out.get("hand_id") == "NAO_EXISTE"
+
+    # mão certa -> simula ELA
+    assert build_simulation(4242, "h1")["hand_id"] == "h1"
+
+    # sem hand_id (comando puro) -> pega a melhor disponível
+    assert build_simulation(4242, None)["hand_id"] == "h1"
+
+    del processing.RECENT_HANDS[4242]
+
+
+def test_llm_create_retry_transitorio(monkeypatch):
+    # o 'me embananei' vinha de erro transitório (overloaded/5xx) não tratado.
+    # _create deve reenviar e o _is_transient classificar certo.
+    from app.agent import llm
+
+    assert llm._is_transient(type("E", (Exception,), {"status_code": 529})())
+    assert llm._is_transient(Exception("Overloaded"))
+    assert not llm._is_transient(type("E", (Exception,), {"status_code": 400})())
+
+    calls = {"n": 0}
+
+    class Boom(Exception):
+        status_code = 503
+
+    class FakeMessages:
+        def create(self, **kw):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise Boom("temporarily overloaded")
+            return "ok"
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    import time as _t
+    monkeypatch.setattr(_t, "sleep", lambda *_: None)
+    out = llm._create(FakeClient(), model="m", temperature=0.2, messages=[])
+    assert out == "ok" and calls["n"] == 3   # 2 falhas transitórias + sucesso
+
+
+def test_decision_aggressor_marca_aposta_do_vilao():
+    # a figura precisa mostrar o vilão da vez + tamanho da aposta
+    from app.bot.processing import _decision_aggressor
+
+    h = _odilon_hand()
+    # decisão no river: a BB apostou 160 (=2.3bb) antes do herói
+    pos, bet = _decision_aggressor(
+        h, {"street": "river", "board": ["7c", "9d", "Qs", "Ad", "2s"]})
+    assert pos == "BB" and bet == 2.3
+
+    # a figura desenha sem quebrar com bet_bb no vilão
+    from app.analysis.hand_figure import render_hand_figure
+    png = render_hand_figure({
+        "hero_cards": ["6c", "4c"], "board": ["7c", "9d", "Qs", "Ad", "2s"],
+        "position": "SB", "stack_bb": 39, "pot_bb": 6.9, "to_call_bb": 2.3,
+        "required_eq": 0.25, "street": "river", "blinds": "35/70",
+        "villains": [{"pos": "BB", "stack_bb": 39, "bet_bb": 2.3, "to_act": True}]})
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_storyboard_board_nao_duplica():
+    # bug real: parser que dá o board COMPLETO por street (flop=3, turn=4,
+    # river=5) fazia o storyboard acumular -> turn com 7 cartas.
+    from app.models.canonical import (CanonicalHand, Stakes, PlayerSeat, Street,
+        Action, ActionType, StreetName, HandFormat)
+    from app.bot.processing import hand_storyboard_streets
+
+    def A(a, t, amt=0, to=0, post=None):
+        return Action(actor=a, type=t, amount=amt, to_amount=to, post_type=post)
+
+    players = [PlayerSeat(seat=1, name="Hero", stack=2000, position="BB",
+                          is_hero=True),
+               PlayerSeat(seat=2, name="SB", stack=2000, position="SB")]
+    # boards CUMULATIVOS (como PokerStars): flop 3, turn 4, river 5
+    h = CanonicalHand(
+        site="PS", hand_id="cum", format=HandFormat.TOURNAMENT,
+        stakes=Stakes(small_blind=50, big_blind=100), hero="Hero",
+        players=players, hero_cards=["7d", "7s"], streets=[
+            Street(name=StreetName.PREFLOP, actions=[
+                A("SB", ActionType.RAISE, 230, to=230),
+                A("Hero", ActionType.CALL, 130, to=230)]),
+            Street(name=StreetName.FLOP, board=["6s", "Ac", "3c"], actions=[
+                A("SB", ActionType.BET, 200), A("Hero", ActionType.CALL, 200)]),
+            Street(name=StreetName.TURN, board=["6s", "Ac", "3c", "2h"], actions=[
+                A("SB", ActionType.BET, 400), A("Hero", ActionType.CALL, 400)]),
+            Street(name=StreetName.RIVER, board=["6s", "Ac", "3c", "2h", "9d"],
+                   actions=[A("SB", ActionType.CHECK),
+                            A("Hero", ActionType.CHECK)])])
+    bands = hand_storyboard_streets(h)
+    by = {b["name"]: b["board"] for b in bands}
+    assert by["Flop"] == ["6s", "Ac", "3c"]
+    assert by["Turn"] == ["6s", "Ac", "3c", "2h"]           # 4, não 7
+    assert by["River"] == ["6s", "Ac", "3c", "2h", "9d"]    # 5, não 12
+
+
+def test_hand_storyboard_streets_e_spec():
+    from app.bot.processing import (hand_storyboard_streets, _walk_hand,
+                                    storyboard_spot_from_drill)
+    from app.analysis.tools import pot_odds
+
+    h = _odilon_hand()
+    _, decs = _walk_hand(h)
+    river_di = len(decs) - 1  # a decisão de fold no river
+
+    # reveal: mostra a mão até o river COM a ação real; não spoila futuro
+    reveal = hand_storyboard_streets(h, upto_di=river_di, reveal=True)
+    assert [b["name"] for b in reveal] == ["Pré-flop", "Flop", "Turn", "River"]
+    assert reveal[-1]["board"] == ["7c", "9d", "Qs", "Ad", "2s"]
+    assert any("folda" in ln for ln in reveal[-1]["lines"])
+    # pré-flop: pote 6.9bb (35+70+161+126+91 = 483 / 70)
+    assert reveal[0]["pot_bb"] == 6.9
+
+    # pergunta (flop, sem reveal): corta na street da decisão, sem ação do herói
+    q = hand_storyboard_streets(h, upto_di=1, reveal=False)
+    assert q[-1]["name"] == "Flop" and q[-1]["lines"] == []
+
+    # spec do reveal: math determinística + veredito alinhado à escolha
+    drill = {"cards": ["6c", "4c"], "position": "SB", "stack_bb": 39,
+             "blinds": "35/70", "board": ["7c", "9d", "Qs", "Ad", "2s"],
+             "pot_bb": 6.9, "to_call_bb": 2.3,
+             "required_eq": round(pot_odds(6.9, 2.3), 3), "actual": "fold",
+             "storyboard": reveal}
+    spec = storyboard_spot_from_drill(drill, choice="fold")
+    assert spec["verdict"] == "boa"          # fold bate a matemática → acertou
+    assert "FOLD" in spec["correct"]
+    assert spec["math"]["equity"] < 0.2 and spec["math"]["ev_bb"] < 0
+    # escolha errada (call num spot -EV) → veredito ruim
+    assert storyboard_spot_from_drill(drill, choice="call")["verdict"] == "ruim"
+
+
+def test_veredito_stack_curto_jam_domina_call():
+    # caso real: TT com 15bb no BTN — call era +EV e a imagem dizia "PAGAR",
+    # mas o JAM domina (o coach dizia shove e a imagem contradizia). O
+    # veredito agora consulta o equilíbrio de jam/fold no pré curto.
+    from app.bot.processing import storyboard_spot_from_drill
+
+    drill = {
+        "cards": ["Ts", "Th"], "position": "BTN", "stack_bb": 15.0,
+        "blinds": "1k/2k", "street": "preflop", "format": "tournament",
+        "board": [], "pot_bb": 7.0, "to_call_bb": 4.0,
+        "required_eq": 0.267, "actual": "call", "net_bb": 12.0,
+        "villains": [{"pos": "CO", "bet_bb": 4.0}],
+        "storyboard": [{"name": "Pré-flop", "board": [],
+                        "lines": ["CO abre 4bb"], "pot_bb": 7.0}],
+    }
+    call = storyboard_spot_from_drill(drill, choice="call")
+    assert call["correct"] == "ALL-IN (jam)"
+    assert call["verdict"] == "mista"            # +EV, mas não é o ótimo
+    assert "jam rende MAIS" in call["verdict_text"]
+    assert storyboard_spot_from_drill(drill, choice="allin")["verdict"] == "boa"
+    assert storyboard_spot_from_drill(drill, choice="fold")["verdict"] == "ruim"
+
+    # deep (60bb) o equilíbrio de shove NÃO se aplica — veredito segue a conta
+    deep = dict(drill, stack_bb=60.0)
+    assert storyboard_spot_from_drill(deep, choice="call")["correct"] == "PAGAR (call)"
+
+    # caso real: aluno AUMENTOU num spot de call +EV — a imagem dizia
+    # "DECISÃO CERTA: PAGAR" por cima de um raise bom (contradição). Agora o
+    # rótulo é o PISO ("não foldar") e o texto explica a fold equity.
+    r = storyboard_spot_from_drill(deep, choice="raisepot")
+    assert r["verdict"] == "boa"
+    assert r["correct"] == "NÃO FOLDAR (call é o piso)"
+    assert "fold equity" in r["verdict_text"]
+    # quem FOLDOU segue vendo "PAGAR (call)" como o certo
+    assert storyboard_spot_from_drill(deep, choice="fold")["correct"] == "PAGAR (call)"
+
+
+def test_timing_tells_snap_bet_forte():
+    # 7 mãos: vilão aposta RÁPIDO (2s) e mostra valor no showdown — o sinal
+    # "snap-bet = força" sai; com poucas ações com tempo, nada sai
+    from app.analysis.villains import timing_tells
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    def mao(i):
+        riv = Street(name=StreetName.RIVER,
+                     board=["Ks", "9h", "4d", "2c", "9s"], actions=[
+            Action(actor="Snap", type=ActionType.BET, amount=100, time_raw=2.0),
+            Action(actor="Snap", type=ActionType.CHECK, time_raw=3.0),
+        ])
+        return CanonicalHand(
+            site="x", hand_id=f"t{i}", hero="Hero",
+            stakes=Stakes(small_blind=1, big_blind=2),
+            players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True),
+                     PlayerSeat(seat=2, name="Snap", stack=100)],
+            hero_cards=["Ah", "Qd"],
+            final_board=["Ks", "9h", "4d", "2c", "9s"],
+            shown_cards={"Snap": ["9c", "9d"]},   # quadra: forte
+            streets=[riv])
+
+    hands = [mao(i) for i in range(7)]
+    tt = timing_tells(hands, "snap")
+    assert tt and tt["acoes_com_tempo"] == 14
+    assert tt["mediana_agressao_s"] == 2.0
+    assert any("força" in s for s in tt["sinais"])
+    assert timing_tells(hands[:2], "snap") is None      # amostra curta
+
+
+def test_risk_of_ruin_banca():
+    import pytest as _pytest
+
+    from app.analysis.bankroll import risk_of_ruin
+
+    # 100 BI em MTT NÃO é ultra-seguro (literatura: é o mínimo) — ~5% de
+    # ruína é o realismo do modelo; 250 BI derruba pra quase zero
+    folgado = risk_of_ruin(250, roi_pct=20)
+    assert folgado["risco_de_ruina_pct"] < 2
+    medio = risk_of_ruin(100, roi_pct=20)
+    apertado = risk_of_ruin(5, roi_pct=-20)
+    assert apertado["risco_de_ruina_pct"] > 60
+    assert (folgado["risco_de_ruina_pct"] < medio["risco_de_ruina_pct"]
+            < apertado["risco_de_ruina_pct"])
+    # determinístico: mesma pergunta, mesma resposta
+    assert risk_of_ruin(30, 10) == risk_of_ruin(30, 10)
+    assert "Monte Carlo" in folgado["nota"]
+    with _pytest.raises(ValueError):
+        risk_of_ruin(0.5)
+
+
+def test_treino_de_leitura_de_maos():
+    from app.bot import processing as proc
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="vilaoX", type=ActionType.RAISE, amount=6, to_amount=6),
+        Action(actor="Hero", type=ActionType.CALL, amount=6, to_amount=6),
+    ])
+    h = CanonicalHand(
+        site="x", hand_id="hr1", hero="Hero",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True),
+                 PlayerSeat(seat=2, name="vilaoX", stack=100)],
+        hero_cards=["Ah", "Qd"], streets=[pre],
+        final_board=["Ks", "9h", "4d", "2c", "7s"],
+        shown_cards={"vilaoX": ["Kd", "Jc"]})
+    tid = 555777
+    proc.RECENT_HANDS[tid] = [h]
+    try:
+        hr = proc.build_hand_reading(tid)
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+    assert hr and len(hr["options"]) == 4
+    assert hr["options"][hr["correct"]] == ["Kd", "Jc"]
+    assert hr["vilao"] == "vilaoX" and hr["story"]
+    assert "par de K" in hr["leitura"]
+    # iscas não colidem com board/herói/resposta
+    usadas = set(h.final_board) | {"Ah", "Qd", "Kd", "Jc"}
+    for i, o in enumerate(hr["options"]):
+        if i != hr["correct"]:
+            assert not set(o) & usadas
+
+
+def test_mdf_e_alpha():
+    # gabarito clássico: aposta de POTE -> MDF 50% / alpha 50%;
+    # meia-pote -> MDF 66.7% / alpha 33.3%
+    import pytest as _pytest
+
+    from app.analysis.tools import mdf
+
+    r = mdf(pot=100, bet=100)
+    assert r["mdf_pct"] == 50.0 and r["alpha_pct"] == 50.0
+    r2 = mdf(pot=100, bet=50)
+    assert r2["mdf_pct"] == 66.7 and r2["alpha_pct"] == 33.3
+    assert "defender" in r2["leitura"]
+    with _pytest.raises(ValueError):
+        mdf(0, 10)
+
+
+def test_range_advantage_no_flop():
+    from app.analysis.range_advantage import range_advantage
+
+    # A72 rainbow: range do agressor (pares altos + AK) esmaga quem defendeu
+    # com conectores baixos — c-bet pequeno e frequente
+    r = range_advantage(["Ah", "7d", "2c"], "AA, KK, QQ, AK", "76s, 65s")
+    assert r["equity_media"]["agressor"] > 60
+    assert "PEQUENO" in r["veredito"] or "pequeno" in r["veredito"]
+
+    # 765 two-tone: sets e duas pontas do defensor dominam overcards soltas
+    r2 = range_advantage(["7h", "6h", "5c"], "AK, AQ", "77, 66, 55",
+                         label_a="agressor", label_b="defensor")
+    assert r2["equity_media"]["defensor"] > 60
+    assert "chequar" in r2["veredito"] or "defensor" in r2["veredito"]
+
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        range_advantage(["Ah", "7d"], "AA", "KK")   # board curto
+
+
+def test_blockers_no_river():
+    from app.analysis.blockers import blocker_effects
+
+    # board K♠9♠4♠2♥7♦; vilão com AQ/99/88: fortes = 3 sets de 9 (sem o 9♠
+    # do board) + o flush A♠Q♠ = 4 combos. Herói com 9♦ bloqueia 2 (50%).
+    r = blocker_effects(["9d", "Th"], ["Ks", "9s", "4s", "2h", "7d"],
+                        "AQ, 99, 88")
+    assert r["combos_fortes"] == 4
+    assert r["por_carta"]["9d"]["combos_fortes_bloqueados"] == 2
+    assert r["fortes_bloqueados_pct"] == 50.0
+    assert "blefe" in r["leitura"]
+
+    # sem bloqueio relevante
+    r2 = blocker_effects(["Th", "8h"], ["Ks", "9s", "4s", "2h", "7d"],
+                         "AQ, 99")
+    assert r2["por_carta"]["Th"]["combos_fortes_bloqueados"] == 0
+
+
+def test_pko_bounty_desconta_equity():
+    # regra da meia-pilha: bounty de 2 bounties iniciais com stack inicial
+    # 10k = 10k fichas de dinheiro morto extra no call
+    import pytest as _pytest
+
+    from app.analysis.pko import bounty_em_fichas, pko_call
+
+    assert bounty_em_fichas(100, 50, 10_000) == 10_000
+    r = pko_call(12_000, 8_000, 100, 50, 10_000)
+    assert r["equity_necessaria_sem_bounty"] == 0.4      # 8k/(12k+8k)
+    assert r["equity_necessaria_com_bounty"] == round(8_000 / 30_000, 3)
+    assert r["desconto_pct"] > 10                        # o bounty muda a conta
+    assert "meia-pilha" in r["nota"].lower() or "MEIA-PILHA" in r["nota"]
+    with _pytest.raises(ValueError):
+        pko_call(10, 0, 1, 1, 100)
+
+
+def test_villain_profile_exploit_por_vilao():
+    from app.analysis.villains import villain_profile
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    def mao(i, acao_vilao):
+        pre = Street(name=StreetName.PREFLOP, actions=[
+            Action(actor="Nit77", type=ActionType.POST, amount=2,
+                   post_type="bb"),
+            acao_vilao,
+            Action(actor="Hero", type=ActionType.RAISE, amount=6, to_amount=6),
+        ])
+        return CanonicalHand(
+            site="x", hand_id=f"m{i}", hero="Hero",
+            stakes=Stakes(small_blind=1, big_blind=2),
+            players=[PlayerSeat(seat=1, name="Hero", stack=200, is_hero=True),
+                     PlayerSeat(seat=2, name="Nit77", stack=200)],
+            hero_cards=["As", "Kd"], streets=[pre],
+            shown_cards={"Nit77": ["Qh", "Qd"]} if i == 0 else {})
+
+    # 20 mãos: vilão só joga 2 (call) e folda 18 -> nit
+    hands = ([mao(i, Action(actor="Nit77", type=ActionType.CALL, amount=2))
+              for i in range(2)]
+             + [mao(i + 2, Action(actor="Nit77", type=ActionType.FOLD))
+                for i in range(18)])
+    prof = villain_profile(hands, "nit77")          # case-insensitive
+    assert prof and prof["maos_na_base"] == 20
+    assert prof["vpip"]["media"] < 20               # shrinkage puxa mas é nit
+    assert prof["amostra"] == "média"
+    assert any("nit" in e for e in prof["exploits"])
+    assert prof["showdowns_vistos"][0]["cartas"] == ["Qh", "Qd"]
+    # vilão inexistente
+    assert villain_profile(hands, "fantasma") is None
+    # amostra pequena: SEM dicas (ruído não vira conselho)
+    poucos = villain_profile(hands[:5], "Nit77")
+    assert poucos["exploits"] == [] and "aviso" in poucos
+
+
+def test_graficos_sem_duplicata_e_com_ev_de_companhia():
+    # feedback do admin: (1) o mesmo range saía DUAS vezes (push_fold +
+    # send_range_chart geravam specs diferentes do mesmo conteúdo);
+    # (2) o range Nash agora vem com o EV por mão como SEGUNDO gráfico
+    import pytest as _pytest
+
+    from app.bot import processing as proc
+
+    solver = _pytest.importorskip("app.analysis.jam_fold_solver")
+    if not solver.available():
+        _pytest.skip("matriz não gerada")
+
+    tid = 999321
+    proc._stash_charts(tid, [
+        ("nash", "SB", 10.0),                       # push_fold
+        ("nashmode", "SB", 10.0, "freq", 1.5),      # send_range_chart (igual!)
+        ("range", "AA, KK", "titulo A"),
+        ("range", "AA, KK", "titulo B"),            # mesmo range, outro título
+    ])
+    charts = proc.pop_charts(tid)
+    captions = [c for _, c in charts]
+    # 3 gráficos: nash-freq (1x), o EV de companhia, e o range (1x)
+    assert len(charts) == 3, captions
+    assert any("EV" in c or "chip" in c for c in captions), captions
+
+
+def test_usuario_zero_ganha_mao_demo():
+    # item 6 do roadmap-10: quem chega sem mãos recebe uma mão-DEMO sintética
+    # na memória (nunca no banco) — /treino e /simular funcionam no 1º minuto
+    from app.bot import processing as proc
+
+    tid = 888123
+    proc.RECENT_HANDS.pop(tid, None)
+    try:
+        assert proc.ensure_demo_material(tid) is True
+        drill = proc.build_drill(tid)
+        assert drill and str(drill["hand_id"]).startswith("demo")
+        sim = proc.build_simulation(tid, None)
+        assert sim and sim.get("cards") and not sim.get("dead_end")
+        # já tem material -> NÃO injeta de novo
+        assert proc.ensure_demo_material(tid) is False
+    finally:
+        proc.RECENT_HANDS.pop(tid, None)
+
+
+def test_leitura_dupla_de_print_aplica_correcao():
+    # item 5 do roadmap-10: 2ª passada confere carta a carta; correções dos
+    # campos críticos valem e as divergências viajam pro coach confirmar
+    from app.agent.llm import _merge_vision_check
+
+    data = {"hero_name": "H", "hero_cards": ["As", "Kd"],
+            "board": ["Qs", "3c"], "players": [{"name": "H", "stack": 1000}]}
+    check = {"confere": False,
+             "divergencias": ["hero_cards: li A♠K♣, a 1ª leitura diz A♠K♦"],
+             "correcao": {"hero_cards": ["As", "Kc"], "hero_stack": 1200}}
+    merged, div = _merge_vision_check(data, check)
+    assert merged["hero_cards"] == ["As", "Kc"]          # correção aplicada
+    assert merged["players"][0]["stack"] == 1200
+    assert merged["board"] == ["Qs", "3c"]               # sem correção: mantém
+    assert div and "K♣" in div[0]
+
+    # conferiu tudo: nada muda, sem divergências
+    ok, div2 = _merge_vision_check(data, {"confere": True, "correcao": {}})
+    assert ok == data and div2 == []
+
+
+def test_conversa_persistida_sem_imagem_e_com_cap():
+    # item 4 do roadmap-10: a conversa sobrevive a restart. Persiste SEM a
+    # imagem (pesada) e com o histórico limitado; restaura no followup.
+    from app.bot import processing as proc
+
+    tid = 777001
+    proc.LAST_ANALYSIS[tid] = {
+        "context": {"analysis": {"hero_cards": ["As", "Kd"]}},
+        "history": [{"q": f"q{i}", "a": f"a{i}"} for i in range(30)],
+        "hand_row_id": None, "user_id": None,
+        "image_b64": "x" * 100_000, "media": "image/jpeg",
+    }
+    saved = {}
+
+    class _FakeRepo:
+        enabled = True
+
+        def set_conversation(self, t, state):
+            saved[t] = state
+
+    real = proc.get_repository
+    proc.get_repository = lambda: _FakeRepo()
+    try:
+        proc.persist_conversation(tid)
+    finally:
+        proc.get_repository = real
+        proc.LAST_ANALYSIS.pop(tid, None)
+    st = saved[tid]
+    assert "image_b64" not in st and "media" not in st
+    assert len(st["history"]) <= proc._HISTORY_CAP
+    assert st["context"]["analysis"]["hero_cards"] == ["As", "Kd"]
+
+
+def test_auditor_noturno_pega_mao_quebrada_e_contradicao():
+    # o "Leo automático": sanidade estrutural + classe TT/15bb em mãos reais
+    import scripts.nightly_coherence as nc
+    from app.models.canonical import (CanonicalHand, PlayerSeat, Stakes,
+                                      Street, StreetName)
+
+    ok = CanonicalHand(
+        site="x", hand_id="ok1", hero="H",
+        stakes=Stakes(small_blind=1, big_blind=2),
+        players=[PlayerSeat(seat=1, name="H", stack=100, is_hero=True)],
+        hero_cards=["As", "Kd"], final_board=["2h", "7c", "9d"],
+        streets=[Street(name=StreetName.PREFLOP, actions=[])])
+    assert nc.check_hand(ok) == []
+
+    ruim = ok.model_copy(update={
+        "hand_id": "bad1",
+        "final_board": ["2h", "2h", "9d"],          # carta duplicada
+        "shown_cards": {"vilao": ["Zz", "9d"]},     # carta inválida
+    })
+    probs = nc.check_hand(ruim)
+    assert any("board" in p for p in probs)
+    assert any("showdown" in p for p in probs)
+
+
+def test_canario_coerencia_veredito_vs_resposta():
+    # CANÁRIO da classe "carimbo contradiz a resposta do aluno": varre
+    # escolhas x tipos de spot e trava os invariantes de honestidade:
+    #  - a conta só julga call vs fold; blefe/raise nunca leva "ruim" por
+    #    uma conta que não o avaliou (vira misto com alpha)
+    #  - veredito "boa" nunca vem com correto nomeando OUTRA ação
+    from app.bot.processing import storyboard_spot_from_drill
+
+    base = {
+        "cards": ["Ah", "Kd"], "position": "BTN", "blinds": "1k/2k",
+        "board": [], "actual": "call", "net_bb": 0.0,
+        "villains": [{"pos": "CO", "bet_bb": 4.0}],
+        "storyboard": [{"name": "Pré-flop", "board": [], "lines": [],
+                        "pot_bb": 7.0}],
+    }
+    ev_pos = dict(base, stack_bb=60.0, street="preflop", format="tournament",
+                  pot_bb=7.0, to_call_bb=4.0, required_eq=0.267)
+    ev_neg = dict(base, cards=["7h", "2d"], stack_bb=60.0, street="preflop",
+                  format="tournament", pot_bb=7.0, to_call_bb=5.5,
+                  required_eq=0.44, actual="fold")
+
+    for spot in (ev_pos, ev_neg):
+        for ch in ("fold", "call", "raise3x", "raisepot", "allin"):
+            s = storyboard_spot_from_drill(spot, choice=ch)
+            aggro = ch.startswith("raise") or ch == "allin"
+            if aggro:
+                # blefe/aumento jamais é "ruim" pela conta de call...
+                assert s["verdict"] != "ruim", (spot["cards"], ch, s)
+                # ...e "boa" jamais carimba "PAGAR" por cima de um raise
+                if s["verdict"] == "boa":
+                    assert s["correct"] != "PAGAR (call)", (ch, s["correct"])
+
+    # os vereditos legítimos continuam duros: fold no +EV é ruim; call no
+    # -EV é ruim (essas a conta AVALIA de verdade)
+    assert storyboard_spot_from_drill(ev_pos, choice="fold")["verdict"] == "ruim"
+    assert storyboard_spot_from_drill(ev_neg, choice="call")["verdict"] == "ruim"
+    # e o blefe misto explica o preço (alpha do sizing)
+    blefe = storyboard_spot_from_drill(ev_neg, choice="raisepot")
+    assert "blefe" in blefe["verdict_text"].lower()
+    assert "folde" in blefe["verdict_text"]
+
+
+def test_canario_imagem_nunca_contradiz_solver():
+    # CANÁRIO anti-contradição (lição do TT/15bb): varre uma bateria de spots
+    # curtos e PROÍBE a imagem dizer "PAGAR" onde o equilíbrio manda JAM.
+    # Não testa um caso — testa a CLASSE do bug, antes de todo deploy.
+    from app.analysis.pushfold import push_fold
+    from app.bot.processing import storyboard_spot_from_drill
+
+    hands = [["Ts", "Th"], ["As", "Kd"], ["9c", "9d"], ["Ah", "Qs"],
+             ["Kh", "Js"], ["7s", "7d"], ["As", "5s"], ["Qd", "Jd"]]
+    contradicoes = []
+    for cards in hands:
+        for stack in (8.0, 12.0, 15.0, 18.0):
+            for pos in ("BTN", "CO", "SB"):
+                drill = {
+                    "cards": cards, "position": pos, "stack_bb": stack,
+                    "blinds": "1k/2k", "street": "preflop",
+                    "format": "tournament", "board": [],
+                    "pot_bb": 7.0, "to_call_bb": 4.0, "required_eq": 0.267,
+                    "actual": "call", "net_bb": 0.0,
+                    "villains": [{"pos": "MP", "bet_bb": 4.0}],
+                    "storyboard": [{"name": "Pré-flop", "board": [],
+                                    "lines": ["MP abre 4bb"], "pot_bb": 7.0}],
+                }
+                spec = storyboard_spot_from_drill(drill, choice="call")
+                pf = push_fold(cards, stack, pos)
+                if (pf.get("applicable") and pf.get("decision") == "push"
+                        and spec["correct"] == "PAGAR (call)"):
+                    contradicoes.append(f"{cards} {stack}bb {pos}")
+    assert not contradicoes, f"imagem diz PAGAR onde o solver manda JAM: {contradicoes}"
+
+
+def test_show_reveal_foto_vs_texto():
+    # regressão: quiz enviado como FOTO não tem texto pra editar — o gabarito
+    # não pode usar edit_text (Telegram: "no text in the message to edit").
+    import asyncio
+
+    from app.bot.handlers import _show_reveal
+
+    class Msg:
+        def __init__(self, text=None):
+            self.text = text
+            self.calls = []
+
+        async def edit_text(self, t, **kw):
+            self.calls.append(("edit_text", t))
+
+        async def edit_reply_markup(self, reply_markup=None):
+            self.calls.append(("clear_markup", reply_markup))
+
+        async def reply_text(self, t, **kw):
+            self.calls.append(("reply_text", t))
+
+    class Q:
+        def __init__(self, msg):
+            self.message = msg
+
+    # mensagem de TEXTO (quiz diário): edita no lugar
+    tm = Msg(text="pergunta")
+    asyncio.run(_show_reveal(Q(tm), "gabarito"))
+    assert [c[0] for c in tm.calls] == ["edit_text"]
+
+    # mensagem de FOTO (/treino, sem .text): tira botões e manda msg nova
+    pm = Msg(text=None)
+    asyncio.run(_show_reveal(Q(pm), "gabarito"))
+    assert [c[0] for c in pm.calls] == ["clear_markup", "reply_text"]
+
+
+def test_procedencia_declara_de_onde_veio_a_leitura():
+    # aluno: "e na parte da leitura dos inputs?". Os piores defeitos (naipe
+    # errado, KK virando AK, herói errado) nasceram na LEITURA de print — e
+    # a análise saía com a mesma segurança de um replay exato. Agora a fonte
+    # incerta abre declarando o que foi lido; a exata não vira ruído.
+    from app.analysis.procedencia import (bloco_leitura, checar_leitura,
+                                          fonte_exata, selo_procedencia)
+    from app.api.site_assets import _demo_hand
+
+    h = _demo_hand()
+
+    # fonte EXATA: nada de bloco, e o selo diz que não houve visão
+    assert fonte_exata("pppoker_replay") and not fonte_exata("image")
+    assert bloco_leitura(h, "pppoker_replay", 0.4) == ""
+    assert "sem leitura por imagem" in selo_procedencia("pppoker_replay")
+
+    # PRINT: abre mostrando cartas/posição/stack pro aluno conferir
+    b = bloco_leitura(h, "image", 0.95)
+    assert "Foi isto que eu li" in b and "print/foto da mesa" in b
+    assert "Você:" in b and "Board:" in b
+    assert "refaço a análise" in b
+
+    # confiança baixa vira AVISO visível (antes só ficava no banco)
+    baixa = bloco_leitura(h, "image", 0.62)
+    assert "62%" in baixa and "⚠️" in baixa
+    assert "62%" in selo_procedencia("image", 0.62)
+    assert "⚠️" not in b  # confiança alta não alarma à toa
+
+    # divergência entre as duas passadas de leitura chega ao ALUNO, não só
+    # ao contexto do coach (que podia esquecer de mencionar)
+    div = bloco_leitura(h, "image", 0.95,
+                        divergencias=["cartas do herói: QdJd x QdJh"])
+    assert "não bateram" in div and "QdJd" in div
+
+    # classe de INPUT da prova real: sintomas típicos de print mal lido
+    assert checar_leitura(h) == []
+    dup = _demo_hand()
+    dup.final_board = list(dup.hero_cards) + list(dup.final_board or [])[:3]
+    assert any("dois lugares" in p for p in checar_leitura(dup))
+    sem_bb = _demo_hand()
+    sem_bb.stakes.big_blind = 0
+    assert any("big blind" in p for p in checar_leitura(sem_bb))
+    assert checar_leitura(None)
+
+    # e a prova real passou a ter a classe "leitura"
+    from app.analysis.selfcheck import _CLASSES
+    assert "leitura" in dict(_CLASSES)
+
+    # a resposta do upload carrega bloco + selo
+    import inspect
+
+    from app.bot import processing
+    src = inspect.getsource(processing._process_upload_inner)
+    assert "bloco_leitura" in src and "selo_procedencia" in src
+
+
+def test_backup_do_banco_fecha_o_circulo(tmp_path, monkeypatch):
+    # o histórico do aluno (mãos, análises, caderno) vivia num único banco
+    # gerenciado, SEM cópia. O canário exige que o backup (a) leve todas as
+    # tabelas, (b) pagine, (c) volte no restore e (d) grite quando falhar.
+    import gzip
+    import json
+
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path))
+    from scripts import backup_db
+
+    class Q:
+        def __init__(self, db, tabela):
+            self.db, self.t, self.rng = db, tabela, None
+
+        def select(self, *_a, **_k):
+            return self
+
+        def range(self, a, b):
+            self.rng = (a, b)
+            return self
+
+        def upsert(self, rows, **_k):
+            self.db.setdefault(self.t, []).extend(rows)
+            return self
+
+        def execute(self):
+            linhas = self.db.get(self.t, [])
+            if self.rng:
+                linhas = linhas[self.rng[0]:self.rng[1] + 1]
+            return type("R", (), {"data": list(linhas)})()
+
+    class Client:
+        def __init__(self, db):
+            self.db = db
+
+        def table(self, t):
+            return Q(self.db, t)
+
+    class Repo:
+        enabled = True
+
+        def __init__(self, db):
+            self.client = Client(db)
+            self.eventos = []
+
+        def log_event(self, *a, **k):
+            self.eventos.append((a, k))
+
+    # 1200 mãos força a paginação (o cliente corta em 1000 por resposta)
+    db = {
+        "users": [{"id": "u1", "telegram_id": 1}],
+        "hands": [{"id": f"h{i}", "user_id": "u1"} for i in range(1200)],
+        "hand_analysis": [{"id": "a1", "summary": "ok",
+                           "embedding": [0.1] * 1536}],
+        "player_notes": [{"id": "n1", "note": "paga demais no river"}],
+    }
+    repo = Repo(db)
+    caminho, contagem = backup_db.fazer_backup(repo)
+
+    assert contagem["hands"] == 1200, "backup truncou na primeira página"
+    assert contagem["player_notes"] == 1                # o caderno vai junto
+    assert set(backup_db.TABELAS) <= set(contagem)      # nenhuma tabela fora
+
+    pacote = json.load(gzip.open(caminho, "rt", encoding="utf-8"))
+    ana = pacote["tabelas"]["hand_analysis"][0]
+    assert ana["summary"] == "ok"
+    assert "embedding" not in ana, "vetor de 1536 floats não entra no dump"
+
+    # restore: repõe o que FALTA, sem apagar nada
+    vazio = Repo({"users": [{"id": "u1", "telegram_id": 1}]})
+    posto = backup_db.restaurar(vazio, str(caminho))
+    assert posto["hands"] == 1200
+    assert len(vazio.client.db["player_notes"]) == 1
+
+    # rotação: guarda as N mais recentes
+    for i in range(20):
+        (tmp_path / f"kknuths-2026010{i % 9}-0{i % 9}00.json.gz").touch()
+    backup_db.limpar_antigos(guardar=5)
+    assert len(list(tmp_path.glob("kknuths-*.json.gz"))) == 5
+
+    # falha do backup TEM que avisar o admin (silêncio é o pior caso)
+    avisos = []
+    monkeypatch.setattr(backup_db, "_avisar",
+                        lambda tok, txt: avisos.append(txt))
+
+    class Quebrado(Repo):
+        def __init__(self):
+            super().__init__({})
+            self.client.table = lambda t: (_ for _ in ()).throw(
+                RuntimeError("sem rede"))
+
+    monkeypatch.setattr(backup_db, "get_repository", lambda: Quebrado())
+    monkeypatch.setattr(backup_db, "get_settings",
+                        lambda: type("S", (), {"telegram_bot_token": "t"})())
+    assert backup_db.main() == 1
+    assert avisos and "FALHOU" in avisos[0]
+
+    # e o cron está no deploy (script existir sem cron = backup que não roda)
+    import pathlib
+    dep = pathlib.Path(__file__).resolve().parent.parent / "deploy/vps_deploy.sh"
+    assert "backup_db.py" in dep.read_text()
+
+
+def test_schema_sql_cobre_as_tabelas_que_o_codigo_usa():
+    # drift real: conversation_state, user_meta e pending_sims nasceram
+    # direto no banco e ficaram fora do schema.sql — reconstruir o projeto
+    # a partir do arquivo daria um banco sem memória de conversa.
+    import pathlib
+    import re
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    schema = (raiz / "app/db/schema.sql").read_text()
+    codigo = (raiz / "app/db/repository.py").read_text()
+    usadas = set(re.findall(r'table\("([a-z_]+)"\)', codigo))
+    faltando = [t for t in usadas
+                if f"create table if not exists {t}" not in schema]
+    assert not faltando, f"tabelas usadas no código e fora do schema.sql: {faltando}"
+
+
+def test_grafico_ev_posflop_sai_sem_interrogatorio(monkeypatch):
+    # defeito relatado pelo aluno: "não gera a merda dos gráficos de EV,
+    # somente de all-in". O motor pós-flop existia; faltava a PORTA — a tool
+    # exigia board/ranges/pote/stack e o coach, sem esses valores, PERGUNTAVA
+    # ("qual dos dois?") em vez de entregar. Duas vezes ele respondeu e o
+    # gráfico não veio. Agora a mão da conversa vira o spot sozinha.
+    from app.analysis.postflop_spot import spot_da_mao
+    from app.api.site_assets import _demo_hand
+
+    h = _demo_hand()
+    s = spot_da_mao(h)                      # SEM argumento nenhum
+    assert not s.get("error"), s
+    assert s["street"] == "river" and len(s["board"]) == 5
+    assert s["pot"] > 0 and s["stack"] > 0
+    assert s["player"] in ("oop", "ip")
+    # quem age primeiro no pós-flop está fora de posição — por definição
+    assert s["oop"] == h.street(_st("FLOP")).actions[0].actor
+    assert len(s["premissas"]) == 3         # premissa não declarada = chute
+    assert "bb" in s["premissas"][0]
+
+    # street explícita e pote crescendo com a mão
+    flop = spot_da_mao(h, "flop")
+    turn = spot_da_mao(h, "turn")
+    assert flop["pot"] < turn["pot"] < s["pot"]
+    assert len(flop["board"]) == 3 and len(turn["board"]) == 4
+
+    # os ranges cabem no teto do solver (senão o gráfico simplesmente não sai)
+    from app.analysis.ranges import expand_combos, parse_range
+    for lado in ("oop_range", "ip_range"):
+        assert len(expand_combos(parse_range(flop[lado]))) <= 300
+
+    # erros HONESTOS, não silêncio
+    from app.models.canonical import CanonicalHand, PlayerSeat, Stakes
+    seca = CanonicalHand(site="x", hand_id="s1", hero="Hero",
+                         stakes=Stakes(small_blind=0.5, big_blind=1),
+                         players=[PlayerSeat(seat=1, name="Hero", stack=100,
+                                             is_hero=True, position="BB")],
+                         streets=[])
+    assert "flop" in spot_da_mao(seca)["error"]
+    assert "conversa" in spot_da_mao(None)["error"]
+
+    multi = _demo_hand()
+    multi.street(_st("RIVER")).actions.append(
+        _acao("Terceiro"))
+    assert "heads-up" in spot_da_mao(multi, "river")["error"]
+
+    # a spec do gráfico sai da tool e vira DOIS gráficos (valor + frequência)
+    from app.agent.llm import charts_from_tool_call
+    res = {**s, "ev_medio": 1.0}
+    spec = charts_from_tool_call("grafico_ev_da_mao", {}, res)
+    assert spec[0] == "posflop" and spec[7] == "ev"
+
+    import app.bot.processing as P
+    monkeypatch.setattr("app.analysis.range_chart.render_spec",
+                        lambda sp: (b"PNG", f"legenda {sp[7]}"))
+    P._stash_charts(4242, [spec], None)
+    charts = P.pop_charts(4242)
+    assert len(charts) == 2, "o par valor+frequência não saiu"
+    assert {c[1].split()[-1] for c in charts} == {"ev", "None"}
+
+    # a tool existe e o prompt PROÍBE perguntar antes de chamar
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "grafico_ev_da_mao" for t in TOOLS)
+    assert not TOOLS[[t["name"] for t in TOOLS].index(
+        "grafico_ev_da_mao")]["input_schema"].get("required")
+    assert "C11" in _SYSTEM["pt"] and "PROIBIDO perguntar" in _SYSTEM["pt"]
+
+
+def _st(nome):
+    from app.models.canonical import StreetName
+    return getattr(StreetName, nome)
+
+
+def _acao(quem):
+    from app.models.canonical import Action, ActionType
+    return Action(actor=quem, type=ActionType.CHECK)
+
+
+def test_aviso_de_espera_do_solver(monkeypatch):
+    # "foi isso que me lascou": o solver pós-flop leva ~1 min e o aluno ficava
+    # olhando "Analisando sua colocação…" sem sinal de vida — concluiu que a
+    # ferramenta tinha quebrado. Agora o aviso sai ANTES do cálculo.
+    from app.bot import notify
+
+    mandados = []
+    monkeypatch.setattr(notify, "avisar",
+                        lambda tg, txt: mandados.append((tg, txt)) or True)
+
+    notify.avisar_solver(777, ["Qs", "Th", "4d"], 2)
+    tg, txt = mandados[-1]
+    assert tg == 777
+    assert "flop" in txt and "Q♠ 10♥ 4♦" in txt        # naipe com ícone
+    # o tempo agora é o TETO que o solver garante, não uma média medida numa
+    # máquina e prometida em outra — ele para sozinho ao encostar nele
+    assert "no máximo" in txt and "75 segundos" in txt
+    assert "relógio" in txt                            # e o contador se mexe
+    assert "Não travou" in txt                         # o que ele precisava ler
+    assert "2 gráficos" in txt                         # e o que vai chegar
+
+    notify.avisar_solver(777, ["Qs", "Th", "4d", "8c", "2s"], 0)
+    assert "30 segundos" in mandados[-1][1]            # river é rápido: não mente
+    assert "gráfico" not in mandados[-1][1]            # solve_river não manda figura
+
+    # sem chat/sem token o aviso não pode derrubar a análise
+    monkeypatch.undo()
+    assert notify.avisar(None, "x") is False
+    assert notify.avisar(1, "") is False
+
+    # e as três ferramentas lentas avisam antes de resolver
+    import inspect
+
+    from app.agent import llm
+    src = inspect.getsource(llm._dispatch)
+    assert src.count("avisar_solver(") == 3, "alguma tool lenta ficou sem aviso"
+    pos_tool = src.index("grafico_ev_da_mao")
+    assert src.index("avisar_solver", pos_tool) < src.index(
+        "_valores_posflop", pos_tool), "o aviso saiu DEPOIS do cálculo"
+
+
+def test_folder_leva_link_e_segue_atualizado():
+    # 22/08 o dono ABRIU o acesso: o folder passa a levar o link do bot.
+    # Antes ele era entregue a dedo (10 convidados) e link vira cadastro
+    # aleatório — consequência aceita ao abrir. O resto do canário (as
+    # novidades, o pedido ao testador, a promessa de segurança) continua:
+    # é o que impede o folder de envelhecer sem ninguém notar.
+    from app.api.folder_page import build_folder_html
+
+    html = build_folder_html()
+    assert "t.me/" in html, "o folder ficou sem link depois da abertura"
+    # e o que entrou depois da última versão do folder está lá
+    for novidade in ("/spot", "/prova", "Gráfico de EV de qualquer mão",
+                     "Leitura declarada", "Caderno do coach"):
+        assert novidade in html, f"folder desatualizado: falta {novidade}"
+    # o pedido ao testador (é o que faz um piloto valer alguma coisa)
+    assert "O que eu preciso de você no teste" in html
+    assert "Discorde em voz alta" in html
+    # a promessa de segurança continua na cara
+    assert "sem RTA" in html and "pós-sessão" in html
+
+
+def test_cota_do_piloto_50_e_admin_nunca_bloqueado():
+    # a oferta do piloto passou pra 50 análises/mês. O canário guarda as duas
+    # coisas que quebram junto: o número que o aluno LÊ tem que bater com o
+    # que o código APLICA, e o dono não pode ser bloqueado pela própria cota
+    # (ele estava em 78 no mês quando o teto caiu pra 50 — seria barrado na
+    # véspera de chamar os testadores).
+    from app.api.folder_page import build_folder_html
+    from app.quota import (ADMIN_TELEGRAM_ID, FREE_MONTHLY_ANALYSES,
+                           check_quota)
+
+    assert FREE_MONTHLY_ANALYSES == 50
+    assert f"{FREE_MONTHLY_ANALYSES} análises por mês" in build_folder_html()
+    assert "100 análises" not in build_folder_html()
+
+    # dono: ilimitado mesmo com o mês estourado
+    class Repo:
+        enabled = True
+
+    q = check_quota(ADMIN_TELEGRAM_ID, {"plan": "free"}, Repo())
+    assert q.allowed and q.remaining == -1
+
+    # e a mensagem do /plano não pode ter teto escrito na mão: agora existe
+    # mais de um teto (free 50, piloto 100) e um número fixo no texto seria
+    # mentira para metade dos alunos
+    import inspect
+    import re
+
+    from app.bot.processing import texto_do_plano
+    # sem a docstring: ela CITA os números justamente para explicar o bug
+    fonte = inspect.getsource(texto_do_plano).replace(
+        texto_do_plano.__doc__ or "\0", "")
+    assert not re.search(r"\b(50|100)\b", fonte), (
+        "teto escrito na mão em texto_do_plano — tem que vir do argumento")
+    assert "*100* análises" in texto_do_plano("piloto", 100, 100)
+
+
+def test_ev_multiway_precisa_bater_todos():
+    # pergunta do aluno: "você não calcula o EV em pote multiway?". Calculava
+    # errado: quem JÁ tinha pagado o all-in entrava como dinheiro morto, e o
+    # herói só precisava bater o primeiro. Saía "overcall com 100% das mãos"
+    # e 72o +3,4bb — conselho que perde dinheiro.
+    import numpy as np
+
+    from app.analysis.allin_engine import available, solve_spot
+    if not available():
+        return
+
+    hu = solve_spot("overcall", "BB", 12.0, vilao_pos="CO", pagaram=0)
+    mw = solve_spot("overcall", "BB", 12.0, vilao_pos="CO", pagaram=1)
+
+    # o defeito: range degenerado e lixo lucrativo
+    assert mw["acao_pct"] < 90, "overcall multiway voltou a pagar quase tudo"
+    assert mw["ev"]["72o"] < 0, "72o não pode ser +EV pagando all-in"
+    # mais gente no pote = a MESMA mão vale menos em equity; o EV só sobe
+    # porque entrou o stack deles no pote — o que tem que cair é a força
+    # relativa: AA continua a melhor, 72o continua a pior
+    assert mw["ev"]["AA"] > mw["ev"]["KK"] > mw["ev"]["72o"]
+    assert mw["premissas"].count("ADVERSÁRIO vivo") == 1
+
+    # call_shove é heads-up por contrato: `pagaram` não pode mexer nele
+    for pag in (0, 2):
+        assert solve_spot("call_shove", "BB", 12.0, vilao_pos="CO",
+                          pagaram=pag)["acao_pct"] == hu["acao_pct"]
+
+    # o núcleo: a equity multiway bate com uma implementação INDEPENDENTE
+    # (Monte Carlo de ranges.equity_vs_range). O atalho de multiplicar as
+    # equities heads-up erra até 14 pontos — por isso não foi usado.
+    from app.analysis.jam_fold_solver import _matrix
+    from app.analysis.multiway_equity import equity_table
+    from app.analysis.ranges import equity_vs_range, parse_range
+
+    hands, _E, _W = _matrix()
+    R = "TT+, AQs+, AKo"
+    dentro = set(parse_range(R))
+    pesos = np.array([1.0 if h in dentro else 0.0 for h in hands])
+    tab = equity_table(list(hands), [pesos, pesos], iters=1500, seed=3)
+    idx = {h: i for i, h in enumerate(hands)}
+    for nome, cs in (("AA", ["As", "Ad"]), ("76s", ["7h", "6h"])):
+        ref = equity_vs_range(cs, R, [], iterations=12000, seed=99,
+                              num_opponents=2)["equity"]
+        assert abs(tab[idx[nome]] - ref) < 0.04, (
+            f"{nome}: tabela {tab[idx[nome]]:.3f} x referência {ref:.3f}")
+        assert abs(ref - tab[idx[nome]]) < abs(ref - ref * ref) or ref < 0.2, (
+            f"{nome}: o produto das equities heads-up seria pior que isto")
+
+
+def test_potes_paralelos_o_curto_nao_leva_o_bolo():
+    # material trazido pelo aluno: em all-in a 3+ com stacks DIFERENTES o
+    # pote se parte em principal + paralelos. Antes o motor tratava tudo
+    # como um bolo só — e o curto aparecia ganhando fichas que ele nem
+    # podia disputar (mesmo tipo de erro do overcall: prêmio inexistente).
+    from app.analysis.side_pots import dividir_potes, ev_por_pote
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+
+    # aritmética: 10 / 25 / 40 investidos
+    potes = dividir_potes({"Curto": 10, "Medio": 25, "Grande": 40})
+    assert [p["valor"] for p in potes] == [30, 30, 15]
+    assert potes[0]["elegiveis"] == ["Curto", "Grande", "Medio"]
+    assert potes[1]["elegiveis"] == ["Grande", "Medio"]
+    assert potes[2]["elegiveis"] == ["Grande"]        # aposta não paga
+    assert sum(p["valor"] for p in potes) == 75       # nada some, nada nasce
+
+    # quem foldou deixa o dinheiro mas não disputa
+    p2 = dividir_potes({"Curto": 10, "Medio": 25, "BB": 2}, fora={"BB"})
+    assert sum(p["valor"] for p in p2) == 37
+    assert all("BB" not in p["elegiveis"] for p in p2)
+
+    # ante/blind que o parser não detalhou entra no pote PRINCIPAL
+    p3 = dividir_potes({"A": 10, "B": 10}, extra=3)
+    assert p3[0]["valor"] == 23
+
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Curto", type=ActionType.RAISE, amount=10, to_amount=10,
+               all_in=True),
+        Action(actor="Medio", type=ActionType.RAISE, amount=25, to_amount=25,
+               all_in=True),
+        Action(actor="Grande", type=ActionType.CALL, amount=25, to_amount=25)])
+    h = CanonicalHand(
+        site="x", hand_id="mw1", hero="Curto",
+        stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=1, name="Curto", stack=10, is_hero=True,
+                            position="BTN"),
+                 PlayerSeat(seat=2, name="Medio", stack=25, position="SB"),
+                 PlayerSeat(seat=3, name="Grande", stack=40, position="BB")],
+        hero_cards=["As", "Kd"],
+        shown_cards={"Medio": ["Qh", "Qc"], "Grande": ["7s", "7d"]},
+        streets=[pre, Street(name=StreetName.RIVER,
+                             board=["Ah", "9c", "4d", "2s", "Jh"])],
+        final_board=["Ah", "9c", "4d", "2s", "Jh"], total_pot=60)
+
+    r = ev_por_pote(h)
+    assert r["multiway"] is True
+    principal, paralelo = r["potes"][0], r["potes"][1]
+    assert principal["voce_disputa"] and principal["valor_bb"] == 30
+    assert principal["equity"] == 1.0            # par de ases ganha de QQ e 77
+    assert paralelo["voce_disputa"] is False     # 30bb que ele NÃO podia ganhar
+    # o prêmio real é 30bb, não os 60bb do pote: EV líquido +20, não +50
+    assert r["ev_bruto_bb"] == 30 and r["ev_liquido_bb"] == 20
+
+    # a prova real ganhou a classe "potes" (gabarito = o total da SALA)
+    from app.analysis.selfcheck import _CLASSES, _check_potes
+    assert "potes" in dict(_CLASSES)
+    assert _check_potes(h) == []
+    inflada = h.model_copy(deep=True)
+    inflada.total_pot = 20                        # sala diz 20, ações somam 60
+    assert any("fichas a mais" in m for m in _check_potes(inflada))
+
+    # e o coach tem a porta + a regra de usá-la
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "potes_paralelos" for t in TOOLS)
+    assert "C13" in _SYSTEM["pt"] and "não pode ganhar o bolo inteiro" in _SYSTEM["pt"]
+
+
+def _mao_multiway_sem_allin(cartas):
+    """3 veem o flop, um folda no turn, showdown a 2 — nenhum all-in."""
+    from app.models.canonical import (Action, ActionType, CanonicalHand,
+                                      PlayerSeat, Stakes, Street, StreetName)
+    pre = Street(name=StreetName.PREFLOP, actions=[
+        Action(actor="Hero", type=ActionType.POST, amount=0.5, post_type="sb"),
+        Action(actor="Vilao1", type=ActionType.POST, amount=1, post_type="bb"),
+        Action(actor="Vilao2", type=ActionType.RAISE, amount=3, to_amount=3),
+        Action(actor="Hero", type=ActionType.CALL, amount=2.5, to_amount=3),
+        Action(actor="Vilao1", type=ActionType.CALL, amount=2, to_amount=3)])
+    flop = Street(name=StreetName.FLOP, board=["Qs", "Th", "4d"], actions=[
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="Vilao1", type=ActionType.CHECK),
+        Action(actor="Vilao2", type=ActionType.BET, amount=5),
+        Action(actor="Hero", type=ActionType.CALL, amount=5),
+        Action(actor="Vilao1", type=ActionType.CALL, amount=5)])
+    turn = Street(name=StreetName.TURN, board=["Qs", "Th", "4d", "8c"],
+                  actions=[
+        Action(actor="Hero", type=ActionType.BET, amount=12),
+        Action(actor="Vilao1", type=ActionType.FOLD),
+        Action(actor="Vilao2", type=ActionType.CALL, amount=12)])
+    river = Street(name=StreetName.RIVER,
+                   board=["Qs", "Th", "4d", "8c", "2s"], actions=[
+        Action(actor="Hero", type=ActionType.CHECK),
+        Action(actor="Vilao2", type=ActionType.CHECK)])
+    return CanonicalHand(
+        site="x", hand_id="mw2", hero="Hero",
+        stakes=Stakes(small_blind=0.5, big_blind=1),
+        players=[PlayerSeat(seat=1, name="Hero", stack=100, is_hero=True,
+                            position="SB"),
+                 PlayerSeat(seat=2, name="Vilao1", stack=100, position="BB"),
+                 PlayerSeat(seat=3, name="Vilao2", stack=100, position="CO")],
+        hero_cards=cartas, shown_cards={"Vilao2": ["Ah", "Qc"]},
+        streets=[pre, flop, turn, river],
+        final_board=["Qs", "Th", "4d", "8c", "2s"], total_pot=60)
+
+
+def test_ev_street_a_street_multiway_sem_allin():
+    # pedido do aluno: "se a mão for até showdown SEM all-in, tem como
+    # calcular o EV de cada street sendo multiway? Isso é o que eu quero."
+    from app.analysis.ev_streets import _ev_aposta, ev_por_street
+
+    r = ev_por_street(_mao_multiway_sem_allin(["Qd", "Jd"]))
+    assert not r.get("error"), r
+    assert r["multiway"] is True
+
+    # o campo é o que estava VIVO na hora: no flop eram 2 adversários, mesmo
+    # que só um tenha chegado ao showdown (era aqui que a equity inflava)
+    # (a mesma street tem mais de uma decisão: check e depois call)
+    nos = {(d["street"], d["acao"]): d for d in r["decisoes"]}
+    assert nos[("flop", "check")]["adversarios"] == 2
+    assert nos[("river", "check")]["adversarios"] == 1
+    # e ele diz de quem é cada leitura: carta vista x range suposto
+    assert any("mostrou:" in q for q in nos[("river", "check")]["quem"])
+    assert any("range:" in q for q in nos[("flop", "check")]["quem"])
+
+    # toda decisão tem EV, não só os calls (aposta e check também)
+    tipos = {d["acao"] for d in r["decisoes"]}
+    assert {"call", "check", "bet"} <= tipos
+    for d in r["decisoes"]:
+        assert "ev_bb" in d and "opcoes_bb" in d and "custo_do_erro_bb" in d
+
+    # BASE COMUM: dar check NÃO vale 0 (você segue podendo ganhar no
+    # showdown) — comparar check=0 com aposta=+4bb foi o primeiro erro
+    assert nos[("flop", "check")]["opcoes_bb"]["check"] > 0
+
+    # o modelo não pode dizer "aposte sempre": com mão fraca contra um vilão
+    # que a gente VIU continuar, apostar tem que ser pior que dar check
+    fraca = ev_por_street(_mao_multiway_sem_allin(["7h", "6c"]))
+    for d in fraca["decisoes"]:
+        if d["acao"] in ("check", "bet") and d.get("opcoes_bb"):
+            aposta = [v for k, v in d["opcoes_bb"].items()
+                      if k.startswith("apostar")]
+            if aposta:
+                assert d["opcoes_bb"]["check"] > aposta[0], (
+                    f"{d['street']}: apostar com ar apareceu melhor que check")
+
+    # ...e com set tem que ser o contrário
+    forte = ev_por_street(_mao_multiway_sem_allin(["4h", "4s"]))
+    turn = next(d for d in forte["decisoes"] if d["street"] == "turn")
+    aposta = [v for k, v in turn["opcoes_bb"].items() if k.startswith("apostar")]
+    assert aposta and aposta[0] > turn["opcoes_bb"]["check"]
+
+    # teste do modelo: blefe puro (0% quando pagam) rende exatamente 0
+    def puro(aposta, pote):
+        return (aposta / (pote + aposta), 0.0)
+    assert abs(_ev_aposta(0.0, 24, 12, puro)) < 1e-9
+
+    # o custo soma; o EV de streets diferentes NÃO (contaria o mesmo pote)
+    assert "custo_total_bb" in r and "ev_total_bb" not in r
+    assert any("EV imediato" in p for p in r["premissas"])
+    assert any("VIVO" in p for p in r["premissas"])
+    assert any("REFERÊNCIA" in p for p in r["premissas"])
+
+    # e a porta existe no coach, com a regra de usá-la
+    from app.agent.llm import _SYSTEM, TOOLS
+    assert any(t["name"] == "ev_por_street" for t in TOOLS)
+    assert "C12" in _SYSTEM["pt"]
+
+
+def test_manual_cobre_as_funcionalidades_novas():
+    # o manual é a promessa escrita: toda função nova entra nele, e o número
+    # que ele anuncia tem que ser o que o código aplica (a cota já esteve
+    # dizendo 100 enquanto a ferramenta dava 50).
+    import pathlib
+    import re
+
+    from app.quota import FREE_MONTHLY_ANALYSES
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    html = (raiz / "app/api/assets/manual_design.html").read_text()
+
+    assert "100 ANÁLISES" not in html and ">100<" not in html
+    assert f"{FREE_MONTHLY_ANALYSES} ANÁLISES/MÊS" in html
+
+    for tema in ("EV street a street em pote multiway",
+                 "Pote principal e paralelos",
+                 "Gráfico de EV de qualquer mão sua",
+                 "De onde veio cada dado",
+                 "Prova real — audite a ferramenta",
+                 "adversário vivo",          # overcall multiway
+                 "espera anunciada"):        # aviso do solver
+        assert tema in html, f"manual sem: {tema}"
+
+    # SALAS: o manual dizia só PPPoker. A Suprema passou a abrir sozinha e o
+    # GGPoker tem caminho PRÓPRIO (arquivo, não link) — um aluno de GG que
+    # lesse "cola o link" ficaria tentando o que não funciona.
+    assert "PPPoker e Suprema" in html or "PPPoker</b> ou da <b>Suprema" in html
+    assert "PokerCraft" in html and "Hand History" in html
+    assert "abre a mão de AK" in html, (
+        "o manual precisa mostrar COMO pedir a mão depois do arquivo")
+
+    # todo comando do menu do bot aparece no manual.
+    #
+    # Antes esta conferência partia de um `re.findall` sobre o CÓDIGO do
+    # `_set_bot_menu`, intersectado com uma lista de nomes escrita à mão. No
+    # dia em que o menu passou a ser gerado a partir do catálogo, o findall
+    # voltou vazio e a asserção continuou verde sem conferir nada — teste que
+    # passa por não ter encontrado o que procurava.
+    #
+    # Agora a fonte é o catálogo, e a lista de fora é uma exceção declarada
+    # em vez de um filtro silencioso.
+    from app.bot.catalogo import todos_os_comandos
+
+    fora_do_manual = {
+        "manual",  # quem está lendo o PDF já usou
+        "start",   # menu inicial do Telegram, não é assunto do manual
+    }
+    faltando = sorted(c.nome for c in todos_os_comandos()
+                      if c.nome not in fora_do_manual
+                      and f"/{c.nome}" not in html)
+    assert not faltando, f"comandos vivos que o manual não menciona: {faltando}"
+
+    # e o PDF publicado acompanha (7 páginas, última cheia)
+    #
+    # Aqui só havia `st_size > 500_000`, e foi por isso que o PDF ficou um dia
+    # inteiro desatualizado: o commit 8a90eae pôs /foco e /preparar no HTML e
+    # não regerou o PDF. O aluno que digitava /manual recebia um manual sem os
+    # dois comandos — e o teste, verde, porque o arquivo continuava pesando 1,8
+    # MB. Tamanho não é conteúdo. Agora se lê o TEXTO do PDF.
+    import logging
+
+    import pdfplumber
+
+    pdf = raiz / "app/api/assets/KKNuths-Manual.pdf"
+    logging.disable(logging.ERROR)   # pdfplumber grita FontBBox por página
+    try:
+        with pdfplumber.open(pdf) as doc:
+            paginas = [p.extract_text() or "" for p in doc.pages]
+    finally:
+        logging.disable(logging.NOTSET)
+
+    impresso = "\n".join(paginas)
+    fora_do_pdf = sorted(c.nome for c in todos_os_comandos()
+                         if f"/{c.nome}" not in impresso)
+    assert not fora_do_pdf, (
+        f"o PDF publicado não menciona {fora_do_pdf} — regere com "
+        f"`python scripts/build_manual_pdf.py`")
+
+    # e continua fechando em 7 páginas, sem página-fantasma no fim: o ZOOM do
+    # gerador é calibrado para isso, e conteúdo novo desregula (a 0.72 esta
+    # mesma tabela abria uma 8ª página com 252 caracteres)
+    assert len(paginas) == 7, f"o manual mudou de tamanho: {len(paginas)} páginas"
+    assert len(paginas[-1]) > 400, "última página quase vazia — ajuste o ZOOM"
+
+
+def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
+    # o juiz da saída deu nota 2/10: o aluno pediu o gráfico de EV três vezes
+    # e recebeu três desculpas. Causa: depois de responder um quiz, o contexto
+    # da conversa vira {'modo':…, 'spot':{…,'hand_id':…}} e a busca da mão só
+    # olhava o PRIMEIRO nível — toda ferramenta de mão morria ali.
+    import app.bot.processing as P
+
+    ctx_drill = {"modo": "discussão de um spot de treino/quiz",
+                 "spot": {"cat": "turn", "hand_id": "pppoker-abc123"},
+                 "escolha_do_aluno": "call"}
+    assert P._hand_id_no_contexto(ctx_drill) == "pppoker-abc123"
+    assert P._hand_id_no_contexto({"hand_id": "X"}) == "X"
+    assert P._hand_id_no_contexto({"nada": 1}) is None
+
+    # REGRA, não lista: ninguém escreve contexto de conversa na mão. A versão
+    # anterior deste canário conferia duas linhas literais (quiz e simulador)
+    # — um QUINTO escritor passaria batido, que é exatamente como os dois
+    # primeiros nasceram.
+    import inspect
+    import pathlib as _pl
+
+    raiz = _pl.Path(__file__).resolve().parent.parent
+    for arq in raiz.rglob("app/**/*.py"):
+        if arq.name == "processing.py":
+            continue
+        assert "LAST_ANALYSIS[" not in arq.read_text(), (
+            f"{arq.name} escreve contexto direto — use abrir_conversa()")
+
+    from app.bot.processing import abrir_conversa
+    # e o construtor OBRIGA a decidir qual é a mão
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        abrir_conversa(99, context={"modo": "x"})
+    assert abrir_conversa(99, context={"modo": "x"}, sem_mao=True)
+    ctx_q = abrir_conversa(99, context={"spot": {}}, hand_id="pppoker-1")
+    assert ctx_q["context"]["hand_id"] == "pppoker-1"
+
+    from app.bot import handlers
+    src = inspect.getsource(handlers)
+    assert src.count("abrir_conversa(") == 2   # quiz e simulador
+
+    # e a mão é encontrada de verdade a partir do contexto de drill
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    h.hand_id = "pppoker-abc123"
+    monkeypatch.setattr(P, "LAST_ANALYSIS", {7: {"context": ctx_drill,
+                                                 "hand_row_id": None}})
+    monkeypatch.setattr(P, "_user_hands", lambda tg: [h])
+    assert P.conversation_hand(7) is h
+
+    # sem mão, a falha vira EVENTO (antes morria como prosa do coach)
+    eventos = []
+
+    class Repo:
+        enabled = True
+
+        def get_hand_canonical(self, _):
+            return None
+
+        def log_event(self, *a, **k):
+            eventos.append(a[2] if len(a) > 2 else None)
+
+    monkeypatch.setattr(P, "get_repository", lambda: Repo())
+    monkeypatch.setattr(P, "LAST_ANALYSIS", {8: {"context": {"nada": 1}}})
+    assert P.conversation_hand(8) is None
+    assert "sem_mao_na_conversa" in eventos
+
+
+def test_grafico_de_ev_multiway_entrega_conta_em_vez_de_desculpa(monkeypatch):
+    # a matriz 13×13 é heads-up. Em pote multiway a resposta não pode ser
+    # "não consigo": tem que vir o EV por decisão, que existe e é multiway.
+    import app.bot.processing as P
+    from app.agent import llm
+
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    monkeypatch.setattr(P, "conversation_hand", lambda tg: h)
+    llm.set_tool_chat(1)
+    r = llm._dispatch("grafico_ev_da_mao", {"street": "flop"})
+
+    assert "heads-up" in r["sem_grafico"]
+    assert r.get("decisoes"), "não veio a conta alternativa"
+    assert r["multiway"] is True and "custo_total_bb" in r
+    assert any(d.get("ev_bb") is not None for d in r["decisoes"])
+
+    # e o prompt proíbe transformar isso em pedido de desculpa
+    assert "NÃO peça desculpa" in llm._SYSTEM["pt"]
+    assert "Resposta sem número é o defeito" in llm._SYSTEM["pt"]
+
+
+def test_guarda_da_saida_conserta_o_que_faltou(monkeypatch):
+    # entrega 4,5/10: três vezes esta semana o aluno pediu gráfico e recebeu
+    # prosa. Regra de prompt já foi tentada quatro vezes (C10 a C13) e
+    # falhou. Isto aqui é conferência ANTES de enviar, não pedido.
+    import app.bot.processing as P
+    from app.bot.guarda_saida import (conferir_e_remediar, faltou,
+                                      pedido_do_aluno)
+
+    # 1) classificar o pedido
+    assert pedido_do_aluno("Manda o gráfico de EV") == {"grafico", "numero"}
+    assert pedido_do_aluno("Qual o range de EV do turn ?") == {"grafico",
+                                                               "numero"}
+    assert pedido_do_aluno("joguei certo essa mão?") == {"numero"}
+    assert pedido_do_aluno("como controlo o tilt?") == set()
+
+    # 2) conferir a entrega — número em bb/% conta, prosa não
+    assert faltou({"numero"}, "você jogou bem no flop", False) == {"numero"}
+    assert faltou({"numero"}, "pagar custa -1,76bb", False) == set()
+    assert faltou({"numero"}, "sua equity era 34%", False) == set()
+    assert faltou({"grafico"}, "segue abaixo", True) == set()
+    assert faltou({"grafico"}, "não consigo montar", False) == {"grafico"}
+
+    # 3) remediar: o caso REAL (multiway) devolve a conta, não desculpa
+    h = _mao_multiway_sem_allin(["Qd", "Jd"])
+    monkeypatch.setattr(P, "conversation_hand", lambda tg: h)
+    eventos = []
+
+    class Repo:
+        enabled = True
+
+        def log_event(self, tid, uname, ev, det=None):
+            eventos.append(ev)
+
+    monkeypatch.setattr("app.db.get_repository", lambda: Repo())
+    resposta, specs = conferir_e_remediar(
+        1, "Qual o range de EV do turn ?",
+        "Vou te explicar o conceito. Qual dos dois você quer?", False)
+
+    assert "EV de cada decisão sua" in resposta
+    assert "bb" in resposta and "Custo total da linha" in resposta
+    # o TURN desta mão foi a três: sem matriz 13×13, mas com a conta — e a
+    # explicação em vez do pedido de desculpa
+    assert "13×13 é heads-up" in resposta and not specs
+    assert "entrega_falha" in eventos and "entrega_remediada" in eventos
+
+    # a street PEDIDA é respeitada: o river foi heads-up, então sai gráfico
+    from app.bot.guarda_saida import remediar, street_pedida
+    assert street_pedida("Qual o range de EV do turn ?") == "turn"
+    assert street_pedida("e o gráfico?") is None
+    txt_hu, specs_hu = remediar(1, {"grafico"}, "river")
+    assert specs_hu and specs_hu[0][0] == "posflop"
+    assert len(specs_hu[0][1]) == 5, "o gráfico saiu de outra street"
+
+    # pergunta sem pedido conferível não é tocada nem logada
+    eventos.clear()
+    r2, _ = conferir_e_remediar(1, "como controlo o tilt?", "Respira.", False)
+    assert r2 == "Respira." and not eventos
+
+    # entrega OK também é registrada (é o denominador da taxa)
+    eventos.clear()
+    conferir_e_remediar(1, "joguei certo?", "o call rendeu +2,10bb", False)
+    assert eventos == ["entrega_ok"]
+
+    # 4) o guarda está ligado no caminho da conversa — por COMPORTAMENTO em
+    # tests/test_guarda_saida_na_conversa.py: substring não vê que a chamada
+    # mora num try/except que só loga, então um guarda quebrado entregaria a
+    # resposta evasiva em silêncio e o assert continuaria verde
+    import tests.test_guarda_saida_na_conversa as conversa
+    for nome in ("test_a_resposta_evasiva_e_remediada_antes_de_sair",
+                 "test_o_guarda_recebe_a_pergunta_e_a_resposta_de_verdade"):
+        assert hasattr(conversa, nome), f"{nome} sumiu"
+
+
+def test_taxa_de_entrega_no_resumo_diario():
+    # sem número, a nota de entrega era opinião minha e o defeito só
+    # aparecia quando o aluno mandava print.
+    from datetime import datetime, timezone
+
+    from scripts.daily_usage import build_summary
+
+    ev = ([{"telegram_id": 1, "event": "entrega_ok"}] * 7
+          + [{"telegram_id": 1, "event": "entrega_falha"}] * 3
+          + [{"telegram_id": 1, "event": "entrega_remediada"}] * 3
+          + [{"telegram_id": 1, "event": "sem_mao_na_conversa"}])
+    users = [{"telegram_id": 1, "username": "Leo", "created_at": "2026-01-01"}]
+    txt, m = build_summary(datetime.now(timezone.utc), users, ev, "2026-01-01")
+
+    assert m["entrega_pct"] == 70 and m["entrega_pedidos"] == 10
+    assert m["entrega_remediada"] == 3 and m["sem_mao"] == 1
+    assert "Entrega: 70%" in txt and "🟡" in txt
+    assert "não achou a mão da conversa" in txt
+
+    # sem pedidos no dia, não inventa métrica
+    _, vazio = build_summary(datetime.now(timezone.utc), users, [], "2026-01-01")
+    assert vazio["entrega_pct"] is None
+
+
+def test_sonda_de_jornadas_exige_artefato():
+    # a sonda E2E nunca rodou (depende de conta-teste que não existe: ZERO
+    # eventos 'e2e' no banco). Esta roda em processo, sem Telegram e sem LLM,
+    # e não pergunta "deu erro?" — pergunta "chegou o que foi pedido?".
+    from scripts.jornadas import jornadas_reais, jornadas_sinteticas
+
+    res = jornadas_sinteticas()
+    assert len(res) >= 5
+    falhas = [(n, d) for n, ok, d in res if not ok]
+    assert not falhas, f"jornada quebrada: {falhas}"
+    # cada uma tem que devolver NÚMERO na descrição, não só "ok"
+    assert any("bb" in d for _n, _o, d in res)
+
+    # parte A: contexto de produção sem hand_id é FALHA (foi o bug do quiz
+    # e o do simulador, os dois vivos ao mesmo tempo)
+    class Repo:
+        def __init__(self, linhas):
+            self.linhas = linhas
+            self.client = self
+
+        def table(self, _):
+            return self
+
+        def select(self, *_a, **_k):
+            return self
+
+        def limit(self, *_a):
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": self.linhas})()
+
+    bom = Repo([{"telegram_id": 1, "state": {
+        "context": {"spot": {"hand_id": "x"}}, "hand_row_id": None}}])
+    assert all(ok for _n, ok, _d in jornadas_reais(bom))
+
+    ruim = Repo([{"telegram_id": 2, "state": {
+        "context": {"simulacao": [1], "mao": {"cartas": ["As", "Kd"]}},
+        "hand_row_id": None}}])
+    nome, ok, det = jornadas_reais(ruim)[0]
+    assert not ok and "SEM hand_id" in det
+
+    # conversa sem mão por natureza (tilt, banca) não pode acusar falha
+    geral = Repo([{"telegram_id": 3, "state": {
+        "context": {"modo": "coaching geral"}, "hand_row_id": None}}])
+    assert all(ok for _n, ok, _d in jornadas_reais(geral))
+
+    # e a sonda está instalada no deploy (script sem cron não roda)
+    import pathlib
+    dep = (pathlib.Path(__file__).resolve().parent.parent
+           / "deploy/vps_deploy.sh").read_text()
+    assert "jornadas.py" in dep and "CRON_JORNADAS" in dep
+
+
+def test_o_manual_cobre_TODO_comando_que_o_aluno_ve():
+    """O manual é a promessa escrita, e a lista de temas não cobria omissão.
+
+    Achado em 09/08: `/foco` — o ciclo de problema inteiro, com o critério de
+    alta pré-registrado — e `/preparar` estavam registrados no menu do bot e
+    fora do manual. O aluno via o comando na lista do Telegram e não achava
+    explicação em lugar nenhum.
+
+    Este teste é estrutural em vez de temático: qualquer comando novo entra
+    no manual ou quebra aqui, sem depender de alguém lembrar de acrescentar
+    um tema à lista.
+    """
+    import inspect
+    import pathlib
+    import re
+
+    from app.bot import handlers
+
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    html = (raiz / "app/api/assets/manual_design.html").read_text()
+
+    registrados = set(re.findall(r'BotCommand\("([a-z_]+)"',
+                                 inspect.getsource(handlers)))
+    # comandos de SERVIÇO: não são funcionalidade para explicar no manual
+    servico = {"start", "manual", "plano", "quem", "termo", "planode",
+               "licoes"}
+    faltando = sorted(c for c in registrados - servico
+                      if f"/{c}" not in html)
+    assert not faltando, (
+        f"o menu do bot oferece {faltando} e o manual não explica — o aluno "
+        f"vê o comando e não acha o que ele faz")
+
+
+def test_o_menu_do_telegram_oferece_todo_comando_de_aluno():
+    """O menu '/' é a única descoberta que o aluno tem.
+
+    Comando registrado e fora do menu é comando que só existe para quem já
+    sabe que ele existe — foi assim que `/foco` quase ficou invisível
+    (entrou no menu, mas não no manual; ver o teste do manual).
+
+    A regra é estrutural, não uma lista à mão: todo `CommandHandler` aparece
+    no menu, EXCETO os que têm porteiro de dono (`ADMIN_TELEGRAM_ID` no
+    corpo). Assim um comando novo de aluno quebra este teste, e um comando
+    novo de dono não gera falso alarme.
+    """
+    import inspect
+    import re
+
+    from app.bot import catalogo, handlers
+
+    fonte = inspect.getsource(handlers)
+    registrados = set(re.findall(r'CommandHandler\("([a-z_]+)"', fonte))
+    no_menu = {nome for nome, _ in catalogo.pares_do_menu()}
+
+    assert not (no_menu - registrados), (
+        f"o menu anuncia comando que não existe: {sorted(no_menu - registrados)}")
+
+    for nome in sorted(registrados - no_menu):
+        fn = getattr(handlers, f"cmd_{nome}", None)
+        corpo = inspect.getsource(fn) if fn else ""
+        assert "ADMIN_TELEGRAM_ID" in corpo, (
+            f"/{nome} está registrado, NÃO está no menu do Telegram e não é "
+            f"comando de dono — o aluno não tem como descobrir que ele existe")

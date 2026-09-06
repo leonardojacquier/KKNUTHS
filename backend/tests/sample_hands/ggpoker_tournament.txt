@@ -1,0 +1,38 @@
+Poker Hand #TM3344556677: Tournament #98765432, Bounty Hunters $5.25 Hold'em No Limit - Level10(150/300) - 2023/03/10 18:30:00
+Table '98765432 12' 6-max Seat #2 is the button
+Seat 1: 1a2b3c4d (12000 in chips)
+Seat 2: Hero (12000 in chips)
+Seat 3: 5e6f7g8h (12000 in chips)
+Seat 4: 9i0j1k2l (12000 in chips)
+Seat 5: 3m4n5o6p (12000 in chips)
+Seat 6: 7q8r9s0t (12000 in chips)
+1a2b3c4d: posts ante 30
+Hero: posts ante 30
+5e6f7g8h: posts ante 30
+9i0j1k2l: posts ante 30
+3m4n5o6p: posts ante 30
+7q8r9s0t: posts ante 30
+5e6f7g8h: posts small blind 150
+9i0j1k2l: posts big blind 300
+*** HOLE CARDS ***
+Dealt to Hero [Qh Qd]
+3m4n5o6p: folds
+7q8r9s0t: folds
+1a2b3c4d: raises 300 to 600
+Hero: raises 900 to 1500
+5e6f7g8h: folds
+9i0j1k2l: folds
+1a2b3c4d: calls 900
+*** FLOP *** [Qs 7h 2c]
+1a2b3c4d: checks
+Hero: bets 1200
+1a2b3c4d: calls 1200
+*** TURN *** [Qs 7h 2c] [9d]
+1a2b3c4d: checks
+Hero: bets 2500
+1a2b3c4d: folds
+Hero collected 5790 from pot
+*** SUMMARY ***
+Total pot 5790 | Rake 0
+Board [Qs 7h 2c 9d]
+Seat 2: Hero (button) collected (5790)

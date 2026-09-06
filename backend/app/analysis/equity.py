@@ -1,0 +1,358 @@
+"""Cálculo de equity. Usa `treys` se disponível; caso contrário, Monte Carlo próprio.
+
+Mantido isolado para que o resto do sistema (e os testes de parser/math) não dependa
+de bibliotecas de avaliação de mão.
+"""
+from __future__ import annotations
+
+import itertools
+import random
+
+RANKS = "23456789TJQKA"
+SUITS = "cdhs"
+_FULL_DECK = [r + s for r in RANKS for s in SUITS]
+
+
+def _rank_value(rank: str) -> int:
+    return RANKS.index(rank)
+
+
+def equity_vs_random(
+    hero_cards: list[str],
+    board: list[str] | None = None,
+    num_opponents: int = 1,
+    iterations: int = 10000,
+    seed: int | None = None,
+) -> float:
+    """Equity do herói contra `num_opponents` mãos aleatórias, via Monte Carlo.
+
+    Tenta usar `treys` para avaliação rápida e correta; se ausente, usa um
+    avaliador interno simples (mais lento, mas sem dependências).
+    """
+    board = board or []
+    rng = random.Random(seed)
+    try:
+        return _equity_treys(hero_cards, board, num_opponents, iterations, rng)
+    except ImportError:
+        return _equity_naive(hero_cards, board, num_opponents, iterations, rng)
+
+
+def equity_vs_hands(hero: list[str], villains: list[list[str]],
+                    board: list[str] | None = None) -> float | None:
+    """Equity EXATA do herói contra UMA OU MAIS mãos conhecidas (do showdown),
+    enumerando as cartas que faltam no board. É a equity de all-in do replayer
+    — funciona multiway (3+ mãos num pote all-in). Empates contam a fração
+    (split N vias = 1/N). None se faltar carta ou houver sobreposição.
+
+    Barata pós-flop (river=1 combo, flop≈990); board muito aberto (pré-flop,
+    C(48,5)≈1,7M) cai em Monte Carlo seeded (±~0,7%)."""
+    hero = [c for c in (hero or []) if c]
+    vills = [[c for c in (v or []) if c] for v in (villains or [])]
+    vills = [v for v in vills if len(v) == 2]
+    board = [c for c in (board or []) if c]
+    if len(hero) != 2 or not vills:
+        return None
+    dead = hero + [c for v in vills for c in v] + board
+    if len(set(dead)) != len(dead):
+        return None
+    remaining = [c for c in _FULL_DECK if c not in dead]
+    need = 5 - len(board)
+    if need < 0:
+        return None
+
+    # comparador decidido UMA vez: treys (menor score = melhor) ou o avaliador
+    # interno (_best_hand_score: maior tupla = melhor). Devolve a FRAÇÃO do
+    # pote que o herói leva naquele runout (1, 1/N num split, 0 se perde).
+    try:
+        from treys import Card, Evaluator  # type: ignore
+
+        ev = Evaluator()
+        hc = [Card.new(c) for c in hero]
+        vcs = [[Card.new(c) for c in v] for v in vills]
+
+        def hero_share(full):
+            bc = [Card.new(c) for c in full]
+            hs = ev.evaluate(bc, hc)
+            best_v = min(ev.evaluate(bc, vc) for vc in vcs)
+            if hs < best_v:
+                return 1.0
+            if hs > best_v:
+                return 0.0
+            empatados = 1 + sum(1 for vc in vcs if ev.evaluate(bc, vc) == hs)
+            return 1.0 / empatados
+    except ImportError:
+        def hero_share(full):
+            hs = _best_hand_score(hero + full)
+            vscores = [_best_hand_score(v + full) for v in vills]
+            best_v = max(vscores)
+            if hs > best_v:
+                return 1.0
+            if hs < best_v:
+                return 0.0
+            empatados = 1 + sum(1 for s in vscores if s == hs)
+            return 1.0 / empatados
+
+    import math as _math
+
+    total_combos = _math.comb(len(remaining), need) if need else 1
+    share = 0.0
+    total = 0
+    if total_combos <= 2000:
+        for extra in itertools.combinations(remaining, need):
+            share += hero_share(board + list(extra))
+            total += 1
+    else:
+        rng = random.Random(20240501)
+        for _ in range(6000):
+            share += hero_share(board + rng.sample(remaining, need))
+            total += 1
+    return share / total if total else None
+
+
+def equity_vs_hand(hero: list[str], villain: list[str],
+                   board: list[str] | None = None) -> float | None:
+    """Equity EXATA do herói contra UMA mão conhecida — atalho heads-up de
+    equity_vs_hands (mantido pros chamadores/testes existentes)."""
+    return equity_vs_hands(hero, [villain], board)
+
+
+def _equity_treys(hero, board, num_opponents, iterations, rng) -> float:
+    from treys import Card, Evaluator  # type: ignore
+
+    evaluator = Evaluator()
+    hero_c = [Card.new(c) for c in hero]
+    board_c = [Card.new(c) for c in board]
+    dead = set(hero) | set(board)
+    deck = [c for c in _FULL_DECK if c not in dead]
+
+    wins = ties = 0
+    for _ in range(iterations):
+        rng.shuffle(deck)
+        idx = 0
+        opp_hands = []
+        for _o in range(num_opponents):
+            opp_hands.append([Card.new(deck[idx]), Card.new(deck[idx + 1])])
+            idx += 2
+        need = 5 - len(board)
+        sim_board = board_c + [Card.new(deck[idx + i]) for i in range(need)]
+        hero_score = evaluator.evaluate(sim_board, hero_c)
+        best_opp = min(evaluator.evaluate(sim_board, oh) for oh in opp_hands)
+        if hero_score < best_opp:
+            wins += 1
+        elif hero_score == best_opp:
+            ties += 1
+    return (wins + ties / 2) / iterations
+
+
+def _equity_naive(hero, board, num_opponents, iterations, rng) -> float:
+    """Avaliador interno (sem treys). Suficiente para fallback/testes."""
+    dead = set(hero) | set(board)
+    deck = [c for c in _FULL_DECK if c not in dead]
+    wins = ties = 0
+    for _ in range(iterations):
+        rng.shuffle(deck)
+        idx = 0
+        opp_hands = []
+        for _o in range(num_opponents):
+            opp_hands.append([deck[idx], deck[idx + 1]])
+            idx += 2
+        need = 5 - len(board)
+        sim_board = board + [deck[idx + i] for i in range(need)]
+        hero_score = _best_hand_score(hero + sim_board)
+        best_opp = max(_best_hand_score(oh + sim_board) for oh in opp_hands)
+        if hero_score > best_opp:
+            wins += 1
+        elif hero_score == best_opp:
+            ties += 1
+    return (wins + ties / 2) / iterations
+
+
+def _best_hand_score(cards7: list[str]) -> tuple:
+    """Melhor pontuação de 5 entre 7 cartas. Tupla comparável (maior = melhor)."""
+    return max(_score5(list(combo)) for combo in itertools.combinations(cards7, 5))
+
+
+_NOME_PT = "2 3 4 5 6 7 8 9 10 J Q K A".split()
+
+
+def describe_hand(hole: list[str], board: list[str]) -> str | None:
+    """Leitura DETERMINÍSTICA da mão feita, em português de mesa.
+
+    'dois pares (J e 10), kicker K' — é o gabarito do que o jogador fez no
+    board; o coach usa isto em vez de recontar de cabeça (que rendeu uma
+    'trinca de J' inexistente numa mão real). None sem 5+ cartas."""
+    cards = list(hole or []) + list(board or [])
+    if not hole or len(set(cards)) < 5:
+        return None
+    sc = _best_hand_score(cards)
+
+    def rn(v: int) -> str:
+        return _NOME_PT[v]
+
+    cat = sc[0]
+    if cat == 8:
+        return f"straight flush até {rn(sc[1])}"
+    if cat == 7:
+        return f"quadra de {rn(sc[1])}"
+    if cat == 6:
+        # "7 cheio de 2" é calque de 'sevens full of twos' e está PROIBIDO
+        # em TERMOS_REGRA desde antes — mas esta função escreve direto na
+        # imagem, que não passa pelo corretor. Resultado: o desenho falava a
+        # língua que o resto do produto bane. A trinca vai explícita porque
+        # foi exatamente aí que a leitura se perdeu num full contra full.
+        return (f"full de {rn(sc[1])} com {rn(sc[2])} "
+                f"(trinca de {rn(sc[1])})")
+    if cat == 5:
+        return f"flush de {rn(sc[1])}"
+    if cat == 4:
+        return f"straight até {rn(sc[1])}"
+    if cat == 3:
+        return f"trinca de {rn(sc[1])}"
+    if cat == 2:
+        return f"dois pares ({rn(sc[1])} e {rn(sc[2])}), kicker {rn(sc[3])}"
+    if cat == 1:
+        return f"par de {rn(sc[1])}, kicker {rn(sc[2])}"
+    return f"{rn(sc[1])} high"
+
+
+_SUIT_ICON = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
+
+
+def pretty_card(card: str) -> str:
+    """'Th' -> '10♥' — rank de mesa + ícone do naipe (pedido do aluno: cartas
+    nas descrições sempre com o ícone, nunca 'Kh' nem 'K de copas')."""
+    if not card or len(card) < 2:
+        return card or ""
+    rank = "10" if card[0].upper() == "T" else card[0].upper()
+    return rank + _SUIT_ICON.get(card[1].lower(), card[1])
+
+
+def pretty_cards(cards: list[str]) -> str:
+    return " ".join(pretty_card(c) for c in (cards or []))
+
+
+def board_texture(board: list[str]) -> dict:
+    """Textura DETERMINÍSTICA do board: quantas cartas do mesmo naipe e se
+    flush é possível. Âncora anti-'fechou flush' em board de duas copas."""
+    suits: dict[str, int] = {}
+    for c in board or []:
+        if len(c) >= 2:
+            suits[c[1].lower()] = suits.get(c[1].lower(), 0) + 1
+    most = max(suits.values(), default=0)
+    naipe = max(suits, key=suits.get) if suits else ""
+    icon = _SUIT_ICON.get(naipe, naipe)
+    if most >= 3:
+        nota = f"flush POSSÍVEL em {icon} ({most} cartas de {icon} no board)"
+    else:
+        nota = (f"flush IMPOSSÍVEL neste board — só {most} carta(s) do mesmo "
+                f"naipe (ninguém tem flush aqui)")
+    return {"cartas_do_mesmo_naipe": most, "flush_possivel": most >= 3,
+            "nota": nota}
+
+
+def _fill_suits(hole: list[str], board: list[str]) -> tuple[list[str], str | None]:
+    """Completa naipes de cartas hipotéticas dadas só por rank ('QJ'): naipes
+    DIFERENTES entre si e raros no board — leitura OFFSUIT, sem inventar um
+    flush que o aluno não perguntou. Devolve (cartas completas, nota)."""
+    taken = {c for c in (board or []) if len(c) == 2}
+    on_board: dict[str, int] = {}
+    for c in board or []:
+        if len(c) >= 2:
+            on_board[c[1]] = on_board.get(c[1], 0) + 1
+    suit_pref = sorted(SUITS, key=lambda s: on_board.get(s, 0))
+    filled, used_suits, guessed = [], set(), False
+    for raw in hole or []:
+        c = (raw or "").strip().replace("10", "T")
+        if len(c) == 2:
+            filled.append(c[0].upper() + c[1].lower())
+            taken.add(filled[-1])
+            used_suits.add(c[1].lower())
+            continue
+        if len(c) != 1:
+            filled.append(c)
+            continue
+        guessed = True
+        rank = c.upper()
+        pick = next((s for s in suit_pref
+                     if rank + s not in taken and s not in used_suits),
+                    suit_pref[0])
+        filled.append(rank + pick)
+        taken.add(rank + pick)
+        used_suits.add(pick)
+    nota = ("naipes não informados — li a mão como OFFSUIT (sem flush); "
+            "para o combo suited, repita com os naipes") if guessed else None
+    return filled, nota
+
+
+def hand_on_board(hole: list[str], board: list[str]) -> dict:
+    """O que UMA mão (real ou hipotética) faz num board, street a street, mais
+    a textura. Leitura calculada — a resposta oficial para 'e se ele tivesse
+    QJ?' ('QJ fechou flush' num board de duas copas foi erro real; era
+    sequência)."""
+    hole, nota_naipes = _fill_suits(hole, board)
+    out: dict = {
+        "mao": pretty_cards(hole),
+        "board": pretty_cards(board),
+        "por_street": {},
+    }
+    if nota_naipes:
+        out["nota_naipes"] = nota_naipes
+    for st, n in (("flop", 3), ("turn", 4), ("river", 5)):
+        if len(board or []) >= n:
+            d = describe_hand(hole, board[:n])
+            if d:
+                out["por_street"][st] = d
+    out["textura_do_board"] = board_texture(board)
+    return out
+
+
+def _score5(cards: list[str]) -> tuple:
+    ranks = sorted((_rank_value(c[0]) for c in cards), reverse=True)
+    suits = [c[1] for c in cards]
+    counts: dict[int, int] = {}
+    for r in ranks:
+        counts[r] = counts.get(r, 0) + 1
+    # ordena por (frequência, rank)
+    by_freq = sorted(counts.items(), key=lambda x: (x[1], x[0]), reverse=True)
+    freq_pattern = tuple(c for _, c in by_freq)
+    ordered_ranks = tuple(r for r, _ in by_freq)
+
+    is_flush = len(set(suits)) == 1
+    distinct = sorted(set(ranks), reverse=True)
+    is_straight, straight_high = _straight_high(distinct)
+
+    if is_straight and is_flush:
+        return (8, straight_high)
+    if freq_pattern == (4, 1):
+        return (7,) + ordered_ranks
+    if freq_pattern == (3, 2):
+        return (6,) + ordered_ranks
+    if is_flush:
+        return (5,) + tuple(ranks)
+    if is_straight:
+        return (4, straight_high)
+    if freq_pattern == (3, 1, 1):
+        return (3,) + ordered_ranks
+    if freq_pattern == (2, 2, 1):
+        return (2,) + ordered_ranks
+    if freq_pattern == (2, 1, 1, 1):
+        return (1,) + ordered_ranks
+    return (0,) + tuple(ranks)
+
+
+def _straight_high(distinct_desc: list[int]) -> tuple[bool, int]:
+    if len(distinct_desc) < 5:
+        # wheel: A-2-3-4-5
+        pass
+    s = set(distinct_desc)
+    # roda (A baixo): A=12, 5=3,4=2,3=1,2=0
+    if {12, 0, 1, 2, 3}.issubset(s):
+        # checa se não há sequência maior
+        for high in range(12, 3, -1):
+            if all((high - i) in s for i in range(5)):
+                return True, high
+        return True, 3  # straight ao 5 (high = '5' -> rank 3)
+    for high in range(12, 3, -1):
+        if all((high - i) in s for i in range(5)):
+            return True, high
+    return False, -1
