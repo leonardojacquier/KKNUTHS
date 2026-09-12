@@ -52,7 +52,8 @@
 
     /* Contraste dos CTAs: branco sobre #F26D21 dá 3,01:1 e reprova o mínimo AA
        de 4,5:1. Navy sobre o mesmo laranja dá 5,31:1, sem mexer na cor da marca. */
-    .vh-cta,.v-promo-cta,a[class*="bg-orange"],button[class*="bg-orange"]{color:#14213D !important}
+    .vh-cta:not(.vh-cta-ghost),.v-promo-cta,a[class*="bg-orange"],button[class*="bg-orange"]{color:#14213D !important}
+    .vh-cta-ghost{color:#fff !important}
 
     /* Fundo das fotos de produto: branco, o mesmo fundo em que elas foram
        fotografadas — o navy exigia recorte perfeito de cada foto e qualquer
@@ -60,24 +61,19 @@
     .v-card-media{background:#fff}
     .v-card-media .ph{color:#14213d73}
 
-    /* A moldura dourada emoldura o CARD inteiro (foto + descrição), não só a
-       foto: com os dois fundos brancos, um anel no meio partia o card em duas
-       caixas. Mesmo degradê do anel antigo, em 2px — a 1,5px some ao lado do
-       laranja da marca, a 3px o card vira quadro e briga com ele. Uma linha
-       neutra fininha, não dourada, separa foto de texto; um segundo fio dourado
-       ali dentro polui. */
+    /* Moldura do card inteiro (foto + descrição), 2px, em cinza neutro com leve
+       tom navy — o dourado foi descartado pelo dono. Uma linha mais fina separa
+       foto de texto. */
     .v-card{position:relative;border-color:transparent}
     .v-card::after{content:'';position:absolute;inset:0;pointer-events:none;padding:2px;
-      border-radius:inherit;
-      background:linear-gradient(135deg,#f7e7b4,#d4af37 42%,#8c6a1d 78%,#e6c96a);
+      border-radius:inherit;background:#C5CBD5;
       -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
       -webkit-mask-composite:xor;mask-composite:exclude}
     .v-card-media:after{display:none}
     .v-card-media{border-bottom:1px solid rgba(20,33,61,.10)}
 
-    /* O destaque da busca era um anel dourado de 2px — invisível agora que o
-       card já tem um. Virou um halo por fora da moldura. */
-    .v-card.is-on{box-shadow:0 0 0 4px rgba(212,175,55,.32),0 20px 44px -18px rgba(212,175,55,.5)}
+    /* Destaque da busca: halo laranja da marca por fora da moldura. */
+    .v-card.is-on{box-shadow:0 0 0 4px rgba(242,109,33,.35),0 20px 44px -18px rgba(242,109,33,.5)}
   </style>
 </head>
 <body class="bg-paper font-body text-ink antialiased">
