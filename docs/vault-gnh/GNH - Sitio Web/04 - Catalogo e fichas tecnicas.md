@@ -499,3 +499,33 @@ PDF `prensa-hst-yes2000.pdf`, link em *Equipos de Concreto* e sitemap.
 > tentativa o script editou o órfão e a assertion do `index.html` barrou antes de
 > estragar algo. **Selecione sempre pelo que `/ventas/index.html` referencia.**
 > O órfão foi removido nesta rodada.
+
+## Setembro 2026 — Línea de Trituración (HONSN)
+
+Grupo novo **"Áridos y Trituración"** dentro de Equipos, entre "Movimiento de Suelo" e "Industria". Fonte: catálogo geral 2026 da HONSN (Hongxing, China), 108 páginas chinês/inglês. É o catálogo da fábrica inteira — moinhos, flotação, fornos de cimento ficaram **de fora** de propósito; entrou só a linha de agregados.
+
+**13 cards, 13 páginas, 12 fichas HTML + PDF**, categoria `/ventas/aridos-y-trituracion/`:
+
+| Página | Séries | Linhas de tabela | Pág. catálogo |
+|---|---|---|---|
+| Línea Completa de Trituración | página-mãe, 6 etapas + 3 formatos | — | 1 |
+| Alimentador Vibratorio ZSW | GZD, ZSW | 14 | 86 |
+| Trituradora de Mandíbulas PE | PE, PEX | 18 | 19 |
+| Trituradora de Mandíbulas HJ | HJ | 9 | 16 |
+| Trituradora de Cono SC | S (secundária), F (terciária) | 33 | 22–23 |
+| Trituradora de Impacto PF | PF | 8 | 30 |
+| Trituradora de Impacto CI | CI primária e secundária | 11 | 29 |
+| Trituradora de Eje Vertical VSI7A | VSI7A | 6 | 31 |
+| Criba Vibratoria HX | HX, HX-D | 27 | 91–92 |
+| Cintas Transportadoras | móvil, TD | 5 + 11 | 99 |
+| Planta Móvil sobre Orugas WOTETRACK | WT, ST | 19 | 1–4 |
+| Planta Móvil sobre Neumáticos MTF | MTF/MTN (tabelas idênticas, só muda o prefixo) | 35 | 6–10 |
+| Estación Modular KJ | KJ | 23 | 11–12 |
+
+Ficaram fora, por não serem o núcleo da linha: HCG (giratório de mina), CJ/HDX (mandíbulas — só aparecem como "equipo principal" das plantas móveis), HPM/MP/GYS (outros cones), HVI (arenera alternativa), HSF/HST (outros alimentadores), YK/SLS/HB/LS (outras peneiras), despoeiradores. Todos têm página no catálogo; se pedirem, é acrescentar em `gen-britagem/`.
+
+**Como foi feito e como refazer.** O texto do catálogo é vetorizado (CorelDRAW) — não extrai; as tabelas foram lidas página a página e transcritas em `gen-britagem/dados_parte1.py` e `dados_parte2.py` (cada bloco diz a página). Copy em espanhol em `contenido.py`. `python3 gen-britagem/gen_site.py` regenera tudo. Os "Ver detalles" dos cards mostram uma tabela resumida (3 colunas, até 8 modelos + link "Ver los N modelos"); a tabela completa está na página do produto e na ficha.
+
+**Fotos: ressalva.** São os rasters embutidos no próprio catálogo, 300–450 px, ampliados para 800×600. No card ficam bem; na página de produto (560 px) saem levemente suaves. Se a HONSN mandar os renders em alta, é só trocar os arquivos em `gen-britagem/img/` e rodar de novo. Já vêm com transparência — não passaram pelo recorte de fundo.
+
+**Não inventado:** nenhum número fora do catálogo. A capacidade "50–1.500 t/h" da página-mãe é o intervalo das plantas móveis/modulares; a linha fixa com PE 1500×1800 + SC750 chega a mais, mas isso é dimensionamento, não spec.
