@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GNH — Generando Nuevos Horizontes</title>
+<meta name="description" content="GNH — Generando Nuevos Horizontes. Elige tu camino: productos y ventas B2B, o conoce el grupo empresarial.">
+<meta name="robots" content="index,follow">
+<link href="https://api.fontshare.com" rel="preconnect" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&f[]=general-sans@400,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0F172A;--royal:#1E3A8A;--blue:#3B82F6;
+  --deep:#0B1228;--ink:#060A18;
+  --orange:#F26D21;--orange-soft:#ff8a45;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --head:'Satoshi',system-ui,sans-serif;--body:'General Sans',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  min-height:100svh;display:flex;flex-direction:column;
+  font-family:var(--body);color:#fff;overflow-x:hidden;
+  background:
+    radial-gradient(1000px 540px at 75% -10%,rgba(242,109,33,.16),transparent 60%),
+    radial-gradient(900px 520px at 12% 8%,rgba(30,58,138,.5),transparent 62%),
+    linear-gradient(180deg,#11214b 0%,var(--deep) 55%,var(--ink) 100%);
+}
+body::before{ /* retícula sutil */
+  content:"";position:fixed;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:72px 72px;
+  -webkit-mask-image:radial-gradient(ellipse 78% 65% at 50% 40%,#000,transparent 78%);
+  mask-image:radial-gradient(ellipse 78% 65% at 50% 40%,#000,transparent 78%);
+}
+.stage{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:48px 22px 28px;text-align:center;position:relative;z-index:1;
+}
+.logo-wrap{margin-bottom:26px;position:relative}
+.logo-wrap img{height:88px;width:auto;filter:drop-shadow(0 12px 40px rgba(6,10,24,.6))}
+.logo-wrap svg.fallback{display:none;height:88px;width:auto}
+.orbit{
+  position:absolute;top:50%;left:50%;width:190px;height:190px;translate:-50% -50%;
+  pointer-events:none;opacity:.5;animation:spin 40s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{
+  font-family:var(--head);font-weight:900;letter-spacing:-.02em;
+  font-size:clamp(26px,4.6vw,44px);line-height:1.1;max-width:760px;
+  text-wrap:balance;
+}
+h1 .grad{background:linear-gradient(115deg,var(--orange-soft),#ffc79b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:rgba(255,255,255,.66);font-size:clamp(15px,1.8vw,18px);margin:14px 0 44px;max-width:520px}
+/* puertas */
+.doors{display:grid;grid-template-columns:repeat(2,minmax(0,340px));gap:20px;width:100%;max-width:720px}
+@media(max-width:640px){.doors{grid-template-columns:1fr;max-width:400px}}
+.door{
+  position:relative;overflow:hidden;border-radius:22px;padding:30px 26px 26px;
+  text-align:left;text-decoration:none;color:#fff;display:block;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.13);
+  transition:transform .45s var(--ease),border-color .35s,background .35s,box-shadow .45s var(--ease);
+}
+.door::after{
+  content:"";position:absolute;inset:auto 0 0 0;height:4px;transform:scaleX(0);
+  transform-origin:left;transition:transform .45s var(--ease);
+}
+.door:hover,.door:focus-visible{transform:translateY(-8px);background:rgba(255,255,255,.075)}
+.door:hover::after,.door:focus-visible::after{transform:scaleX(1)}
+.door:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+.door .ic{
+  width:54px;height:54px;border-radius:15px;display:grid;place-items:center;margin-bottom:20px;
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.5);
+}
+.door .ic svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.door h2{font-family:var(--head);font-weight:700;font-size:21px;margin-bottom:8px}
+.door p{color:rgba(255,255,255,.65);font-size:15px;line-height:1.55;margin-bottom:20px;min-height:47px}
+.door .go{
+  display:inline-flex;align-items:center;gap:9px;min-height:44px;
+  font-family:var(--head);font-weight:600;font-size:15px;transition:gap .25s;
+}
+.door:hover .go{gap:14px}
+.door .go svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* variantes */
+.door.ventas{--tone:var(--orange)}
+.door.ventas .ic{background:linear-gradient(135deg,var(--orange),var(--orange-soft))}
+.door.ventas .go{color:var(--orange-soft)}
+.door.ventas::after{background:linear-gradient(90deg,var(--orange),var(--orange-soft))}
+.door.ventas:hover{border-color:rgba(242,109,33,.55);box-shadow:0 30px 60px -24px rgba(242,109,33,.35)}
+.door.grupo{--tone:var(--blue)}
+.door.grupo .ic{background:linear-gradient(135deg,var(--royal),#2b55c9)}
+.door.grupo .go{color:#8ab2ff}
+.door.grupo::after{background:linear-gradient(90deg,var(--royal),var(--blue))}
+.door.grupo:hover{border-color:rgba(59,130,246,.55);box-shadow:0 30px 60px -24px rgba(59,130,246,.3)}
+/* recordar */
+.remember{
+  display:inline-flex;align-items:center;gap:9px;margin-top:30px;
+  color:rgba(255,255,255,.45);font-size:13.5px;cursor:pointer;user-select:none;min-height:44px;
+}
+.remember input{width:16px;height:16px;accent-color:var(--orange);cursor:pointer}
+footer{
+  position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:18px;
+  padding:18px;color:rgba(255,255,255,.35);font-size:13px;
+}
+footer a{color:rgba(255,255,255,.55);text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:44px}
+footer a:hover{color:#25D366}
+footer svg{width:16px;height:16px;fill:currentColor}
+@media(prefers-reduced-motion:reduce){
+  .orbit{animation:none}
+  *{transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<main class="stage">
+  <div class="logo-wrap">
+    <svg class="orbit" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+      <circle cx="100" cy="100" r="96" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-dasharray="1 9"/>
+      <circle cx="100" cy="4" r="3.5" fill="#F26D21"/>
+    </svg>
+    <img src="https://gnhorizons.com/assets/images/logo_b.png" alt="GNH — Generando Nuevos Horizontes"
+         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://gnhorizons.com/assets/img/logo_b.png'}else{this.style.display='none';this.parentElement.querySelector('.fallback').style.display='block'}">
+    <svg class="fallback" viewBox="0 0 230 80" role="img" aria-label="GNH">
+      <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
+      <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
+      <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
+      <path d="M 16 21 Q 38 7 60 21" stroke="#F26D21" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <text x="78" y="57" font-family="Satoshi,Arial,sans-serif" font-weight="800" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+    </svg>
+  </div>
+
+  <h1>Bienvenido a <span class="grad">Nuevos Horizontes</span></h1>
+  <p class="sub">¿Qué estás buscando hoy? Elige tu camino.</p>
+
+  <nav class="doors" aria-label="Elige tu camino">
+    <!-- Fase 2: href pasará a /ventas/ -->
+    <a class="door ventas" href="/#catalogo" data-path="ventas">
+      <div class="ic">
+        <svg viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9v10h16V9M4 9h16M9 19v-5h6v5"/></svg>
+      </div>
+      <h2>Productos y Ventas</h2>
+      <p>Aditivos, equipos y materiales de construcción. Canal B2B — Paraguay y Brasil.</p>
+      <span class="go">Ver productos
+        <svg viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+      </span>
+    </a>
+
+    <!-- Fase 1: href pasará a /institucional/ -->
+    <a class="door grupo" href="/" data-path="grupo">
+      <div class="ic">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.7 2.6 4 5.6 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.6-4-9s1.3-6.4 4-9z"/></svg>
+      </div>
+      <h2>Grupo GNH</h2>
+      <p>Quiénes somos, negocios del grupo y alianzas internacionales — China, Brasil, Paraguay.</p>
+      <span class="go">Conocer el grupo
+        <svg viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+      </span>
+    </a>
+  </nav>
+
+  <label class="remember">
+    <input type="checkbox" id="rememberChoice">
+    Recordar mi elección en este dispositivo
+  </label>
+</main>
+
+<footer>
+  <span>© <span id="y"></span> GNH — Generando Nuevos Horizontes</span>
+  <a href="https://wa.me/595985311031?text=Hola,%20quiero%20más%20información" target="_blank" rel="noopener" aria-label="WhatsApp">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5 13.7c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a13 13 0 0 1-5.9-5.2c-.7-1.1-1.1-2.4-.6-3.1.2-.4.6-.6 1-.6h.7c.2 0 .5-.1.7.5l1 2.3c.1.2 0 .4-.1.6l-.5.7c-.2.2-.3.4-.1.7a9.6 9.6 0 0 0 3.6 3.2c.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2.2 1c.2.1.4.2.4.4 0 .1 0 .8-.3 1.6z"/></svg>
+    WhatsApp
+  </a>
+</footer>
+
+<script>
+document.getElementById('y').textContent = new Date().getFullYear();
+
+/* Memoria de elección: si el visitante marcó "recordar", entra directo la próxima vez.
+   Escape: llegar con ?portada=1 siempre muestra esta pantalla y limpia la memoria. */
+(() => {
+  const KEY = 'gnh-path';
+  const params = new URLSearchParams(location.search);
+  if (params.has('portada')) { localStorage.removeItem(KEY); return; }
+  const saved = localStorage.getItem(KEY);
+  const doors = document.querySelectorAll('.door');
+  if (saved) {
+    const door = document.querySelector(`.door[data-path="${saved}"]`);
+    if (door) { location.replace(door.href); return; }
+  }
+  const remember = document.getElementById('rememberChoice');
+  doors.forEach(d => d.addEventListener('click', () => {
+    if (remember.checked) localStorage.setItem(KEY, d.dataset.path);
+  }));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+name: Instalar autodeploy do dashboard
+
+# Roda NO runner do GitHub e entra na VPS por SSH (mesma chave do deploy-vortex).
+# Faz o que seria o "último comando": puxa a main do dashboard-gnh, instala o
+# cron de autodeploy, builda e reinicia o pm2. Depois disso, todo push na main
+# do dashboard-gnh entra no ar sozinho em até 5 min — ninguém digita mais nada.
+#
+# Sem o secret VORTEX_SSH_KEY o workflow avisa e sai verde, como o deploy-vortex.
+
+on:
+  # Só manual. O gatilho por push foi removido: a porta 22 da VPS é filtrada por
+  # IP (firewall Hostinger), então o runner do GitHub nunca conecta — testado,
+  # 3 timeouts. Fica aqui para o dia em que o IP do runner for liberado.
+  workflow_dispatch:
+
+jobs:
+  instalar:
+    runs-on: ubuntu-latest
+    env:
+      VORTEX_HOST: srv1555380.hstgr.cloud
+      VORTEX_USER: root
+      HAS_KEY: ${{ secrets.VORTEX_SSH_KEY != '' }}
+    steps:
+      - name: Secret ausente — nada a fazer
+        if: env.HAS_KEY != 'true'
+        run: echo "::error::VORTEX_SSH_KEY não configurado em Settings → Secrets do KKNUTHS. Sem ele o runner não alcança a VPS."
+
+      - name: Configurar chave SSH
+        if: env.HAS_KEY == 'true'
+        env:
+          KEY_RAW: ${{ secrets.VORTEX_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          ok() { ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; }
+          tenta() { printf '%s\n' "$1" > ~/.ssh/deploy_key; chmod 600 ~/.ssh/deploy_key; ok; }
+
+          # o secret já falhou uma vez como "inválido": tentamos cada formato de
+          # colagem que existe na natureza, do mais provável ao menos
+          LIMPO=$(printf '%s' "$KEY_RAW" | tr -d '\r')
+          if   tenta "$LIMPO"; then echo "chave OK (texto plano)"
+          # colada numa linha só com \n literais
+          elif tenta "$(printf '%s' "$LIMPO" | sed 's/\\n/\n/g')"; then echo "chave OK (\\n literais)"
+          # base64 da chave inteira
+          elif printf '%s' "$LIMPO" | tr -d ' \t\n' | base64 -d > ~/.ssh/deploy_key 2>/dev/null \
+               && chmod 600 ~/.ssh/deploy_key && ok; then echo "chave OK (base64)"
+          # só o corpo base64, sem as linhas BEGIN/END (o caso deste secret: 340
+          # bytes, 4 linhas, nenhum cabeçalho). Se decodifica para openssh-key-v1,
+          # é uma chave OpenSSH sem a moldura — basta devolver a moldura.
+          elif printf '%s' "$LIMPO" | tr -d ' \n' | base64 -d 2>/dev/null | head -c 14 | grep -q '^openssh-key-v1'; then
+            { echo "-----BEGIN OPENSSH PRIVATE KEY-----"
+              printf '%s' "$LIMPO" | tr -d ' \n' | fold -w 70; echo
+              echo "-----END OPENSSH PRIVATE KEY-----"; } > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            ok && echo "chave OK (corpo sem moldura, remontada)" || diag=1
+          # colada numa linha só SEM quebras: reconstrói o PEM (header/footer + corpo de 64 col)
+          elif [[ "$LIMPO" == *"PRIVATE KEY-----"* ]]; then
+            corpo=$(printf '%s' "$LIMPO" | sed -E 's/-----BEGIN [A-Z ]*PRIVATE KEY-----//; s/-----END [A-Z ]*PRIVATE KEY-----//' | tr -d ' \n')
+            tipo=$(printf '%s' "$LIMPO" | grep -oE 'BEGIN [A-Z ]*PRIVATE KEY' | sed 's/BEGIN //')
+            { echo "-----BEGIN $tipo-----"; printf '%s' "$corpo" | fold -w 64; echo; echo "-----END $tipo-----"; } > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            ok && echo "chave OK (reconstruída de linha única)" || { diag=1; }
+          else diag=1; fi
+
+          if [ "${diag:-0}" = 1 ]; then
+            # diagnóstico SEM vazar a chave: só forma, nunca conteúdo
+            echo "::error::VORTEX_SSH_KEY não é uma chave privada utilizável. Diagnóstico:"
+            echo "  tamanho: $(printf '%s' "$KEY_RAW" | wc -c) bytes; linhas: $(printf '%s' "$KEY_RAW" | wc -l)"
+            printf '%s' "$KEY_RAW" | grep -q 'PRIVATE KEY' && echo "  contém cabeçalho PRIVATE KEY: sim" || echo "  contém cabeçalho PRIVATE KEY: NÃO (não é a chave privada?)"
+            printf '%s' "$KEY_RAW" | grep -q 'ENCRYPTED' && echo "  chave protegida por SENHA: sim — o runner não digita senha; gere uma sem passphrase"
+            printf '%s' "$KEY_RAW" | grep -q 'ssh-rsa\|ssh-ed25519' && ! printf '%s' "$KEY_RAW" | grep -q 'PRIVATE' && echo "  parece a chave PÚBLICA (.pub) — o secret precisa da PRIVADA"
+            exit 1
+          fi
+          ssh-keyscan -4 -T 10 -H "$VORTEX_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Instalar cron + primeira publicação
+        if: env.HAS_KEY == 'true'
+        run: |
+          # a porta 22 deu timeout na 1ª tentativa: diagnóstico + 3 tentativas
+          echo "resolvendo: $(getent hosts "$VORTEX_HOST" | head -1)"
+          timeout 8 bash -c "echo > /dev/tcp/$VORTEX_HOST/22" 2>/dev/null \
+            && echo "porta 22: ABERTA para este runner" \
+            || echo "porta 22: FECHADA/filtrada para este runner (do seu PC abre — filtro por IP?)"
+          tentar() { ssh -4 -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              "$VORTEX_USER@$VORTEX_HOST" 'bash -lc "
+            set -euo pipefail
+            cd /opt/dashboard-gnh
+            git fetch origin main
+            git reset --hard origin/main
+            cp deploy/vps-autodeploy-dashboard.sh /opt/dashboard-autodeploy.sh
+            chmod +x /opt/dashboard-autodeploy.sh
+            ( crontab -l 2>/dev/null | grep -v dashboard-autodeploy ; \
+              echo \"*/5 * * * * /opt/dashboard-autodeploy.sh >/dev/null 2>&1\" ) | crontab -
+            echo \"== cron instalado ==\"; crontab -l | grep dashboard-autodeploy
+            rm -rf .next-prev; [ -d .next ] && cp -a .next .next-prev || true
+            npm run build
+            pm2 restart dashboard-gnh --update-env
+            echo \"== PRONTO: \$(git rev-parse --short HEAD) no ar ==\"
+          "'; }
+          for i in 1 2 3; do
+            tentar && exit 0
+            echo "tentativa $i falhou; aguardando 25s (fail2ban-friendly)"
+            sleep 25
+          done
+          echo "::error::A VPS não aceitou SSH deste runner em 3 tentativas — porta 22 filtrada por IP (firewall Hostinger?)."
+          exit 1

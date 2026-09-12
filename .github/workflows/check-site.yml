@@ -1,0 +1,96 @@
+name: Diagnóstico do site GNH
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
+
+# Uma execução por vez: o VPS tem fail2ban e dois runs simultâneos viram
+# rajada de requisições — o segundo IP é banido e o run falha com timeout.
+concurrency:
+  group: check-site
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Um passo só, porque cada requisição extra aumenta a chance de o
+      # fail2ban do VPS banir o runner. Ele resolve duas perguntas de uma vez:
+      #   1. o VPS responde?  (000 em tudo = banimento ou queda; do runner não
+      #      dá para distinguir os dois)
+      #   2. o cron já publicou este commit?  (o deploy é por cron a cada 2 min,
+      #      então logo após o push o site ainda serve o commit anterior; o nome
+      #      do bundle muda a cada alteração, por ser cacheado imutável)
+      # As duas falhas são MUITO diferentes e não podem ser confundidas: um
+      # timeout já foi reportado como "o cron não pegou o commit", diagnóstico
+      # errado que mandou procurar problema no lugar errado.
+      - name: Esperar o deploy (e detectar VPS inalcançável)
+        run: |
+          esperado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' assets/nuevo/ventas/index.html | head -1)
+          echo "bundle esperado: $esperado"
+          code=000
+          for i in 1 2 3 4 5; do
+            code=$(curl -sk --max-time 20 -o /tmp/ventas.html -w '%{http_code}' https://gnhorizons.com/ventas/ || echo 000)
+            if [ "$code" = "000" ]; then
+              echo "tentativa $i: sem resposta (timeout)"
+            else
+              publicado=$(grep -o 'assets/ventas-[A-Za-z0-9_-]*\.js' /tmp/ventas.html 2>/dev/null | head -1)
+              echo "tentativa $i: HTTP $code — publicado = ${publicado:-<nenhum>}"
+              if [ "$esperado" = "$publicado" ]; then
+                echo "OK  deploy chegou"
+                exit 0
+              fi
+            fi
+            if [ "$i" -lt 5 ]; then
+              sleep 70
+            fi
+          done
+          if [ "$code" = "000" ]; then
+            echo "DNS:"
+            getent hosts gnhorizons.com || echo "  não resolve"
+            echo "::error::O VPS parou de responder durante o check (timeout em /ventas/). Do runner não dá para distinguir fail2ban banindo o IP — já aconteceu antes — de queda real. Abra https://gnhorizons.com no navegador: se abrir, era banimento e não há nada a corrigir no código."
+          else
+            echo "::error::Passados ~6 min o site responde mas ainda serve um bundle diferente do commit. O cron do VPS (/opt/gnh-autodeploy.sh, a cada 2 min) não pegou este commit ou o deploy falhou. Confira no VPS: tail -5 /var/log/gnh-autodeploy.log"
+          fi
+          exit 1
+
+      - name: Conteúdo no ar
+        run: |
+          # A home do gnhorizons.com é a COMERCIAL (assets/nuevo/index.html), com
+          # as portas "Ventas" e "Institucional". O gnh-redesign.html é a página
+          # INSTITUCIONAL e vive em /institucional/; no vortex ele aparece em /
+          # porque aquele domínio é o preview. NÃO procure marcador do redesign
+          # na home do gnhorizons.com — em ago/2026 essa suposição levou a
+          # apontar o root para /opt/gnh e derrubou a home do site oficial.
+          curl -sk --max-time 25 \
+                 -o /tmp/home.html   -w 'gnhorizons home    %{http_code}\n' https://gnhorizons.com/ \
+            --next -o /tmp/prod.html -w 'página de produto  %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/ \
+            --next -I -o /tmp/hdr.txt -w 'headers do produto %{http_code}\n' https://gnhorizons.com/ventas/ensayo-a-compresion-hst-yes2000/
+
+          falhas=0
+          ver() {  # ver <arquivo> <marcador> <descrição>
+            if grep -qF "$2" "$1" 2>/dev/null; then
+              echo "OK     $3"
+            else
+              echo "FALHOU $3  (não achei '$2' em $(basename "$1"))"
+              falhas=$((falhas + 1))
+            fi
+          }
+
+          ver /tmp/home.html 'Institucional' 'home comercial do gnhorizons.com no ar'
+          ver /tmp/prod.html 'HST-YES2000' 'página de produto publicada'
+
+          # O HTML precisa sair com no-cache, senão o navegador segura a versão
+          # velha e o deploy "não aparece". Ver DEPLOY-GNH.md § manutenção do VPS.
+          ver /tmp/hdr.txt 'no-cache' 'subpágina de produto com Cache-Control: no-cache'
+
+          echo
+          if [ "$falhas" = "0" ]; then
+            echo "Tudo no ar."
+          else
+            echo "$falhas verificação(ões) falharam."
+            exit 1
+          fi
