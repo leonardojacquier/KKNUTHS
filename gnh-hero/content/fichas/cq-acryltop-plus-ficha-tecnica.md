@@ -31,12 +31,12 @@ Se recomienda el uso de CQ Acryltop Plus en:
   
   
 Datos Técnicos  
- Función Barniz al agua Embalaje  
- Se vende base química acrílica  
- 50 y  
+ Función Barniz al agua  
+ Base Química Acrílica  
  Aspecto Líquido blanco  
- 180 kg, contenedor  
- pH 7,0 – 10,0 1000 kg y a granel.  
+ pH 7,0 – 10,0  
+ Densidad 1,00 – 1,03  
+ Embalaje Baldes de 50 kg, tambores de 180 kg, contenedor de 1.000 kg y a granel  
   
   
 RENDIMIENTO APROXIMADO  

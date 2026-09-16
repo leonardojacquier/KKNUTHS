@@ -31,14 +31,13 @@ Se recomienda el uso de CQ Acryltop Hyper en:
   
   
 Datos Técnicos  
- Acelerador de funciones para envases de hormigón.  
- Base Química Sales Inorgánicas Comercializadas  
- 50 y  
+ Función Barniz al agua  
+ Base Química Acrílica  
  Aspecto Líquido blanco  
- 180 kg, contenedor  
- Viscosidad 600 – 2600 mPa.s 1000 kg y Granel.  
-  
+ Viscosidad 600 – 2.600 mPa.s  
  pH 7,0 – 10,0  
+ Densidad 1,00 – 1,03  
+ Embalaje Bombonas de 50 kg, tambores de 180 kg, contenedor de 1.000 kg y a granel  
   
   
 RENDIMIENTO APROXIMADO  
