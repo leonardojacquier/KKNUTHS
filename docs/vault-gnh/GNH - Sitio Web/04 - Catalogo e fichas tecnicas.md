@@ -537,3 +537,9 @@ Ficaram fora, por não serem o núcleo da linha: HCG (giratório de mina), CJ/HD
 - **Potência do motor não publicada**: o manual lista 3 / 3,3 / 5,5 / 6,05 kW sem dizer qual equipa a N50. Publicar só quando o dono confirmar a variante.
 - Foto do card, da página e da ficha (`mezcladora-de-mortero-n50.png`, 800×600 com alfa) é a máquina recortada da foto do banner (`mezcladora-mortero.jpg`) com `rembg`, modelo **birefnet-general** (isnet deixou restos do fundo entre as pernas; u2net cortou o tubo). Ordem dos pedidos do dono: desenho de linha do manual → rejeitado ("ficou ruim esse desenho"); foto do banner com fundo ambiente → pediu fundo branco. Não voltar aos dois primeiros.
 - Regras da página, vindas do briefing e dos leads de jun-2026: deixar explícito que **mistura e não bombeia** (26 leads confundiram com bomba de concreto), não prometer compatibilidade universal com qualquer colante, não esconder o requisito de trifásica 400 V.
+
+## Fotos com fundo de cena → recorte com rembg (set-2026)
+
+- Depois da N50 o dono pediu para tirar o fundo das fotos que ainda estavam em cena. Eram só três, todas do lote ZS: `zs-mont-electrico.png` (pátio com galpão), `zs-grua-camion.png` (galpão) e `zs-camion-grua.png` (céu). Recortadas com `rembg`, modelo **birefnet-general**, e recompostas em 800×600 com alfa; cópias em `gnh-hero/public/img/prod/` atualizadas junto.
+- Receita: `pip install rembg onnxruntime`; **uma imagem por processo** (na segunda inferência do birefnet o Python morre sem traceback, mesmo com 14 GB livres); fonte = o RGBA de `gnh-hero/public/img/prod/`, não o PNG quantizado de `assets/nuevo`.
+- Todas as outras 51 fotos de card já eram recortes; o inventário foi visual (folha de contato), porque cantos brancos ou alfa não bastam para detectar cena.
