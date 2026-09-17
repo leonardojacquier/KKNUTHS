@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Hero: camadas ---------- */
+.hero-bg {
+  position: absolute;
+  inset: -6%;                      /* sangria p/ o zoom não mostrar borda */
+  will-change: transform;
+  display: grid;
+  place-items: center;
+  /* Placeholder até subir /public/img/hero.webp — trocar por background-image */
+  background:
+    radial-gradient(900px 480px at 72% 18%, rgba(232, 119, 34, 0.18), transparent 60%),
+    radial-gradient(700px 420px at 15% 80%, rgba(20, 33, 61, 0.9), transparent 65%),
+    linear-gradient(160deg, #1b2b4d 0%, #0F172A 55%, #0D1626 100%);
+}
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(13, 22, 38, 0.55) 0%, transparent 30%),
+    linear-gradient(0deg, rgba(13, 22, 38, 0.85) 0%, transparent 45%),
+    radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(10, 14, 26, 0.55) 100%); /* vinheta */
+}
+.placeholder-label {
+  font-family: 'Satoshi', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+/* estados iniciais da timeline de entrada (JS anima até o estado final) */
+.eyebrow, .hero-sub, .hero-cta { opacity: 0; }
+.hero-title {
+  clip-path: inset(100% 0 0 0);
+  filter: blur(12px);
+}
+
+/* ---------- Scroll cue ---------- */
+.scroll-cue {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+}
+.cue-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #F26D21;
+  animation: cue-fall 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes cue-fall {
+  0%   { transform: translateY(0);    opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+
+/* ---------- Cards de empresas ---------- */
+.company-card {
+  background: #fff;
+  border: 1px solid #e5e8ee;
+  border-radius: 18px;
+  padding: 18px;
+  opacity: 0;                       /* reveal via GSAP */
+  transform: translateY(40px);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.company-card:hover {
+  box-shadow: 0 26px 50px -22px rgba(20, 33, 61, 0.28);
+  border-color: transparent;
+}
+.card-media {
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(300px 160px at 80% 0%, rgba(232, 119, 34, 0.22), transparent 60%),
+    linear-gradient(150deg, #1b2b4d, #0F172A 60%, #0D1626);
+}
+.card-media .placeholder-label { color: rgba(255, 255, 255, 0.3); }
+
+/* ---------- logos das empresas (I3) ---------- */
+.company-card .card-logo {
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f2f4f8;
+}
+.company-card .card-logo img { max-height: 44px; max-width: 78%; width: auto; }
+.company-card .logo-fallback {
+  display: none;
+  font-family: 'Satoshi', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #0F172A;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- fortaleza (I4) ---------- */
+.fort-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 26px;
+  transition: border-color 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fort-card:hover { border-color: rgba(232, 119, 34, 0.5); transform: translateY(-6px); }
+
+/* ---------- rodapé social ---------- */
+.foot-social {
+  width: 44px; height: 44px; border-radius: 11px;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transition: background 0.3s, transform 0.3s ease;
+}
+.foot-social:hover { background: #F26D21; transform: translateY(-3px); }
+.foot-social svg { width: 19px; height: 19px; }
+
+/* ---------- tiendas con mapa (footer) ---------- */
+.foot-store {
+  display: flex; flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px; overflow: hidden;
+}
+.foot-map { width: 100%; height: 170px; border: 0; display: block; filter: grayscale(0.2); }
+.foot-store-info { padding: 16px 18px; }
+.foot-store-info p { margin-bottom: 2px; }
+/* links de texto do rodapé: 44px de altura de toque sem virar botão */
+.foot-link { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ---------- WhatsApp flotante ---------- */
+.wa-float {
+  position: fixed; right: 20px; bottom: 20px; z-index: 90;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #22c15e; display: grid; place-items: center;
+  box-shadow: 0 14px 32px -8px rgba(34, 193, 94, 0.6);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: wa-beat 2.8s ease-in-out infinite;
+}
+.wa-float:hover { animation: none; transform: scale(1.1); }
+.wa-float svg { width: 29px; height: 29px; }
+/* latido de corazón: tum-tum… pausa */
+@keyframes wa-beat {
+  0%, 32%, 100% { transform: scale(1); }
+  8% { transform: scale(1.12); }
+  16% { transform: scale(1); }
+  24% { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) { .wa-float { animation: none; } }
+
+/* ---------- prefers-reduced-motion: versão estática legível ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow, .hero-sub, .hero-cta, .scroll-cue { opacity: 1 !important; }
+  .hero-title { clip-path: none !important; filter: none !important; }
+  .company-card { opacity: 1 !important; transform: none !important; }
+  .cue-dot { animation: none; }
+}
