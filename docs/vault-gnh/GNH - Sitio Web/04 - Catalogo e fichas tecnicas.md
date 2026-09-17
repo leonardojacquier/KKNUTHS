@@ -529,3 +529,11 @@ Ficaram fora, por não serem o núcleo da linha: HCG (giratório de mina), CJ/HD
 **Fotos: ressalva.** São os rasters embutidos no próprio catálogo, 300–450 px, ampliados para 800×600. No card ficam bem; na página de produto (560 px) saem levemente suaves. Se a HONSN mandar os renders em alta, é só trocar os arquivos em `gen-britagem/img/` e rodar de novo. Já vêm com transparência — não passaram pelo recorte de fundo.
 
 **Não inventado:** nenhum número fora do catálogo. A capacidade "50–1.500 t/h" da página-mãe é o intervalo das plantas móveis/modulares; a linha fixa com PE 1500×1800 + SC750 chega a mais, mas isso é dimensionamento, não spec.
+
+## Mezcladora de Mortero N50 (MEGGITT)
+
+- Publicada em set-2026: card em **Construcción** (`Mezcladora de Mortero N50`, marca MEGGITT), página `/ventas/mezcladora-de-mortero-n50/`, ficha `fichas/mezcladora-de-mortero-n50.html` + PDF, e o slide "Mezcladora de Mortero" do hero aponta para a página.
+- **Fonte dos números**: manual de operação *Horizontal Continuous Mixer N50* (Jiangsu Rock Elephant / Yan Xiang), § 2 Technical Data e § 4 Description. O briefing de campanha (`briefing-n50-mercado-colantes-v2`) é material de marketing e diverge do manual (diz 66 kg; o manual diz 100–135 kg em vazio) — vale o manual.
+- **Potência do motor não publicada**: o manual lista 3 / 3,3 / 5,5 / 6,05 kW sem dizer qual equipa a N50. Publicar só quando o dono confirmar a variante.
+- Foto do card é o desenho de linha do manual (fundo branco, 800×600). Trocar por foto de estúdio quando o dono mandar; a foto ambiente `mezcladora-mortero-o.jpg` fica só no hero.
+- Regras da página, vindas do briefing e dos leads de jun-2026: deixar explícito que **mistura e não bombeia** (26 leads confundiram com bomba de concreto), não prometer compatibilidade universal com qualquer colante, não esconder o requisito de trifásica 400 V.
