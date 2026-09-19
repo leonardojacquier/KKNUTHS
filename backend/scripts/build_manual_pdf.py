@@ -1,12 +1,15 @@
-"""Regenera app/api/assets/KKNuths-Manual.pdf a partir do manual_design.html.
+"""Regenera app/api/assets/KKNuths-Manual.pdf A PARTIR DO MANUAL.md.
 
 Uso (na raiz do backend): python scripts/build_manual_pdf.py
 Requer Chromium headless (no dev remoto: /opt/pw-browsers/chromium-*/chrome-linux/chrome).
 
-O print-fix é obrigatório: o HTML tem @page margin:0 (corta as laterais na
-impressão) — aqui entram margens reais e o zoom calibrado pra fechar em
-7 páginas A4 sem página-fantasma no fim. Depois de mexer no HTML, confira
-o total de páginas e a última página (sobra de rodapé = diminuir o zoom).
+Até 19/09 este script lia `manual_design.html` — um export congelado de 1,5 MB.
+O `app/api/manual_md.py` já gerava o HTML do markdown desde 22/08, mas o PDF
+que o `/manual` entrega continuava saindo do export velho: corrigir o
+MANUAL.md não corrigia o que o aluno lê. Agora é uma fonte só.
+
+O HTML do manual_md flui em quantas páginas precisar (não é o folder A4 de
+página fixa), então não há zoom a calibrar: só margens de impressão.
 """
 from __future__ import annotations
 
@@ -16,13 +19,12 @@ import subprocess
 import sys
 import tempfile
 
-ZOOM = 0.70   # tabela com os 19 comandos; 0.72 estoura para 8ª página vazia
-FIX = ("<style>@page{size:210mm 297mm;margin:9mm 11mm}"
-       f"html{{zoom:{ZOOM}}}</style>")
-
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / "app/api/assets/manual_design.html"
 OUT = ROOT / "app/api/assets/KKNuths-Manual.pdf"
+
+sys.path.insert(0, str(ROOT))
+
+FIX = "<style>@page{size:210mm 297mm;margin:12mm 0}</style>"
 
 
 def chrome_bin() -> str:
@@ -36,8 +38,11 @@ def chrome_bin() -> str:
 
 
 def main() -> None:
-    html = SRC.read_text().replace("</head>", FIX + "</head>")
-    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
+    from app.api.manual_md import build_manual_html_from_md
+
+    html = build_manual_html_from_md().replace("</head>", FIX + "</head>")
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False,
+                                     encoding="utf-8") as f:
         f.write(html)
         tmp = f.name
     subprocess.run([chrome_bin(), "--headless", "--disable-gpu",
@@ -49,10 +54,9 @@ def main() -> None:
         doc = fitz.open(str(OUT))
         tail = len(doc[-1].get_text())
         print(f"{OUT.name}: {len(doc)} páginas (última com {tail} chars)")
-        if tail < 400:
-            print("⚠️  última página quase vazia — diminua o ZOOM")
     except ImportError:
-        print(f"{OUT.name} gerado (pymupdf ausente; confira as páginas na mão)")
+        print(f"{OUT.name} gerado ({OUT.stat().st_size // 1024} kB; "
+              "pymupdf ausente — confira as páginas na mão)")
 
 
 if __name__ == "__main__":
