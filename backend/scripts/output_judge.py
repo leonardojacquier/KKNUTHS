@@ -62,7 +62,11 @@ _CALQUES = ("par grande", "par alto", "mão grande", "sequência de cor",
 _EXCECOES_DE_CALQUE = {
     "sequência": re.compile(
         r"sequ[êe]ncia\s+de\s+(?:a[çc][õo]es|jogadas|decis[õo]es|apostas|"
-        r"3-?bets?|4-?bets?|raises?|m[ãa]os|eventos|passos|blefes)", re.I),
+        r"3-?bets?|4-?bets?|raises?|m[ãa]os|eventos|passos|blefes|"
+        # 14/09: "depois de tomar sequência de coolers" — o juiz acusou; é
+        # ordem de acontecimentos, não straight. Mesma classe das de cima.
+        r"coolers|bad\s?beats|derrotas|perdas|vit[óo]rias|resultados|erros)",
+        re.I),
 }
 
 

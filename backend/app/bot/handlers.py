@@ -1193,12 +1193,27 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await _tratar_lobby(update, ctx)
         return
 
-    await _log(update, "print_recebido")
-    aviso = await update.message.reply_text("✅ Recebido. Lendo o print…")
     photo = update.message.photo[-1]  # maior resolução
     file = await ctx.bot.get_file(photo.file_id)
     content = bytes(await file.download_as_bytearray())
     tg_user = update.effective_user
+
+    # A ARTE DE PROPAGANDA que chega SOZINHA, antes do link (o Compartilhar
+    # manda duas mensagens). Reconhecida pelo hash: nem visão, nem cota,
+    # nem LLM — só uma linha apontando pro link. Ver imagem_de_propaganda.
+    from app.bot import imagem_de_propaganda as propaganda
+
+    assinatura = propaganda.hash_da_imagem(content)
+    if propaganda.e_propaganda(assinatura):
+        await _log(update, propaganda.EVENTO_IGNORADA)
+        await update.message.reply_markdown(propaganda.TEXTO_PROPAGANDA)
+        return
+    # não reconhecida: vai pra visão, mas fica registrada — se o link de
+    # replay chegar nos próximos minutos, é ele que ensina que era propaganda
+    propaganda.registrar_foto(tg_user.id, assinatura)
+
+    await _log(update, "print_recebido")
+    aviso = await update.message.reply_text("✅ Recebido. Lendo o print…")
     from app.bot import progresso
 
     contador = await progresso.acompanhar(aviso, tg_user.id, "Lendo o print")
@@ -1770,6 +1785,12 @@ async def _tratar_replay(update: Update, rl: dict) -> None:
 
     if rl["site"] in ("pppoker", "suprema") and rl["share_key"]:
         fmt = f"{rl['site']}_replay"
+        # o link é a prova de que a foto sem legenda de instantes atrás era
+        # a arte de propaganda do clube: ensina o hash dela ao processo e ao
+        # banco, e a próxima chegada dela não gasta visão nem cota
+        from app.bot import imagem_de_propaganda as propaganda
+
+        propaganda.aprender_da_foto_recente(tg_user.id)
         await update.message.reply_text(
             "🔗 Achei o link do replay! Puxando a mão e analisando… 🃏")
         reply = await asyncio.to_thread(

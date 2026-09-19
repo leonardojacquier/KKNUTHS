@@ -41,6 +41,9 @@ def _calques(texto: str) -> list[str]:
     "não é a sequência de apostas que eu esperava",
     "a sequência de mãos foi ruim, mas o jogo estava certo",
     "essa sequência de jogadas custou 4bb",
+    # 14/09: acusado no relatório do juiz; é ordem de acontecimentos
+    "depois de tomar sequência de coolers, o cérebro joga diferente",
+    "uma sequência de bad beats não muda a decisão certa",
 ])
 def test_ordem_de_acontecimentos_nao_e_calque(frase):
     achados = _calques(_CABECA + frase)
