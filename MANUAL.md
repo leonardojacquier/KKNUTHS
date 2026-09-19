@@ -34,7 +34,7 @@ cada vez mais personalizado.
 
 | Jeito | Como fazer |
 |---|---|
-| 🔗 **Link de replay** | O jeito mais fácil para quem joga em clube. **PPPoker**: abra a mão no histórico → *Compartilhar* → cole aqui. **Suprema**: mesma coisa. A mão abre sozinha — nada de digitar |
+| 🔗 **Link de replay** | O jeito mais fácil para quem joga em clube (**PPPoker e Suprema**). **PPPoker**: abra a mão no histórico → *Compartilhar* → cole aqui. **Suprema**: mesma coisa. A mão abre sozinha — nada de digitar |
 | 📸 **Print/foto** | Tire print da mesa no momento da decisão (com suas cartas e o pote visíveis) e envie como foto. O KKNuths lê cartas, stacks, posições e a ação |
 | 📄 **Arquivo de mãos (.txt)** | Exporte o hand history da sua sala e anexe. Um torneio inteiro de uma vez! Suporta **GGPoker, PokerStars (inclusive Zoom), Winamax, PartyPoker e 888poker** — cash e torneio. Limite de 2 MB por arquivo |
 | 📋 **Colar o texto** | Copie o texto da mão (ou da sessão inteira!) e cole direto na conversa. Texto longo demais? O Telegram corta em partes — **pode colar tudo em sequência que eu junto sozinho**; se a última parte não vier, é só responder "analisar" |
@@ -49,7 +49,9 @@ reconhece essa arte e não gasta sua cota com ela.
 
 **Onde pegar o arquivo de mãos:**
 
-- **GGPoker**: PokerCraft → sua sessão/torneio → *Download hand history*
+- **GGPoker**: PokerCraft → sua sessão/torneio → *Download hand history*. O
+  arquivo traz a sessão inteira; depois, peça a mão que quiser pelas cartas —
+  *"abre a mão de AK"* — que o coach acha e analisa
 - **PokerStars**: pasta `Documentos\PokerStars\HandHistory\seu_nick\`
 
 **Print do lobby (estrutura do torneio):** mande a foto da tela de blinds com a
@@ -196,6 +198,14 @@ Nem tudo tem comando próprio — muita coisa entra sozinha quando o spot pede:
   exata — com que frequência você precisa pagar para não ser explorado.
 - **Spot pós-flop**: gráfico de EV mão a mão a partir da SUA mão real, do
   flop ao river — não só de all-in pré-flop.
+- **Pote multiway**: com três ou mais na mão, a equity é contra **todos os
+  adversários vivos**, street a street — e quando os stacks são diferentes, o
+  coach separa **pote principal e potes paralelos** (side pots) e diz quanto
+  você disputava em cada um. Overcall depois de um all-in é conta, não
+  intuição.
+- **De onde veio cada dado**: toda análise abre dizendo a procedência — link
+  do clube, print lido pela visão, arquivo da sala — e o que aquela fonte
+  garante ou não.
 - **Tendências da população**: com que frequência o field folda para agressão
   em cada street. É a base de todo exploit, e cruza com o perfil do vilão.
 - **Estrutura do torneio**: o ritmo (turbo, regular, hyper) **medido nas suas

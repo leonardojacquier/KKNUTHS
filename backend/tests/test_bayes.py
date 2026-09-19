@@ -3648,31 +3648,40 @@ def test_manual_cobre_as_funcionalidades_novas():
     # o manual é a promessa escrita: toda função nova entra nele, e o número
     # que ele anuncia tem que ser o que o código aplica (a cota já esteve
     # dizendo 100 enquanto a ferramenta dava 50).
+    #
+    # 19/09: este teste lia `manual_design.html` — o export CONGELADO — e
+    # prendia o PDF em exatamente 7 páginas (o zoom do gerador antigo). Era o
+    # "dois manuais" em forma de teste: o MANUAL.md mudava, o HTML velho
+    # continuava passando, e o PDF que o /manual entrega saía do velho. Agora
+    # a fonte é uma: o HTML gerado do markdown, e o PDF gerado dele.
     import pathlib
-    import re
 
+    from app.api.manual_md import build_manual_html_from_md
     from app.quota import FREE_MONTHLY_ANALYSES
 
     raiz = pathlib.Path(__file__).resolve().parent.parent
-    html = (raiz / "app/api/assets/manual_design.html").read_text()
+    md = (raiz.parent / "MANUAL.md").read_text(encoding="utf-8")
+    html = build_manual_html_from_md()
 
-    assert "100 ANÁLISES" not in html and ">100<" not in html
-    assert f"{FREE_MONTHLY_ANALYSES} ANÁLISES/MÊS" in html
+    assert "100 análises" not in md.lower()
+    assert f"| {FREE_MONTHLY_ANALYSES} |" in md, "a cota do manual não é a do código"
 
-    for tema in ("EV street a street em pote multiway",
-                 "Pote principal e paralelos",
-                 "Gráfico de EV de qualquer mão sua",
-                 "De onde veio cada dado",
-                 "Prova real — audite a ferramenta",
-                 "adversário vivo",          # overcall multiway
-                 "espera anunciada"):        # aviso do solver
-        assert tema in html, f"manual sem: {tema}"
+    baixo = html.lower()
+    for tema, termos in {
+        "EV multiway / potes paralelos": ("pote multiway", "potes paralelos"),
+        "EV de qualquer mão sua (spot pós-flop)": ("spot pós-flop",),
+        "procedência do dado": ("de onde veio cada dado",),
+        "prova real": ("/prova", "audite"),
+        "overcall multiway": ("adversários vivos", "overcall"),
+        "espera anunciada do solver": ("relógio andando", "quando o coach demora"),
+    }.items():
+        assert any(t in baixo for t in termos), f"manual sem: {tema}"
 
     # SALAS: o manual dizia só PPPoker. A Suprema passou a abrir sozinha e o
     # GGPoker tem caminho PRÓPRIO (arquivo, não link) — um aluno de GG que
     # lesse "cola o link" ficaria tentando o que não funciona.
-    assert "PPPoker e Suprema" in html or "PPPoker</b> ou da <b>Suprema" in html
-    assert "PokerCraft" in html and "Hand History" in html
+    assert "PPPoker e Suprema" in html
+    assert "PokerCraft" in html and "hand history" in baixo
     assert "abre a mão de AK" in html, (
         "o manual precisa mostrar COMO pedir a mão depois do arquivo")
 
@@ -3697,7 +3706,7 @@ def test_manual_cobre_as_funcionalidades_novas():
                       and f"/{c.nome}" not in html)
     assert not faltando, f"comandos vivos que o manual não menciona: {faltando}"
 
-    # e o PDF publicado acompanha (7 páginas, última cheia)
+    # e o PDF publicado acompanha
     #
     # Aqui só havia `st_size > 500_000`, e foi por isso que o PDF ficou um dia
     # inteiro desatualizado: o commit 8a90eae pôs /foco e /preparar no HTML e
@@ -3722,12 +3731,19 @@ def test_manual_cobre_as_funcionalidades_novas():
     assert not fora_do_pdf, (
         f"o PDF publicado não menciona {fora_do_pdf} — regere com "
         f"`python scripts/build_manual_pdf.py`")
+    # o PDF é DO markdown de hoje, não de uma versão anterior: a frase mais
+    # recente do manual tem que estar impressa. Espaços normalizados porque
+    # o pdfplumber devolve a quebra de linha do layout ("arte\nde propaganda").
+    import re as _re
 
-    # e continua fechando em 7 páginas, sem página-fantasma no fim: o ZOOM do
-    # gerador é calibrado para isso, e conteúdo novo desregula (a 0.72 esta
-    # mesma tabela abria uma 8ª página com 252 caracteres)
-    assert len(paginas) == 7, f"o manual mudou de tamanho: {len(paginas)} páginas"
-    assert len(paginas[-1]) > 400, "última página quase vazia — ajuste o ZOOM"
+    corrido = _re.sub(r"\s+", " ", impresso)
+    assert "arte de propaganda" in corrido, (
+        "o PDF está atrás do MANUAL.md — regere com scripts/build_manual_pdf.py")
+
+    # o layout flui (não há zoom a calibrar), mas página-fantasma no fim
+    # continua sendo defeito: a última tem que ter conteúdo de verdade
+    assert 5 <= len(paginas) <= 14, f"tamanho estranho: {len(paginas)} páginas"
+    assert len(paginas[-1]) > 400, "última página quase vazia"
 
 
 def test_ferramentas_de_mao_funcionam_depois_do_quiz(monkeypatch):
