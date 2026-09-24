@@ -62,6 +62,8 @@ Production is a shared multi-tenant VPS (`root@srv1555380.hstgr.cloud`, Hostinge
 
 - **Crushing line (grupo "Áridos y Trituración")** is generated, not hand-written: numbers in `gen-britagem/dados_parte*.py`, Spanish copy in `gen-britagem/contenido.py`, everything (photos, pages, category, fichas HTML+PDF, bundle group + `H` specs, sitemap) from `python3 gen-britagem/gen_site.py`. Edit the data files and regenerate — do not patch the generated pages by hand. Source is the HONSN 2026 general catalogue (not in the repo); see the vault § "Línea de Trituración".
 
+- **Skid steer line (grupo "Minicargadoras")** is generated the same way: numbers in `gen-minicargadoras/dados.py` (transcribed page by page from the manufacturer catalogue, whose tables are images), Spanish copy in `contenido.py`, implement names in `implementos.py`, photos in `img/`. `python3 gen-minicargadoras/gen_site.py` writes the 20 model pages, the line page, the implements page, the category, 20 fichas HTML+PDF, the bundle group + `H` specs and the sitemap. It replaced the single "Minicargadora (Skid Steer)" card; `/ventas/minicargadora-skid-steer/` is now a redirect to `/ventas/linea-de-minicargadoras/`. Edit the data files and regenerate — do not patch the generated pages by hand.
+
 - **Positioning rule from the owner**: GNH must NOT be described as "una importadora" — it is a *grupo empresarial de comercio internacional* (import is one of five service fronts).
 
 ## Calculator app architecture (`src/`)
