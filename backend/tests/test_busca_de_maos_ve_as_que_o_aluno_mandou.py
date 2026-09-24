@@ -188,3 +188,30 @@ def test_straight_continua_acusado_depois_de_afrouxar():
                   "o board completa a sequência até o A"):
         achados = [p for p in judge_answer("✅ ok. " + frase) if "calque" in p]
         assert any("'sequência'" in a for a in achados), frase
+
+
+# ---- C) "perda no river" é perda NO river, não fold no pré ------------------
+
+def _mao_que_largou_no_pre():
+    """Uma mão real da amostra em que o herói folda antes do flop."""
+    from app.models.canonical import ActionType
+
+    for h in parse_text(_AMOSTRA.read_text()):
+        linha = HS._hero_line(h)
+        if linha and linha[0][0] == "preflop" and linha[0][1] == "fold":
+            return h
+    pytest.skip("amostra sem mão de fold pré-flop do herói")
+
+
+def test_loss_no_river_nao_devolve_fold_pre_flop(monkeypatch):
+    """21/09, dito pelo próprio coach ao aluno: 'o filtro puxou é fold
+    pré-flop, não bad beat no river — das 12 marcadas como perda no river,
+    11 são você foldando no pré'. win/loss ignoravam o parâmetro street."""
+    h = _mao_que_largou_no_pre()
+    import app.agent.analyzer as A
+
+    monkeypatch.setattr(A, "analyze_hand", lambda *_a, **_k: {"net_bb": -1.0})
+    assert HS.match_pattern(h, "loss") is True, "sem street, perda é perda"
+    assert HS.match_pattern(h, "loss", "river") is False, (
+        "fold pré-flop contado como 'perda no river'")
+    assert HS.match_pattern(h, "loss", "preflop") is True

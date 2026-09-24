@@ -72,9 +72,29 @@ def match_pattern(h: CanonicalHand, pattern: str, street: str | None = None) -> 
     if p in ("win", "loss"):
         from app.agent.analyzer import analyze_hand
 
+        # com street, "perda no river" é perda de quem CHEGOU ao river. Antes
+        # o street era ignorado aqui e o filtro devolvia fold pré-flop como
+        # "perda no river" — 21/09, dito pelo próprio coach ao aluno: "das 12
+        # marcadas como perda no river, 11 são você foldando no pré".
+        if want_street and not _heroi_chegou_a(h, line, want_street):
+            return False
         net = analyze_hand(h)["net_bb"]
         return net > 0 if p == "win" else net < 0
     return False
+
+
+_ORDEM_STREETS = ("preflop", "flop", "turn", "river")
+_CARTAS_NA_STREET = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
+
+
+def _heroi_chegou_a(h: CanonicalHand, line, street: str) -> bool:
+    """O board chegou nessa street e o herói não largou antes dela."""
+    if street not in _ORDEM_STREETS:
+        return True
+    if len(h.final_board or []) < _CARTAS_NA_STREET[street]:
+        return False
+    antes = set(_ORDEM_STREETS[:_ORDEM_STREETS.index(street)])
+    return not any(v == "fold" and s in antes for s, v, _ in line)
 
 
 _RANK_ALIAS = {"10": "T"}
