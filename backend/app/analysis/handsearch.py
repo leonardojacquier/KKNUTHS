@@ -119,7 +119,12 @@ def find_hand(hands: list[CanonicalHand], query: str, limit: int = 3) -> list[di
     q_id = q.lower()
 
     out = []
-    for h in reversed(hands):  # mais recentes primeiro
+    # NA ORDEM em que o repositório entrega — ele já vem do mais recente
+    # para o mais antigo. Aqui havia um `reversed()` com o comentário
+    # "mais recentes primeiro": invertia a lista e a tool devolvia as 12
+    # mãos mais ANTIGAS como "últimas". 21/09: o dono mandou 5 replays e
+    # ouviu quatro vezes que elas não existiam no histórico.
+    for h in hands:
         try:
             if not h.hero or not h.stakes.big_blind:
                 continue
@@ -159,7 +164,12 @@ def search_hands(hands: list[CanonicalHand], pattern: str,
     from app.agent.analyzer import analyze_hand
 
     out = []
-    for h in reversed(hands):  # mais recentes primeiro
+    # NA ORDEM em que o repositório entrega — ele já vem do mais recente
+    # para o mais antigo. Aqui havia um `reversed()` com o comentário
+    # "mais recentes primeiro": invertia a lista e a tool devolvia as 12
+    # mãos mais ANTIGAS como "últimas". 21/09: o dono mandou 5 replays e
+    # ouviu quatro vezes que elas não existiam no histórico.
+    for h in hands:
         try:
             if not h.hero or not h.stakes.big_blind:
                 continue

@@ -60,13 +60,15 @@ _CALQUES = ("par grande", "par alto", "mão grande", "sequência de cor",
 # legítimas. Basta sobrar uma solta para a acusação voltar — senão bastaria
 # escrever 'sequência de ações' uma vez para blindar o texto inteiro.
 _EXCECOES_DE_CALQUE = {
+    # 'sequência de <coisa>' é ORDEM de acontecimentos, não straight — o
+    # straight em português nunca vem com "de" ("fechou a sequência", "outs
+    # pra sequência", "a sequência até o A"). A única colocação com "de" que
+    # é calque é "sequência de cor" (straight flush), que tem entrada própria
+    # e fica de fora aqui. Entre "sequência" e "de" cabe um adjetivo
+    # ("sequência normal de variância") e depois do "de" cabe um número
+    # ("sequência de 3 coolers") — 21/09: três acusações na mesma conversa.
     "sequência": re.compile(
-        r"sequ[êe]ncia\s+de\s+(?:a[çc][õo]es|jogadas|decis[õo]es|apostas|"
-        r"3-?bets?|4-?bets?|raises?|m[ãa]os|eventos|passos|blefes|"
-        # 14/09: "depois de tomar sequência de coolers" — o juiz acusou; é
-        # ordem de acontecimentos, não straight. Mesma classe das de cima.
-        r"coolers|bad\s?beats|derrotas|perdas|vit[óo]rias|resultados|erros)",
-        re.I),
+        r"sequ[êe]ncia\s+(?:\w+\s+)?de\s+(?!cor\b)(?:\d+\s+)?\w", re.I),
 }
 
 

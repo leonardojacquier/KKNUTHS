@@ -47,6 +47,11 @@ def _scrub_nul(obj):
     return obj
 
 
+def _agora_iso() -> str:
+    """Hora de chegada em ISO (UTC) — a data das mãos que não trazem a sua."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
 class Repository:
     def __init__(self) -> None:
         s = get_settings()
@@ -173,7 +178,11 @@ class Repository:
             "hand_id": hand.hand_id,
             "format": hand.format.value,
             "canonical": hand.model_dump(mode="json"),
-            "played_at": hand.played_at,
+            # replay e print não trazem a hora do jogo; NULL jogava a mão num
+            # limbo sem ordem (Postgres põe NULL primeiro no DESC, em ordem
+            # arbitrária) e a busca "últimas mãos" não a encontrava. A hora de
+            # CHEGADA é a melhor data que existe para elas.
+            "played_at": hand.played_at or _agora_iso(),
         }
         # upsert sobrescreve toda coluna presente no payload — só incluir o
         # upload_id quando há um, para não apagar a linhagem em reprocessamentos
@@ -196,6 +205,9 @@ class Repository:
             .select("canonical")
             .eq("user_id", user_id)
             .order("played_at", desc=True)
+            # desempate por CHEGADA: entre duas mãos sem played_at (as antigas,
+            # antes do backfill de 22/09), a que chegou depois vem primeiro
+            .order("created_at", desc=True)
             .limit(limit)
             .execute()
         )
