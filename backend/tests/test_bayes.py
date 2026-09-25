@@ -399,7 +399,8 @@ def test_student_numbers_are_valid_tool_inputs():
     pt = _SYSTEM["pt"]
     assert "INSUMOS" in pt
     assert "ALUNO INFORMOU" in pt
-    assert "PERGUNTE o dado exato" in pt
+    # e antes de perguntar, o veredito condicional (juiz 14/09 e 21/09)
+    assert "veredito condicional" in pt and "PERGUNTE o dado mais decisivo" in pt
     en = _SYSTEM["en"]
     assert "student's own words" in en
 
