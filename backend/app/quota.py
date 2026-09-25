@@ -21,6 +21,13 @@ MAX_COACHED_HANDS = int(os.getenv("MAX_COACHED_HANDS", "5"))
 
 _UNLIMITED_PLANS = {"pro", "premium"}
 
+# A CONVERSA TAMBÉM CUSTA. Até 25/09 só o upload passava pela cota: a
+# conversa com o coach (Opus + ferramentas, o caminho mais caro por mensagem)
+# era ilimitada por construção — "sem isto não há plano vendável"
+# (diagnóstico de 06/09, item 14). Peso leve: N mensagens = 1 análise.
+MENSAGENS_POR_ANALISE = int(os.getenv("MENSAGENS_POR_ANALISE", "5"))
+TIPOS_LEVES = ("conversa",)
+
 # TETO MENSAL POR PLANO. Antes só existiam dois mundos — 50 análises ou
 # ilimitado — e o meio-termo ("esse aluno merece 100") só era possível dando
 # ilimitado, que é justamente o que não dá para bancar sem saber o custo.
@@ -90,15 +97,31 @@ def check_quota(telegram_id: int, user: dict | None, repo=None) -> QuotaResult:
 
 
 def consume_quota(telegram_id: int, user: dict | None, repo=None, kind: str = "analysis") -> None:
-    """Registra o consumo de uma análise (banco se disponível, senão memória)."""
+    """Registra o consumo (banco se disponível, senão memória). `kind` em
+    TIPOS_LEVES pesa 1/MENSAGENS_POR_ANALISE."""
+    leve = kind in TIPOS_LEVES
     if repo is not None and getattr(repo, "enabled", False) and user:
-        repo.record_usage(user["id"], kind, cost_credits=1)
+        repo.record_usage(user["id"], kind, cost_credits=0 if leve else 1)
         return
     month = _month_key()
-    cur_month, count = _mem.get(telegram_id, (month, 0))
+    cur_month, cheias, leves = _mem.get(telegram_id, (month, 0, 0))
     if cur_month != month:
-        count = 0
-    _mem[telegram_id] = (month, count + 1)
+        cheias, leves = 0, 0
+    _mem[telegram_id] = (month, cheias + (0 if leve else 1),
+                         leves + (1 if leve else 0))
+
+
+def bloqueio_da_conversa(telegram_id: int, user: dict | None,
+                         repo=None) -> str | None:
+    """Texto para o aluno se a cota acabou; None se pode seguir.
+
+    Banco instável NÃO bloqueia a conversa (o upload, sim): uma mensagem
+    custa 1/MENSAGENS_POR_ANALISE de análise, e travar o papo inteiro por um
+    soluço do banco é pior que o custo de algumas respostas."""
+    q = check_quota(telegram_id, user, repo)
+    if q.allowed or q.degraded:
+        return None
+    return texto_cota_esgotada(q.plan)
 
 
 def _count_used(telegram_id: int, user: dict | None, repo) -> int | None:
@@ -109,18 +132,23 @@ def _count_used(telegram_id: int, user: dict | None, repo) -> int | None:
             month_start = datetime.now(timezone.utc).replace(
                 day=1, hour=0, minute=0, second=0, microsecond=0
             )
-            res = (
-                repo.client.table("usage_events")
-                .select("id", count="exact")
-                .eq("user_id", user["id"])
-                .gte("created_at", month_start.isoformat())
-                .execute()
-            )
-            return res.count or 0
+            def _contar(leves: bool) -> int:
+                q = (repo.client.table("usage_events")
+                     .select("id", count="exact")
+                     .eq("user_id", user["id"])
+                     .gte("created_at", month_start.isoformat()))
+                if leves:
+                    q = q.in_("type", list(TIPOS_LEVES))
+                return q.execute().count or 0
+
+            total, leves = _contar(False), _contar(True)
+            return (total - leves) + leves // MENSAGENS_POR_ANALISE
         except Exception:
             return None
-    month, count = _mem.get(telegram_id, (_month_key(), 0))
-    return count if month == _month_key() else 0
+    month, cheias, leves = _mem.get(telegram_id, (_month_key(), 0, 0))
+    if month != _month_key():
+        return 0
+    return cheias + leves // MENSAGENS_POR_ANALISE
 
 
 def reset_memory() -> None:
@@ -159,12 +187,12 @@ def texto_cota_esgotada(plan: str | None = None,
     quanto = f"as {teto} análises" if teto else "as análises"
     return (
         f"🚦 Acabaram {quanto} deste mês — renova {quando} ({data}).\n\n"
-        "*Isso trava só a análise de arquivo/print. Continua tudo liberado:*\n"
+        "*Isso trava a análise de arquivo/print e a conversa com o coach "
+        f"({MENSAGENS_POR_ANALISE} mensagens = 1 análise). Continua liberado:*\n"
         "• /treino — drill num spot das suas mãos\n"
         "• /leitura — adivinhe a mão do vilão\n"
         "• /stats e /evolucao — seu perfil e sua linha do tempo\n"
-        "• /range — gráficos 13×13 de qualquer spot\n"
-        "• e me pergunta o que quiser de poker, aqui mesmo\n\n"
+        "• /range — gráficos 13×13 de qualquer spot\n\n"
         "_Guarda o arquivo que você ia mandar: no dia "
         f"{data} ele entra na hora._"
     )

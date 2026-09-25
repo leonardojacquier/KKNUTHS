@@ -96,8 +96,8 @@ def lobby_lido(monkeypatch):
 
     monkeypatch.setattr(llm, "extract_lobby_from_image",
                         lambda *a, **k: LOBBY)
-    monkeypatch.setattr(llm, "LAST_LOBBY_CHECK",
-                        {"divergencias": [], "conferido": True})
+    monkeypatch.setattr(llm, "conferencia_do_lobby",
+                        lambda: {"divergencias": [], "conferido": True})
     return repo
 
 
@@ -124,7 +124,7 @@ def test_duvida_da_leitura_vai_PARA_O_ALUNO(lobby_lido, monkeypatch):
     se o nível 12 é 3.000/6.000 é ele, olhando a tela."""
     import app.agent.llm as llm
 
-    monkeypatch.setattr(llm, "LAST_LOBBY_CHECK", {
+    monkeypatch.setattr(llm, "conferencia_do_lobby", lambda: {
         "divergencias": ["AMBÍGUO: nível 12 cortado na tela"],
         "conferido": False})
     texto = P.processar_lobby(b"png", "image/jpeg", 7, "tester")

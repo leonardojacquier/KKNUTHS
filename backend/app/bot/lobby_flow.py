@@ -98,9 +98,9 @@ def processar_lobby(content: bytes, media: str, telegram_id: int,
 
     partes = [texto_do_lobby(lobby, conferencia)]
 
-    from app.agent.llm import LAST_LOBBY_CHECK
+    from app.agent.llm import conferencia_do_lobby
 
-    divergencias = (LAST_LOBBY_CHECK or {}).get("divergencias") or []
+    divergencias = (conferencia_do_lobby() or {}).get("divergencias") or []
     if divergencias:
         partes.append("⚠️ *Li com dúvida:* " + "; ".join(divergencias[:3])
                       + "\nConfere esses números e me corrige se estiver errado.")

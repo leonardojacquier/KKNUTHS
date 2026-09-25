@@ -10,7 +10,7 @@ from app.bot import processing
 
 
 def test_falha_do_followup_guarda_o_motivo():
-    llm.LAST_FOLLOWUP_ERROR = None
+    llm._FOLLOWUP_ERROR.set(None)
 
     class _Settings:
         anthropic_api_key = "chave-de-teste"
@@ -29,7 +29,7 @@ def test_falha_do_followup_guarda_o_motivo():
     try:
         out = llm.followup({"analysis": {}}, [], "O fold não tem equidade?")
         assert out is None
-        assert "overloaded_error" in (llm.LAST_FOLLOWUP_ERROR or "")
+        assert "overloaded_error" in (llm.erro_do_followup() or "")
     finally:
         anthropic.Anthropic = orig_cls
         llm.get_settings = orig_settings

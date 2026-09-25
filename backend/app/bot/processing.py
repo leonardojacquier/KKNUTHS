@@ -39,7 +39,8 @@ from app.bot.mao_do_relatorio import maos_ja_lidas
 from app.ingestion import ingest
 from app.models.canonical import CanonicalHand
 from app.quota import (ADMIN_TELEGRAM_ID, MAX_COACHED_HANDS, PLANOS_MANUAIS,
-                       check_quota, consume_quota, limite_do_plano)
+                       bloqueio_da_conversa, check_quota, consume_quota,
+                       limite_do_plano)
 
 log = logging.getLogger("processing")
 
@@ -571,8 +572,10 @@ def _process_upload_inner(
                                         "corrigido_para"),
                                     "trecho": erro_sd["trecho"][:200]})
                 # par citado que não cabe no baralho ("77" com três setes já
-                # à vista). Só mede: a frase inteira costuma estar podre, e
-                # trocar o rank não conserta o raciocínio em volta.
+                # à vista). Só mede: no showdown quem troca é o
+                # corrigir_showdown acima. 25/09: os 11 eventos até ali eram
+                # falso alarme do medidor (contava a mão de quem segurava o
+                # par) — corrigido em historia.cita_mao_impossivel.
                 impossiveis = cita_mao_impossivel(coaching, hands[0])
                 if impossiveis and repo.enabled:
                     repo.log_event(telegram_id, username, "mao_impossivel",
@@ -798,10 +801,11 @@ def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
     # leitura DUPLA do print (item 5 do roadmap-10): se as duas passadas
     # divergiram, o coach ABRE confirmando o dado com o aluno — nunca chuta
     try:
-        from app.agent.llm import LAST_VISION_CHECK
+        from app.agent.llm import conferencia_da_visao
 
-        if LAST_VISION_CHECK and LAST_VISION_CHECK.get("divergencias"):
-            structured["leitura_dupla"] = LAST_VISION_CHECK
+        conf = conferencia_da_visao()
+        if conf and conf.get("divergencias"):
+            structured["leitura_dupla"] = conf
             structured["instrucao_snapshot"] += (
                 " ATENÇÃO: a dupla leitura da imagem DIVERGIU (veja "
                 "leitura_dupla). ABRA a resposta confirmando o dado divergente "
@@ -1237,6 +1241,12 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
     repo = get_repository()
     if repo.enabled:
         repo.log_event(telegram_id, username, "followup", {"q": question[:300]})
+    # a conversa entra na cota com peso leve (quota.MENSAGENS_POR_ANALISE)
+    dono = repo.get_or_create_user(telegram_id, username) if repo.enabled \
+        else None
+    bloqueio = bloqueio_da_conversa(telegram_id, dono, repo)
+    if bloqueio:
+        return bloqueio
 
     from app.agent.llm import followup, set_tool_chat, set_tool_user
 
@@ -1258,7 +1268,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
 
             repo.log_event(telegram_id, username, "followup_failed",
                            {"q": question[:300],
-                            "motivo": _llm.LAST_FOLLOWUP_ERROR})
+                            "motivo": _llm.erro_do_followup()})
         # Se a API caiu (crédito, chave, limite), o aluno merece a verdade:
         # "me embananei" joga a culpa numa confusão do coach que não houve.
         from app.agent.saude import recado_recente
@@ -1266,6 +1276,7 @@ def process_followup(telegram_id: int, username: str | None, question: str) -> s
         return recado_recente() or (
             "Opa, me embananei aqui — me pergunta de novo em um instante? 🙏"
         )
+    consume_quota(telegram_id, dono, repo, kind="conversa")
 
     # GUARDA DA SAÍDA: pediu gráfico e não veio gráfico? pediu EV e a
     # resposta não tem número? Conserta ANTES de enviar, chamando a conta na
@@ -1441,7 +1452,7 @@ def simplify_last(telegram_id: int, username: str | None) -> str | None:
         # ("já está simples" seria mentira); com a API de pé e o texto já
         # simples, "me embananei" é que seria mentira — e repetir o mesmo
         # texto faz o aluno achar que o botão quebrou.
-        if _llm.LAST_SIMPLIFY_REASON == "ja_simples":
+        if _llm.motivo_do_simplificar() == "ja_simples":
             return ("Essa resposta já está no nível mais simples que eu "
                     "consigo escrever 😅 Me diz qual pedaço ficou confuso "
                     "que eu destrincho esse — pode ser um termo, uma conta, "
@@ -1902,6 +1913,9 @@ def prepare_report(telegram_id: int, username: str | None,
     """
     repo = get_repository()
     user = repo.get_or_create_user(telegram_id, username) if repo.enabled else None
+    bloqueio = bloqueio_da_conversa(telegram_id, user, repo)
+    if bloqueio:                      # briefing é Opus: pesa uma análise
+        return bloqueio
     do_banco, fora = repo.get_hands_para_perfil(user["id"]) if user \
         else ([], 0)
     src_hands = do_banco or RECENT_HANDS.get(telegram_id, [])
@@ -1982,6 +1996,7 @@ def prepare_report(telegram_id: int, username: str | None,
     briefing = prepare_briefing(ctx)
     if not briefing:
         return None
+    consume_quota(telegram_id, user, repo, kind="preparar")
 
     # o bloco da estrutura é DETERMINÍSTICO: os números vão como foram
     # medidos, sem passar pelo modelo para serem recontados

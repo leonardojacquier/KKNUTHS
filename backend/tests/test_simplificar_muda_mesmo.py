@@ -81,7 +81,7 @@ def test_as_duas_causas_dao_respostas_opostas():
     }
     try:
         # sem chave: simplify() marca 'indisponivel' e o aluno ouve o padrão
-        llm.LAST_SIMPLIFY_REASON = "indisponivel"
+        llm._SIMPLIFY_REASON.set("indisponivel")
         out = proc.simplify_last(tg, "t")
         assert out and "embananei" in out
         assert "nível mais simples" not in out
@@ -90,7 +90,7 @@ def test_as_duas_causas_dao_respostas_opostas():
         real = llm.simplify
         llm.simplify = lambda _t: None
         try:
-            llm.LAST_SIMPLIFY_REASON = "ja_simples"
+            llm._SIMPLIFY_REASON.set("ja_simples")
             out2 = proc.simplify_last(tg, "t")
         finally:
             llm.simplify = real
@@ -98,4 +98,4 @@ def test_as_duas_causas_dao_respostas_opostas():
         assert "embananei" not in out2
     finally:
         proc.LAST_ANALYSIS.pop(tg, None)
-        llm.LAST_SIMPLIFY_REASON = ""
+        llm._SIMPLIFY_REASON.set("")

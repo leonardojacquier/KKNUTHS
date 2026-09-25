@@ -156,8 +156,8 @@ def test_a_segunda_passada_corrige_a_primeira(visao):
                    "correcao": {"minutos_por_nivel": 15}})
     lobby = llm.extract_lobby_from_image(PNG)
     assert lobby.minutos_por_nivel == 15, "a correção da 2ª passada foi ignorada"
-    assert llm.LAST_LOBBY_CHECK["conferido"] is False
-    assert llm.LAST_LOBBY_CHECK["divergencias"]
+    assert llm.conferencia_do_lobby()["conferido"] is False
+    assert llm.conferencia_do_lobby()["divergencias"]
 
 
 def test_divergencia_sem_correcao_ainda_fica_registrada(visao):
@@ -168,7 +168,7 @@ def test_divergencia_sem_correcao_ainda_fica_registrada(visao):
                     "correcao": {}})
     lobby = llm.extract_lobby_from_image(PNG)
     assert lobby is not None
-    assert llm.LAST_LOBBY_CHECK == {
+    assert llm.conferencia_do_lobby() == {
         "divergencias": ["AMBÍGUO: nível 12 cortado na tela"],
         "conferido": False}
 
@@ -188,7 +188,7 @@ def test_conferencia_que_explode_nao_derruba_a_leitura(visao, monkeypatch):
     monkeypatch.setattr(llm, "_create", _create)
     lobby = llm.extract_lobby_from_image(PNG)
     assert lobby is not None and lobby.minutos_por_nivel == 15
-    assert llm.LAST_LOBBY_CHECK["conferido"] is True
+    assert llm.conferencia_do_lobby()["conferido"] is True
 
 
 def test_a_leitura_sao_DUAS_chamadas_e_nao_uma(visao):

@@ -51,6 +51,15 @@ class _Repo:
             def gte(_self, *a, **k):
                 return _self
 
+            def in_(_self, *a, **k):
+                # mensagens de conversa (tipo leve): nenhuma neste falso
+                class _Zero:
+                    def execute(_z):
+                        class R:
+                            count = 0
+                        return R()
+                return _Zero()
+
             def execute(_self):
                 class R:
                     count = usados

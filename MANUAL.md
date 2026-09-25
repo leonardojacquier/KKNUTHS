@@ -282,8 +282,8 @@ Todo domingo: suas mãos da semana, resultado, evolução das estatísticas e o
 | Relatório semanal | ✔️ | ✔️ |
 | Recursos avançados de solver e exploit | — | ✔️ |
 
-Uma análise = uma mão ou um torneio inteiro (o torneio conta uma). Conversar
-com o coach não desconta da cota.
+Uma análise = uma mão ou um torneio inteiro (o torneio conta uma). A conversa
+com o coach conta leve: 5 mensagens = 1 análise. O /preparar conta uma.
 
 Durante o **beta**, tudo liberado no plano Grátis. Aproveite e mande feedback —
 os melhores testadores ganham benefícios no lançamento. 🎁

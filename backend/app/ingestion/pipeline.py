@@ -211,7 +211,7 @@ def _vision_ingest(content: bytes | str, fmt: str, media: str = "image/png") -> 
     if hand is None:
         from app.agent import llm as _llm
 
-        why = _llm.LAST_VISION_ERROR or "sem ANTHROPIC_API_KEY ou JSON sem mão"
+        why = _llm.erro_da_visao() or "sem ANTHROPIC_API_KEY ou JSON sem mão"
         return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
                             note=f"visão falhou: {why}")
     return IngestResult([hand], hand.site, fmt, confidence=hand.confidence,

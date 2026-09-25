@@ -2426,7 +2426,44 @@ _FORMA_SIMPLES = (
 # causas pedem respostas OPOSTAS ao aluno: com a API fora o coach não rodou
 # (e dizer "já está simples" seria mentira); com a API de pé e o texto já
 # simples, "me embananei" é que seria mentira.
-LAST_SIMPLIFY_REASON = ""
+#
+# ESTADO DA ÚLTIMA CHAMADA, POR CONTEXTO — nunca global de módulo. Eram
+# cinco variáveis `LAST_*` compartilhadas entre as threads do
+# asyncio.to_thread: dois alunos mandando print juntos e o B podia ler a
+# conferência (ou o erro) do A. ContextVar: cada to_thread roda numa cópia
+# do contexto, então o que uma chamada grava só a mesma chamada lê.
+_SIMPLIFY_REASON: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "kkn_simplify_reason", default="")
+_VISION_CHECK: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "kkn_vision_check", default=None)
+_VISION_ERROR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "kkn_vision_error", default=None)
+_FOLLOWUP_ERROR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "kkn_followup_error", default=None)
+_LOBBY_CHECK: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "kkn_lobby_check", default=None)
+
+
+def motivo_do_simplificar() -> str:
+    """"" = simplificou; "indisponivel" = API fora; "ja_simples"."""
+    return _SIMPLIFY_REASON.get()
+
+
+def conferencia_da_visao() -> dict | None:
+    """Leitura dupla do último print DESTA chamada."""
+    return _VISION_CHECK.get()
+
+
+def erro_da_visao() -> str | None:
+    return _VISION_ERROR.get()
+
+
+def erro_do_followup() -> str | None:
+    return _FOLLOWUP_ERROR.get()
+
+
+def conferencia_do_lobby() -> dict | None:
+    return _LOBBY_CHECK.get()
 
 
 def _palavras(t: str) -> set[str]:
@@ -2457,10 +2494,9 @@ def simplify(text: str) -> str | None:
 
     Modelo barato, sem tools — resposta rápida. None se o LLM está fora OU se
     não conseguiu ficar mais simples que o original; quem chama distingue os
-    dois casos por LAST_SIMPLIFY_REASON e diz a verdade ao aluno.
+    dois casos por motivo_do_simplificar() e diz a verdade ao aluno.
     """
-    global LAST_SIMPLIFY_REASON
-    LAST_SIMPLIFY_REASON = "indisponivel"
+    _SIMPLIFY_REASON.set("indisponivel")
     set_tarefa("simplificar")
     from app.config import get_settings
 
@@ -2514,14 +2550,14 @@ def simplify(text: str) -> str | None:
                            if b.type == "text").strip()
             out2 = corrigir(out2) or ""
             if out2 and not parecidos(text, out2):
-                LAST_SIMPLIFY_REASON = ""
+                _SIMPLIFY_REASON.set("")
                 return out2
             # não conseguiu simplificar: quem chamou avisa, em vez de mandar
             # o mesmo texto de novo e o aluno achar que o botão não fez nada
-            LAST_SIMPLIFY_REASON = "ja_simples"
+            _SIMPLIFY_REASON.set("ja_simples")
             return None
         if out:
-            LAST_SIMPLIFY_REASON = ""
+            _SIMPLIFY_REASON.set("")
         return out or None
     except Exception:
         return None
@@ -2759,8 +2795,7 @@ def followup(
         # o MOTIVO vai pro evento followup_failed — 5 falhas em 7 dias
         # (Ricardo 3x, o usuário novo na 1ª pergunta) e o banco só tinha a
         # pergunta: a causa morria neste log de processo
-        global LAST_FOLLOWUP_ERROR
-        LAST_FOLLOWUP_ERROR = f"{type(exc).__name__}: {exc}"[:300]
+        _FOLLOWUP_ERROR.set(f"{type(exc).__name__}: {exc}"[:300])
         return None
 
 
@@ -2848,8 +2883,7 @@ def evaluate_line(sim_data: dict, lang: str = "pt",
         # o MOTIVO vai pro evento followup_failed — 5 falhas em 7 dias
         # (Ricardo 3x, o usuário novo na 1ª pergunta) e o banco só tinha a
         # pergunta: a causa morria neste log de processo
-        global LAST_FOLLOWUP_ERROR
-        LAST_FOLLOWUP_ERROR = f"{type(exc).__name__}: {exc}"[:300]
+        _FOLLOWUP_ERROR.set(f"{type(exc).__name__}: {exc}"[:300])
         return None
 
 
@@ -3003,9 +3037,8 @@ def _merge_vision_check(data: dict, check: dict) -> tuple[dict, list[str]]:
     return data, div
 
 
-# leitura dupla do último print: divergências vão pro contexto do coach —
-# ele CONFIRMA com o aluno em vez de chutar (item 5 do roadmap-10)
-LAST_VISION_CHECK: dict | None = None
+# leitura dupla do último print (_VISION_CHECK): divergências vão pro
+# contexto do coach — ele CONFIRMA com o aluno em vez de chutar
 
 
 def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> CanonicalHand | None:
@@ -3018,7 +3051,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     confiável que hand history nativa). Sem chave/lib ou em falha, retorna None.
     """
     set_tarefa("leitura_print")
-    global LAST_VISION_CHECK
+    _VISION_ERROR.set(None)
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -3047,7 +3080,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
         data = json.loads(_strip_code_fence(text))
 
         # 2ª passada: conferência dos campos críticos
-        LAST_VISION_CHECK = None
+        _VISION_CHECK.set(None)
         divergencias: list[str] = []
         try:
             core = {k: data.get(k) for k in
@@ -3069,8 +3102,8 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
             data, divergencias = _merge_vision_check(data, check)
         except Exception as exc:
             logging.getLogger("llm").warning("verificação de visão falhou: %s", exc)
-        LAST_VISION_CHECK = {"divergencias": divergencias,
-                             "conferido": not divergencias}
+        _VISION_CHECK.set({"divergencias": divergencias,
+                           "conferido": not divergencias})
 
         hand = _snapshot_to_canonical(data, fingerprint=_fingerprint(image_bytes))
         if hand is not None and divergencias:
@@ -3079,8 +3112,7 @@ def extract_from_image(image_bytes: bytes, media_type: str = "image/png") -> Can
     except Exception as exc:
         # a exceção era ENGOLIDA: 'não consegui ler' sem nenhum rastro
         logging.getLogger("llm").warning("extract_from_image falhou: %s", exc)
-        global LAST_VISION_ERROR
-        LAST_VISION_ERROR = f"{type(exc).__name__}: {exc}"[:300]
+        _VISION_ERROR.set(f"{type(exc).__name__}: {exc}"[:300])
         return None
 
 
@@ -3113,11 +3145,8 @@ def _coerir_unidades(stakes, players) -> bool:
     return True
 
 
-# última exceção da visão — vai para a nota do upload_failed (legível por SQL)
-LAST_VISION_ERROR: str | None = None
-
-# última exceção do followup — vai pro detail do evento followup_failed
-LAST_FOLLOWUP_ERROR: str | None = None
+# a última exceção da visão (erro_da_visao) vai para a nota do upload_failed;
+# a do followup (erro_do_followup) pro detail do evento followup_failed
 
 
 def _fingerprint(content: bytes) -> str:
@@ -3314,7 +3343,6 @@ _LOBBY_VERIFY_PROMPT = (
     "1ª leitura:\n"
 )
 
-LAST_LOBBY_CHECK: dict | None = None
 
 
 def _lobby_do_json(data: dict):
@@ -3374,13 +3402,12 @@ def extract_lobby_from_image(image_bytes: bytes,
     DUAS PASSADAS, como o print de mão: extração e depois conferência linha a
     linha da tabela. Aqui a segunda importa mais que lá — um blind lido
     errado no meio da escada não parece errado, e vira plano de jogo com ar
-    de certeza. A divergência fica em `LAST_LOBBY_CHECK` para o coach pedir
+    de certeza. A divergência fica em `conferencia_do_lobby()` para o coach pedir
     confirmação ao aluno em vez de seguir calado.
 
     A conta NÃO acontece aqui. Isto transcreve; `analysis/lobby.py` calcula.
     """
-    global LAST_LOBBY_CHECK
-    LAST_LOBBY_CHECK = None
+    _LOBBY_CHECK.set(None)
     set_tarefa("leitura_lobby")
     settings = get_settings()
     if not settings.anthropic_api_key:
@@ -3427,8 +3454,8 @@ def extract_lobby_from_image(image_bytes: bytes,
         except Exception as exc:
             logging.getLogger("llm").warning("conferência do lobby falhou: %s",
                                              exc)
-        LAST_LOBBY_CHECK = {"divergencias": divergencias,
-                            "conferido": not divergencias}
+        _LOBBY_CHECK.set({"divergencias": divergencias,
+                          "conferido": not divergencias})
         return _lobby_do_json(data)
     except Exception as exc:
         logging.getLogger("llm").warning("extract_lobby_from_image falhou: %s",
