@@ -196,27 +196,40 @@ _PAR_CITADO = re.compile(r"\b(10|[AKQJT98765432])\1\b")
 
 
 def cita_mao_impossivel(texto: str, h) -> list[str] | None:
-    """Pares citados que não cabem no baralho depois de board + cartas vistas."""
+    """Pares citados que não cabem no baralho depois de board + cartas vistas.
+
+    25/09: os 11 eventos gravados até ali eram falsos positivos — o medidor
+    contava as cartas de quem SEGURAVA o par contra o próprio par ("abriu com
+    KK" com K♠K♦ na mão e K♥ no board) e contava duas vezes a mão do herói
+    que o replay grava também em shown_cards. Par que alguém tem na mão é,
+    por definição, possível."""
     if not texto:
         return None
-    vistas = list(getattr(h, "hero_cards", None) or []) + \
-        list(getattr(h, "final_board", None) or [])
-    for cs in (getattr(h, "shown_cards", None) or {}).values():
-        vistas += list(cs or [])
+    maos = [list(getattr(h, "hero_cards", None) or [])]
+    maos += [list(cs or []) for cs in
+             (getattr(h, "shown_cards", None) or {}).values()]
+    vistas = {c for m in maos for c in m if isinstance(c, str) and c}
+    vistas |= {c for c in (getattr(h, "final_board", None) or [])
+               if isinstance(c, str) and c}
     if not vistas:
         return None
+
+    def _rank(c: str) -> str:
+        return c[:-1].upper().replace("10", "T")
+
     usados: dict[str, int] = {}
     for c in vistas:
-        if isinstance(c, str) and c:
-            r = c[:-1].upper().replace("10", "T")
-            usados[r] = usados.get(r, 0) + 1
+        usados[_rank(c)] = usados.get(_rank(c), 0) + 1
+    seguros = {_rank(m[0]) for m in maos
+               if len(m) == 2 and _rank(m[0]) == _rank(m[1])}
     impossiveis = []
     for m in _PAR_CITADO.finditer(texto):
         rank = m.group(1).upper().replace("10", "T")
-        if 4 - usados.get(rank, 0) < 2:
-            par = rank * 2
-            if par not in impossiveis:
-                impossiveis.append(par)
+        if rank in seguros or 4 - usados.get(rank, 0) >= 2:
+            continue
+        par = rank * 2
+        if par not in impossiveis:
+            impossiveis.append(par)
     return impossiveis or None
 
 
