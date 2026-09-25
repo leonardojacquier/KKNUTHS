@@ -1,0 +1,61 @@
+PokerStars Hand #243490000001: Tournament #2900000000, $20+$2 USD Hold'em No Limit - Level V (30/60) - 2023/01/15 20:00:00 ET
+Table '2900000000 5' 9-max Seat #1 is the button
+Seat 1: Villain1 (1500 in chips)
+Seat 2: Hero (1500 in chips)
+Seat 3: Villain2 (1500 in chips)
+Seat 4: Villain3 (1500 in chips)
+Seat 5: Villain4 (1500 in chips)
+Seat 6: Villain5 (1500 in chips)
+Villain1: posts the ante 8
+Hero: posts the ante 8
+Villain2: posts the ante 8
+Villain3: posts the ante 8
+Villain4: posts the ante 8
+Villain5: posts the ante 8
+Hero: posts small blind 30
+Villain2: posts big blind 60
+*** HOLE CARDS ***
+Dealt to Hero [As Kd]
+Villain3: folds
+Villain4: raises 60 to 120
+Villain5: folds
+Villain1: folds
+Hero: raises 300 to 420
+Villain2: folds
+Villain4: calls 300
+*** FLOP *** [Ah 7c 2d]
+Hero: bets 400
+Villain4: calls 400
+*** TURN *** [Ah 7c 2d] [9s]
+Hero: bets 600
+Villain4: calls 600
+*** RIVER *** [Ah 7c 2d 9s] [Kc]
+Hero: bets 72 and is all-in
+Villain4: folds
+Hero collected 2884 from pot
+*** SUMMARY ***
+Total pot 2884 | Rake 0
+Board [Ah 7c 2d 9s Kc]
+Seat 2: Hero (small blind) collected (2884)
+
+PokerStars Hand #243490000002: Tournament #2900000000, $20+$2 USD Hold'em No Limit - Level V (30/60) - 2023/01/15 20:05:00 ET
+Table '2900000000 5' 9-max Seat #2 is the button
+Seat 1: Villain1 (1492 in chips)
+Seat 2: Hero (3884 in chips)
+Seat 3: Villain2 (1432 in chips)
+Seat 4: Villain3 (1492 in chips)
+Seat 5: Villain4 (484 in chips)
+Seat 6: Villain5 (1492 in chips)
+Villain2: posts small blind 30
+Villain3: posts big blind 60
+*** HOLE CARDS ***
+Dealt to Hero [7h 2c]
+Villain4: folds
+Villain5: folds
+Villain1: folds
+Hero: folds
+Villain2: folds
+Villain3: collected 90 from pot
+*** SUMMARY ***
+Total pot 90 | Rake 0
+Seat 3: Villain2 (small blind) folded before Flop

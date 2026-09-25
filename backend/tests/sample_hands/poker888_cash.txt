@@ -1,0 +1,35 @@
+#Game No : 34567890123
+***** 888poker Hand History for Game 34567890123 *****
+$0.01/$0.02 Blinds No Limit Holdem - *** 20 04 2023 22:05:44
+Table Rio (Real Money)
+Seat 5 is the button
+Total number of players : 6
+Seat 1: Villain1 ( $2.00 )
+Seat 2: Villain2 ( $1.56 )
+Seat 3: Hero ( $2.00 )
+Seat 5: Villain3 ( $3.10 )
+Seat 7: Villain4 ( $2.44 )
+Seat 9: Villain5 ( $1.80 )
+Villain4 posts small blind [$0.01]
+Villain5 posts big blind [$0.02]
+** Dealing down cards **
+Dealt to Hero [ Ts, Td ]
+Villain1 folds
+Villain2 folds
+Hero raises [$0.06]
+Villain3 calls [$0.06]
+Villain4 folds
+Villain5 folds
+** Dealing flop ** [ 9c, 6h, 2d ]
+Hero bets [$0.08]
+Villain3 raises [$0.24]
+Hero calls [$0.16]
+** Dealing turn ** [ 2c ]
+Hero checks
+Villain3 checks
+** Dealing river ** [ Kh ]
+Hero checks
+Villain3 bets [$0.30]
+Hero calls [$0.30]
+Villain3 shows [ Ac, 9d ]
+Hero collected [ $1.19 ]

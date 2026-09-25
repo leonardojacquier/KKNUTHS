@@ -1,0 +1,567 @@
+{
+ "matchid": 47128231,
+ "playerID": 693717,
+ "ver": 5,
+ "replayGameID": "072714625_30447128231_474109",
+ "matchExtra": {
+  "mtt_starttime": "2026-07-26T16:00:00.000Z",
+  "mtt_start_chips": 80000
+ },
+ "start": {
+  "jackpot": 59823.19
+ },
+ "gameExtra": [
+  {
+   "e": "startinfo",
+   "id": "14625_47128231_1",
+   "starttime": 1785091872283,
+   "smallblind": 2500,
+   "bigblind": 5000,
+   "matchID": 47128231,
+   "unionID": 113,
+   "clubID": 14625,
+   "tableID": "1"
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 5,
+   "pos": "BTN",
+   "uid": 1550090,
+   "action": "ante",
+   "chips": 500,
+   "coins": 605178,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 6,
+   "pos": "SB",
+   "uid": 303365,
+   "action": "ante",
+   "chips": 500,
+   "coins": 358100,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 7,
+   "pos": "BB",
+   "uid": 1192199,
+   "action": "ante",
+   "chips": 500,
+   "coins": 181100,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 0,
+   "pos": "UTG",
+   "uid": 1711791,
+   "action": "ante",
+   "chips": 500,
+   "coins": 189181,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 1,
+   "pos": "UTG+1",
+   "uid": 1145330,
+   "action": "ante",
+   "chips": 500,
+   "coins": 192000,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 2,
+   "pos": "MP",
+   "uid": 1651827,
+   "action": "ante",
+   "chips": 500,
+   "coins": 123652,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 3,
+   "pos": "HJ",
+   "uid": 411267,
+   "action": "ante",
+   "chips": 500,
+   "coins": 105000,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 1,
+   "seat": 4,
+   "pos": "CO",
+   "uid": 693717,
+   "action": "ante",
+   "chips": 500,
+   "coins": 41697,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 2,
+   "seat": 6,
+   "pos": "SB",
+   "uid": 303365,
+   "action": "SB",
+   "chips": 2500,
+   "coins": 355600,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 2,
+   "seat": 7,
+   "pos": "BB",
+   "uid": 1192199,
+   "action": "BB",
+   "chips": 5000,
+   "coins": 176100,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 0,
+   "pos": "UTG",
+   "uid": 1711791,
+   "action": "fold",
+   "chips": 0,
+   "coins": 189181,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 1731
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 1,
+   "pos": "UTG+1",
+   "uid": 1145330,
+   "action": "fold",
+   "chips": 0,
+   "coins": 192000,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 5091
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 2,
+   "pos": "MP",
+   "uid": 1651827,
+   "action": "raise",
+   "chips": 10000,
+   "coins": 113652,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 13183
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 3,
+   "pos": "HJ",
+   "uid": 411267,
+   "action": "call",
+   "chips": 10000,
+   "coins": 95000,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 4247
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 4,
+   "pos": "CO",
+   "uid": 693717,
+   "action": "allin",
+   "chips": 41697,
+   "coins": 0,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 15851
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 5,
+   "pos": "BTN",
+   "uid": 1550090,
+   "action": "fold",
+   "chips": 0,
+   "coins": 605178,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 10425
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 6,
+   "pos": "SB",
+   "uid": 303365,
+   "action": "fold",
+   "chips": 0,
+   "coins": 355600,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 0
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 7,
+   "pos": "BB",
+   "uid": 1192199,
+   "action": "fold",
+   "chips": 0,
+   "coins": 176100,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 0
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 2,
+   "pos": "MP",
+   "uid": 1651827,
+   "action": "allin",
+   "chips": 113652,
+   "coins": 0,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 13153
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 3,
+   "pos": "HJ",
+   "uid": 411267,
+   "action": "allin",
+   "chips": 95000,
+   "coins": 0,
+   "cards": null,
+   "cardsD": null,
+   "second": 0,
+   "millisec": 4852
+  },
+  {
+   "e": "player_action",
+   "state": 3,
+   "seat": 2,
+   "pos": "MP",
+   "uid": 1651827,
+   "action": "return",
+   "chips": -18652,
+   "coins": 18652,
+   "cards": null,
+   "cardsD": [
+    29,
+    28
+   ],
+   "second": 0,
+   "millisec": 4852
+  },
+  {
+   "e": "nextround",
+   "state": 3,
+   "stateName": "preflop",
+   "pot": 263197,
+   "cardsD": [
+    51,
+    38,
+    67
+   ],
+   "sidepots": [
+    136591,
+    126606
+   ]
+  },
+  {
+   "e": "nextround",
+   "state": 4,
+   "stateName": "flop",
+   "pot": 263197,
+   "cardsD": [
+    51,
+    38,
+    67,
+    76
+   ],
+   "sidepots": [
+    136591,
+    126606
+   ]
+  },
+  {
+   "e": "nextround",
+   "state": 5,
+   "stateName": "turn",
+   "pot": 263197,
+   "cardsD": [
+    51,
+    38,
+    67,
+    76,
+    18
+   ],
+   "sidepots": [
+    136591,
+    126606
+   ]
+  },
+  {
+   "e": "nextround",
+   "state": 6,
+   "stateName": "river",
+   "pot": 263197,
+   "cardsD": [
+    51,
+    38,
+    67,
+    76,
+    18
+   ],
+   "sidepots": [
+    136591,
+    126606
+   ]
+  }
+ ],
+ "players": {
+  "303365": {
+   "displayID": "Deni10e8",
+   "uid": 303365,
+   "seat": 6,
+   "coins": 358600
+  },
+  "411267": {
+   "displayID": "gop",
+   "uid": 411267,
+   "seat": 3,
+   "coins": 105500
+  },
+  "693717": {
+   "displayID": "Knuth",
+   "uid": 693717,
+   "seat": 4,
+   "coins": 42197,
+   "cardsD": [
+    46,
+    70
+   ]
+  },
+  "1145330": {
+   "displayID": "Mkzeraa",
+   "uid": 1145330,
+   "seat": 1,
+   "coins": 192500
+  },
+  "1192199": {
+   "displayID": "Rteixeira!",
+   "uid": 1192199,
+   "seat": 7,
+   "coins": 181600
+  },
+  "1550090": {
+   "displayID": "Splitzer",
+   "uid": 1550090,
+   "seat": 5,
+   "coins": 605678
+  },
+  "1651827": {
+   "displayID": "Goffi Sumido",
+   "uid": 1651827,
+   "seat": 2,
+   "coins": 124152
+  },
+  "1711791": {
+   "displayID": "Vini Cebola",
+   "uid": 1711791,
+   "seat": 0,
+   "coins": 189681
+  }
+ },
+ "gameResult": {
+  "e": "gameresult",
+  "sidepots": [
+   136591,
+   126606
+  ],
+  "sharedcardsD": [
+   51,
+   38,
+   67,
+   76,
+   18
+  ],
+  "sidepotsdetail": [
+   [
+    {
+     "seat": 0,
+     "pos": "UTG",
+     "uid": 1711791,
+     "pattern": "",
+     "cardsD": null,
+     "prize": 0,
+     "chips": 500
+    },
+    {
+     "seat": 1,
+     "pos": "UTG+1",
+     "uid": 1145330,
+     "pattern": "",
+     "cardsD": null,
+     "prize": 0,
+     "chips": 500
+    },
+    {
+     "seat": 2,
+     "pos": "MP",
+     "uid": 1651827,
+     "pattern": "Two pairs",
+     "cardsD": [
+      29,
+      28
+     ],
+     "prize": 68296,
+     "chips": 42197
+    },
+    {
+     "seat": 3,
+     "pos": "HJ",
+     "uid": 411267,
+     "pattern": "Two pairs",
+     "cardsD": [
+      61,
+      60
+     ],
+     "prize": 68295,
+     "chips": 42197
+    },
+    {
+     "seat": 4,
+     "pos": "CO",
+     "uid": 693717,
+     "pattern": "Two pairs",
+     "cardsD": [
+      46,
+      70
+     ],
+     "prize": 0,
+     "chips": 42197
+    },
+    {
+     "seat": 5,
+     "pos": "BTN",
+     "uid": 1550090,
+     "pattern": "",
+     "cardsD": null,
+     "prize": 0,
+     "chips": 500
+    },
+    {
+     "seat": 6,
+     "pos": "SB",
+     "uid": 303365,
+     "pattern": "",
+     "cardsD": null,
+     "prize": 0,
+     "chips": 3000
+    },
+    {
+     "seat": 7,
+     "pos": "BB",
+     "uid": 1192199,
+     "pattern": "",
+     "cardsD": null,
+     "prize": 0,
+     "chips": 5500
+    }
+   ],
+   [
+    {
+     "seat": 2,
+     "pos": "MP",
+     "uid": 1651827,
+     "pattern": "Two pairs",
+     "cardsD": [
+      29,
+      28
+     ],
+     "prize": 63303,
+     "chips": 63303
+    },
+    {
+     "seat": 3,
+     "pos": "HJ",
+     "uid": 411267,
+     "pattern": "Two pairs",
+     "cardsD": [
+      61,
+      60
+     ],
+     "prize": 63303,
+     "chips": 63303
+    }
+   ]
+  ]
+ }
+}
