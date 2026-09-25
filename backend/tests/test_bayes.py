@@ -2069,15 +2069,23 @@ def test_analise_por_street_ancorada():
     assert r["equity_real_cartas"] == {"Rival do Clube": "A♥ K♣"}
     assert r["jogadores_no_showdown"] == 2
     # QJ vs A-high: pré ~40%, flop com par de Q ~69%, river decidido = 100%
-    assert 35 <= r["decisoes_por_street"][0]["equity_real_pct"] <= 45
+    assert 35 <= r["decisoes_por_street"][0]["equity_vs_mao_revelada_pct"] <= 45
     river_call = [d for d in r["decisoes_por_street"]
                   if d["street"] == "river" and d["pagar_bb"] > 0][0]
-    assert river_call["equity_real_pct"] == 100
-    assert river_call["ev_call_bb"] > 0        # pagou e ganhou -> EV+ (real)
-    # o call do flop tem preço E equity real -> as duas contas presentes
+    # o RESULTADO: vs a mão que ele mostrou, o river já estava decidido
+    assert river_call["equity_vs_mao_revelada_pct"] == 100
+    # a DECISÃO: o EV do call sai da equity vs o range, não do showdown
+    # (antes: "pagou e ganhou -> EV+" — isso era o resultado julgando)
+    eqd = river_call["equity_decisao_pct"]
+    assert 0 < eqd < 100, "equity da decisão não pode ser o showdown"
+    assert (river_call["ev_call_bb"] > 0) == \
+        (eqd >= river_call["equity_minima_pct"] - 1)
+    assert "RESULTADO" in r["como_ler"] and "DECISÃO" in r["como_ler"]
+    # o call do flop tem preço E as duas contas presentes
     flop_call = [d for d in r["decisoes_por_street"]
                  if d["street"] == "flop" and d["pagar_bb"] > 0][0]
-    assert flop_call["equity_minima_pct"] and flop_call["equity_real_pct"]
+    assert flop_call["equity_minima_pct"] and flop_call["equity_decisao_pct"]
+    assert flop_call["equity_vs_mao_revelada_pct"]
 
     # equity EXATA vs uma mão conhecida (determinística, enumera o board)
     from app.analysis.equity import equity_vs_hand
@@ -3610,9 +3618,17 @@ def test_ev_street_a_street_multiway_sem_allin():
     # showdown) — comparar check=0 com aposta=+4bb foi o primeiro erro
     assert nos[("flop", "check")]["opcoes_bb"]["check"] > 0
 
-    # o modelo não pode dizer "aposte sempre": com mão fraca contra um vilão
-    # que a gente VIU continuar, apostar tem que ser pior que dar check
-    fraca = ev_por_street(_mao_multiway_sem_allin(["7h", "6c"]))
+    # o modelo não pode dizer "aposte sempre": com AR DE VERDADE, apostar tem
+    # que ser pior que dar check.
+    #
+    # 25/09: este teste usava 7♥6♣, e passava por um motivo errado. No turn
+    # Q♠T♥4♦8♣ aquela mão tem dois gutshots (8 outs) — semi-blefe, não ar —
+    # e o "apostar é pior" só saía porque a equity era contra o A♥Q♣ que o
+    # vilão MOSTROU DEPOIS (fold equity zero contra carta vista). Com a
+    # decisão julgada contra o range que ele representava, o semi-blefe
+    # pode render, e isso é correto. A intenção do teste fica com 3♣2♥:
+    # nenhuma chance de melhorar até o river.
+    fraca = ev_por_street(_mao_multiway_sem_allin(["3c", "2h"]))
     for d in fraca["decisoes"]:
         if d["acao"] in ("check", "bet") and d.get("opcoes_bb"):
             aposta = [v for k, v in d["opcoes_bb"].items()

@@ -529,6 +529,8 @@ def _process_upload_inner(
                                 "heroi": list(hands[0].hero_cards)})
             coaching = _conferir_draws_e_registrar(
                 telegram_id, username, coaching, hands[0], "analise")
+            coaching = _conferir_selo_e_registrar(
+                telegram_id, username, coaching, hands[0], "analise")
             # "A conta que mais pesa: você paga sempre" — prosa com nome de
             # conta. Só mede: reescrever prosa de LLM na marra estraga mais
             # do que conserta, mas a TAXA diz se o prompt está errado.
@@ -1107,9 +1109,26 @@ def _conferir_fatos_da_conversa(telegram_id: int, username: str | None,
             repo.log_event(telegram_id, username, "fato_corrigido",
                            {"maos": mentiras[:6], "heroi": cartas,
                             "onde": "conversa"})
-    return _conferir_draws_e_registrar(telegram_id, username, texto,
-                                       conversation_hand(telegram_id),
-                                       "conversa")
+    mao_da_conversa = conversation_hand(telegram_id)
+    texto = _conferir_draws_e_registrar(telegram_id, username, texto,
+                                        mao_da_conversa, "conversa")
+    return _conferir_selo_e_registrar(telegram_id, username, texto,
+                                      mao_da_conversa, "conversa")
+
+
+def _conferir_selo_e_registrar(telegram_id, username, texto, hand, onde):
+    """❌ pelo resultado / ❌ sem decisão (25/09) — ver guarda_selo."""
+    try:
+        from app.bot.guarda_selo import conferir_selo
+
+        texto, achados = conferir_selo(texto, hand)
+        repo = get_repository()
+        if achados and repo.enabled:
+            repo.log_event(telegram_id, username, "selo_corrigido",
+                           {"achados": achados[:4], "onde": onde})
+    except Exception as exc:        # noqa: BLE001 — guarda nunca derruba a entrega
+        log.warning("guarda do selo falhou: %s", exc)
+    return texto
 
 
 def _conferir_draws_e_registrar(telegram_id, username, texto, hand, onde):
@@ -2544,7 +2563,7 @@ def _attach_hero_notes(h, bands: list[dict]) -> None:
         d = next((x for x in ds if x.get("pagar_bb", 0) > 0), ds[-1])
         tipo = d.get("acao_tipo")
         emin = d.get("equity_minima_pct")
-        ereal = d.get("equity_real_pct")
+        ereal = d.get("equity_vs_mao_revelada_pct")
         # A figura mostra o FATO DO REPLAY (à frente/atrás da mão que ele
         # mostrou), NÃO o veredito de bom/ruim — esse é do texto (contra o
         # RANGE). Sem isso a figura dizia ✔ 'jogou bem' num all-in que o texto
@@ -2973,6 +2992,18 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
         if nm != match and cs and len(cs) == 2:
             conhecidos[nm] = list(cs)
     campo = list(conhecidos.values())
+    # a conta da DECISÃO (mesma ordem de ações do jogador, sem os posts)
+    it_dec = None
+    if cards and len(cards) == 2:
+        try:
+            from app.analysis.ev_streets import ev_por_street
+
+            it_dec = iter(ev_por_street(h, match, iters=2500)
+                          .get("decisoes") or [])
+        except Exception:                                  # noqa: BLE001
+            it_dec = None
+    _NOME_EV = {StreetName.PREFLOP: "pré-flop", StreetName.FLOP: "flop",
+                StreetName.TURN: "turn", StreetName.RIVER: "river"}
     verbs = {"fold": "foldou", "check": "deu check", "call": "pagou",
              "bet": "apostou", "raise": "aumentou p/"}
     order = [StreetName.PREFLOP, StreetName.FLOP, StreetName.TURN,
@@ -3020,16 +3051,25 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
                     fh = _describe_safe(cards, full_board)
                     if fh:
                         d["mao_feita"] = fh
-                # A CONTA de cada decisão (determinística, custo zero de IA):
-                # equity REAL vs o CAMPO que apareceu no showdown (all-in do
-                # replayer, multiway inclusive), e o EV quando é call.
+                # O RESULTADO: equity vs o CAMPO que apareceu no showdown.
+                # Conta o que aconteceu (o filme mostra "vs a mão dele");
+                # NÃO julga a decisão — o aluno não via essas cartas.
                 if cards and campo:
                     eq = equity_vs_hands(cards, campo, full_board)
                     if eq is not None:
-                        d["equity_real_pct"] = round(eq * 100)
-                        if to_call_bb > 0 and a.type == ActionType.CALL:
-                            d["ev_call_bb"] = round(
-                                ev_call(eq, pot_bb, to_call_bb), 1)
+                        d["equity_vs_mao_revelada_pct"] = round(eq * 100)
+                # A DECISÃO: equity vs o range que cada vilão representava
+                # naquela hora (ev_streets + RangeTracker), e o EV do call
+                # com ELA. 25/09: o placar dizia "pedia 27%, tinha 0% →
+                # −3bb" num call certo, porque a conta usava o showdown.
+                dec = next(it_dec, None) if it_dec is not None else None
+                if dec and dec.get("equity_pct") is not None \
+                        and dec.get("street") == _NOME_EV.get(sname):
+                    eqd = dec["equity_pct"] / 100
+                    d["equity_decisao_pct"] = round(dec["equity_pct"])
+                    if to_call_bb > 0 and a.type == ActionType.CALL:
+                        d["ev_call_bb"] = round(
+                            ev_call(eqd, pot_bb, to_call_bb), 1)
                 out.append(d)
             if a.type in (ActionType.POST, ActionType.CALL, ActionType.BET,
                           ActionType.RAISE):
@@ -3048,8 +3088,12 @@ def decisions_by_street(h: CanonicalHand, actor: str | None = None) -> dict:
         "resultado_bb": round((h.collected or {}).get(match, 0) / bb, 1)
         if (h.collected or {}).get(match) else None,
     }
+    result["como_ler"] = (
+        "equity_decisao_pct e ev_call_bb julgam a DECISÃO (contra o range "
+        "que o vilão representava na hora). equity_vs_mao_revelada_pct é o "
+        "RESULTADO — conta o que aconteceu, nunca vira selo.")
     if conhecidos:
-        # equity_real_pct é EXATA contra o CAMPO conhecido (all-in do replay).
+        # equity_vs_mao_revelada_pct é EXATA contra o CAMPO conhecido.
         # Multiway: é a equity vs TODAS as mãos que apareceram, junto.
         result["equity_real_vs"] = [
             "VOCÊ" if nm == h.hero else nm for nm in conhecidos]

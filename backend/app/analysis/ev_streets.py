@@ -53,6 +53,39 @@ def _range_ref(hand: CanonicalHand, nome: str, agressor: str | None) -> str:
     return _range_de(hand, nome, agressor)
 
 
+def _papel_pre(hand: CanonicalHand) -> dict[str, str]:
+    """open / 3bet / call de cada jogador no pré-flop (o que o tracker usa)."""
+    pre = hand.street(StreetName.PREFLOP)
+    papel: dict[str, str] = {}
+    raises = 0
+    for a in (pre.actions if pre else []):
+        if a.type == ActionType.RAISE:
+            raises += 1
+            papel[a.actor] = "open" if raises == 1 else "3bet"
+        elif a.type == ActionType.CALL and a.actor not in papel:
+            papel[a.actor] = "call"
+    return papel
+
+
+def _combos_ponderados(tracker, peso_minimo: float = 1 / 16) -> list:
+    """Combos do range que o vilão REPRESENTA, repetidos pelo peso — o
+    sorteio da equity é uniforme na lista, então repetir é ponderar."""
+    pesos = {c: w for c, w in tracker.weights.items() if w > 1e-9}
+    if not pesos:
+        return []
+    wmax = max(pesos.values())
+    out = []
+    for c, w in pesos.items():
+        reps = int(round(8 * w / wmax))
+        if reps >= 1 and w / wmax >= peso_minimo:
+            out.extend([c] * reps)
+    return out
+
+
+_ACAO_TRACKER = {ActionType.BET: "bet", ActionType.RAISE: "raise",
+                 ActionType.CALL: "call", ActionType.CHECK: "check"}
+
+
 def ev_por_street(hand: CanonicalHand, quem: str | None = None,
                   iters: int = 6000) -> dict:
     """Cada decisão do jogador com o EV daquela jogada, contra o campo VIVO
@@ -89,6 +122,23 @@ def ev_por_street(hand: CanonicalHand, quem: str | None = None,
     board: list[str] = []
     decisoes: list[dict] = []
     usou_range = False
+    # O RANGE QUE CADA VILÃO REPRESENTA, street a street. É contra ele que a
+    # decisão se julga — nunca contra as cartas do showdown, que o aluno não
+    # tinha na hora (25/09: 7 análises com ❌ no river porque "a Q completou
+    # o straight dele e sua equity caiu pra 0%"). Começa na posição + ação
+    # pré-flop e é repondado a cada ação dele (RangeTracker).
+    from app.analysis.rangetracker import RangeTracker
+
+    papel = _papel_pre(hand)
+    trackers: dict[str, RangeTracker] = {}
+
+    def _tracker(nome: str) -> RangeTracker:
+        if nome not in trackers:
+            pos = next((p.position for p in hand.players if p.name == nome),
+                       None) or "MP"
+            trackers[nome] = RangeTracker(pos, papel.get(nome, "call"),
+                                          dead=list(cartas))
+        return trackers[nome]
 
     for sname in _ORDEM:
         st = hand.street(sname)
@@ -107,20 +157,36 @@ def ev_por_street(hand: CanonicalHand, quem: str | None = None,
 
             if a.actor == alvo and a.type != ActionType.POST:
                 oponentes = sorted(v for v in vivos if v != alvo)
-                conhecidas = [mostrou[n] for n in oponentes if n in mostrou]
-                ranges = [_range_ref(hand, n, agressor)
-                          for n in oponentes if n not in mostrou]
-                usou_range = usou_range or bool(ranges)
+                usou_range = usou_range or bool(oponentes)
+                # a DECISÃO: todo oponente entra com o range que representava
+                # — inclusive quem mostrou depois
+                if sname == StreetName.PREFLOP or len(board) < 3:
+                    ranges_dec = [_range_ref(hand, n, agressor)
+                                  for n in oponentes]
+                else:
+                    ranges_dec = [_combos_ponderados(_tracker(n))
+                                  or _range_ref(hand, n, agressor)
+                                  for n in oponentes]
                 eq = None
                 if oponentes:
-                    eq = equity_vs_campo(cartas, conhecidas, ranges,
+                    eq = equity_vs_campo(cartas, [], ranges_dec,
                                          board, iters=iters)
-
-                nomes_conhecidos = [n for n in oponentes if n in mostrou]
-                nomes_range = [n for n in oponentes if n not in mostrou]
+                # o RESULTADO: contra as cartas de quem mostrou. Conta o que
+                # aconteceu; não julga a decisão.
+                conhecidas = [mostrou[n] for n in oponentes if n in mostrou]
+                eq_rev = None
+                if conhecidas:
+                    resto = [r for n, r in zip(oponentes, ranges_dec)
+                             if n not in mostrou]
+                    eq_rev = equity_vs_campo(cartas, conhecidas, resto,
+                                             board, iters=iters)
+                # o modelo da aposta também julga a decisão: sem cartas fixas
+                conhecidas_dec: list = []
+                ranges = ranges_dec
+                nomes_conhecidos: list = []
 
                 def _modelo_aposta(aposta: float, pote: float,
-                                   _b=list(board), _c=list(conhecidas),
+                                   _b=list(board), _c=list(conhecidas_dec),
                                    _r=list(ranges),
                                    _nc=list(nomes_conhecidos)):
                     """(chance de TODOS foldarem, equity contra quem paga).
@@ -183,11 +249,20 @@ def ev_por_street(hand: CanonicalHand, quem: str | None = None,
                     "aposta_bb": round((a.to_amount or a.amount) / bb, 2)
                     if a.type in (ActionType.BET, ActionType.RAISE) else 0.0,
                 }
+                if eq_rev is not None:
+                    d["equity_vs_mao_revelada_pct"] = round(eq_rev * 100, 1)
                 if eq is not None:
                     d["equity_pct"] = round(eq * 100, 1)
                     d.update(_opcoes(a, eq, pot, pagar, add, bb,
                                      _modelo_aposta))
                 decisoes.append(d)
+
+            if (a.actor != alvo and sname != StreetName.PREFLOP
+                    and len(board) >= 3 and a.type in _ACAO_TRACKER):
+                tamanho = (add / pot * 100 if pot > 0 and a.type in
+                           (ActionType.BET, ActionType.RAISE) else None)
+                _tracker(a.actor).update(list(board), _ACAO_TRACKER[a.type],
+                                         tamanho)
 
             if a.type == ActionType.FOLD:
                 vivos.discard(a.actor)
@@ -204,8 +279,14 @@ def ev_por_street(hand: CanonicalHand, quem: str | None = None,
     ]
     if usou_range:
         premissas.append(
-            "adversário que não mostrou entra com range de REFERÊNCIA pela "
-            "posição e pela ação pré-flop — é suposição, não leitura")
+            "cada adversário entra com range de REFERÊNCIA pela posição e "
+            "pela ação pré-flop, reponderado pela linha dele até a decisão — "
+            "é suposição, não leitura")
+    premissas.append(
+        "equity_pct julga a DECISÃO: é contra o range que o vilão "
+        "representava na hora, mesmo que ele tenha mostrado a mão depois. "
+        "equity_vs_mao_revelada_pct é o RESULTADO — conta o que aconteceu "
+        "e nunca vira selo de erro")
     return {
         "jogador": "VOCÊ" if alvo == hand.hero else alvo,
         "cartas": pretty_cards(cartas),

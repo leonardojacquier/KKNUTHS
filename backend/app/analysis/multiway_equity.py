@@ -242,7 +242,13 @@ def range_que_continua(notacao: str, board: list[str], mortas: set[str],
 
     from app.analysis.ranges import expand_combos, parse_range
 
-    combos = expand_combos(parse_range(notacao), set(mortas))
+    # notação ("TT+, AQs") OU combos já ponderados (o range que o vilão
+    # representa, vindo do RangeTracker — repetição é peso)
+    if isinstance(notacao, str):
+        combos = expand_combos(parse_range(notacao), set(mortas))
+    else:
+        combos = [tuple(c) for c in notacao
+                  if c[0] not in mortas and c[1] not in mortas]
     if not combos or len(board) < 3:
         return None
     fracao = max(0.02, min(1.0, float(fracao)))
