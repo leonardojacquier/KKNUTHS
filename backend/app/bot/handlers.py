@@ -23,6 +23,7 @@ from telegram.ext import (
 from app.agent.embeddings import embed_query
 from app.agent.llm import synthesize_answer
 from app.analysis import compute_player_stats
+from app.bot import pedido_recente
 from app.bot.catalogo import (
     CATEGORIAS,
     categoria_por_slug,
@@ -1129,7 +1130,8 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         reply = await asyncio.to_thread(
             process_upload, content, fmt, tg_user.id, _uname(tg_user), "pt",
-            update.message.caption,
+            pedido_recente.legenda_do_upload(tg_user.id,
+                                             update.message.caption),
         )
     finally:
         await progresso.encerrar(contador, tg_user.id, aviso)
@@ -1220,7 +1222,8 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         reply = await asyncio.to_thread(
             process_upload, content, "jpg", tg_user.id, _uname(tg_user), "pt",
-            update.message.caption,
+            pedido_recente.legenda_do_upload(tg_user.id,
+                                             update.message.caption),
         )
     finally:
         await progresso.encerrar(contador, tg_user.id, aviso)
@@ -1871,11 +1874,22 @@ async def _route_text(update: Update, text: str) -> None:
             return
         await update.message.reply_text("✅ Hand history detectada! Analisando…")
         reply = await asyncio.to_thread(
-            process_upload, text.encode(), "txt", tg_user.id, _uname(tg_user)
+            process_upload, text.encode(), "txt", tg_user.id, _uname(tg_user),
+            "pt", pedido_recente.legenda_do_upload(tg_user.id, None),
         )
         await _safe_reply(update.message, reply,
                           kind=LAST_UPLOAD_KIND.get(tg_user.id))
         await _send_pending_charts(update.message, tg_user.id)
+        return
+
+    # O PEDIDO QUE ANUNCIA O ARQUIVO ("analise o hand history abaixo…"):
+    # guardado para virar a legenda do upload que vem em seguida, e sem LLM
+    # agora — 21/09 o coach respondeu "não recebi nenhum histórico" a um
+    # aluno que mandou o arquivo 20 s depois.
+    if pedido_recente.anuncia_arquivo(text):
+        pedido_recente.registrar(tg_user.id, text)
+        await _log(update, "pedido_antes_do_arquivo")
+        await update.message.reply_text(pedido_recente.RESPOSTA_AO_ANUNCIO)
         return
 
     # CONTADOR também aqui. Ele existia só nos caminhos de upload — mas é na

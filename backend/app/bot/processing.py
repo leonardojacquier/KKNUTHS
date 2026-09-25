@@ -299,7 +299,10 @@ def _process_upload_inner(
     # ---- ingestão ----
     marcar(telegram_id, "Lendo o arquivo")
     result = maos_ja_lidas(maos) or ingest(content, source_format=fmt)
-    if not result.hands and caption and len(caption.strip()) >= 12:
+    from app.bot.pedido_recente import anuncia_arquivo
+
+    if not result.hands and caption and len(caption.strip()) >= 12 \
+            and not anuncia_arquivo(caption):       # pedido não é narração
         # print ilegível mas o aluno NARROU a mão junto: a narração é fonte
         # suficiente — "resolva essa bosta": nunca devolver 'não li' quando
         # o próprio aluno escreveu o cenário
@@ -406,7 +409,9 @@ def _process_upload_inner(
             "RESULTADOS é que vêm das ferramentas, nunca de cabeça. Se ainda "
             "faltar um dado para a conta, pergunte esse dado; não diga que "
             "não dá para calcular. Se o relato contradisser o que foi lido "
-            "da imagem, confie no relato e diga o que ajustou.")
+            "da imagem, confie no relato e diga o que ajustou. Se o relato "
+            "é um PEDIDO (nota de 1 a 10, certas × erradas, um foco), a "
+            "resposta atende o pedido no formato pedido.")
 
     # ---- stats cumulativas (histórico completo quando há banco) ----
     # só o que conta para o PERFIL desce do banco: replay e print são
