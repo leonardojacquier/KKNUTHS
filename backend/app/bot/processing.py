@@ -527,6 +527,8 @@ def _process_upload_inner(
                 repo.log_event(telegram_id, username, "fato_corrigido",
                                {"maos": mentiras[:6],
                                 "heroi": list(hands[0].hero_cards)})
+            coaching = _conferir_draws_e_registrar(
+                telegram_id, username, coaching, hands[0], "analise")
             # "A conta que mais pesa: você paga sempre" — prosa com nome de
             # conta. Só mede: reescrever prosa de LLM na marra estraga mais
             # do que conserta, mas a TAXA diz se o prompt está errado.
@@ -806,7 +808,8 @@ def _augment_snapshot(structured: dict, h: CanonicalHand) -> None:
 # os tiver, ela é de uma versão anterior e precisa de refresh
 _GABARITO_KEYS = ("linha_da_mao", "hand_by_street", "showdown_cards",
                   "showdown_hands", "hero_final_hand", "pot_winners",
-                  "pko", "bounties", "cartas_texto", "textura_do_board")
+                  "pko", "bounties", "cartas_texto", "textura_do_board",
+                  "draws_by_street")
 
 
 def _refresh_gabarito(ctx: dict, telegram_id: int) -> None:
@@ -1104,6 +1107,26 @@ def _conferir_fatos_da_conversa(telegram_id: int, username: str | None,
             repo.log_event(telegram_id, username, "fato_corrigido",
                            {"maos": mentiras[:6], "heroi": cartas,
                             "onde": "conversa"})
+    return _conferir_draws_e_registrar(telegram_id, username, texto,
+                                       conversation_hand(telegram_id),
+                                       "conversa")
+
+
+def _conferir_draws_e_registrar(telegram_id, username, texto, hand, onde):
+    """Negação de draw que a conta desmente (24/09, A♦7♦ no 5♠4♦Q♦)."""
+    try:
+        from app.bot.guarda_fatos import conferir_draws
+
+        if not hand or not getattr(hand, "hero_cards", None):
+            return texto
+        jog = {"heroi": list(hand.hero_cards), **dict(hand.shown_cards or {})}
+        texto, achados = conferir_draws(texto, jog, list(hand.final_board or []))
+        repo = get_repository()
+        if achados and repo.enabled:
+            repo.log_event(telegram_id, username, "draw_corrigido",
+                           {"achados": achados[:4], "onde": onde})
+    except Exception as exc:        # noqa: BLE001 — guarda nunca derruba a entrega
+        log.warning("guarda de draws falhou: %s", exc)
     return texto
 
 

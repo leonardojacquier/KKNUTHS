@@ -175,6 +175,10 @@ def analyze_hand(hand: CanonicalHand) -> dict:
         # a MESMA leitura street a street: diz QUANDO cada mão ficou pronta
         # (o coach narrou 'sequência fechou no river' quando fechou no flop)
         "hand_by_street": _hands_by_street(hand),
+        # DRAWS street a street, CONTADOS (24/09: A♦7♦ no 5♠4♦Q♦ — quatro
+        # ouros — e o coach negou o flush draw três vezes seguidas; o
+        # gabarito não tinha draw e ele contava naipe de cabeça)
+        "draws_by_street": _draws_by_street(hand),
         # registro CRONOLÓGICO oficial de TODAS as ações (herói E vilões) —
         # sem isto o coach reconstruía a sequência de memória e disse "ele
         # só pagou seu open" numa mão em que houve 3-bet pago (caso real)
@@ -297,6 +301,23 @@ def _action_log(hand: CanonicalHand) -> dict:
                 lines.append(f"{who} folda")
         if lines:
             out[sname.value] = lines
+    return out
+
+
+def _draws_by_street(hand: CanonicalHand) -> dict:
+    """Draw de cada jogador conhecido no flop e no turn, em texto citável."""
+    from app.analysis.draws import draws_por_street
+
+    fb = hand.final_board or []
+    jogadores = {}
+    if hand.hero_cards:
+        jogadores["heroi"] = hand.hero_cards
+    jogadores.update(hand.shown_cards or {})
+    out = {}
+    for nome, cartas in jogadores.items():
+        por_st = draws_por_street(cartas, fb)
+        if por_st:
+            out[nome] = {st: d["texto"] for st, d in por_st.items()}
     return out
 
 

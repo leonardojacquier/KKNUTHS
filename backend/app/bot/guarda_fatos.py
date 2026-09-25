@@ -477,3 +477,94 @@ def conferir_board_e_registrar(texto: str, hand, repo, telegram_id: int,
             repo.log_event(telegram_id, username, evento,
                            {"achados": lote[:4], "board": board})
     return texto
+
+
+# ---------------------------------------------------------------------------
+# DRAWS — 24/09: "ele tinha flush draw?" "Não, sem flush draw nenhum." Tinha:
+# A♦7♦ no flop 5♠4♦Q♦, quatro ouros, 9 outs. Três respostas erradas seguidas,
+# uma delas se "corrigindo" do certo para o errado. Negar um draw que a conta
+# mostra é afirmação falsa sobre a mão, igual à dominância: corrige-se no
+# texto, com as cartas e o board nomeados — senão a correção vira outra
+# frase ambígua sobre "ele".
+# ---------------------------------------------------------------------------
+
+_NEGA_FLUSH_DRAW = re.compile(
+    r"sem\s+(?:nenhum\s+)?flush\s+draw"
+    r"|n[ãa]o\s+(?:tinha|tem|havia|teve|dava|d[áa])\s+(?:nenhum\s+)?flush\s+draw"
+    r"|flush\s+draw\s+(?:nenhum|n[ãa]o\s+existe)",
+    re.I)
+_NEGA_DRAW = re.compile(
+    r"sem\s+(?:nenhum\s+)?draw(?:\s+(?:de\s+verdade|nenhum|real))?\b"
+    r"|n[ãa]o\s+(?:tinha|tem|havia|teve|dava|d[áa])\s+(?:nenhum\s+)?draw"
+    r"|(?:zero|sem|nunca\s+teve|nenhum[a]?)\s+(?:tipo\s+de\s+)?equity\s+de\s+draw"
+    r"|precisaria\s+de\s+mais\s+duas\s+cartas\s+do\s+naipe",
+    re.I)
+_MARCA_DRAW = "Conferido na conta"
+
+
+def _cartas_bonitas(cartas: list[str]) -> str:
+    return "".join(_bonita(c) for c in cartas)
+
+
+def _citado(texto: str, cartas: list[str]) -> bool:
+    """As duas cartas do jogador aparecem no texto (com ícone)?"""
+    return all(_bonita(c) in texto for c in cartas)
+
+
+def conferir_draws(texto: str, jogadores: dict[str, list[str]],
+                   final_board: list[str]) -> tuple[str, list[dict]]:
+    """Corrige negação de draw que existia. Devolve (texto, achados).
+
+    De QUEM é a negação: se as cartas de alguém com draw estão citadas no
+    texto, é dele; se não há citação e só UM jogador conhecido tinha draw,
+    é dele. Fora disso a atribuição é chute, e o guarda não chuta — quem
+    não tinha draw pode ser dito sem draw ('você não tinha draw, só o par').
+    """
+    from app.analysis.draws import draws_por_street, tem_draw
+
+    if not texto or _MARCA_DRAW in texto:
+        return texto, []
+    nega_flush = bool(_NEGA_FLUSH_DRAW.search(texto))
+    nega_draw = bool(_NEGA_DRAW.search(texto))
+    if not (nega_flush or nega_draw):
+        return texto, []
+
+    com_draw = []
+    for nome, cartas in (jogadores or {}).items():
+        if len(cartas or []) != 2:
+            continue
+        por_st = draws_por_street(cartas, final_board)
+        # o primeiro momento em que o draw existia (normalmente o flop)
+        for street in ("flop", "turn"):
+            d = por_st.get(street)
+            if not d:
+                continue
+            alvo = d.get("flush_draw") if nega_flush and not nega_draw \
+                else tem_draw(d)
+            if alvo:
+                com_draw.append((nome, cartas, street, d))
+                break
+    if not com_draw:
+        return texto, []
+
+    citados = [c for c in com_draw if _citado(texto, c[1])]
+    if citados:
+        escolhidos = citados
+    elif len(com_draw) == 1 and not any(
+            _citado(texto, cs) for n, cs in jogadores.items()
+            if n != com_draw[0][0] and len(cs or []) == 2):
+        escolhidos = com_draw
+    else:
+        return texto, []
+
+    n_board = {"flop": 3, "turn": 4}
+    linhas, achados = [], []
+    for nome, cartas, street, d in escolhidos:
+        board_st = "".join(_bonita(c) for c in final_board[:n_board[street]])
+        linhas.append(f"{_cartas_bonitas(cartas)} no {street} {board_st} "
+                      f"tinha {d['texto']}")
+        achados.append({"jogador": nome, "cartas": cartas, "street": street,
+                        "draw": d["texto"]})
+    correcao = (f"\n\n⚠️ *{_MARCA_DRAW}:* " + "; ".join(linhas) +
+                ". Onde o texto acima diz o contrário, vale esta linha.")
+    return texto.rstrip() + correcao, achados
