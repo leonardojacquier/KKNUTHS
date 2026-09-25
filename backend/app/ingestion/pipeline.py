@@ -11,6 +11,8 @@ demais como pontos de extensão explícitos.
 """
 from __future__ import annotations
 
+import io
+
 from dataclasses import dataclass
 
 from app.models.canonical import CanonicalHand
@@ -29,6 +31,14 @@ class IngestResult:
 
 def ingest(content: bytes | str, source_format: str = "txt", filename: str = "") -> IngestResult:
     fmt = (source_format or "").lower()
+
+    # ZIP — o PokerCraft da GG exporta assim. 08/09: o Ricardo mandou o
+    # torneio duas vezes e ouviu "formato 'zip' não suportado", com o .txt
+    # lá dentro. Reconhecido também pelo conteúdo (PK\x03\x04), porque o
+    # arquivo pode chegar sem extensão.
+    if fmt == "zip" or (isinstance(content, (bytes, bytearray))
+                        and bytes(content[:4]) == b"PK\x03\x04"):
+        return _ingest_zip(bytes(content))
 
     # replay de clube PPPoker: `content` é o share_key; a mão vem do CDN
     if fmt == "pppoker_replay":
@@ -121,6 +131,48 @@ def ingest(content: bytes | str, source_format: str = "txt", filename: str = "")
 
     return IngestResult([], None, fmt, confidence=0.0, needs_review=True,
                         note=f"formato '{fmt}' não suportado")
+
+
+# teto do que um zip pode ABRIR (não do que ele pesa): um zip de 1 kB pode
+# descompactar em centenas de MB e derrubar o processo do bot. 25 MB cabe
+# com folga meses de histórico da GG em texto.
+ZIP_TETO_BYTES = 25 * 1024 * 1024
+_ZIP_TETO_ARQUIVOS = 300
+_EXT_DE_HISTORICO = (".txt", ".phh", ".phhs", ".csv", ".log")
+
+
+def _ingest_zip(conteudo: bytes) -> IngestResult:
+    """Abre o zip, junta os arquivos de histórico e segue o caminho de texto.
+
+    Vários torneios num zip só (o PokerCraft exporta período) viram um texto
+    único — o parser da sala separa as mãos pelo cabeçalho de cada uma."""
+    import zipfile
+
+    try:
+        z = zipfile.ZipFile(io.BytesIO(conteudo))
+        nomes = [i for i in z.infolist()
+                 if not i.is_dir() and i.filename.lower().endswith(_EXT_DE_HISTORICO)]
+    except (zipfile.BadZipFile, OSError, ValueError):
+        return IngestResult([], None, "zip", confidence=0.0, needs_review=True,
+                            note="zip corrompido — exporta de novo e manda outra vez")
+    if not nomes:
+        return IngestResult([], None, "zip", confidence=0.0, needs_review=True,
+                            note="o zip não tem arquivo de mãos (.txt) dentro")
+    if (len(nomes) > _ZIP_TETO_ARQUIVOS
+            or sum(i.file_size for i in nomes) > ZIP_TETO_BYTES):
+        return IngestResult([], None, "zip", confidence=0.0, needs_review=True,
+                            note="zip grande demais — manda um torneio ou um "
+                                 "período menor por vez")
+    partes = []
+    for info in sorted(nomes, key=lambda i: i.filename):
+        with z.open(info) as f:
+            partes.append(f.read(ZIP_TETO_BYTES + 1).decode("utf-8", "ignore"))
+    texto = "\n\n\n".join(partes)
+    r = ingest(texto, "txt")
+    if r.hands:
+        r.note = ((r.note + " · ") if r.note else "") + \
+            f"{len(nomes)} arquivo(s) de dentro do zip"
+    return r
 
 
 def _looks_like_poker_text(text: str) -> bool:
