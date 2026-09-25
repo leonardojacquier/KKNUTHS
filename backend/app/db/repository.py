@@ -689,6 +689,22 @@ class Repository:
         res = self.client.table("player_stats").select("*").eq("user_id", user_id).execute()
         return res.data[0] if res.data else None
 
+    @_safe([])
+    def get_analysis_summaries(self, user_id: str, limit: int = 300) -> list[str]:
+        """Textos das análises entregues (o selo está na 1ª linha) — base do
+        perfil de decisões de quem só manda replay/print."""
+        if not self._guard():
+            return []
+        res = (
+            self.client.table("hand_analysis")
+            .select("summary, hands!inner(user_id)")
+            .eq("hands.user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [r.get("summary") or "" for r in (res.data or [])]
+
     @_safe(None)
     def get_latest_analysis(self, user_id: str) -> Optional[dict]:
         """Última análise do usuário (para retomar o coach após restart)."""

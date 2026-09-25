@@ -211,16 +211,22 @@ async def on_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception:
         await query.message.reply_markdown(texto, reply_markup=teclado)
 
+# O CAMINHO DO CLUBE PRIMEIRO. 06/09 e de novo 19/09 (Fabio): cadastro e
+# nenhuma mão — o texto dizia "link de replay, é só colar" sem dizer ONDE
+# fica o link. No app do clube ele está no botão Compartilhar da mão.
 _ENVIAR_TXT = (
     "📤 *Me mande suas mãos do jeito mais fácil pra você:*\n\n"
-    "📸 *Print/foto* do replay ou da mesa — eu leio a mão inteira\n"
-    "📄 *Arquivo .txt* de hand history (GGPoker: PokerCraft → download; "
+    "🔗 *Jogou em clube (PPPoker ou Suprema)?* Abra a mão no histórico → "
+    "toque em *Compartilhar* → escolha o Telegram e mande pra mim. "
+    "Chegam uma imagem e um link — é o link que eu leio, a mão inteira.\n"
+    "📄 *Arquivo do torneio* .txt ou .zip (GGPoker: PokerCraft → download; "
     "PokerStars: pasta HandHistory)\n"
-    "📋 *Texto colado* direto aqui (cortou em partes? eu junto sozinho)\n"
-    "🔗 *Link de replay* do PPPoker — é só colar\n"
-    "🎙️ *Áudio* contando a mão\n\n"
-    "💡 Manda o torneio INTEIRO num arquivo que eu monto o relatório "
-    "mão a mão completo."
+    "📸 *Print* da mão — eu leio cartas, stacks e ações\n"
+    "📋 *Texto colado* ou 🎙️ *áudio* contando a mão\n"
+    "🏟 *Print do lobby* com a palavra *lobby* na legenda — eu leio a "
+    "estrutura de blinds pro /preparar\n\n"
+    "💡 Quer um formato (nota de 1 a 10, certas × erradas)? Escreve antes "
+    "ou na legenda que eu atendo junto com a análise."
 )
 
 
@@ -294,7 +300,8 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await asyncio.to_thread(stats_report, tg_user.id, _uname(tg_user))
     if not msg:
         await update.message.reply_text(
-            "Ainda não tenho mãos suas. Envie um arquivo para começar."
+            "Ainda não tenho mãos suas. Me manda um arquivo, um print ou "
+            "o link de replay do clube que eu começo."
         )
         return
     await _safe_reply(update.message, msg)
@@ -381,8 +388,10 @@ async def cmd_estilo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     r = await asyncio.to_thread(style_report, tg_user.id, _uname(tg_user))
     if not r:
         await update.message.reply_text(
-            "Preciso de pelo menos ~10 mãos suas para ler seu estilo. "
-            "Envie uma sessão e me chame de novo!"
+            "Estilo (VPIP, PFR, 3-bet) precisa de pelo menos ~10 mãos de "
+            "SESSÃO inteira — o histórico .txt/.zip do torneio. Replay e "
+            "print são mãos que você escolheu e não contam aqui. O placar "
+            "das suas decisões nessas mãos está no /stats."
         )
         return
     png, text = r

@@ -225,7 +225,7 @@ e a lista abre com tudo clicável.
 ### 📊 Análise e perfil
 | Comando | O que faz |
 |---|---|
-| `/stats` | Perfil de estilo, leaks em bb/100 e **KKN Tilt Detector** — onde sua decisão muda depois de uma perda. *Precisa de sessão inteira* |
+| `/stats` | Perfil de estilo, leaks em bb/100 e **KKN Tilt Detector** — onde sua decisão muda depois de uma perda. *Estilo precisa de sessão inteira*; só com replay/print, mostra o **placar das suas decisões** (✅/🟡/❌ e a street onde mais escapa) |
 | `/estilo` | Cartão visual do seu estilo comparado com os grandes nomes, com plano de transição. *Precisa de sessão inteira (10+ mãos)* |
 | `/evolucao` | Sua linha do tempo com gráficos por indicador — `/evolucao vpip` abre um só. *Cada sessão inteira vira um ponto* |
 | `/torneio` | Quadro de um torneio: o último, ou escolha na lista — `/torneio 2` e `/torneio <código>` também valem |
@@ -311,11 +311,11 @@ técnica de alto nível: use como um coach humano, questionando e discutindo
 É a propaganda do app do clube — o KKNuths reconhece e ignora. A mão está no
 link; se ele ainda não chegou, cola.
 
-**Pedi /stats e ele disse que não tem mãos minhas — mas eu mandei várias.**
-Ele tem as mãos; o que ele não tem é **sessão inteira**. Estatística de
-frequência (VPIP, leaks) com só as mãos que você escolheu mandar sairia errada,
-e ele prefere não dar o número. Cada mão que você mandou continua valendo para
-análise, treino, quiz e simulação.
+**Só mando replay do clube — o /stats serve pra mim?**
+Serve: ele mostra o placar das suas decisões nas mãos que você mandou (quantas
+saíram ✅, 🟡 e ❌, e em que street o erro se concentra). O que ele não dá é
+VPIP e estilo: estatística de frequência com só as mãos que você escolheu
+mandar sairia errada. Para isso, o histórico .txt/.zip de um torneio inteiro.
 
 **Funciona para cash game e torneio?**
 Os dois. Torneios têm análise extra de ICM/bubble e equilíbrios de stack curto.

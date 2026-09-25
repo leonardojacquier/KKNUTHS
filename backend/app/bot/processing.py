@@ -2051,8 +2051,10 @@ def stats_report(telegram_id: int, username: str | None) -> str | None:
     if stats is None:
         src_hands = RECENT_HANDS.get(telegram_id, [])
         stats = compute_player_stats(src_hands, player=None) if src_hands else None
-    if not stats or not stats.hands:
-        return None
+    if not stats or not stats.hands:      # só replay/print: placar de decisões
+        from app.bot.perfil_de_decisoes import perfil_de_decisoes
+
+        return perfil_de_decisoes(repo, user, len(src_hands))
 
     # números corrigidos por amostra (shrinkage): com poucas mãos o valor cru
     # mente ("3-bet 100%" com 2 oportunidades) — o corrigido fica ancorado no
