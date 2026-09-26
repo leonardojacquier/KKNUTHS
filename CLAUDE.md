@@ -25,7 +25,7 @@ Two independent deliverables coexist here — do not mix them up:
 
 User-facing language: the GNH site is written in **Spanish (es)**; conversation with the repo owner is in Portuguese.
 
-3. **Agency hub** — `agencia-hub/`: the owner's marketing/web agency workspace (playbooks, client template with a starter single-file site, proposal templates, helper scripts). It has its own `CLAUDE.md`, `AGENTS.md` and `.cursor/rules/`, and is opened in Cursor as a folder. It is **not deployed** (the VPS only copies `assets/` and `gnh-redesign.html`). This repo is public: never put credentials, contracts, negotiated prices or personal client data there; `agencia-hub/mover-para-repo-proprio.sh` moves it to a private repo.
+3. **Agency hub** — moved out on 2026-09-26 to the **private** repo `leonardojacquier/gnh-marketing` (playbooks, client template, proposals, helper scripts; opened in Cursor). Do not recreate `agencia-hub/` here: this repo is public, so client briefings, contracts and prices must never land in it.
 
 ## Commands
 

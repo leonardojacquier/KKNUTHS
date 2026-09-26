@@ -1,7 +1,0 @@
-pymupdf
-pillow
-numpy
-scipy
-rembg
-onnxruntime
-playwright
