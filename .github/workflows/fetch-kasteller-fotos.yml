@@ -1,0 +1,54 @@
+name: Baixar fotos do site Kasteller (Google Drive)
+
+# O site tenta img/fotos/<id>.jpg primeiro e cai para o Drive se não existir.
+# Este workflow baixa as fotos do Drive e as versiona no repo — depois disso o
+# site nunca mais depende do Drive (que limita requisições e não é CDN).
+# Rodar 1x manualmente (Actions → Run workflow); repetir só se trocarem os IDs.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
+    paths: ['.github/workflows/fetch-kasteller-fotos.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/professional-website-design-qqgnfg
+
+      - name: Baixar fotos (IDs extraídos do próprio index.html)
+        run: |
+          mkdir -p assets/kasteller2/img/fotos
+          ids=$(grep -oE '"[A-Za-z0-9_-]{25,44}"' assets/kasteller2/index.html \
+                | tr -d '"' | grep -v '^sb_' | sort -u)
+          ok=0; fail=0
+          for id in $ids; do
+            dest="assets/kasteller2/img/fotos/$id.jpg"
+            [ -s "$dest" ] && { echo "já existe: $id"; ok=$((ok+1)); continue; }
+            if curl -fsSL --max-time 40 "https://drive.google.com/thumbnail?id=$id&sz=w1400" -o "$dest" \
+               && [ "$(stat -c%s "$dest")" -gt 5000 ] \
+               && file "$dest" | grep -qiE 'jpeg|png|webp'; then
+              echo "OK  $id ($(stat -c%s "$dest") bytes)"
+              ok=$((ok+1))
+            else
+              echo "FALHOU $id"; rm -f "$dest"; fail=$((fail+1))
+            fi
+            sleep 1   # gentileza com o rate limit do Drive
+          done
+          echo "== $ok baixadas, $fail falharam =="
+          [ "$ok" -gt 0 ] || exit 1
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/kasteller2/img/fotos
+          git diff --cached --quiet && { echo "nada novo"; exit 0; }
+          git commit -m "Kasteller: fotos do Drive versionadas no repo (site vira local-first)"
+          git push

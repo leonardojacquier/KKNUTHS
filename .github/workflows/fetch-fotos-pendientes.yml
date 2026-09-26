@@ -1,0 +1,104 @@
+name: Baixar as fotos que faltam no catálogo Kasteller
+
+# Os 124 produtos sem foto (Castelatto 40 + Castelli 84). O sandbox do Claude não
+# alcança castelatto.com.br nem castelliporcelanato.com.br (proxy allowlist), mas o
+# runner do GitHub alcança — por isso o download vive aqui.
+#
+# Dois casos, resolvidos no mesmo laço:
+#   - Castelatto: o CSV já traz a URL direta da imagem (img_origen)
+#   - Castelli:   só temos a página do produto; a imagem sai do og:image dela
+#
+# Rodar em Actions → Run workflow. Idempotente: pula o que já existe.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/professional-website-design-qqgnfg
+
+      - name: Instalar conversor
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq webp
+
+      - name: Baixar as fotos
+        run: |
+          set -u
+          CSV=preview-kasteller/buscador-fonte/fotos-pendientes.csv
+          DEST=assets/kasteller2/buscador/img
+          mkdir -p "$DEST"
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'
+          ok=0; pulados=0; falhas=0
+
+          tail -n +2 "$CSV" | while IFS=, read -r id marca nombre img_origen pagina; do
+            id=$(echo "$id" | tr -d '"')
+            [ -z "$id" ] && continue
+            [ -s "$DEST/$id.webp" ] && { echo "· já existe: $id"; continue; }
+
+            url=$(echo "$img_origen" | tr -d '"')
+            # sem URL direta (Castelli): extrai o og:image da página do produto
+            if [ -z "$url" ]; then
+              pag=$(echo "$pagina" | tr -d '"')
+              [ -z "$pag" ] && { echo "✗ sem origem: $id"; continue; }
+              url=$(curl -fsSL --max-time 40 -A "$UA" "$pag" \
+                    | grep -oiE '<meta[^>]+property="og:image"[^>]+content="[^"]+"' \
+                    | head -1 | grep -oE 'content="[^"]+"' | cut -d'"' -f2)
+              [ -z "$url" ] && { echo "✗ sem og:image: $id ($pag)"; continue; }
+            fi
+
+            tmp=$(mktemp)
+            if curl -fsSL --max-time 60 -A "$UA" -e "https://kasteller.com.py/" "$url" -o "$tmp" \
+               && [ "$(stat -c%s "$tmp")" -gt 4000 ]; then
+              # normaliza para webp, que é o formato do resto do catálogo
+              if file "$tmp" | grep -qi 'web/p'; then
+                mv "$tmp" "$DEST/$id.webp"
+              else
+                convert_ok=0
+                cwebp -quiet -q 82 "$tmp" -o "$DEST/$id.webp" && convert_ok=1
+                rm -f "$tmp"
+                [ "$convert_ok" = 1 ] || { echo "✗ conversão: $id"; continue; }
+              fi
+              echo "✓ $id ($(stat -c%s "$DEST/$id.webp") bytes)"
+            else
+              rm -f "$tmp"; echo "✗ download: $id — $url"
+            fi
+            sleep 1   # gentileza com o servidor do fabricante
+          done
+
+          echo "== baixadas agora: $(ls "$DEST" | wc -l) arquivos no total =="
+
+      - name: Registrar as fotos no catálogo e regenerar as páginas de marca
+        run: |
+          python3 - <<'PY'
+          import json, os
+          P = 'assets/kasteller2/buscador/productos.json'
+          d = json.load(open(P, encoding='utf-8'))
+          novos = 0
+          for p in d['productos']:
+              if p.get('img'):
+                  continue
+              rel = f"buscador/img/{p['id']}.webp"
+              if os.path.exists(os.path.join('assets/kasteller2', rel)):
+                  p['img'] = rel
+                  novos += 1
+          json.dump(d, open(P, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+          print(f'produtos que ganharam foto: {novos}')
+          print('ainda sem foto:', sum(1 for p in d['productos'] if not p.get('img')))
+          PY
+          cd preview-kasteller/buscador-fonte
+          python3 build-marcas.py ../../assets/kasteller2
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/kasteller2 preview-kasteller/buscador-fonte/fotos-pendientes.csv
+          git diff --cached --quiet && { echo "nada novo"; exit 0; }
+          git commit -m "Kasteller: fotos pendentes de Castelatto e Castelli baixadas dos fabricantes"
+          git push
