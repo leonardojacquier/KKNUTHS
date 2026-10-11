@@ -36,6 +36,7 @@ status: em produção
 | [[13 - Plano - Painel e Central de Campanhas]] | Plano do **Hub de Marketing**: indicadores, campanhas, páginas, performance, buscadores e redes *(aguardando aprovação)* |
 | [[14 - Acessibilidade e H1]] | O H1 que o JS apagava, alvos de toque e `alt` nas imagens |
 | [[15 - Fichas do Google (GNH e Kasteller)]] | Conteúdo pronto das fichas do Google Business e como medir se trazem visita |
+| [[16 - Mapa de informacao tecnica]] | Quais produtos não têm informação técnica e o que falta |
 
 ---
 
