@@ -1427,12 +1427,14 @@ window.__io = io;
   // Local primero (logos versionadas en el repo); hotlink al sitio viejo solo como respaldo.
   const BASES = ['assets/img/clients/'];  // logos versionadas en el repo — sin dependencia del sitio viejo
   // Marcas ocultas del carrusel: 2 = Votorantim (Votoran cimentos), 10 = Cauê.
+  // 17 = Convicta (versión con el remolino calado: el .m-logo la pinta de blanco).
   const SKIP = new Set([2, 10]);
   const makeImg = n => {
     const img = new Image();
     img.className = 'm-logo'; img.alt = 'Marca aliada de GNH'; img.loading = 'lazy';
     img.dataset.b = 0;
     img.src = BASES[0] + 'client-' + n + '.png';
+    if (n === 17) img.style.height = '66px';      // Convicta: logo alto (sello + nombre), a 46px quedaba chico
     img.onerror = () => {
       const b = +img.dataset.b + 1;
       if (b < BASES.length){ img.dataset.b = b; img.src = BASES[b] + 'client-' + n + '.png'; }
@@ -1441,7 +1443,7 @@ window.__io = io;
     return img;
   };
   for (let pass = 0; pass < 2; pass++)            // dos pistas para el loop continuo
-    for (let n = 1; n <= 16; n++) { if (SKIP.has(n)) continue; track.appendChild(makeImg(n)); }
+    for (let n = 1; n <= 17; n++) { if (SKIP.has(n)) continue; track.appendChild(makeImg(n)); }
   // si ninguna carga (p. ej. sin conexión al sitio), se oculta la pista
   setTimeout(() => { if (!track.querySelector('img')) track.style.display = 'none'; }, 6000);
 })();
