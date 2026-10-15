@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 80" role="img" aria-label="GNH">
+  <!-- Globo -->
+  <circle cx="38" cy="46" r="27" stroke="#fff" stroke-width="3.2" fill="none"/>
+  <ellipse cx="38" cy="46" rx="15" ry="27" stroke="#fff" stroke-width="1.8" fill="none"/>
+  <line x1="11" y1="46" x2="65" y2="46" stroke="#fff" stroke-width="1.8"/>
+  <line x1="14" y1="33" x2="62" y2="33" stroke="#fff" stroke-width="1.4"/>
+  <line x1="14" y1="59" x2="62" y2="59" stroke="#fff" stroke-width="1.4"/>
+  <!-- Arco naranja (horizonte) -->
+  <path d="M 16 21 Q 38 7 60 21" stroke="#E87722" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- Wordmark -->
+  <text x="78" y="57" font-family="'Space Grotesk','Arial',sans-serif" font-weight="700" font-size="31" fill="#fff" letter-spacing="1">GNH</text>
+</svg>

@@ -1,0 +1,47 @@
+name: Baixar logos de clientes (gnhorizons.com)
+
+# Baixa client-1..14.png do site actual e as versiona en assets/img/clients/,
+# para que el carrusel funcione sin depender del sitio viejo.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/professional-website-design-qqgnfg]
+    paths: ['.github/workflows/fetch-clients.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/professional-website-design-qqgnfg
+
+      - name: Baixar logos
+        run: |
+          mkdir -p assets/img/clients
+          ok=0
+          for n in $(seq 1 14); do
+            for base in "https://gnhorizons.com/assets/images/clients" "https://gnhorizons.com/assets/img/clients"; do
+              if curl -fsSL --max-time 25 "$base/client-$n.png" -o "assets/img/clients/client-$n.png"; then
+                echo "client-$n.png OK ($base)"
+                ok=$((ok+1)); break
+              fi
+            done
+          done
+          echo "Descargadas: $ok/14"
+          [ "$ok" -gt 0 ] || { echo "::error::ninguna logo descargada"; exit 1; }
+
+      - name: Commitar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/img/clients
+          if git diff --cached --quiet; then
+            echo "sin cambios"
+          else
+            git commit -m "Assets: logos de clientes versionadas (client-1..14) para el carrusel local"
+            git push
+          fi

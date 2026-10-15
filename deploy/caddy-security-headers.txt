@@ -1,0 +1,34 @@
+# ============================================================
+# SEGURANÇA — cole este snippet NO TOPO do /etc/caddy/Caddyfile
+# e depois adicione a linha  import gnh_security  DENTRO de cada
+# bloco de site da GNH (gnh.vortex369.com.br, stats.vortex369.com.br
+# e, no futuro, gnhorizons.com).
+# SEMPRE: caddy validate ANTES de systemctl reload caddy
+# ============================================================
+(gnh_security) {
+	header {
+		# força HTTPS por 1 ano nos navegadores que já visitaram
+		Strict-Transport-Security "max-age=31536000"
+		# impede que o navegador "adivinhe" tipos de arquivo
+		X-Content-Type-Options "nosniff"
+		# ninguém pode embutir o site em iframe de outro domínio
+		X-Frame-Options "SAMEORIGIN"
+		# não vaza URLs internas para sites externos
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# desliga APIs de navegador que o site não usa
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# remove o carimbo do servidor
+		-Server
+	}
+}
+
+# Exemplo de uso dentro de um bloco existente:
+#
+# gnh.vortex369.com.br {
+# 	import gnh_security
+# 	... (o que já estava)
+# }
+#
+# Nota: CSP (Content-Security-Policy) ficou de fora de propósito —
+# o site usa scripts/estilos inline por design (arquivo único) e uma
+# CSP estrita quebraria a página. O ganho marginal não compensa aqui.

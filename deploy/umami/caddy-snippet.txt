@@ -1,0 +1,4 @@
+# Adicionar ao Caddyfile do VPS. SEMPRE: caddy validate ANTES de systemctl reload caddy
+stats.vortex369.com.br {
+	reverse_proxy 127.0.0.1:3400
+}
